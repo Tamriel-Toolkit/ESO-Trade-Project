@@ -95,6 +95,14 @@ def process_recipes():
                 add_item(recipe_id, f"Recipe: {name}", "Knowledge", "Recipe", "Provisioning", qual, "/esoui/art/icons/inv_recipe_provisioning.dds", {"result_item_id": int(result_id)})
 
 def main():
+    import sys
+    limit = 1000
+    if len(sys.argv) > 1:
+        try:
+            limit = int(sys.argv[1])
+        except ValueError:
+            print(f"Invalid limit '{sys.argv[1]}', using default 1000.")
+
     process_csvs()
     process_recipes()
 
@@ -104,8 +112,8 @@ def main():
 
     items.sort(key=lambda x: x["game_item_id"])
 
-    # We target 1000 items for the initial deliverable
-    final_items = items[:1000]
+    # Slice items based on limit
+    final_items = items[:limit] if limit > 0 else items
 
     os.makedirs("exports", exist_ok=True)
     with open("exports/items.json", "w") as f:

@@ -18,8 +18,11 @@ This directory contains scripts for acquiring and processing the ESO Master Item
 ### 1. Bootstrap the Catalog
 Generate the `exports/items.json` file from local source data:
 ```bash
-python3 data-pipeline/generate_items.py
+python3 data-pipeline/generate_items.py [limit]
 ```
+- **limit**: Optional. Number of items to fetch (default is 1000). Set to 0 to fetch all available items.
+  - Example: `python3 data-pipeline/generate_items.py 5000` (Fetch 5,000 items)
+  - Example: `python3 data-pipeline/generate_items.py 0` (Fetch all items)
 
 ### 2. Validate the Catalog
 Ensure the generated JSON matches the database schema:
