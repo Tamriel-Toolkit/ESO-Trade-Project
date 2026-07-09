@@ -9,7 +9,7 @@ seen_ids = set()
 def add_item(item_id, name, item_type, category, subcategory, rarity, icon, metadata=None):
     try:
         item_id_int = int(item_id)
-    except:
+    except Exception:
         return
     if item_id_int in seen_ids:
         return
@@ -28,9 +28,12 @@ def add_item(item_id, name, item_type, category, subcategory, rarity, icon, meta
         "metadata": metadata or {}
     })
 
-# 1. Parse CSVs (Real Game Data)
-csv_dir = "uesp-esoapps/EsoParseTables/"
-if os.path.exists(csv_dir):
+def process_csvs():
+    csv_dir = "uesp-esoapps/EsoParseTables/"
+    if not os.path.exists(csv_dir):
+        print(f"Warning: CSV directory {csv_dir} not found.")
+        return
+
     for filename in sorted(os.listdir(csv_dir)):
         if filename.endswith(".csv") and filename.startswith("item-"):
             filepath = os.path.join(csv_dir, filename)
@@ -48,36 +51,41 @@ if os.path.exists(csv_dir):
                     idx_weapon = header.index("weaponType")
 
                     for row in reader:
-                        if not row: continue
-                        name = row[idx_name]
-                        if "^" in name: name = name.split("^")[0]
+                        try:
+                            if not row or len(row) <= max(idx_id, idx_name, idx_type): continue
+                            name = row[idx_name]
+                            if "^" in name: name = name.split("^")[0]
 
-                        raw_type = int(row[idx_type])
-                        item_type = "Equipment"
-                        category = "Armor" if raw_type == 2 else "Weapon"
+                            raw_type = int(row[idx_type])
+                            item_type = "Equipment"
+                            category = "Armor" if raw_type == 2 else "Weapon"
 
-                        raw_armor = int(row[idx_armor])
-                        raw_weapon = int(row[idx_weapon])
+                            raw_armor = int(row[idx_armor]) if row[idx_armor] else 0
+                            raw_weapon = int(row[idx_weapon]) if row[idx_weapon] else 0
 
-                        subcategory = "Unknown"
-                        if raw_type == 2:
-                            if raw_armor == 1: subcategory = "Light Armor"
-                            elif raw_armor == 2: subcategory = "Medium Armor"
-                            elif raw_armor == 3: subcategory = "Heavy Armor"
-                        else:
-                            w_map = {1:"Axe", 2:"Mace", 3:"Sword", 8:"Bow", 9:"Destruction Staff", 12:"Restoration Staff"}
-                            subcategory = w_map.get(raw_weapon, "Weapon")
+                            subcategory = "Unknown"
+                            if raw_type == 2:
+                                if raw_armor == 1: subcategory = "Light Armor"
+                                elif raw_armor == 2: subcategory = "Medium Armor"
+                                elif raw_armor == 3: subcategory = "Heavy Armor"
+                            else:
+                                w_map = {1:"Axe", 2:"Mace", 3:"Sword", 8:"Bow", 9:"Destruction Staff", 12:"Restoration Staff"}
+                                subcategory = w_map.get(raw_weapon, "Weapon")
 
-                        add_item(row[idx_id], name, item_type, category, subcategory, row[idx_quality], row[idx_icon], {"set": row[idx_set]})
-                except: continue
+                            add_item(row[idx_id], name, item_type, category, subcategory, row[idx_quality], row[idx_icon], {"set": row[idx_set]})
+                        except Exception:
+                            continue # Skip malformed rows
+                except Exception:
+                    continue
 
-# 2. Parse Recipes - More robust matching
-recipe_php = "uesp-esolog/esoRecipeData.php"
-if os.path.exists(recipe_php):
+def process_recipes():
+    recipe_php = "uesp-esolog/esoRecipeData.php"
+    if not os.path.exists(recipe_php):
+        print(f"Warning: Recipe file {recipe_php} not found.")
+        return
+
     with open(recipe_php, 'r', encoding='latin-1') as f:
         content = f.read()
-
-        # Match $ESO_RECIPE_INFO = array( ... )
         recipe_block = re.search(r'\$ESO_RECIPE_INFO\s*=\s*array\s*\((.*?)\);', content, re.DOTALL)
         if recipe_block:
             recipe_matches = re.finditer(r'(\d+)\s*=>\s*array\((\d+),\s*"(.*?)",\s*"(.*?)",\s*(\d+)\)', recipe_block.group(1))
@@ -86,14 +94,23 @@ if os.path.exists(recipe_php):
                 add_item(result_id, name, "Consumable", "Food/Drink", cat, qual, "/esoui/art/icons/placeholder.dds")
                 add_item(recipe_id, f"Recipe: {name}", "Knowledge", "Recipe", "Provisioning", qual, "/esoui/art/icons/inv_recipe_provisioning.dds", {"result_item_id": int(result_id)})
 
-# 3. Add Key Items for Demonstration
-add_item(70, "Cured Kwama Leggings", "Equipment", "Armor", "Medium Armor", 1, "/esoui/art/icons/gear_kwama_hide_legs_a.dds")
-add_item(139, "Rough Ash Bow", "Equipment", "Weapon", "Bow", 1, "/esoui/art/icons/weapon_bow_ash_a.dds")
+def main():
+    process_csvs()
+    process_recipes()
 
-items.sort(key=lambda x: x["game_item_id"])
-final_items = items[:1000]
+    # Key items to ensure they are present
+    add_item(70, "Cured Kwama Leggings", "Equipment", "Armor", "Medium Armor", 1, "/esoui/art/icons/gear_kwama_hide_legs_a.dds")
+    add_item(139, "Rough Ash Bow", "Equipment", "Weapon", "Bow", 1, "/esoui/art/icons/weapon_bow_ash_a.dds")
 
-os.makedirs("exports", exist_ok=True)
-with open("exports/items.json", "w") as f:
-    json.dump(final_items, f, indent=2)
-print(f"Generated {len(final_items)} items in exports/items.json")
+    items.sort(key=lambda x: x["game_item_id"])
+
+    # We target 1000 items for the initial deliverable
+    final_items = items[:1000]
+
+    os.makedirs("exports", exist_ok=True)
+    with open("exports/items.json", "w") as f:
+        json.dump(final_items, f, indent=2)
+    print(f"Successfully generated {len(final_items)} items in exports/items.json")
+
+if __name__ == "__main__":
+    main()
