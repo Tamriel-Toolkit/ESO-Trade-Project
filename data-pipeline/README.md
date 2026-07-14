@@ -56,3 +56,38 @@ exports/items.json
        ↓
 PostgreSQL ITEM Table
 ```
+
+## Setting Up a New Instance / Regenerating the Database
+
+If you are setting up a new instance of the application or need to regenerate the catalog and local database:
+
+1. **Install Dependencies**:
+   Make sure you have the required libraries installed:
+   ```bash
+   pip install -r data-pipeline/requirements.txt
+   ```
+
+2. **Fetch and Normalize the Catalog**:
+   Run the ingestion script to harvest all items directly from the UESP API. This creates the master catalog file (`exports/items.json`):
+   ```bash
+   python3 data-pipeline/fetch_and_ingest.py
+   ```
+   *(To run a quick verification instead of the full 155k download, run `python3 data-pipeline/fetch_and_ingest.py --test`)*
+
+3. **Validate the Catalog**:
+   Verify that the generated JSON catalog matches the target schema constraints:
+   ```bash
+   python3 data-pipeline/validate_items.py
+   ```
+
+4. **Compile the Relational Database**:
+   Run the SQLite populator script to create the SQL tables, build search indexes, and insert all items into a local relational database file (`exports/eso_catalog.db`):
+   ```bash
+   python3 data-pipeline/populate_sqlite.py
+   ```
+
+5. **Test Query Operations**:
+   Execute the query test script to verify that relational queries operate correctly:
+   ```bash
+   python3 data-pipeline/test_db_queries.py
+   ```
