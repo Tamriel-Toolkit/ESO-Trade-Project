@@ -1,41 +1,58 @@
-# ESO Data Pipeline
+# ESO Master Item Catalog Pipeline
 
-This directory contains scripts for acquiring and processing the ESO Master Item Catalog.
+This directory contains the necessary scripts for acquiring, normalizing, and processing the complete master item catalog for the ESO Trade Project.
 
-## Setup
+## Overview
 
-1. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
+The platform uses the **`minedItemSummary`** dataset provided by the UESP as its authoritative data source. This dataset represents unique `game_item_id`s discovered directly from the raw ESO game client files and logged in-game.
 
-2. Ensure you have the source repositories cloned in the root directory:
-   - `uesp-esolog`
-   - `uesp-esoapps`
+The pipeline fetches this dataset directly via the UESP JSON API, normalizes the raw fields into human-readable categories, and compiles them into a structured JSON manifest (`exports/items.json`) matching our PostgreSQL target schema layout.
 
-## Usage
+### The Metadata Schema
+The ingest script maps raw and dynamic fields into structured metadata to prevent information loss:
+- **Raw ESO Types**: `type`, `weapon_type`, `armor_type`, `craft_type`, `equip_type`, and `bind_type` are saved under `metadata.raw`.
+- **Rarity / Quality**: Parses quality ranges (like `"1-5"` into base rarity `5` and preserves the range as `metadata.quality_range`).
+- **Research Readiness**: Populates `trait_id`, `trait_description`, and `style_id` for accurate progression checks.
+- **Sets**: Populates `metadata.set` with the set name, set ID, and a list of all active set bonuses.
+- **Furnishing & Stats**: Captures furnishing flags and numeric item statistics (armor, weapon power).
 
-### 1. Bootstrap the Catalog
-Generate the `exports/items.json` file from local source data:
+## Workflow
+
+### 1. Acquire and Normalize the Data
+The fetch and ingestion are consolidated into a single range-based API scraper. It queries UESP's JSON export API in chunks of 10,000 IDs to assemble the full catalog.
+
+To execute the pipeline:
 ```bash
-python3 data-pipeline/generate_items.py [limit]
+python3 data-pipeline/fetch_and_ingest.py
 ```
-- **limit**: Optional. Number of items to fetch (default is 1000). Set to 0 to fetch all available items.
-  - Example: `python3 data-pipeline/generate_items.py 5000` (Fetch 5,000 items)
-  - Example: `python3 data-pipeline/generate_items.py 0` (Fetch all items)
 
-### 2. Validate the Catalog
-Ensure the generated JSON matches the database schema:
+#### Custom Options:
+* Run a quick test (fetch a small range of IDs):
+  ```bash
+  python3 data-pipeline/fetch_and_ingest.py --test
+  ```
+* Fetch custom ranges (e.g. only new item IDs):
+  ```bash
+  python3 data-pipeline/fetch_and_ingest.py --start-id 260000 --end-id 280000
+  ```
+* Set an output item limit:
+  ```bash
+  python3 data-pipeline/fetch_and_ingest.py --limit 1000
+  ```
+
+### 2. Validate the Output
+Validate that the generated `exports/items.json` conform precisely to the required system schema requirements:
 ```bash
 python3 data-pipeline/validate_items.py
 ```
 
-### 3. Programmatic Extraction (Optional)
-Attempt to fetch specific ID ranges from UESP (Note: may be blocked by Cloudflare):
-```bash
-python3 data-pipeline/data_extract.py <start_id> <end_id>
+### Data Flow Diagram
+```text
+UESP Database (minedItemSummary)
+       ↓ (JSON API / exportJson.php)
+data-pipeline/fetch_and_ingest.py (Chunked HTTP Fetcher)
+       ↓ (Normalization & Mapping)
+exports/items.json
+       ↓
+PostgreSQL ITEM Table
 ```
-Example: `python3 data-pipeline/data_extract.py 1 100`
-
-## Data Flow
-ESO Game Archives -> EsoExtractData (Windows) -> CSV/PHP Defs -> generate_items.py -> items.json

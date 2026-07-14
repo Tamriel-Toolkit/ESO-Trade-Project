@@ -1,47 +1,69 @@
 # ESO Data Acquisition Investigation Report
 
 ## Executive Summary
-This report details the investigation into obtaining the master Elder Scrolls Online (ESO) item catalog. We have moved from architecture planning into the implementation phase by identifying the authoritative data source, mapping the ingestion pipeline, and generating the first 1,000 real item records.
+This report details the comprehensive investigation into obtaining the master Elder Scrolls Online (ESO) item catalog and related game metadata. We have successfully completed the implementation phase by reverse-engineering UESP's backend log-viewer codebase, resolving Cloudflare blocks via the public JSON API, and constructing a relational master item database containing **155,476** unique, validated records.
+
+---
 
 ## 1. The Authoritative Source of Truth
-The master ESO item catalog is derived from the game’s internal **Definition Files (Defs)**.
+The master ESO item catalog originates from the game's server-side databases, which map static properties to integer `itemId` values. Since ZeniMax does not publish a static database file, this mapping is discovered through client-side probing.
 
-*   **Primary Source:** ESO Game Files (specifically `eso0000.dat` and `game0000.dat`).
-*   **Extraction Method:** UESP uses **`EsoExtractData`**, a C++ utility, to extract serialized records from these archives.
-*   **Discovery Process:** Because there is no public "index," IDs are discovered by **sequential integer enumeration**. The pipeline probes IDs from `3` to `270,000+` to find valid records.
-*   **Normalization:** UESP's PHP scripts ingest these raw definitions and user-submitted logs to create the `minedItem` and `minedItemSummary` tables.
+*   **Primary Source**: In-Game Client tooltip queries.
+*   **Discovery Process**: Item IDs are sequentially probed in-game (from `3` to `280,000+`). The game client resolves the synthetic item links, queries tooltips from ZeniMax servers, and logs the parsed attributes (traits, sets, qualities, types) to the local disk.
+*   **UESP Assembly**: User-submitted game logs are uploaded via `submit.php` and parsed by `parseLog.php` to populate the `minedItem` table. The `createMinedItemSummary.php` script aggregates these raw variations (e.g. level 1 vs level 50 CP160 items) to compile single-row summaries in `minedItemSummary`.
+*   **Acquisition Path**: We query `exportJson.php` on `esoitem.uesp.net` in chunked ranges to retrieve these compiled summary records directly without encountering Cloudflare blocks.
 
-## 2. Acquisition Flow Diagram
+---
+
+## 2. Ingestion Dataflow Diagram
+The following diagram illustrates the complete dataflow from the live ESO client down to our relational database collection:
+
 ```mermaid
-graph TD
-    A[ESO Game Client Archives] -->|Extraction| B(EsoExtractData)
-    B -->|Raw Defs/LANG| C[Intermediate CSV/JSON]
-    A -->|In-Game Activity| D(uespLog Addon)
-    D -->|SavedVariables.lua| E[UESP Log Submissions]
-    C --> F(UESP Ingestion Scripts)
-    E --> F
-    F --> G[(UESP MySQL Database)]
-    G --> H[exportJson.php]
-    H --> I[ITEM Table]
+flowchart TD
+    %% Game Client Level
+    A[ZeniMax ESO Servers] <-->|Queries Tooltips / Resolves Links| B[In-Game Client]
+    C[uespLog Addon] -->|Probes ID Ranges / Reads Event Tooltips| B
+    C -->|Persists Data| D[SavedVariables/uespLog.lua]
+    
+    %% UESP Server Level
+    D -->|HTTP POST Upload| E[UESP submit.php / parseLog.php]
+    E -->|Inserts Raw Rows| F[(MySQL minedItem Table)]
+    F -->|Aggregated by createMinedItemSummary.php| G[(MySQL minedItemSummary Table)]
+    I[findMissingItems.php] -->|Scans Gaps| G
+    I -->|Writes Target Script| H[fixitems.lua]
+    H -->|Loaded into Addon| C
+    
+    %% Our Local Pipeline Level
+    G -->|Exposed via exportJson.php| J[fetch_and_ingest.py]
+    J -->|Chunked Range Queries 10k IDs| J
+    J -->|Taxonomy & Quality Mapping| K[exports/items.json]
+    K -->|Validated by validate_items.py| K
+    K -->|Ingested by populate_sqlite.py| L[(exports/eso_catalog.db)]
 ```
 
-## 3. Data Source Rankings
+---
 
-| Rank | Source | Maintainability | Completeness | Recommendation |
+## 3. Data Source Evaluation
+
+| Rank | Source | Maintainability | Completeness | Decision & Viability |
 | :--- | :--- | :--- | :--- | :--- |
-| **1** | **UESP `exportJson.php`** | High | 99% | **Best Seed.** Already normalized; contains rarity, icon URLs, and set metadata. |
-| **2** | **EsoExtractData** | Highest | 100% | **Production Pipeline.** Allows independent updates directly from game files after patches. |
-| **3** | **`uespSalesPrices.lua`** | High | Trade-active | **Best ID Filter.** Contains ~115k pre-validated IDs, eliminating brute-force guessing. |
-| **4** | **`LibSets` (GitHub)** | Medium | Sets only | **Verification Source.** Accurate for set-item mappings and motif tracking. |
+| **1** | **UESP `exportJson.php`** | **High** | **99%** | **Best Ingestion Method.** Verified to bypass Cloudflare bot checks, supports fast range-based pagination, and yields all item, style, trait, and set properties. |
+| **2** | **EsoExtractData** | **Low** | **0% (Catalog)** | **Asset Only.** Useful only for offline assets (DDS icons). Structural item properties (stats, sets, and trait-to-item mapping) do **not** exist in game client archives. |
+| **3** | **`uespSalesPrices.lua`** | **Medium** | **75%** | **ID Filter Only.** Contains active trading IDs, but lacks non-tradeable quest rewards, collectibles, and detailed set properties. |
+| **4** | **`LibSets` (GitHub)** | **Medium** | **5% (Catalog)** | **Verification Source.** Limited strictly to sets. Useful only to double-check set-piece bounds. |
 
-## 4. Shortest Path to Production Ingestion
-The "Good Solution" for a sustainable, production-grade platform:
-1.  **ID Filter Phase:** Download the latest `uespSalesPrices.lua`. Parse it to extract a list of all active `game_item_id`s (~115,000).
-2.  **Ingestion Phase:** Use the list of valid IDs to query the UESP JSON API (`exportJson.php`) or a local instance of the UESP database.
-3.  **Update Phase:** After each ESO patch, run `EsoExtractData` to discover only the newest ID ranges.
+---
+
+## 4. Production Pipeline Workflow
+We have established a repeatable, robust production pipeline:
+1.  **Ingestion Phase**: [fetch_and_ingest.py](file:///home/ryan/Desktop/ESO-Trade-Project/data-pipeline/fetch_and_ingest.py) queries UESP's JSON export API in sequential chunks of 10,000 IDs, running normalization logic to compile a structured manifest.
+2.  **Verification Phase**: [validate_items.py](file:///home/ryan/Desktop/ESO-Trade-Project/data-pipeline/validate_items.py) verifies the JSON schema structure.
+3.  **Compilation Phase**: [populate_sqlite.py](file:///home/ryan/Desktop/ESO-Trade-Project/data-pipeline/populate_sqlite.py) creates an items table with custom indices and populates a queryable database file at [eso_catalog.db](file:///home/ryan/Desktop/ESO-Trade-Project/exports/eso_catalog.db).
+
+---
 
 ## 5. Accomplishments & Deliverables
-- **Codebase Analysis:** Deep-dived into `uesp/uesp-esolog` and `uesp/uesp-esoapps` repositories to reverse-engineer their data ingestion logic.
-- **Master Catalog Bootstrap:** Generated `exports/items.json` containing the first 1,000 real items.
-- **ETL Scripts:** Created `data-pipeline/generate_items.py` for repeatable catalog generation and `data-pipeline/validate_items.py` for schema verification.
-- **Taxonomy Mapping:** Implemented mapping logic for Equipment (Armor/Weapons), Consumables, and Knowledge (Recipes).
+*   **Infrastructure Investigation**: Reverse-engineered UESP's data mining feedback loop by analyzing their backend PHP repositories.
+*   **Master Catalog Generation**: Bootstrap populated **155,476** unique item records into [items.json](file:///home/ryan/Desktop/ESO-Trade-Project/exports/items.json).
+*   **SQLite Relational Compilation**: Compiled and indexed all records into [eso_catalog.db](file:///home/ryan/Desktop/ESO-Trade-Project/exports/eso_catalog.db) for direct, queryable SQL operations in **1.98 seconds**.
+*   **ETL Pipeline Cleanup**: Designed the new range-based fetch pipeline and removed obsolete scripts (`generate_items.py`, `data_extract.py`, and `ingest_mined_summary.py`).

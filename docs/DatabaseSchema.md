@@ -4,6 +4,8 @@ This document outlines the PostgreSQL database schema for the ESO Personalized C
 
 ## 1. Entity-Relationship Diagram (ERD)
 
+![Database Schema Diagram](/home/ryan/.gemini/antigravity/brain/623cc6cc-1c24-48b4-8d8e-3c54644ff11e/db_breakdown_diagram_1784005134074.jpg)
+
 ```mermaid
 erDiagram
     USER ||--o{ CHARACTER : owns

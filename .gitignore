@@ -1,0 +1,3 @@
+# Ignore generated data catalog exports (exceeds GitHub file size limits)
+exports/items.json
+exports/eso_catalog.db
