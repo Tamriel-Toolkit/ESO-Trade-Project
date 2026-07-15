@@ -22,6 +22,7 @@ def populate_database():
 
     # Connect to SQLite (creates the file if it does not exist)
     conn = sqlite3.connect(db_path)
+    conn.execute("PRAGMA foreign_keys = ON;")
     cursor = conn.cursor()
 
     # Drop existing table if any
@@ -41,6 +42,86 @@ def populate_database():
         metadata TEXT
     );
     """)
+
+    # Create characters and knowledge tables
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS characters (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT UNIQUE NOT NULL,
+        class TEXT,
+        level INTEGER,
+        is_master_crafter INTEGER DEFAULT 0,
+        last_sync_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS knowledge (
+        character_id INTEGER,
+        game_item_id INTEGER,
+        is_known INTEGER DEFAULT 1,
+        learned_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (character_id, game_item_id),
+        FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+        FOREIGN KEY (game_item_id) REFERENCES items(game_item_id) ON DELETE CASCADE
+    );
+    """)
+
+    # Create remaining Phase 2 tables
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS item_prices (
+        game_item_id INTEGER,
+        server TEXT,
+        avg_price INTEGER,
+        min_price INTEGER,
+        max_price INTEGER,
+        suggested_price INTEGER,
+        last_updated TEXT DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (game_item_id, server),
+        FOREIGN KEY (game_item_id) REFERENCES items(game_item_id) ON DELETE CASCADE
+    );
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS guild_trader_listings (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        game_item_id INTEGER,
+        server TEXT,
+        price INTEGER,
+        quantity INTEGER,
+        guild_name TEXT,
+        location TEXT,
+        expires_at TEXT,
+        discovered_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (game_item_id) REFERENCES items(game_item_id) ON DELETE CASCADE
+    );
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS user_inventory (
+        character_id INTEGER,
+        game_item_id INTEGER,
+        quantity INTEGER DEFAULT 1,
+        PRIMARY KEY (character_id, game_item_id),
+        FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+        FOREIGN KEY (game_item_id) REFERENCES items(game_item_id) ON DELETE CASCADE
+    );
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS watchlists (
+        character_id INTEGER,
+        game_item_id INTEGER,
+        target_price INTEGER,
+        is_notified INTEGER DEFAULT 0,
+        PRIMARY KEY (character_id, game_item_id),
+        FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+        FOREIGN KEY (game_item_id) REFERENCES items(game_item_id) ON DELETE CASCADE
+    );
+    """)
+
+    # Create index
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_listings_game_item_id ON guild_trader_listings(game_item_id);")
 
     # Create helper function to generate uuid-like strings or use sequential keys since SQLite doesn't have native UUIDs
     # ZeniMax game_item_id is unique, so we can use "item_ID" as the text PK id
