@@ -526,6 +526,9 @@ app.post("/api/listings/sync", async (req, res) => {
             }
         }
 
+        // 3. Clear out-of-date/expired listings again (to catch any incoming expired ones)
+        await dbRun("DELETE FROM guild_trader_listings WHERE datetime(expires_at) < datetime('now')");
+
         await dbRun("COMMIT");
         res.json({ success: true, count: listings.length });
     } catch (err) {
