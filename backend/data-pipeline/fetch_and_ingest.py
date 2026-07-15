@@ -7,7 +7,8 @@ import argparse
 
 # Configuration
 UESP_EXPORT_URL = "https://esoitem.uesp.net/exportJson.php"
-DEFAULT_OUTPUT_FILE = "exports/items.json"
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_OUTPUT_FILE = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "exports", "items.json"))
 
 def get_item_type(type_id):
     mapping = {

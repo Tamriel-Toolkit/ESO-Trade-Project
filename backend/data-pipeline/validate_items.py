@@ -1,8 +1,12 @@
 import json
 import sys
+import os
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+items_json_path = os.path.abspath(os.path.join(script_dir, "..", "exports", "items.json"))
 
 try:
-    with open('exports/items.json', 'r') as f:
+    with open(items_json_path, 'r') as f:
         items = json.load(f)
 except Exception as e:
     print(f"Error loading JSON: {e}")

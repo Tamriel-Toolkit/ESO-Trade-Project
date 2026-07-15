@@ -6,7 +6,7 @@ This directory contains the necessary scripts for acquiring, normalizing, and pr
 
 The platform uses the **`minedItemSummary`** dataset provided by the UESP as its authoritative data source. This dataset represents unique `game_item_id`s discovered directly from the raw ESO game client files and logged in-game.
 
-The pipeline fetches this dataset directly via the UESP JSON API, normalizes the raw fields into human-readable categories, and compiles them into a structured JSON manifest (`exports/items.json`) matching our PostgreSQL target schema layout.
+The pipeline fetches this dataset directly via the UESP JSON API, normalizes the raw fields into human-readable categories, and compiles them into a structured JSON manifest (`backend/exports/items.json`) matching our PostgreSQL target schema layout.
 
 ### The Metadata Schema
 The ingest script maps raw and dynamic fields into structured metadata to prevent information loss:
@@ -41,7 +41,7 @@ python3 data-pipeline/fetch_and_ingest.py
   ```
 
 ### 2. Validate the Output
-Validate that the generated `exports/items.json` conform precisely to the required system schema requirements:
+Validate that the generated `backend/exports/items.json` conform precisely to the required system schema requirements:
 ```bash
 python3 data-pipeline/validate_items.py
 ```
@@ -52,7 +52,7 @@ UESP Database (minedItemSummary)
        ↓ (JSON API / exportJson.php)
 data-pipeline/fetch_and_ingest.py (Chunked HTTP Fetcher)
        ↓ (Normalization & Mapping)
-exports/items.json
+backend/exports/items.json
        ↓
 PostgreSQL ITEM Table
 ```
@@ -68,7 +68,7 @@ If you are setting up a new instance of the application or need to regenerate th
    ```
 
 2. **Fetch and Normalize the Catalog**:
-   Run the ingestion script to harvest all items directly from the UESP API. This creates the master catalog file (`exports/items.json`):
+   Run the ingestion script to harvest all items directly from the UESP API. This creates the master catalog file (`backend/exports/items.json`):
    ```bash
    python3 data-pipeline/fetch_and_ingest.py
    ```
@@ -81,7 +81,7 @@ If you are setting up a new instance of the application or need to regenerate th
    ```
 
 4. **Compile the Relational Database**:
-   Run the SQLite populator script to create the SQL tables, build search indexes, and insert all items into a local relational database file (`exports/eso_catalog.db`):
+   Run the SQLite populator script to create the SQL tables, build search indexes, and insert all items into a local relational database file (`backend/exports/eso_catalog.db`):
    ```bash
    python3 data-pipeline/populate_sqlite.py
    ```

@@ -1,8 +1,10 @@
 import json
 import sys
+import os
 
 def test_retrieval():
-    filepath = "exports/items.json"
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    filepath = os.path.abspath(os.path.join(script_dir, "..", "exports", "items.json"))
     print(f"Loading {filepath}...")
     try:
         with open(filepath, "r", encoding="utf-8") as f:

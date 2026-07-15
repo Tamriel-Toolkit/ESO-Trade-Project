@@ -36,9 +36,9 @@ flowchart TD
     %% Our Local Pipeline Level
     G -->|Exposed via exportJson.php| J[fetch_and_ingest.py]
     J -->|Chunked Range Queries 10k IDs| J
-    J -->|Taxonomy & Quality Mapping| K[exports/items.json]
+    J -->|Taxonomy & Quality Mapping| K[backend/exports/items.json]
     K -->|Validated by validate_items.py| K
-    K -->|Ingested by populate_sqlite.py| L[(exports/eso_catalog.db)]
+    K -->|Ingested by populate_sqlite.py| L[(backend/exports/eso_catalog.db)]
 ```
 
 ---
@@ -58,12 +58,12 @@ flowchart TD
 We have established a repeatable, robust production pipeline:
 1.  **Ingestion Phase**: [fetch_and_ingest.py](file:///home/ryan/Desktop/ESO-Trade-Project/data-pipeline/fetch_and_ingest.py) queries UESP's JSON export API in sequential chunks of 10,000 IDs, running normalization logic to compile a structured manifest.
 2.  **Verification Phase**: [validate_items.py](file:///home/ryan/Desktop/ESO-Trade-Project/data-pipeline/validate_items.py) verifies the JSON schema structure.
-3.  **Compilation Phase**: [populate_sqlite.py](file:///home/ryan/Desktop/ESO-Trade-Project/data-pipeline/populate_sqlite.py) creates an items table with custom indices and populates a queryable database file at [eso_catalog.db](file:///home/ryan/Desktop/ESO-Trade-Project/exports/eso_catalog.db).
+3.  **Compilation Phase**: [populate_sqlite.py](file:///home/ryan/Desktop/ESO-Trade-Project/data-pipeline/populate_sqlite.py) creates an items table with custom indices and populates a queryable database file at [eso_catalog.db](file:///home/ryan/Desktop/ESO-Trade-Project/backend/exports/eso_catalog.db).
 
 ---
 
 ## 5. Accomplishments & Deliverables
 *   **Infrastructure Investigation**: Reverse-engineered UESP's data mining feedback loop by analyzing their backend PHP repositories.
-*   **Master Catalog Generation**: Bootstrap populated **155,476** unique item records into [items.json](file:///home/ryan/Desktop/ESO-Trade-Project/exports/items.json).
-*   **SQLite Relational Compilation**: Compiled and indexed all records into [eso_catalog.db](file:///home/ryan/Desktop/ESO-Trade-Project/exports/eso_catalog.db) for direct, queryable SQL operations in **1.98 seconds**.
+*   **Master Catalog Generation**: Bootstrap populated **155,476** unique item records into [items.json](file:///home/ryan/Desktop/ESO-Trade-Project/backend/exports/items.json).
+*   **SQLite Relational Compilation**: Compiled and indexed all records into [eso_catalog.db](file:///home/ryan/Desktop/ESO-Trade-Project/backend/exports/eso_catalog.db) for direct, queryable SQL operations in **1.98 seconds**.
 *   **ETL Pipeline Cleanup**: Designed the new range-based fetch pipeline and removed obsolete scripts (`generate_items.py`, `data_extract.py`, and `ingest_mined_summary.py`).

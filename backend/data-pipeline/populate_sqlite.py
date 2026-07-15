@@ -5,8 +5,9 @@ import sys
 import time
 
 def populate_database():
-    json_path = "exports/items.json"
-    db_path = "exports/eso_catalog.db"
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    json_path = os.path.abspath(os.path.join(script_dir, "..", "exports", "items.json"))
+    db_path = os.path.abspath(os.path.join(script_dir, "..", "exports", "eso_catalog.db"))
 
     print(f"Reading catalog data from {json_path}...")
     if not os.path.exists(json_path):
