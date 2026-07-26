@@ -5,3 +5,14 @@ backend/exports/eso_catalog.db-journal
 
 # Ignore Node dependencies
 node_modules/
+
+# Environment variables & local overrides
+.env
+.env.local
+.env.*.local
+
+# Logs and OS files
+*.log
+.DS_Store
+Thumbs.db
+
