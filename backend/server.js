@@ -916,6 +916,223 @@ app.get("/api/trades/matches/:character_id", async (req, res) => {
     }
 });
 
+/**
+ * GET /api/market/prices
+ * Query market prices joined with item metadata.
+ * Supports filtering by search, category, subcategory, server, min/max price.
+ */
+app.get("/api/market/prices", async (req, res) => {
+    let { search, category, subcategory, rarity, server, min_price, max_price, limit, offset, sort } = req.query;
+
+    limit = Math.min(parseInt(limit, 10) || 20, 100);
+    offset = Math.max(parseInt(offset, 10) || 0, 0);
+    const targetServer = server || "NA";
+
+    const conditions = ["ip.server = ?"];
+    const params = [targetServer];
+
+    if (search) {
+        conditions.push("i.name LIKE ?");
+        params.push(`%${search}%`);
+    }
+    if (category) {
+        conditions.push("i.category = ?");
+        params.push(category);
+    }
+    if (subcategory) {
+        conditions.push("i.subcategory = ?");
+        params.push(subcategory);
+    }
+    if (rarity) {
+        conditions.push("i.rarity = ?");
+        params.push(parseInt(rarity, 10));
+    }
+    if (min_price) {
+        conditions.push("ip.suggested_price >= ?");
+        params.push(parseInt(min_price, 10));
+    }
+    if (max_price) {
+        conditions.push("ip.suggested_price <= ?");
+        params.push(parseInt(max_price, 10));
+    }
+
+    const whereClause = " WHERE " + conditions.join(" AND ");
+    
+    let orderBy = "ORDER BY ip.suggested_price DESC";
+    if (sort === "rarity_desc") orderBy = "ORDER BY i.rarity DESC, ip.suggested_price DESC";
+    if (sort === "rarity_asc") orderBy = "ORDER BY i.rarity ASC, ip.suggested_price ASC";
+    if (sort === "price_asc") orderBy = "ORDER BY ip.suggested_price ASC";
+    if (sort === "name_asc") orderBy = "ORDER BY i.name ASC";
+    if (sort === "avg_price_desc") orderBy = "ORDER BY ip.avg_price DESC";
+
+    try {
+        const countQuery = `
+            SELECT COUNT(*) as total
+            FROM item_prices ip
+            JOIN items i ON ip.game_item_id = i.game_item_id
+            ${whereClause}
+        `;
+        const countResult = await dbGet(countQuery, params);
+        const total = countResult ? countResult.total : 0;
+
+        const query = `
+            SELECT 
+                ip.game_item_id,
+                ip.server,
+                ip.avg_price,
+                ip.min_price,
+                ip.max_price,
+                ip.suggested_price,
+                ip.last_updated,
+                i.name AS item_name,
+                i.icon_url AS item_icon,
+                i.category AS item_category,
+                i.subcategory AS item_subcategory,
+                i.rarity AS item_rarity,
+                i.metadata AS item_metadata
+            FROM item_prices ip
+            JOIN items i ON ip.game_item_id = i.game_item_id
+            ${whereClause}
+            ${orderBy}
+            LIMIT ? OFFSET ?;
+        `;
+        const rows = await dbAll(query, [...params, limit, offset]);
+
+        const items = rows.map(row => {
+            try {
+                row.item_metadata = JSON.parse(row.item_metadata);
+            } catch (e) {
+                row.item_metadata = {};
+            }
+            return row;
+        });
+
+        res.json({
+            total,
+            limit,
+            offset,
+            server: targetServer,
+            items
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * GET /api/market/listings
+ * Query active guild trader listings joined with item metadata and suggested prices.
+ * Calculates value_index (suggested_price / price).
+ */
+app.get("/api/market/listings", async (req, res) => {
+    let { search, category, subcategory, rarity, server, min_price, max_price, min_value_index, limit, offset, sort } = req.query;
+
+    limit = Math.min(parseInt(limit, 10) || 20, 100);
+    offset = Math.max(parseInt(offset, 10) || 0, 0);
+    const targetServer = server || "NA";
+
+    const conditions = ["gtl.server = ?"];
+    const params = [targetServer];
+
+    if (search) {
+        conditions.push("i.name LIKE ?");
+        params.push(`%${search}%`);
+    }
+    if (category) {
+        conditions.push("i.category = ?");
+        params.push(category);
+    }
+    if (subcategory) {
+        conditions.push("i.subcategory = ?");
+        params.push(subcategory);
+    }
+    if (rarity) {
+        conditions.push("i.rarity = ?");
+        params.push(parseInt(rarity, 10));
+    }
+    if (min_price) {
+        conditions.push("gtl.price >= ?");
+        params.push(parseInt(min_price, 10));
+    }
+    if (max_price) {
+        conditions.push("gtl.price <= ?");
+        params.push(parseInt(max_price, 10));
+    }
+    if (min_value_index) {
+        conditions.push("(CASE WHEN gtl.price > 0 THEN CAST(ip.suggested_price AS REAL) / gtl.price ELSE 0 END) >= ?");
+        params.push(parseFloat(min_value_index));
+    }
+
+    const whereClause = " WHERE " + conditions.join(" AND ");
+
+    let orderBy = "ORDER BY value_index DESC, gtl.price ASC";
+    if (sort === "rarity_desc") orderBy = "ORDER BY i.rarity DESC, value_index DESC";
+    if (sort === "rarity_asc") orderBy = "ORDER BY i.rarity ASC, value_index DESC";
+    if (sort === "price_asc") orderBy = "ORDER BY gtl.price ASC";
+    if (sort === "price_desc") orderBy = "ORDER BY gtl.price DESC";
+    if (sort === "newest") orderBy = "ORDER BY gtl.discovered_at DESC";
+
+    try {
+        const countQuery = `
+            SELECT COUNT(*) as total
+            FROM guild_trader_listings gtl
+            JOIN items i ON gtl.game_item_id = i.game_item_id
+            LEFT JOIN item_prices ip ON gtl.game_item_id = ip.game_item_id AND gtl.server = ip.server
+            ${whereClause}
+        `;
+        const countResult = await dbGet(countQuery, params);
+        const total = countResult ? countResult.total : 0;
+
+        const query = `
+            SELECT 
+                gtl.id AS listing_id,
+                gtl.game_item_id,
+                gtl.server,
+                gtl.price,
+                gtl.quantity,
+                gtl.guild_name,
+                gtl.location,
+                gtl.expires_at,
+                gtl.discovered_at,
+                i.name AS item_name,
+                i.icon_url AS item_icon,
+                i.category AS item_category,
+                i.subcategory AS item_subcategory,
+                i.rarity AS item_rarity,
+                i.metadata AS item_metadata,
+                ip.suggested_price,
+                ip.avg_price,
+                CASE WHEN gtl.price > 0 THEN CAST(ip.suggested_price AS REAL) / gtl.price ELSE 0 END AS value_index
+            FROM guild_trader_listings gtl
+            JOIN items i ON gtl.game_item_id = i.game_item_id
+            LEFT JOIN item_prices ip ON gtl.game_item_id = ip.game_item_id AND gtl.server = ip.server
+            ${whereClause}
+            ${orderBy}
+            LIMIT ? OFFSET ?;
+        `;
+        const rows = await dbAll(query, [...params, limit, offset]);
+
+        const listings = rows.map(row => {
+            try {
+                row.item_metadata = JSON.parse(row.item_metadata);
+            } catch (e) {
+                row.item_metadata = {};
+            }
+            return row;
+        });
+
+        res.json({
+            total,
+            limit,
+            offset,
+            server: targetServer,
+            listings
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Start server
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);

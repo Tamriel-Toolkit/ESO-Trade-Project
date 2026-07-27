@@ -4,6 +4,12 @@ const ThemeContext = createContext({
   theme: "dark",
   setTheme: () => null,
   toggleTheme: () => null,
+  platform: "PC",
+  setPlatform: () => null,
+  togglePlatform: () => null,
+  serverLocation: "NA",
+  setServerLocation: () => null,
+  toggleServerLocation: () => null,
 });
 
 export function ThemeProvider({
@@ -16,6 +22,22 @@ export function ThemeProvider({
       return localStorage.getItem(storageKey) || defaultTheme;
     } catch {
       return defaultTheme;
+    }
+  });
+
+  const [platform, setPlatformState] = useState(() => {
+    try {
+      return localStorage.getItem("eso-platform") || "PC";
+    } catch {
+      return "PC";
+    }
+  });
+
+  const [serverLocation, setServerLocationState] = useState(() => {
+    try {
+      return localStorage.getItem("eso-server-location") || "NA";
+    } catch {
+      return "NA";
     }
   });
 
@@ -39,8 +61,50 @@ export function ThemeProvider({
     setThemeState((prev) => (prev === "dark" ? "light" : "dark"));
   };
 
+  const setPlatform = (newPlatform) => {
+    setPlatformState(newPlatform);
+    try {
+      localStorage.setItem("eso-platform", newPlatform);
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  const togglePlatform = () => {
+    const platforms = ["PC", "Xbox", "PlayStation"];
+    const currentIndex = platforms.indexOf(platform);
+    const nextPlatform = platforms[(currentIndex + 1) % platforms.length];
+    setPlatform(nextPlatform);
+  };
+
+  const setServerLocation = (newLoc) => {
+    setServerLocationState(newLoc);
+    try {
+      localStorage.setItem("eso-server-location", newLoc);
+    } catch (e) {
+      console.warn(e);
+    }
+  };
+
+  const toggleServerLocation = () => {
+    const nextLoc = serverLocation === "NA" ? "EU" : "NA";
+    setServerLocation(nextLoc);
+  };
+
   return (
-    <ThemeContext.Provider value={{ theme, setTheme, toggleTheme }}>
+    <ThemeContext.Provider
+      value={{
+        theme,
+        setTheme,
+        toggleTheme,
+        platform,
+        setPlatform,
+        togglePlatform,
+        serverLocation,
+        setServerLocation,
+        toggleServerLocation,
+      }}
+    >
       {children}
     </ThemeContext.Provider>
   );
