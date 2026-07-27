@@ -52,7 +52,7 @@ function Marketplace() {
   const { serverLocation, platform } = useTheme();
 
   // State Management
-  const [viewMode, setViewMode] = useState("listings"); // "listings" | "prices"
+  const [viewMode, setViewMode] = useState("prices"); // Default to "prices" for 100% real market price metrics
   const [taxonomy, setTaxonomy] = useState({});
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedSubcategory, setSelectedSubcategory] = useState("");

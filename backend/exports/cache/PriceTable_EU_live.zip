@@ -1,0 +1,286 @@
+
+
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+
+
+
+    <title>Error - Tamriel Trade Centre</title>
+
+    
+    <link href="/Content/css?v=feoYjGpq9JOE502RX4t7Fg981Bv-Al45mXg3HToAC-A1" rel="stylesheet"/>
+
+    
+    <script src='/bundles/Framework?v=X7g1fgaeD7W_u9HOXF6O4SOTg3HT9_LxeS9659jVhZ01' defer></script>
+
+
+
+    <style>
+        [x-cloak] {
+            display: none !important;
+        }
+
+        #body {
+            all: unset;
+            display: block;
+        }
+    </style>
+</head>
+
+<body class="dark min-h-screen bg-brand-bg bg-[url('/Content/images/mainbackground.jpg')] bg-no-repeat bg-cover bg-fixed">
+    
+    <nav class="sticky top-0 z-50 border-b border-brand-primary/30 bg-brand-bg shadow-[0_4px_12px_rgba(0,0,0,0.8)]"
+         x-data="{
+            mobileMenuOpen: false,
+            langOpen: false,
+            addonOpen: false,
+            regionOpen: false,
+            loginOpen: false,
+            isLightMode: ApplicationStorage.IsLightMode
+         }"
+         x-init="$watch('isLightMode', value => {
+            ApplicationStorage.IsLightMode = value;
+            if (value) {
+                document.documentElement.classList.remove('dark');
+                document.body.classList.remove('dark');
+            } else {
+                document.documentElement.classList.add('dark');
+                document.body.classList.add('dark');
+            }
+         })">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="flex h-16 items-center justify-between relative">
+                
+                <div class="flex items-center gap-6 relative z-20">
+                    <a href="/" class="flex items-center gap-3 hover:opacity-90 transition-opacity">
+                        <img src="/Logo.png" class="h-10 w-auto sm:h-12" />
+                    </a>
+
+                    <div class="hidden items-center gap-6 lg:flex">
+                    </div>
+                </div>
+
+                
+                <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 lg:hidden text-center z-10 pointer-events-none">
+                    <h1 class="font-brand-heading text-sm sm:text-lg font-bold tracking-wide text-brand-primary-active drop-shadow-[0_2px_8px_rgba(212,175,55,0.5)] whitespace-nowrap">Tamriel Trade Centre</h1>
+                </div>
+
+                
+                <div class="flex items-center gap-4 relative z-20">
+                    <div class="hidden items-center gap-6 lg:flex">
+                        ﻿<form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top" class="flex items-center m-0">
+    <input type="hidden" name="cmd" value="_s-xclick">
+    <input type="hidden" name="hosted_button_id" value="Q5GMB5HV8WBGJ">
+    <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!" class="block">
+    <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
+</form>
+
+                    </div>
+
+                    
+                    <button x-on:click="isLightMode = !isLightMode"
+                            class="hidden lg:flex rounded-lg p-2 text-brand-text transition-all hover:bg-brand-primary/10 hover:text-brand-primary-active border border-transparent hover:border-brand-primary/30 items-center justify-center"
+                            :title="isLightMode ? 'Dark Mode' : 'Light Mode'">
+                        <template x-if="isLightMode">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+                        </template>
+                        <template x-if="!isLightMode">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 5a7 7 0 100 14 7 7 0 000-14z" /></svg>
+                        </template>
+                    </button>
+
+                    
+                    <div class="relative hidden lg:flex items-center" x-on:click.outside="langOpen = false">
+                        <button x-on:click="langOpen = !langOpen" class="rounded-lg p-2 text-brand-text transition-all hover:bg-brand-primary/10 hover:text-brand-primary-active border border-transparent hover:border-brand-primary/30 flex items-center justify-center">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 11.37 9.198 14.802 6 18" /></svg>
+                        </button>
+                        <div x-show="langOpen" x-cloak class="absolute right-0 top-full mt-2 w-48 rounded-md bg-brand-dropdown border border-brand-primary/30 shadow-[0_10px_30px_rgba(0,0,0,0.9)] z-50 overflow-hidden">
+                                <a href="https://eu.tamrieltradecentre.com:443/error/429?lang=en-US" class="block px-4 py-2 font-brand-body text-brand-nav-text hover:bg-white/5 hover:text-brand-link">English</a>
+                                <a href="https://eu.tamrieltradecentre.com:443/error/429?lang=de-DE" class="block px-4 py-2 font-brand-body text-brand-nav-text hover:bg-white/5 hover:text-brand-link">Deutsch</a>
+                                <a href="https://eu.tamrieltradecentre.com:443/error/429?lang=fr-FR" class="block px-4 py-2 font-brand-body text-brand-nav-text hover:bg-white/5 hover:text-brand-link">Fran&#231;ais</a>
+                                <a href="https://eu.tamrieltradecentre.com:443/error/429?lang=ru-RU" class="block px-4 py-2 font-brand-body text-brand-nav-text hover:bg-white/5 hover:text-brand-link">Русский</a>
+                                <a href="https://eu.tamrieltradecentre.com:443/error/429?lang=es-ES" class="block px-4 py-2 font-brand-body text-brand-nav-text hover:bg-white/5 hover:text-brand-link">Espa&#241;ol</a>
+                                <a href="https://eu.tamrieltradecentre.com:443/error/429?lang=zh-CN" class="block px-4 py-2 font-brand-body text-brand-nav-text hover:bg-white/5 hover:text-brand-link">简体中文</a>
+                                <a href="https://eu.tamrieltradecentre.com:443/error/429?lang=ja-JP" class="block px-4 py-2 font-brand-body text-brand-nav-text hover:bg-white/5 hover:text-brand-link">日本語</a>
+                        </div>
+                    </div>
+
+                    <div class="hidden lg:flex items-center">
+                            <a href="/account/Login?ReturnUrl=%2Ferror%2F429"
+       id="loginLink"
+       class="group font-brand-heading text-sm font-semibold uppercase tracking-wider text-brand-nav-text transition-all hover:text-brand-link lg:p-2 lg:rounded-lg lg:hover:bg-[#8b7355]/20 lg:border lg:border-transparent lg:hover:border-[#8b7355]/30 flex items-center">
+        <span class="lg:border-b-2 lg:border-transparent lg:pb-1 leading-none transition-all lg:group-hover:border-brand-link">Login</span>
+    </a>
+
+                    </div>
+
+                    
+                    <button class="rounded-lg p-2 text-brand-nav-text transition-all hover:bg-brand-primary/10 hover:text-brand-primary-active lg:hidden border border-transparent hover:border-brand-primary/30"
+                            x-on:click="mobileMenuOpen = !mobileMenuOpen">
+                        <svg class="h-6 w-6" x-show="!mobileMenuOpen" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                        </svg>
+                        <svg class="h-6 w-6" x-show="mobileMenuOpen" x-cloak fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+
+            
+            <div class="border-t border-brand-primary/30 py-4 lg:hidden"
+                 x-show="mobileMenuOpen"
+                 x-transition:enter="transition ease-out duration-200"
+                 x-transition:enter-start="opacity-0 transform -translate-y-2"
+                 x-transition:enter-end="opacity-100 transform translate-y-0"
+                 x-cloak>
+                <div class="flex flex-col gap-4">
+                                        <button x-on:click="isLightMode = !isLightMode" class="flex w-full items-center gap-3 font-brand-heading text-sm font-semibold uppercase tracking-widest text-brand-nav-text hover:text-brand-link border-t border-brand-primary/30 pt-4">
+                        <template x-if="isLightMode">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" /></svg>
+                        </template>
+                        <template x-if="!isLightMode">
+                            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m12.728 0l-.707-.707M6.343 6.343l-.707-.707M12 5a7 7 0 100 14 7 7 0 000-14z" /></svg>
+                        </template>
+                        <span x-text="isLightMode ? 'Dark Mode' : 'Light Mode'"></span>
+                    </button>
+
+                    
+                    <div x-data="{ mobileLangOpen: false }" class="border-t border-brand-primary/30 pt-4">
+                        <button x-on:click="mobileLangOpen = !mobileLangOpen" class="flex w-full items-center justify-between font-brand-heading text-sm font-semibold uppercase tracking-widest text-brand-nav-text hover:text-brand-link">
+                            <div class="flex items-center gap-2">
+                                <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 11.37 9.198 14.802 6 18" /></svg>
+                                <span>Language</span>
+                            </div>
+                            <svg class="w-4 h-4 transition-transform" :class="mobileLangOpen ? 'rotate-180' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" /></svg>
+                        </button>
+                        <div x-show="mobileLangOpen" x-cloak class="mt-3 ml-7 flex flex-col gap-3">
+                                <a href="https://eu.tamrieltradecentre.com:443/error/429?lang=en-US" class="block font-brand-body text-base text-brand-nav-text hover:text-brand-link">English</a>
+                                <a href="https://eu.tamrieltradecentre.com:443/error/429?lang=de-DE" class="block font-brand-body text-base text-brand-nav-text hover:text-brand-link">Deutsch</a>
+                                <a href="https://eu.tamrieltradecentre.com:443/error/429?lang=fr-FR" class="block font-brand-body text-base text-brand-nav-text hover:text-brand-link">Fran&#231;ais</a>
+                                <a href="https://eu.tamrieltradecentre.com:443/error/429?lang=ru-RU" class="block font-brand-body text-base text-brand-nav-text hover:text-brand-link">Русский</a>
+                                <a href="https://eu.tamrieltradecentre.com:443/error/429?lang=es-ES" class="block font-brand-body text-base text-brand-nav-text hover:text-brand-link">Espa&#241;ol</a>
+                                <a href="https://eu.tamrieltradecentre.com:443/error/429?lang=zh-CN" class="block font-brand-body text-base text-brand-nav-text hover:text-brand-link">简体中文</a>
+                                <a href="https://eu.tamrieltradecentre.com:443/error/429?lang=ja-JP" class="block font-brand-body text-base text-brand-nav-text hover:text-brand-link">日本語</a>
+                        </div>
+                    </div>
+                    <div class="border-t border-brand-primary/30 pt-4">
+                        <div></div>
+                            <a href="/account/Login?ReturnUrl=%2Ferror%2F429"
+       id="loginLink"
+       class="group font-brand-heading text-sm font-semibold uppercase tracking-wider text-brand-nav-text transition-all hover:text-brand-link lg:p-2 lg:rounded-lg lg:hover:bg-[#8b7355]/20 lg:border lg:border-transparent lg:hover:border-[#8b7355]/30 flex items-center">
+        <span class="lg:border-b-2 lg:border-transparent lg:pb-1 leading-none transition-all lg:group-hover:border-brand-link">Login</span>
+    </a>
+
+                    </div>
+
+                    <div class="flex items-center">
+                        ﻿<form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top" class="flex items-center m-0">
+    <input type="hidden" name="cmd" value="_s-xclick">
+    <input type="hidden" name="hosted_button_id" value="Q5GMB5HV8WBGJ">
+    <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!" class="block">
+    <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
+</form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    
+    <div class="mx-auto max-w-7xl px-2 py-4 sm:py-8 md:px-4 lg:px-8">
+        <div class="grid grid-cols-1 gap-6 md:grid-cols-12">
+            
+            <main class="md:col-span-12">
+                <div class="rounded-lg border border-brand-primary/40 bg-brand-bg/90 backdrop-blur-md shadow-lg px-2 md:px-4 p-6 sm:shadow-[0_4px_12px_rgba(0,0,0,0.8)]">
+                    <div class="mx-auto max-w-7xl px-0 py-4 md:px-4 lg:px-8">
+                            <h2 class="font-brand-heading text-3xl font-bold uppercase tracking-wider text-brand-primary-active mb-6">Error</h2>
+                            <hr class="border-brand-primary/30 mb-8" />
+
+                        
+
+
+<div class="font-brand-body text-brand-text text-xl leading-relaxed">
+You have made too many requests in a given time frame. Please try again later</div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    
+    <footer class="mt-12 border-t border-brand-primary/30 bg-brand-bg py-12">
+        <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div class="flex flex-col md:flex-row justify-between items-center gap-10">
+                <div class="text-center md:text-left font-brand-body text-brand-text">
+                    <div class="flex flex-wrap justify-center md:justify-start gap-x-6 gap-y-2 mb-4">
+                        <a class="hover:text-brand-link transition-colors" href="/About">About</a>
+                        <a class="hover:text-brand-link transition-colors" href="/help">Help</a>
+                        <a class="hover:text-brand-link transition-colors" href="/Contact">Contact us</a>
+                        <a class="hover:text-brand-link transition-colors" href="/TermsOfService">Terms of Service</a>
+                        <a class="hover:text-brand-link transition-colors" href="/PrivacyPolicy">Privacy Policy</a>
+                    </div>
+                    <p class="mt-4 text-sm text-brand-text-muted">
+                        &copy; 2015-2026 TTC GAMING INC.   All rights reserved
+                    </p>
+                    <p class="text-xs italic text-brand-text-muted mt-1">
+                        Tamriel Trade Centre was created using content and materials from The Elder Scrolls&#174; Online: Tamriel Unlimited™ &#169; ZeniMax&#174; Online Studios, LLC or its licensors. This site is not affiliated with ZeniMax Online Studios, and ZeniMax Online Studios is not responsible for any of the content on, or the privacy policy of this site.<br/>Windows&#174;, Xbox&#174; and their logos are registered trademarks of Microsoft Corporation<br/>Sony PlayStation&#174; and its logo are registered trademarks of Sony Inc.
+                    </p>
+                </div>
+                <div class="flex justify-center md:justify-end shrink-0">
+                    ﻿<form action="https://www.paypal.com/cgi-bin/webscr" method="post" target="_top" class="flex items-center m-0">
+    <input type="hidden" name="cmd" value="_s-xclick">
+    <input type="hidden" name="hosted_button_id" value="Q5GMB5HV8WBGJ">
+    <input type="image" src="https://www.paypalobjects.com/en_US/i/btn/btn_donate_SM.gif" border="0" name="submit" alt="PayPal - The safer, easier way to pay online!" class="block">
+    <img alt="" border="0" src="https://www.paypalobjects.com/en_US/i/scr/pixel.gif" width="1" height="1">
+</form>
+                </div>
+            </div>
+
+            <div class="flex flex-col items-end">
+                <p>
+                    <a class="hidden dark:block" href="https://www.playwire.com/contact-direct-sales" rel="noopener">
+                        <img src="https://www.playwire.com/hubfs/Powered-by-Playwire-Badges/Ads-Powered-by-playwire-2021-standalone-small-white-300px.png" alt="Ads-Powered-by-playwire-2021-standalone-small-white-300px" width="200" height="56" loading="lazy" style="width: 200px; margin-left: auto; margin-right: auto; display: block; height: auto; max-width: 100%;">
+                    </a>
+                    <a class="block dark:hidden">
+                        <img src="https://www.playwire.com/hubfs/Powered-by-Playwire-Badges/Ads-Powered-by-playwire-2021-standalone-small-300px.png" alt="Ads-Powered-by-playwire-2021-standalone-small-300px" width="200" height="56" loading="lazy" style="width: 200px; margin-left: auto; margin-right: auto; display: block; height: auto; max-width: 100%;" />
+                    </a>
+                </p>
+                <p style="text-align: center;" class="text-brand-text">
+                    <a href="https://www.playwire.com/contact-direct-sales" rel="noopener" target="_blank">Advertise on this site.</a>
+                </p>
+            </div>
+        </div>
+
+        
+    </footer>
+
+    <script src="/bundles/General?v=FB6kG1iQMjTMx9TxVB0fFU72nkMLXkMFO1GjOjM48f41"></script>
+
+    <script src="/bundles/Localization/EN?v=08AWWDvUBLqitdUOaZ2K12UxLGMCqklWe5lB2QbjIVc1"></script>
+
+
+
+    
+
+    <script>
+        (function (i, s, o, g, r, a, m)
+        {
+            i['GoogleAnalyticsObject'] = r; i[r] = i[r] || function ()
+            {
+                (i[r].q = i[r].q || []).push(arguments)
+            }, i[r].l = 1 * new Date(); a = s.createElement(o),
+                m = s.getElementsByTagName(o)[0]; a.async = 1; a.src = g; m.parentNode.insertBefore(a, m)
+        })(window, document, 'script', '//www.google-analytics.com/analytics.js', 'ga');
+
+        ga('create', 'UA-70775257-1', 'auto');
+        ga('send', 'pageview');
+    </script>
+</body>
+
+</html>

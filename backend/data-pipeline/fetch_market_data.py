@@ -41,15 +41,35 @@ HEADERS = {
     'Accept-Language': 'en-US,en;q=0.5'
 }
 
-def parse_ttc_lua_content(content, server):
+def parse_ttc_lookup_table(lookup_content, db_conn):
+    """
+    Parses ItemLookUpTable_EN.lua content and maps TTC internal item IDs to master catalog game_item_ids.
+    """
+    cursor = db_conn.cursor()
+    cursor.execute("SELECT LOWER(name), game_item_id FROM items WHERE name IS NOT NULL AND name != ''")
+    name_to_game_id = {row[0]: row[1] for row in cursor.fetchall()}
+    
+    lookup_regex = re.compile(r'\["([^"]+)"\]=\{[^\}]*?=(\d+),?\s*\}')
+    ttc_id_to_game_id = {}
+    
+    for m in lookup_regex.finditer(lookup_content):
+        name_lower = m.group(1).lower()
+        ttc_id = int(m.group(2))
+        if name_lower in name_to_game_id:
+            ttc_id_to_game_id[ttc_id] = name_to_game_id[name_lower]
+
+    print(f"Mapped {len(ttc_id_to_game_id)} TTC internal IDs directly to master catalog game_item_ids.")
+    return ttc_id_to_game_id
+
+def parse_ttc_lua_content(content, server, lookup_mapping=None):
     """
     Parses TTC PriceTable Lua content and aggregates price metrics per game_item_id.
     Returns list of dicts: [{game_item_id, server, avg_price, min_price, max_price, suggested_price}]
     """
     print(f"Parsing TTC Lua data for {server} server ({len(content)} chars)...")
     
-    # Matches top-level item entries:   [game_item_id]={
-    item_regex = re.compile(r'^\s*\[(\d+)\]\s*=\s*\{', re.MULTILINE)
+    # Matches top-level item entries in minified or multi-line self.PriceTable={["Data"]={...}}
+    item_regex = re.compile(r'(?:\["Data"\]=\{|\,)\s*\[(\d+)\]\s*=\s*\{')
     matches = list(item_regex.finditer(content))
     
     if not matches:
@@ -58,6 +78,38 @@ def parse_ttc_lua_content(content, server):
 
     print(f"Found {len(matches)} item ID boundaries for {server}.")
     parsed_records = []
+
+    for i in range(len(matches)):
+        ttc_item_id = int(matches[i].group(1))
+        
+        # Map TTC item ID to game_item_id using lookup_mapping if available
+        game_item_id = lookup_mapping.get(ttc_item_id, ttc_item_id) if lookup_mapping else ttc_item_id
+
+        start_pos = matches[i].end()
+        end_pos = matches[i+1].start() if i + 1 < len(matches) else len(content)
+        block = content[start_pos:end_pos]
+
+        avg_m = re.search(r'\["A"\]\s*=\s*([\d\.]+)', block)
+        min_m = re.search(r'\["N"\]\s*=\s*([\d\.]+)', block)
+        max_m = re.search(r'\["X"\]\s*=\s*([\d\.]+)', block)
+        sug_m = re.search(r'\["S"\]\s*=\s*([\d\.]+)', block) or re.search(r'\["SA"\]\s*=\s*([\d\.]+)', block)
+
+        avg_p = float(avg_m.group(1)) if avg_m else None
+        min_p = float(min_m.group(1)) if min_m else None
+        max_p = float(max_m.group(1)) if max_m else None
+        sug_p = float(sug_m.group(1)) if sug_m else avg_p
+
+        if avg_p is not None or sug_p is not None:
+            parsed_records.append({
+                'game_item_id': game_item_id,
+                'server': server,
+                'avg_price': int(avg_p) if avg_p else None,
+                'min_price': int(min_p) if min_p else None,
+                'max_price': int(max_p) if max_p else None,
+                'suggested_price': int(sug_p) if sug_p else None
+            })
+
+    return parsed_records
     
     for i in range(len(matches)):
         start_idx = matches[i].start()
