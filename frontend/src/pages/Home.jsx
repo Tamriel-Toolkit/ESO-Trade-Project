@@ -57,14 +57,14 @@ function Home() {
   }, []);
 
   return (
-    <>
+    <div className="body">
       <Navbar />
       <div style={{ display: "flex", flexWrap: "wrap", gap: "1rem" }}>
         {categories.map((category) => (
           <CategoryCard key={category} category={category} />
         ))}
       </div>
-    </>
+    </div>
   )
 
 }
