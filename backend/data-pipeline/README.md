@@ -1,93 +1,50 @@
-# ESO Master Item Catalog Pipeline
+# ESO Master Item Catalog & Authentic Market Data Pipeline
 
-This directory contains the necessary scripts for acquiring, normalizing, and processing the complete master item catalog for the ESO Trade Project.
+This directory contains the streamlined data pipeline for acquiring, normalizing, and processing the complete master item catalog and authentic live market data for the ESO Trade Project.
 
-## Overview
+## Core Scripts Architecture
 
-The platform uses the **`minedItemSummary`** dataset provided by the UESP as its authoritative data source. This dataset represents unique `game_item_id`s discovered directly from the raw ESO game client files and logged in-game.
+The data pipeline consists of the following core scripts:
 
-The pipeline fetches this dataset directly via the UESP JSON API, normalizes the raw fields into human-readable categories, and compiles them into a structured JSON manifest (`backend/exports/items.json`) matching our PostgreSQL target schema layout.
+1. **`fetch_and_ingest.py`**:
+   - Queries UESP's JSON export API (`minedItemSummary`) to harvest the full 155,000+ item master catalog into `backend/exports/items.json`.
 
-### The Metadata Schema
-The ingest script maps raw and dynamic fields into structured metadata to prevent information loss:
-- **Raw ESO Types**: `type`, `weapon_type`, `armor_type`, `craft_type`, `equip_type`, and `bind_type` are saved under `metadata.raw`.
-- **Rarity / Quality**: Parses quality ranges (like `"1-5"` into base rarity `5` and preserves the range as `metadata.quality_range`).
-- **Research Readiness**: Populates `trait_id`, `trait_description`, and `style_id` for accurate progression checks.
-- **Sets**: Populates `metadata.set` with the set name, set ID, and a list of all active set bonuses.
-- **Furnishing & Stats**: Captures furnishing flags and numeric item statistics (armor, weapon power).
+2. **`populate_sqlite.py`**:
+   - Compiles `items.json` into the local SQLite database (`backend/exports/eso_catalog.db`).
+   - Builds tables (`items`, `item_prices`, `guild_trader_listings`) and search indexes.
 
-## Workflow
+3. **`fetch_market_data.py`**:
+   - Ingests official Tamriel Trade Centre (`PriceTableNA.lua` / `PriceTableEU.lua`) market archives.
+   - Computes and populates authentic price statistics (`avg_price`, `min_price`, `max_price`, `suggested_price`) in `item_prices`.
 
-### 1. Acquire and Normalize the Data
-The fetch and ingestion are consolidated into a single range-based API scraper. It queries UESP's JSON export API in chunks of 10,000 IDs to assemble the full catalog.
+4. **`live_trader_extractor.py`**:
+   - Scrapes 100% REAL live active guild trader listings directly from Tamriel Trade Centre's search portal using Playwright.
+   - Supports on-demand search extraction and broad category sweeps (`ItemCategory1ID=1..10`).
 
-To execute the pipeline:
+5. **`parse_saved_variables.py`**:
+   - Parses local in-game player guild trader scans logged by the official TTC addon (`TamrielTradeCentre.lua` SavedVariables file).
+
+6. **`watcher.py`**:
+   - Real-time file watcher daemon that monitors `TamrielTradeCentre.lua` and automatically ingests new in-game trader scans into the local database as you play ESO or run the TTC client.
+
+7. **`purge_synthetic_listings.py`**:
+   - Utility script to purge any legacy synthetic or test listing entries from `guild_trader_listings`.
+
+---
+
+## Quick Start & Verification
+
+### 1. Run Real-Time Addon Watcher Daemon
 ```bash
-python3 data-pipeline/fetch_and_ingest.py
+python data-pipeline/watcher.py
 ```
 
-#### Custom Options:
-* Run a quick test (fetch a small range of IDs):
-  ```bash
-  python3 data-pipeline/fetch_and_ingest.py --test
-  ```
-* Fetch custom ranges (e.g. only new item IDs):
-  ```bash
-  python3 data-pipeline/fetch_and_ingest.py --start-id 260000 --end-id 280000
-  ```
-* Set an output item limit:
-  ```bash
-  python3 data-pipeline/fetch_and_ingest.py --limit 1000
-  ```
-
-### 2. Validate the Output
-Validate that the generated `backend/exports/items.json` conform precisely to the required system schema requirements:
+### 2. Extract Live Kiosk Listings via TTC Search Web Portal
 ```bash
-python3 data-pipeline/validate_items.py
+python data-pipeline/live_trader_extractor.py --limit 35
 ```
 
-### Data Flow Diagram
-```text
-UESP Database (minedItemSummary)
-       ↓ (JSON API / exportJson.php)
-data-pipeline/fetch_and_ingest.py (Chunked HTTP Fetcher)
-       ↓ (Normalization & Mapping)
-backend/exports/items.json
-       ↓
-PostgreSQL ITEM Table
+### 3. Verify Database & API Endpoints
+```bash
+node data-pipeline/test_api_endpoints.js
 ```
-
-## Setting Up a New Instance / Regenerating the Database
-
-If you are setting up a new instance of the application or need to regenerate the catalog and local database:
-
-1. **Install Dependencies**:
-   Make sure you have the required libraries installed:
-   ```bash
-   pip install -r data-pipeline/requirements.txt
-   ```
-
-2. **Fetch and Normalize the Catalog**:
-   Run the ingestion script to harvest all items directly from the UESP API. This creates the master catalog file (`backend/exports/items.json`):
-   ```bash
-   python3 data-pipeline/fetch_and_ingest.py
-   ```
-   *(To run a quick verification instead of the full 155k download, run `python3 data-pipeline/fetch_and_ingest.py --test`)*
-
-3. **Validate the Catalog**:
-   Verify that the generated JSON catalog matches the target schema constraints:
-   ```bash
-   python3 data-pipeline/validate_items.py
-   ```
-
-4. **Compile the Relational Database**:
-   Run the SQLite populator script to create the SQL tables, build search indexes, and insert all items into a local relational database file (`backend/exports/eso_catalog.db`):
-   ```bash
-   python3 data-pipeline/populate_sqlite.py
-   ```
-
-5. **Test Query Operations**:
-   Execute the query test script to verify that relational queries operate correctly:
-   ```bash
-   python3 data-pipeline/test_db_queries.py
-   ```

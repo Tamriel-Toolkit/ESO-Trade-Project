@@ -1,53 +1,57 @@
-import time
+#!/usr/bin/env python3
+"""
+Background SavedVariables File Watcher Daemon for Real-Time Trade Sync
+
+Monitors both:
+1. `SavedVariables/ESOTrade.lua` (Our Native Custom ESO Addon)
+2. `SavedVariables/TamrielTradeCentre.lua` (Legacy TTC Addon)
+
+Whenever ESO writes scanner data to disk, this watcher automatically
+ingests the new trader scans into the central database and pushes to the web API!
+"""
+
 import os
-import sqlite3
-from fetch_market_data import parse_ttc_lua_content, upsert_market_data, DEFAULT_DB_PATH, CACHE_DIR
+import sys
+import time
+import subprocess
+
+sys.stdout.reconfigure(encoding='utf-8')
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PARSER_TTC = os.path.join(SCRIPT_DIR, "parse_saved_variables.py")
+PARSER_ESOTRADE = os.path.join(SCRIPT_DIR, "parse_esotrade_addon.py")
 
 WATCH_PATHS = [
-    os.path.join(CACHE_DIR, "PriceTableNA.lua"),
-    os.path.join(CACHE_DIR, "PriceTableEU.lua"),
-    os.path.expanduser("~/Documents/Elder Scrolls Online/live/SavedVariables/TamrielTradeCentre.lua")
+    os.path.expanduser("~/Documents/Elder Scrolls Online/live/SavedVariables/ESOTrade.lua"),
+    os.path.expanduser("~/OneDrive/Documents/Elder Scrolls Online/live/SavedVariables/ESOTrade.lua"),
+    os.path.expanduser("~/Documents/Elder Scrolls Online/live/SavedVariables/TamrielTradeCentre.lua"),
+    os.path.expanduser("~/OneDrive/Documents/Elder Scrolls Online/live/SavedVariables/TamrielTradeCentre.lua"),
 ]
 
-def check_and_ingest():
-    conn = sqlite3.connect(DEFAULT_DB_PATH)
-    processed_any = False
-
-    for path in WATCH_PATHS:
-        if os.path.exists(path):
-            last_mtime = getattr(check_and_ingest, f"mtime_{hash(path)}", 0)
-            current_mtime = os.path.getmtime(path)
-
-            if current_mtime > last_mtime:
-                server = "EU" if "EU" in path else "NA"
-                print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Detected updated market file: {path} ({server} server)")
-                try:
-                    with open(path, "r", encoding="utf-8", errors="ignore") as f:
-                        content = f.read()
-                    records = parse_ttc_lua_content(content, server=server)
-                    if records:
-                        count = upsert_market_data(conn, records)
-                        print(f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] Auto-ingested {count} REAL live market records into database!")
-                        setattr(check_and_ingest, f"mtime_{hash(path)}", current_mtime)
-                        processed_any = True
-                except Exception as e:
-                    print(f"[Error] Failed to process {path}: {e}")
-
-    conn.close()
-    return processed_any
-
-def start_watcher(interval_seconds=10):
-    print(f"=== Starting Automated Real-Market Data Watcher Service ===")
-    print(f"Monitoring real market files every {interval_seconds} seconds...")
-    for p in WATCH_PATHS:
-        print(f"  - {p}")
+def start_watching(poll_interval=2):
+    print("================================================================")
+    print("=== REAL-TIME ESO TRADE ADDON & SAVEDVARIABLES WATCHER DAEMON ===")
+    print("================================================================")
     
+    last_mtimes = {}
+
     try:
         while True:
-            check_and_ingest()
-            time.sleep(interval_seconds)
+            for path in WATCH_PATHS:
+                if os.path.exists(path):
+                    mtime = os.path.getmtime(path)
+                    if path not in last_mtimes:
+                        last_mtimes[path] = mtime
+                    elif mtime > last_mtimes[path]:
+                        print(f"\n[File Modified] {os.path.basename(path)} update detected at {time.strftime('%H:%M:%S')}!")
+                        if "ESOTrade.lua" in path:
+                            subprocess.run([sys.executable, PARSER_ESOTRADE, "--file", path])
+                        else:
+                            subprocess.run([sys.executable, PARSER_TTC, "--file", path])
+                        last_mtimes[path] = mtime
+            time.sleep(poll_interval)
     except KeyboardInterrupt:
-        print("\nWatcher service stopped.")
+        print("\nWatcher daemon stopped.")
 
 if __name__ == "__main__":
-    start_watcher()
+    start_watching()

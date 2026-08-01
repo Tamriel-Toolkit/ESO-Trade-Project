@@ -46,17 +46,30 @@ def parse_ttc_lookup_table(lookup_content, db_conn):
     Parses ItemLookUpTable_EN.lua content and maps TTC internal item IDs to master catalog game_item_ids.
     """
     cursor = db_conn.cursor()
-    cursor.execute("SELECT LOWER(name), game_item_id FROM items WHERE name IS NOT NULL AND name != ''")
-    name_to_game_id = {row[0]: row[1] for row in cursor.fetchall()}
+    cursor.execute("SELECT LOWER(name), rarity, game_item_id FROM items WHERE name IS NOT NULL AND name != '' ORDER BY game_item_id ASC")
+    name_rarity_to_game_id = {}
+    name_first_game_id = {}
+    for name_lower, rarity, game_id in cursor.fetchall():
+        if (name_lower, rarity) not in name_rarity_to_game_id:
+            name_rarity_to_game_id[(name_lower, rarity)] = game_id
+        if name_lower not in name_first_game_id:
+            name_first_game_id[name_lower] = game_id
     
-    lookup_regex = re.compile(r'\["([^"]+)"\]=\{[^\}]*?=(\d+),?\s*\}')
+    lookup_regex = re.compile(r'\["([^"]+)"\]\s*=\s*\{([^}]+?)\}')
     ttc_id_to_game_id = {}
     
     for m in lookup_regex.finditer(lookup_content):
         name_lower = m.group(1).lower()
-        ttc_id = int(m.group(2))
-        if name_lower in name_to_game_id:
-            ttc_id_to_game_id[ttc_id] = name_to_game_id[name_lower]
+        sub_content = m.group(2)
+        # Extract [sub_key] = ttc_id pairs
+        pair_matches = re.findall(r'\[(\d+)\]\s*=\s*(\d+)', sub_content)
+        for sub_key, ttc_id_str in pair_matches:
+            ttc_id = int(ttc_id_str)
+            sub_val = int(sub_key)
+            # Match by name and sub_val if valid rarity, or fallback to first game_id
+            game_id = name_rarity_to_game_id.get((name_lower, sub_val)) or name_first_game_id.get(name_lower)
+            if game_id:
+                ttc_id_to_game_id[ttc_id] = game_id
 
     print(f"Mapped {len(ttc_id_to_game_id)} TTC internal IDs directly to master catalog game_item_ids.")
     return ttc_id_to_game_id
@@ -68,20 +81,26 @@ def parse_ttc_lua_content(content, server, lookup_mapping=None):
     """
     print(f"Parsing TTC Lua data for {server} server ({len(content)} chars)...")
     
-    # Matches top-level item entries in minified or multi-line self.PriceTable={["Data"]={...}}
-    item_regex = re.compile(r'(?:\["Data"\]=\{|\,)\s*\[(\d+)\]\s*=\s*\{')
+    # Matches strict top-level item entries enforcing quality subtable [0-5] immediately inside
+    item_regex = re.compile(r'(?:\["Data"\]=\{|\,)\s*\[(\d+)\]\s*=\s*\{\s*\[[0-5]\]\s*=')
     matches = list(item_regex.finditer(content))
     
     if not matches:
         print(f"[Warning] No item ID matches found in {server} Lua content.")
         return []
 
-    print(f"Found {len(matches)} item ID boundaries for {server}.")
+    print(f"Found {len(matches)} strict top-level item ID boundaries for {server}.")
     parsed_records = []
+    processed_ttc_ids = set()
 
     for i in range(len(matches)):
         ttc_item_id = int(matches[i].group(1))
         
+        # Only process the FIRST top-level occurrence of each TTC Item ID
+        if ttc_item_id in processed_ttc_ids:
+            continue
+        processed_ttc_ids.add(ttc_item_id)
+
         # Map TTC item ID to game_item_id using lookup_mapping if available
         game_item_id = lookup_mapping.get(ttc_item_id, ttc_item_id) if lookup_mapping else ttc_item_id
 
@@ -89,24 +108,31 @@ def parse_ttc_lua_content(content, server, lookup_mapping=None):
         end_pos = matches[i+1].start() if i + 1 < len(matches) else len(content)
         block = content[start_pos:end_pos]
 
-        avg_m = re.search(r'\["A"\]\s*=\s*([\d\.]+)', block)
-        min_m = re.search(r'\["N"\]\s*=\s*([\d\.]+)', block)
-        max_m = re.search(r'\["X"\]\s*=\s*([\d\.]+)', block)
-        sug_m = re.search(r'\["S"\]\s*=\s*([\d\.]+)', block) or re.search(r'\["SA"\]\s*=\s*([\d\.]+)', block)
+        s_m = re.search(r'\["S"\]\s*=\s*([\d\.]+)', block)
+        sa_m = re.search(r'\["SA"\]\s*=\s*([\d\.]+)', block)
+        a_m = re.search(r'\["A"\]\s*=\s*([\d\.]+)', block)
+        n_m = re.search(r'\["N"\]\s*=\s*([\d\.]+)', block)
+        x_m = re.search(r'\["X"\]\s*=\s*([\d\.]+)', block)
 
-        avg_p = float(avg_m.group(1)) if avg_m else None
-        min_p = float(min_m.group(1)) if min_m else None
-        max_p = float(max_m.group(1)) if max_m else None
-        sug_p = float(sug_m.group(1)) if sug_m else avg_p
+        s_val = float(s_m.group(1)) if s_m else None
+        sa_val = float(sa_m.group(1)) if sa_m else None
+        a_val = float(a_m.group(1)) if a_m else None
+        n_val = float(n_m.group(1)) if n_m else None
+        x_val = float(x_m.group(1)) if x_m else None
 
-        if avg_p is not None or sug_p is not None:
+        sug_p = s_val if s_val is not None else (sa_val if sa_val is not None else (n_val if n_val is not None else a_val))
+        avg_p = sa_val if sa_val is not None else (s_val if s_val is not None else a_val)
+        min_p = n_val if n_val is not None else sug_p
+        max_p = x_val if x_val is not None else sug_p
+
+        if sug_p is not None and sug_p > 0:
             parsed_records.append({
                 'game_item_id': game_item_id,
                 'server': server,
-                'avg_price': int(avg_p) if avg_p else None,
-                'min_price': int(min_p) if min_p else None,
-                'max_price': int(max_p) if max_p else None,
-                'suggested_price': int(sug_p) if sug_p else None
+                'avg_price': int(avg_p or sug_p),
+                'min_price': int(min_p or sug_p),
+                'max_price': int(max_p or sug_p),
+                'suggested_price': int(sug_p)
             })
 
     return parsed_records
@@ -290,20 +316,7 @@ def generate_mock_market_data(db_conn, count=0, server="NA"):
         else:
             possible_quantities = [1, 2, 5, 10]
 
-        # Generate active listings for ~35% of market pool items
-        if random.random() < 0.35:
-            for _ in range(random.randint(1, 4)):
-                listings.append({
-                    'game_item_id': item_id,
-                    'server': server,
-                    'price': int(avg * random.uniform(0.70, 1.25)),
-                    'quantity': random.choice(possible_quantities),
-                    'guild_name': random.choice(guild_names),
-                    'location': random.choice(locations),
-                    'expires_at': time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(time.time() + random.randint(86400, 2592000)))
-                })
-
-    return prices, listings
+    return prices, []
 
 def upsert_market_data(db_conn, price_records, listing_records=None):
     """

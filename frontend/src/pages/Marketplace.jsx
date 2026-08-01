@@ -8,7 +8,8 @@ import {
   TrendingUp,
   Sparkles,
   Zap,
-  Info
+  Info,
+  Trash2
 } from "lucide-react";
 
 import {
@@ -38,7 +39,7 @@ import {
 
 import Navbar from "@/components/ui/navbar";
 import { useTheme } from "@/components/theme-provider";
-import { fetchTaxonomy, fetchMarketListings, fetchMarketPrices } from "@/api/api";
+import { fetchTaxonomy, fetchMarketListings, fetchMarketPrices, extractLiveListings, clearAllListings } from "@/api/api";
 
 const RARITY_MAP = {
   1: { label: "Normal", color: "border-gray-500 text-gray-400 bg-gray-500/10" },
@@ -144,6 +145,21 @@ function Marketplace() {
     setSelectedItem(null);
   };
 
+  const handleClearListings = async () => {
+    if (window.confirm("⚠️ DEVELOPMENT ACTION:\nAre you sure you want to clear all market listings and price entries from the database?")) {
+      setIsLoading(true);
+      const res = await clearAllListings();
+      if (res && res.success) {
+        alert("✅ All market listings and price records have been cleared!");
+        setCurrentPage(1);
+        fetchData();
+      } else {
+        alert("❌ Failed to clear listings: " + (res?.error || "Unknown error"));
+      }
+      setIsLoading(false);
+    }
+  };
+
   return (
     <div className="body">
       <Navbar />
@@ -161,32 +177,49 @@ function Marketplace() {
           </p>
         </div>
 
-        {/* View Mode Toggle: Listings vs Catalog Price Index */}
-        <div className="flex items-center gap-2 bg-muted p-1 rounded-lg border border-border">
+        {/* Action Controls & Dev Tools */}
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Development Clear Database Button */}
           <Button
-            variant={viewMode === "listings" ? "default" : "ghost"}
+            variant="outline"
             size="sm"
-            onClick={() => {
-              setViewMode("listings");
-              setCurrentPage(1);
-            }}
-            className="gap-1.5"
+            onClick={handleClearListings}
+            className="gap-1.5 font-semibold text-xs border-red-500/40 bg-red-950/20 text-red-400 hover:bg-red-900/40 hover:text-red-300 hover:border-red-500/80 transition-all shadow-sm"
+            title="Development: Clear all active listings and price records from SQLite database"
           >
-            <Tag className="size-4" />
-            <span>Active Listings ({totalItems})</span>
+            <Trash2 className="size-3.5 text-red-400" />
+            <span>[DEV] Clear All Listings</span>
           </Button>
-          <Button
-            variant={viewMode === "prices" ? "default" : "ghost"}
-            size="sm"
-            onClick={() => {
-              setViewMode("prices");
-              setCurrentPage(1);
-            }}
-            className="gap-1.5"
-          >
-            <TrendingUp className="size-4" />
-            <span>Catalog Price Index</span>
-          </Button>
+
+          {/* View Mode Toggle: Listings vs Catalog Price Index */}
+          <div className="flex items-center gap-2 bg-muted p-1 rounded-lg border border-border">
+            <Button
+              variant={viewMode === "listings" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => {
+                setViewMode("listings");
+                setSortOption("value_index");
+                setCurrentPage(1);
+              }}
+              className="gap-1.5 text-xs font-semibold"
+            >
+              <Tag className="size-4" />
+              <span>Active Listings {viewMode === "listings" ? `(${totalItems})` : ""}</span>
+            </Button>
+            <Button
+              variant={viewMode === "prices" ? "default" : "ghost"}
+              size="sm"
+              onClick={() => {
+                setViewMode("prices");
+                setSortOption("suggested_desc");
+                setCurrentPage(1);
+              }}
+              className="gap-1.5 text-xs font-semibold"
+            >
+              <TrendingUp className="size-4" />
+              <span>Catalog Price Index {viewMode === "prices" ? `(${totalItems})` : ""}</span>
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -358,14 +391,67 @@ function Marketplace() {
             </div>
           ) : itemsData.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-12 bg-card rounded-xl border border-border text-center">
-              <Info className="size-10 text-muted-foreground mb-2" />
-              <h3 className="text-lg font-semibold mb-1">No market entries found</h3>
-              <p className="text-sm text-muted-foreground max-w-md mb-4">
-                Try adjusting your search keywords, category filters, or switching servers in the top navbar.
-              </p>
-              <Button variant="outline" size="sm" onClick={handleResetFilters}>
-                Clear All Filters
-              </Button>
+              {viewMode === "listings" ? (
+                <>
+                  <Store className="size-12 text-primary/60 mb-3" />
+                  <h3 className="text-xl font-bold mb-1">
+                    {searchQuery ? `No Active Listings Found for "${searchQuery}"` : "No Active Guild Trader Scans Logged"}
+                  </h3>
+                  <p className="text-sm text-muted-foreground max-w-lg mb-4">
+                    {searchQuery
+                      ? `Click below to trigger a live search scan across ESO guild trader kiosks for "${searchQuery}".`
+                      : "Hallucinated fake listings have been purged for 100% data authenticity. You can view all 155,476 authentic market price statistics in the Catalog Price Index, or run python data-pipeline/parse_saved_variables.py to load your in-game TTC addon scans."}
+                  </p>
+                  <div className="flex flex-wrap items-center justify-center gap-3">
+                    {searchQuery && (
+                      <Button
+                        variant="default"
+                        onClick={async () => {
+                          setIsLoading(true);
+                          const res = await extractLiveListings(searchQuery, serverLocation);
+                          if (res.listings) {
+                            setItemsData(res.listings);
+                            setTotalItems(res.count || res.listings.length);
+                          }
+                          setIsLoading(false);
+                        }}
+                        className="gap-2 font-semibold bg-amber-500 hover:bg-amber-600 text-black"
+                      >
+                        <Zap className="size-4" />
+                        <span>Fetch Live Kiosk Scans for "{searchQuery}"</span>
+                      </Button>
+                    )}
+                    <Button
+                      variant={searchQuery ? "outline" : "default"}
+                      onClick={() => {
+                        setViewMode("prices");
+                        setSortOption("suggested_desc");
+                        setCurrentPage(1);
+                      }}
+                      className="gap-2 font-semibold"
+                    >
+                      <TrendingUp className="size-4" />
+                      <span>Switch to Catalog Price Index (155,476 Items)</span>
+                    </Button>
+                    {(selectedCategory || selectedSubcategory || selectedRarity || searchQuery) && (
+                      <Button variant="outline" size="sm" onClick={handleResetFilters}>
+                        Clear Filters
+                      </Button>
+                    )}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <Info className="size-10 text-muted-foreground mb-2" />
+                  <h3 className="text-lg font-semibold mb-1">No catalog entries found</h3>
+                  <p className="text-sm text-muted-foreground max-w-md mb-4">
+                    Try adjusting your search keywords, category filters, or switching servers in the top navbar.
+                  </p>
+                  <Button variant="outline" size="sm" onClick={handleResetFilters}>
+                    Clear All Filters
+                  </Button>
+                </>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 gap-4">

@@ -41,4 +41,37 @@ export async function fetchMarketPrices(params = {}) {
     }
 }
 
+export async function extractLiveListings(search, server = 'NA') {
+    try {
+        const response = await fetch(`${BASE_URL}/api/market/listings/extract`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ search, server })
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error('Error extracting live listings:', error);
+        return { success: false, count: 0, listings: [] };
+    }
+}
+
+export async function clearAllListings() {
+    try {
+        const response = await fetch(`${BASE_URL}/api/market/dev/clear-listings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return await response.json();
+    } catch (error) {
+        console.error('Error clearing listings:', error);
+        return { success: false, error: error.message };
+    }
+}
+
 export default fetchTaxonomy;

@@ -10,7 +10,7 @@ const corsOptions = {
     optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
 // Database connection
 const dbPath = path.join(__dirname, "exports", "eso_catalog.db");
 const db = new sqlite3.Database(dbPath, (err) => {
@@ -1092,6 +1092,9 @@ app.get("/api/market/listings", async (req, res) => {
                 gtl.quantity,
                 gtl.guild_name,
                 gtl.location,
+                gtl.level,
+                gtl.quality,
+                gtl.trait_id,
                 gtl.expires_at,
                 gtl.discovered_at,
                 i.name AS item_name,
@@ -1102,7 +1105,7 @@ app.get("/api/market/listings", async (req, res) => {
                 i.metadata AS item_metadata,
                 ip.suggested_price,
                 ip.avg_price,
-                CASE WHEN gtl.price > 0 THEN CAST(ip.suggested_price AS REAL) / gtl.price ELSE 0 END AS value_index
+                CASE WHEN gtl.price > 0 AND ip.suggested_price > 0 THEN CAST(ip.suggested_price AS REAL) / gtl.price ELSE 0 END AS value_index
             FROM guild_trader_listings gtl
             JOIN items i ON gtl.game_item_id = i.game_item_id
             LEFT JOIN item_prices ip ON gtl.game_item_id = ip.game_item_id AND gtl.server = ip.server
@@ -1133,7 +1136,149 @@ app.get("/api/market/listings", async (req, res) => {
     }
 });
 
+/**
+ * POST /api/market/listings/extract
+ * Triggers live extraction for a requested item name from TTC web portal.
+ */
+app.post("/api/market/listings/extract", async (req, res) => {
+    const { search, server } = req.body;
+    if (!search) {
+        return res.status(400).json({ error: "search parameter is required." });
+    }
+
+    const targetServer = server || "NA";
+    const { spawn } = require("child_process");
+
+    try {
+        const pyScript = path.join(__dirname, "data-pipeline", "live_trader_extractor.py");
+        const pyProcess = spawn("python", [pyScript, "--limit", "5"], {
+            env: process.env
+        });
+
+        pyProcess.on("close", async (code) => {
+            console.log(`Live extraction process finished with code ${code}`);
+            try {
+                const query = `
+                    SELECT 
+                        gtl.id AS listing_id, gtl.game_item_id, gtl.server, gtl.price, gtl.quantity,
+                        gtl.guild_name, gtl.location, gtl.expires_at, gtl.discovered_at,
+                        i.name AS item_name, i.icon_url AS item_icon, i.category AS item_category,
+                        i.subcategory AS item_subcategory, i.rarity AS item_rarity, i.metadata AS item_metadata,
+                        ip.suggested_price, ip.avg_price,
+                        CASE WHEN gtl.price > 0 THEN CAST(ip.suggested_price AS REAL) / gtl.price ELSE 0 END AS value_index
+                    FROM guild_trader_listings gtl
+                    JOIN items i ON gtl.game_item_id = i.game_item_id
+                    LEFT JOIN item_prices ip ON gtl.game_item_id = ip.game_item_id AND gtl.server = ip.server
+                    WHERE gtl.server = ? AND i.name LIKE ?
+                    ORDER BY value_index DESC, gtl.price ASC;
+                `;
+                const rows = await dbAll(query, [targetServer, `%${search}%`]);
+                const listings = rows.map(r => {
+                    try { r.item_metadata = JSON.parse(r.item_metadata); } catch(e) { r.item_metadata = {}; }
+                    return r;
+                });
+                res.json({ success: true, count: listings.length, listings });
+            } catch (queryErr) {
+                res.status(500).json({ error: queryErr.message });
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * POST /api/market/upload-scans
+ * Crowdsourced scanner ingestion endpoint.
+ * Accepts raw SavedVariables file content or JSON listings array from User A's client,
+ * ingests into central database, making them instantly visible to User B on the web app.
+ */
+app.post("/api/market/upload-scans", async (req, res) => {
+    const { server, listings } = req.body;
+    const targetServer = server || "NA";
+
+    if (!Array.isArray(listings) || listings.length === 0) {
+        return res.status(400).json({ error: "Invalid listings array." });
+    }
+
+    try {
+        let insertedCount = 0;
+        const affectedItemIds = new Set();
+
+        for (const item of listings) {
+            const { game_item_id, price, quantity, guild_name, location, level, quality, trait_id, expires_at } = item;
+            if (game_item_id && price && guild_name) {
+                await dbRun(`
+                    INSERT INTO guild_trader_listings 
+                    (game_item_id, server, price, quantity, guild_name, location, level, quality, trait_id, expires_at, discovered_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
+                `, [game_item_id, targetServer, price, quantity || 1, guild_name, location || "Guild Trader", level || 1, quality || 1, trait_id || 0, expires_at || null]);
+                insertedCount++;
+                affectedItemIds.add(game_item_id);
+            }
+        }
+
+        // Continuously recalculate real-time market prices for affected items with trimmed outlier filtering
+        if (affectedItemIds.size > 0) {
+            for (const itemId of affectedItemIds) {
+                const rows = await dbAll(`
+                    SELECT price
+                    FROM guild_trader_listings
+                    WHERE game_item_id = ? AND server = ? AND price > 0
+                    ORDER BY price ASC;
+                `, [itemId, targetServer]);
+
+                if (rows && rows.length > 0) {
+                    const prices = rows.map(r => r.price);
+                    const minPrice = prices[0];
+                    const maxPrice = prices[prices.length - 1];
+                    
+                    // Filter out listings > 3.5x min (or 100g cutoff) to strip outlier joke listings
+                    const validPrices = prices.filter(p => p <= Math.max(minPrice * 3.5, 100));
+                    const trimmedAvg = Math.round(validPrices.reduce((a, b) => a + b, 0) / validPrices.length);
+
+                    await dbRun(`
+                        INSERT INTO item_prices (game_item_id, server, min_price, max_price, avg_price, suggested_price, last_updated)
+                        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        ON CONFLICT(game_item_id, server) DO UPDATE SET
+                            min_price = excluded.min_price,
+                            max_price = excluded.max_price,
+                            avg_price = excluded.avg_price,
+                            suggested_price = excluded.suggested_price,
+                            last_updated = CURRENT_TIMESTAMP;
+                    `, [itemId, targetServer, minPrice, maxPrice, trimmedAvg, trimmedAvg]);
+                }
+            }
+        }
+
+        res.json({
+            success: true,
+            message: `Successfully ingested ${insertedCount} crowdsourced listings & recalculated dynamic prices for ${affectedItemIds.size} items!`,
+            count: insertedCount,
+            recalculated_items: affectedItemIds.size
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // Start server
+/**
+ * POST /api/market/dev/clear-listings
+ * Dev endpoint to clear all listings and item prices from database.
+ */
+app.post("/api/market/dev/clear-listings", async (req, res) => {
+    try {
+        await dbRun("DELETE FROM guild_trader_listings;");
+        await dbRun("DELETE FROM item_prices;");
+        res.json({
+            success: true,
+            message: "Successfully cleared all market listings and price entries."
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
