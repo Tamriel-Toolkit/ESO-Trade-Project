@@ -305,14 +305,18 @@ const dbAll = (sql, params = []) => new Promise((resolve, reject) => {
  * Returns a list of all characters in the database
  */
 app.get("/api/characters", async (req, res) => {
+    const userId = getAuthUserId(req);
+    if (!userId) {
+        return res.json({ success: true, characters: [] });
+    }
     try {
-        const rows = await dbAll("SELECT id, name, class, level, is_master_crafter, last_sync_at FROM characters ORDER BY name;");
-        // Convert is_master_crafter integer (0/1) to boolean
-        const characters = rows.map(row => ({
-            ...row,
-            is_master_crafter: row.is_master_crafter === 1
-        }));
-        res.json(characters);
+        const characters = await dbAll(`
+            SELECT id, user_id, name, class, level, master_crafter_unlocked, alliance, last_sync_at
+            FROM characters
+            WHERE user_id = ?
+            ORDER BY level DESC, name ASC;
+        `, [userId]);
+        res.json({ success: true, characters });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -1194,7 +1198,7 @@ app.post("/api/market/listings/extract", async (req, res) => {
  * ingests into central database, making them instantly visible to User B on the web app.
  */
 app.post("/api/market/upload-scans", async (req, res) => {
-    const { server, listings } = req.body;
+    const { server, listings, player_name, player_class, player_level, player_alliance, master_crafter } = req.body;
     const targetServer = server || "NA";
 
     if (!Array.isArray(listings) || listings.length === 0) {
@@ -1202,6 +1206,23 @@ app.post("/api/market/upload-scans", async (req, res) => {
     }
 
     try {
+        const userId = getAuthUserId(req) || 1; // Default to Blake (1) for dev sync
+
+        // AUTOMATED CHARACTER AUTO-DISCOVERY: Upsert scanner character into account roster
+        if (player_name) {
+            await dbRun(`
+                INSERT INTO characters (user_id, name, class, level, alliance, master_crafter_unlocked, last_sync_at)
+                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(name) DO UPDATE SET
+                    user_id = excluded.user_id,
+                    class = COALESCE(excluded.class, class),
+                    level = COALESCE(excluded.level, level),
+                    alliance = COALESCE(excluded.alliance, alliance),
+                    master_crafter_unlocked = excluded.master_crafter_unlocked,
+                    last_sync_at = CURRENT_TIMESTAMP;
+            `, [userId, player_name, player_class || "Dragonknight", player_level || 50, player_alliance || 1, master_crafter || 0]);
+        }
+
         let insertedCount = 0;
         const affectedItemIds = new Set();
 
@@ -1211,7 +1232,10 @@ app.post("/api/market/upload-scans", async (req, res) => {
                 await dbRun(`
                     INSERT INTO guild_trader_listings 
                     (game_item_id, server, price, quantity, guild_name, location, level, quality, trait_id, expires_at, discovered_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(game_item_id, server, guild_name, price, quantity, level, quality, trait_id) DO UPDATE SET
+                        discovered_at = CURRENT_TIMESTAMP,
+                        expires_at = COALESCE(excluded.expires_at, expires_at);
                 `, [game_item_id, targetServer, price, quantity || 1, guild_name, location || "Guild Trader", level || 1, quality || 1, trait_id || 0, expires_at || null]);
                 insertedCount++;
                 affectedItemIds.add(game_item_id);
@@ -1279,6 +1303,264 @@ app.post("/api/market/dev/clear-listings", async (req, res) => {
         res.status(500).json({ error: err.message });
     }
 });
+
+// ============================================================================
+// AUTHENTICATION & DEVELOPER BYPASS ENDPOINTS
+// ============================================================================
+const crypto = require("crypto");
+
+function hashPassword(password) {
+    return crypto.createHash("sha256").update(password || "").digest("hex");
+}
+
+function generateToken(user) {
+    return `session_${user.id}_${crypto.randomBytes(16).toString("hex")}`;
+}
+
+const activeSessions = new Map();
+activeSessions.set("dev-token-blake-123", 1);
+activeSessions.set("dev-token-demo-456", 2);
+
+function getAuthUserId(req) {
+    const authHeader = req.headers["authorization"] || req.headers["x-auth-token"];
+    if (!authHeader) return null;
+    const token = authHeader.replace("Bearer ", "").trim();
+    return activeSessions.get(token) || null;
+}
+
+/**
+ * POST /api/auth/register
+ */
+app.post("/api/auth/register", async (req, res) => {
+    const { username, email, password, eso_handle } = req.body;
+    if (!username || !email || !password) {
+        return res.status(400).json({ error: "Username, email, and password are required." });
+    }
+
+    try {
+        const pwHash = hashPassword(password);
+        const apiToken = `api_key_${crypto.randomBytes(16).toString("hex")}`;
+        const handle = eso_handle || `@${username}`;
+
+        const result = await dbRun(`
+            INSERT INTO users (username, email, password_hash, eso_handle, api_token, role)
+            VALUES (?, ?, ?, ?, ?, 'user');
+        `, [username, email, pwHash, handle, apiToken]);
+
+        const user = await dbGet(`SELECT id, username, email, eso_handle, role, api_token, created_at FROM users WHERE id = ?;`, [result.lastID]);
+        const sessionToken = generateToken(user);
+        activeSessions.set(sessionToken, user.id);
+
+        res.json({ success: true, token: sessionToken, user });
+    } catch (err) {
+        res.status(400).json({ error: err.message.includes("UNIQUE") ? "Username or email already taken." : err.message });
+    }
+});
+
+/**
+ * POST /api/auth/login
+ */
+app.post("/api/auth/login", async (req, res) => {
+    const { usernameOrEmail, password } = req.body;
+    if (!usernameOrEmail || !password) {
+        return res.status(400).json({ error: "Username/email and password are required." });
+    }
+
+    try {
+        const pwHash = hashPassword(password);
+        const user = await dbGet(`
+            SELECT id, username, email, eso_handle, role, api_token, created_at 
+            FROM users 
+            WHERE (LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)) AND password_hash = ?;
+        `, [usernameOrEmail, usernameOrEmail, pwHash]);
+
+        if (!user) {
+            return res.status(401).json({ error: "Invalid username/email or password." });
+        }
+
+        const sessionToken = generateToken(user);
+        activeSessions.set(sessionToken, user.id);
+
+        res.json({ success: true, token: sessionToken, user });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * GET /api/auth/me
+ */
+app.get("/api/auth/me", async (req, res) => {
+    const userId = getAuthUserId(req);
+    if (!userId) {
+        return res.status(401).json({ error: "Not authenticated." });
+    }
+
+    try {
+        const user = await dbGet(`SELECT id, username, email, eso_handle, role, api_token, created_at FROM users WHERE id = ?;`, [userId]);
+        if (!user) return res.status(404).json({ error: "User not found." });
+        res.json({ success: true, user });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============================================================================
+// DEVELOPER BYPASS & ACCOUNT MANAGEMENT ENDPOINTS ([DEV])
+// ============================================================================
+
+/**
+ * GET /api/dev/users
+ * Returns list of all registered accounts for developer bypass panel
+ */
+app.get("/api/dev/users", async (req, res) => {
+    try {
+        const users = await dbAll(`
+            SELECT u.id, u.username, u.email, u.eso_handle, u.role, u.api_token, u.created_at,
+                   COUNT(c.id) AS character_count
+            FROM users u
+            LEFT JOIN characters c ON u.id = c.user_id
+            GROUP BY u.id
+            ORDER BY u.id ASC;
+        `);
+        res.json({ success: true, users });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * POST /api/dev/bypass-login
+ * Developer 1-click bypass to log into any account instantly without password
+ */
+app.post("/api/dev/bypass-login", async (req, res) => {
+    const { user_id } = req.body;
+    if (!user_id) return res.status(400).json({ error: "user_id is required." });
+
+    try {
+        const user = await dbGet(`SELECT id, username, email, eso_handle, role, api_token, created_at FROM users WHERE id = ?;`, [user_id]);
+        if (!user) return res.status(404).json({ error: "Account not found." });
+
+        const sessionToken = generateToken(user);
+        activeSessions.set(sessionToken, user.id);
+
+        res.json({
+            success: true,
+            message: `[DEV BYPASS] Successfully logged into account: @${user.username}`,
+            token: sessionToken,
+            user
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * PUT /api/dev/users/:id
+ * Developer edit account details
+ */
+app.put("/api/dev/users/:id", async (req, res) => {
+    const userId = req.params.id;
+    const { username, email, eso_handle, role } = req.body;
+
+    try {
+        await dbRun(`
+            UPDATE users 
+            SET username = COALESCE(?, username),
+                email = COALESCE(?, email),
+                eso_handle = COALESCE(?, eso_handle),
+                role = COALESCE(?, role)
+            WHERE id = ?;
+        `, [username, email, eso_handle, role, userId]);
+
+        const user = await dbGet(`SELECT id, username, email, eso_handle, role, api_token, created_at FROM users WHERE id = ?;`, [userId]);
+        res.json({ success: true, message: "Account updated successfully.", user });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * DELETE /api/dev/users/:id
+ * Developer delete account
+ */
+app.delete("/api/dev/users/:id", async (req, res) => {
+    const userId = req.params.id;
+    try {
+        await dbRun(`DELETE FROM characters WHERE user_id = ?;`, [userId]);
+        await dbRun(`DELETE FROM users WHERE id = ?;`, [userId]);
+        res.json({ success: true, message: `Account ID ${userId} and associated characters deleted.` });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============================================================================
+// CHARACTER MANAGER ENDPOINTS
+// ============================================================================
+
+/**
+ * GET /api/characters
+ */
+app.get("/api/characters", async (req, res) => {
+    const userId = getAuthUserId(req);
+    if (!userId) {
+        return res.json({ success: true, characters: [] });
+    }
+    try {
+        const characters = await dbAll(`
+            SELECT id, user_id, name, class, level, master_crafter_unlocked, alliance, last_sync_at
+            FROM characters
+            WHERE user_id = ?
+            ORDER BY level DESC, name ASC;
+        `, [userId]);
+        res.json({ success: true, characters });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * POST /api/characters
+ */
+app.post("/api/characters", async (req, res) => {
+    const userId = getAuthUserId(req) || 1;
+    const { name, class: charClass, level, alliance, master_crafter_unlocked } = req.body;
+    if (!name) return res.status(400).json({ error: "Character name is required." });
+
+    try {
+        await dbRun(`
+            INSERT INTO characters (user_id, name, class, level, alliance, master_crafter_unlocked, last_sync_at)
+            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(name) DO UPDATE SET
+                user_id = excluded.user_id,
+                class = COALESCE(excluded.class, class),
+                level = COALESCE(excluded.level, level),
+                alliance = COALESCE(excluded.alliance, alliance),
+                master_crafter_unlocked = COALESCE(excluded.master_crafter_unlocked, master_crafter_unlocked),
+                last_sync_at = CURRENT_TIMESTAMP;
+        `, [userId, name, charClass || "Dragonknight", level || 50, alliance || 1, master_crafter_unlocked || 0]);
+
+        const character = await dbGet(`SELECT * FROM characters WHERE name = ?;`, [name]);
+        res.json({ success: true, message: "Character saved successfully.", character });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * DELETE /api/characters/:id
+ */
+app.delete("/api/characters/:id", async (req, res) => {
+    const charId = req.params.id;
+    try {
+        await dbRun(`DELETE FROM characters WHERE id = ?;`, [charId]);
+        res.json({ success: true, message: "Character removed from roster." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
