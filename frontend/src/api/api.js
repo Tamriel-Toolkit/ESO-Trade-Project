@@ -22,6 +22,17 @@ function getHeaders() {
     return headers;
 }
 
+export async function fetchSystemStatus() {
+    try {
+        const response = await fetch(`${BASE_URL}/api/status`);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        return await response.json();
+    } catch (error) {
+        console.error('Error fetching system status:', error);
+        return { success: false, status: 'offline' };
+    }
+}
+
 export async function fetchTaxonomy() {
     try {
         const response = await fetch(`${BASE_URL}/api/taxonomy`);
@@ -209,6 +220,17 @@ export async function deleteCharacter(id) {
     try {
         const response = await fetch(`${BASE_URL}/api/characters/${id}`, {
             method: 'DELETE',
+            headers: getHeaders()
+        });
+        return await response.json();
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function fetchCharacterProfile(id) {
+    try {
+        const response = await fetch(`${BASE_URL}/api/characters/${id}/profile`, {
             headers: getHeaders()
         });
         return await response.json();

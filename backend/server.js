@@ -71,6 +71,30 @@ function initializeDatabaseSchema() {
         });
 
         db.run(`
+            CREATE TABLE IF NOT EXISTS character_gear (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                character_id INTEGER NOT NULL,
+                slot_id INTEGER NOT NULL,
+                game_item_id INTEGER NOT NULL,
+                item_name TEXT NOT NULL,
+                item_link TEXT NOT NULL,
+                quality INTEGER DEFAULT 1,
+                trait_id INTEGER DEFAULT 0,
+                set_name TEXT,
+                enchantment_description TEXT,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(character_id) REFERENCES characters(id) ON DELETE CASCADE,
+                UNIQUE(character_id, slot_id)
+            );
+        `, (err) => {
+            if (err) {
+                console.error("Error creating 'character_gear' table:", err.message);
+            } else {
+                console.log("'character_gear' table initialized successfully.");
+            }
+        });
+
+        db.run(`
             CREATE TABLE IF NOT EXISTS item_prices (
                 game_item_id INTEGER,
                 server TEXT,
@@ -95,10 +119,15 @@ function initializeDatabaseSchema() {
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 game_item_id INTEGER,
                 server TEXT,
+                seller_name TEXT DEFAULT '@Unknown',
                 price INTEGER,
                 quantity INTEGER,
+                active_stacks INTEGER DEFAULT 1,
                 guild_name TEXT,
                 location TEXT,
+                level INTEGER DEFAULT 1,
+                quality INTEGER DEFAULT 1,
+                trait_id INTEGER DEFAULT 0,
                 expires_at TEXT,
                 discovered_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 FOREIGN KEY (game_item_id) REFERENCES items(game_item_id) ON DELETE CASCADE
@@ -111,42 +140,19 @@ function initializeDatabaseSchema() {
             }
         });
 
-        db.run(`
-            CREATE TABLE IF NOT EXISTS user_inventory (
-                character_id INTEGER,
-                game_item_id INTEGER,
-                quantity INTEGER DEFAULT 1,
-                PRIMARY KEY (character_id, game_item_id),
-                FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
-                FOREIGN KEY (game_item_id) REFERENCES items(game_item_id) ON DELETE CASCADE
-            );
-        `, (err) => {
-            if (err) {
-                console.error("Error creating 'user_inventory' table:", err.message);
-            } else {
-                console.log("'user_inventory' table initialized successfully.");
-            }
-        });
+        // Migration columns for existing databases
+        db.run("ALTER TABLE guild_trader_listings ADD COLUMN seller_name TEXT DEFAULT '@Unknown';", (err) => {});
+        db.run("ALTER TABLE guild_trader_listings ADD COLUMN active_stacks INTEGER DEFAULT 1;", (err) => {});
+        db.run("ALTER TABLE guild_trader_listings ADD COLUMN level INTEGER DEFAULT 1;", (err) => {});
+        db.run("ALTER TABLE guild_trader_listings ADD COLUMN quality INTEGER DEFAULT 1;", (err) => {});
+        db.run("ALTER TABLE guild_trader_listings ADD COLUMN trait_id INTEGER DEFAULT 0;", (err) => {});
 
+        // Drop old indexes and create robust seller compound unique index
+        db.run("DROP INDEX IF EXISTS idx_unique_listing;");
         db.run(`
-            CREATE TABLE IF NOT EXISTS watchlists (
-                character_id INTEGER,
-                game_item_id INTEGER,
-                target_price INTEGER,
-                is_notified INTEGER DEFAULT 0,
-                PRIMARY KEY (character_id, game_item_id),
-                FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
-                FOREIGN KEY (game_item_id) REFERENCES items(game_item_id) ON DELETE CASCADE
-            );
-        `, (err) => {
-            if (err) {
-                console.error("Error creating 'watchlists' table:", err.message);
-            } else {
-                console.log("'watchlists' table initialized successfully.");
-            }
-        });
-
-        // Indexes
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_unique_seller_listing 
+            ON guild_trader_listings (game_item_id, server, guild_name, seller_name, price, quantity, level, quality, trait_id);
+        `);
         db.run("CREATE INDEX IF NOT EXISTS idx_listings_game_item_id ON guild_trader_listings(game_item_id);");
     });
 }
@@ -301,6 +307,28 @@ const dbAll = (sql, params = []) => new Promise((resolve, reject) => {
 });
 
 /**
+ * GET /api/status
+ * Returns system health, active listings counts, and latest watcher scan timestamps
+ */
+app.get("/api/status", async (req, res) => {
+    try {
+        const listingRow = await dbGet("SELECT COUNT(*) as count, MAX(discovered_at) as latest_scan FROM guild_trader_listings");
+        const priceRow = await dbGet("SELECT COUNT(*) as count FROM item_prices");
+        const charRow = await dbGet("SELECT MAX(last_sync_at) as latest_char_sync FROM characters");
+        
+        res.json({
+            success: true,
+            status: "online",
+            active_listings: listingRow ? listingRow.count : 0,
+            catalog_prices: priceRow ? priceRow.count : 0,
+            latest_scan_at: listingRow?.latest_scan || charRow?.latest_char_sync || null
+        });
+    } catch (err) {
+        res.status(500).json({ success: false, status: "offline", error: err.message });
+    }
+});
+
+/**
  * GET /api/characters
  * Returns a list of all characters in the database
  */
@@ -383,6 +411,114 @@ app.post("/api/characters/sync", async (req, res) => {
             console.error("Rollback failed:", rollbackErr.message);
         }
         console.error("Error syncing character:", err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * GET /api/characters/:id/profile
+ * Returns character details, stats, equipped gear list by slot ID, and aggregated set/trait summaries.
+ */
+app.get("/api/characters/:id/profile", async (req, res) => {
+    const { id } = req.params;
+    try {
+        const character = await dbGet(`
+            SELECT id, user_id, name, class, level, master_crafter_unlocked, alliance, last_sync_at
+            FROM characters
+            WHERE id = ?;
+        `, [id]);
+
+        if (!character) {
+            return res.status(404).json({ error: "Character profile not found." });
+        }
+
+        const gearRows = await dbAll(`
+            SELECT cg.slot_id, cg.game_item_id, cg.item_name, cg.item_link, cg.quality, cg.trait_id, 
+                   cg.set_name, cg.enchantment_description, cg.updated_at,
+                   i.icon_url AS item_icon, i.category AS item_category, i.subcategory AS item_subcategory,
+                   i.rarity AS item_rarity, i.metadata AS item_metadata
+            FROM character_gear cg
+            LEFT JOIN items i ON cg.game_item_id = i.game_item_id
+            WHERE cg.character_id = ?
+            ORDER BY cg.slot_id ASC;
+        `, [id]);
+
+        const gearBySlot = {};
+        gearRows.forEach(row => {
+            try {
+                row.item_metadata = row.item_metadata ? JSON.parse(row.item_metadata) : {};
+            } catch (e) {
+                row.item_metadata = {};
+            }
+            gearBySlot[row.slot_id] = row;
+        });
+
+        res.json({
+            success: true,
+            character,
+            gear: gearBySlot
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * POST /api/characters/upload-gear
+ * Receives JSON loadout payload containing BAG_WORN slots [0-13] and updates character_gear table.
+ */
+app.post("/api/characters/upload-gear", async (req, res) => {
+    const { character_name, gear } = req.body;
+    if (!character_name || !Array.isArray(gear)) {
+        return res.status(400).json({ error: "character_name and gear array are required." });
+    }
+
+    try {
+        let charRow = await dbGet("SELECT id FROM characters WHERE name = ?", [character_name]);
+        if (!charRow) {
+            await dbRun(`
+                INSERT INTO characters (name, class, level, is_master_crafter, last_sync_at)
+                VALUES (?, 'Dragonknight', 50, 0, CURRENT_TIMESTAMP)
+            `, [character_name]);
+            charRow = await dbGet("SELECT id FROM characters WHERE name = ?", [character_name]);
+        }
+
+        const characterId = charRow.id;
+
+        await dbRun("BEGIN IMMEDIATE TRANSACTION");
+        for (const item of gear) {
+            const { slot_id, game_item_id, item_name, item_link, quality, trait_id, set_name, enchantment_description } = item;
+            await dbRun(`
+                INSERT INTO character_gear (
+                    character_id, slot_id, game_item_id, item_name, item_link, quality, trait_id, set_name, enchantment_description, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(character_id, slot_id) DO UPDATE SET
+                    game_item_id = excluded.game_item_id,
+                    item_name = excluded.item_name,
+                    item_link = excluded.item_link,
+                    quality = excluded.quality,
+                    trait_id = excluded.trait_id,
+                    set_name = excluded.set_name,
+                    enchantment_description = excluded.enchantment_description,
+                    updated_at = excluded.updated_at;
+            `, [
+                characterId,
+                slot_id,
+                game_item_id || 0,
+                item_name || 'Unknown Item',
+                item_link || '',
+                quality || 1,
+                trait_id || 0,
+                set_name || null,
+                enchantment_description || null
+            ]);
+        }
+        await dbRun("COMMIT");
+
+        res.json({ success: true, character_id: characterId, slots_updated: gear.length });
+    } catch (err) {
+        try { await dbRun("ROLLBACK"); } catch (rErr) {}
         res.status(500).json({ error: err.message });
     }
 });
@@ -993,9 +1129,18 @@ app.get("/api/market/prices", async (req, res) => {
                 i.category AS item_category,
                 i.subcategory AS item_subcategory,
                 i.rarity AS item_rarity,
-                i.metadata AS item_metadata
+                i.metadata AS item_metadata,
+                gtl.guild_name,
+                gtl.location,
+                gtl.price,
+                gtl.quantity
             FROM item_prices ip
             JOIN items i ON ip.game_item_id = i.game_item_id
+            LEFT JOIN (
+                SELECT game_item_id, server, guild_name, location, price, quantity,
+                       ROW_NUMBER() OVER(PARTITION BY game_item_id, server ORDER BY discovered_at DESC) as rn
+                FROM guild_trader_listings
+            ) gtl ON ip.game_item_id = gtl.game_item_id AND ip.server = gtl.server AND gtl.rn = 1
             ${whereClause}
             ${orderBy}
             LIMIT ? OFFSET ?;
@@ -1092,8 +1237,10 @@ app.get("/api/market/listings", async (req, res) => {
                 gtl.id AS listing_id,
                 gtl.game_item_id,
                 gtl.server,
+                gtl.seller_name,
                 gtl.price,
                 gtl.quantity,
+                gtl.active_stacks,
                 gtl.guild_name,
                 gtl.location,
                 gtl.level,
@@ -1225,20 +1372,40 @@ app.post("/api/market/upload-scans", async (req, res) => {
 
         let insertedCount = 0;
         const affectedItemIds = new Set();
+        const scannedGuilds = new Set();
+        const batchStartTime = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
         for (const item of listings) {
-            const { game_item_id, price, quantity, guild_name, location, level, quality, trait_id, expires_at } = item;
+            const { game_item_id, price, quantity, active_stacks, seller_name, guild_name, location, level, quality, trait_id, expires_at } = item;
             if (game_item_id && price && guild_name) {
+                const stackQty = Math.max(1, parseInt(quantity, 10) || 1);
+                const stacksCount = Math.max(1, parseInt(active_stacks, 10) || 1);
+                const unitPrice = Math.max(1, parseInt(price, 10) || 1);
+                const sellerHandle = seller_name || "@Unknown";
+
                 await dbRun(`
                     INSERT INTO guild_trader_listings 
-                    (game_item_id, server, price, quantity, guild_name, location, level, quality, trait_id, expires_at, discovered_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                    ON CONFLICT(game_item_id, server, guild_name, price, quantity, level, quality, trait_id) DO UPDATE SET
+                    (game_item_id, server, seller_name, price, quantity, active_stacks, guild_name, location, level, quality, trait_id, expires_at, discovered_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(game_item_id, server, guild_name, seller_name, price, quantity, level, quality, trait_id) DO UPDATE SET
+                        active_stacks = excluded.active_stacks,
                         discovered_at = CURRENT_TIMESTAMP,
+                        location = CASE WHEN excluded.location != 'Tamriel Trader Kiosk' AND excluded.location != 'Guild Trader' THEN excluded.location ELSE location END,
                         expires_at = COALESCE(excluded.expires_at, expires_at);
-                `, [game_item_id, targetServer, price, quantity || 1, guild_name, location || "Guild Trader", level || 1, quality || 1, trait_id || 0, expires_at || null]);
+                `, [game_item_id, targetServer, sellerHandle, unitPrice, stackQty, stacksCount, guild_name, location || "Guild Trader", level || 1, quality || 1, trait_id || 0, expires_at || null]);
                 insertedCount++;
                 affectedItemIds.add(game_item_id);
+                scannedGuilds.add(guild_name);
+            }
+        }
+
+        // Full Kiosk Reconciliation: Mark items as sold/removed if not refreshed in this kiosk scan batch
+        if (scannedGuilds.size > 0) {
+            for (const gName of scannedGuilds) {
+                await dbRun(`
+                    DELETE FROM guild_trader_listings
+                    WHERE guild_name = ? AND server = ? AND discovered_at < ?;
+                `, [gName, targetServer, batchStartTime]);
             }
         }
 
@@ -1282,6 +1449,7 @@ app.post("/api/market/upload-scans", async (req, res) => {
             recalculated_items: affectedItemIds.size
         });
     } catch (err) {
+        console.error("Error in upload-scans:", err.message);
         res.status(500).json({ error: err.message });
     }
 });

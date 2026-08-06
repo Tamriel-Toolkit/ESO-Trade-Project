@@ -9,7 +9,14 @@ import {
   Sparkles,
   Zap,
   Info,
-  Trash2
+  Trash2,
+  ChevronRight,
+  Filter,
+  Layers,
+  Copy,
+  Check,
+  DollarSign,
+  Compass
 } from "lucide-react";
 
 import {
@@ -40,27 +47,58 @@ import {
 import Navbar from "@/components/ui/navbar";
 import { useTheme } from "@/components/theme-provider";
 import { fetchTaxonomy, fetchMarketListings, fetchMarketPrices, extractLiveListings, clearAllListings } from "@/api/api";
+import { cleanEsoText, renderEsoFormattedText } from "@/lib/utils";
 
 const RARITY_MAP = {
-  1: { label: "Normal", color: "border-gray-500 text-gray-400 bg-gray-500/10" },
-  2: { label: "Fine", color: "border-green-500 text-green-400 bg-green-500/10" },
-  3: { label: "Superior", color: "border-blue-500 text-blue-400 bg-blue-500/10" },
-  4: { label: "Epic", color: "border-purple-500 text-purple-400 bg-purple-500/10" },
-  5: { label: "Legendary", color: "border-amber-500 text-amber-400 bg-amber-500/10" },
+  1: { label: "Normal", color: "border-gray-600 text-gray-300 bg-gray-900/40" },
+  2: { label: "Fine", color: "border-green-600 text-green-400 bg-green-950/40" },
+  3: { label: "Superior", color: "border-blue-600 text-blue-400 bg-blue-950/40" },
+  4: { label: "Epic", color: "border-purple-600 text-purple-400 bg-purple-950/40" },
+  5: { label: "Legendary", color: "border-[#c5a059] text-[#d4af37] bg-amber-950/40" },
 };
+
+// Major Tamriel Trading Hub Capitals
+const MAJOR_TRADE_HUBS = [
+  { name: "All Hubs", location: "" },
+  { name: "Mournhold (Deshaan)", location: "Deshaan" },
+  { name: "Wayrest (Stormhaven)", location: "Stormhaven" },
+  { name: "Elden Root (Grahtwood)", location: "Grahtwood" },
+  { name: "Vivec City (Vvardenfell)", location: "Vvardenfell" },
+  { name: "Belkarth (Craglorn)", location: "Craglorn" },
+  { name: "Rawl'kha (Reaper's March)", location: "Reaper's March" },
+  { name: "Alinor (Summerset)", location: "Summerset" },
+  { name: "Leyawiin (Blackwood)", location: "Blackwood" },
+  { name: "Skingrad (West Weald)", location: "West Weald" }
+];
+
+// Popular ESO Trade Search Staples
+const POPULAR_SEARCH_PRESETS = [
+  { label: "Dreugh Wax", search: "Dreugh Wax" },
+  { label: "Tempering Alloy", search: "Tempering Alloy" },
+  { label: "Rosin", search: "Rosin" },
+  { label: "Perfect Roe", search: "Perfect Roe" },
+  { label: "Kuta", search: "Kuta" },
+  { label: "Aetherial Dust", search: "Aetherial Dust" },
+  { label: "Columbine", search: "Columbine" },
+  { label: "Deadly Strike", search: "Deadly Strike" },
+  { label: "Powerful Assault", search: "Powerful Assault" },
+  { label: "Order's Wrath", search: "Order's Wrath" }
+];
 
 function Marketplace() {
   const { serverLocation, platform } = useTheme();
 
   // State Management
-  const [viewMode, setViewMode] = useState("prices"); // Default to "prices" for 100% real market price metrics
+  const [viewMode, setViewMode] = useState("prices"); // Default to "prices"
   const [taxonomy, setTaxonomy] = useState({});
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedSubcategory, setSelectedSubcategory] = useState("");
   const [selectedRarity, setSelectedRarity] = useState("");
+  const [selectedHubLocation, setSelectedHubLocation] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOption, setSortOption] = useState("value_index");
   const [dealsOnly, setDealsOnly] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -92,6 +130,7 @@ function Marketplace() {
       ...(selectedCategory && { category: selectedCategory }),
       ...(selectedSubcategory && { subcategory: selectedSubcategory }),
       ...(selectedRarity && { rarity: selectedRarity }),
+      ...(selectedHubLocation && { location: selectedHubLocation }),
       ...(sortOption && { sort: sortOption }),
     };
 
@@ -115,6 +154,7 @@ function Marketplace() {
     selectedCategory,
     selectedSubcategory,
     selectedRarity,
+    selectedHubLocation,
     searchQuery,
     sortOption,
     dealsOnly,
@@ -138,6 +178,7 @@ function Marketplace() {
     setSelectedCategory("");
     setSelectedSubcategory("");
     setSelectedRarity("");
+    setSelectedHubLocation("");
     setSearchQuery("");
     setSortOption("value_index");
     setDealsOnly(false);
@@ -152,7 +193,8 @@ function Marketplace() {
       if (res && res.success) {
         alert("✅ All market listings and price records have been cleared!");
         setCurrentPage(1);
-        fetchData();
+        setItemsData([]);
+        setTotalItems(0);
       } else {
         alert("❌ Failed to clear listings: " + (res?.error || "Unknown error"));
       }
@@ -160,39 +202,47 @@ function Marketplace() {
     }
   };
 
+  const copyInGameCommand = (itemName) => {
+    const cleanName = cleanEsoText(itemName);
+    const text = `/script TradingHouseSearch("${cleanName}")`;
+    navigator.clipboard.writeText(text);
+    setCopiedLink(true);
+    setTimeout(() => setCopiedLink(false), 2000);
+  };
+
   return (
-    <div className="body">
+    <div className="body bg-[#0a0a0d] text-[#e0d8c3]">
       <Navbar />
 
       {/* Header Banner */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6 border-b border-border pb-4">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6 border-b border-[#2a2c33] pb-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight flex items-center gap-2">
-            <Store className="size-8 text-primary" />
-            <span>Marketplace Directory</span>
+          <h1 className="font-cinzel text-2xl md:text-3xl font-extrabold tracking-wide text-[#e0d8c3] flex items-center gap-2 uppercase">
+            <Store className="size-7 text-[#c5a059]" />
+            <span>Tamriel Guild Kiosk Directory</span>
           </h1>
-          <p className="text-muted-foreground text-sm mt-1">
+          <p className="text-[#a89f91] text-xs md:text-sm mt-1">
             Real-time market analytics, active guild trader listings, and deal intelligence for{" "}
-            <span className="font-semibold text-foreground">{platform} - {serverLocation}</span>.
+            <span className="font-semibold text-[#d4af37] font-mono">{platform} - {serverLocation}</span>.
           </p>
         </div>
 
         {/* Action Controls & Dev Tools */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Development Clear Database Button */}
+          {/* Dev Clear Database Button */}
           <Button
             variant="outline"
             size="sm"
             onClick={handleClearListings}
-            className="gap-1.5 font-semibold text-xs border-red-500/40 bg-red-950/20 text-red-400 hover:bg-red-900/40 hover:text-red-300 hover:border-red-500/80 transition-all shadow-sm"
+            className="rounded-none gap-1.5 font-bold text-xs border-red-900/60 bg-red-950/30 text-red-400 hover:bg-red-900/50 hover:text-red-300 hover:border-red-600 transition-all"
             title="Development: Clear all active listings and price records from SQLite database"
           >
             <Trash2 className="size-3.5 text-red-400" />
-            <span>[DEV] Clear All Listings</span>
+            <span>[DEV] Clear Listings</span>
           </Button>
 
-          {/* View Mode Toggle: Listings vs Catalog Price Index */}
-          <div className="flex items-center gap-2 bg-muted p-1 rounded-lg border border-border">
+          {/* View Mode Toggle */}
+          <div className="flex items-center gap-1 bg-[#121218] p-1 border border-[#2a2c33]">
             <Button
               variant={viewMode === "listings" ? "default" : "ghost"}
               size="sm"
@@ -201,9 +251,11 @@ function Marketplace() {
                 setSortOption("value_index");
                 setCurrentPage(1);
               }}
-              className="gap-1.5 text-xs font-semibold"
+              className={`rounded-none gap-1.5 text-xs font-cinzel font-semibold uppercase ${
+                viewMode === "listings" ? "bg-[#c5a059] text-[#0a0a0d]" : "text-[#a89f91] hover:text-[#e0d8c3]"
+              }`}
             >
-              <Tag className="size-4" />
+              <Tag className="size-3.5" />
               <span>Active Listings {viewMode === "listings" ? `(${totalItems})` : ""}</span>
             </Button>
             <Button
@@ -214,20 +266,77 @@ function Marketplace() {
                 setSortOption("suggested_desc");
                 setCurrentPage(1);
               }}
-              className="gap-1.5 text-xs font-semibold"
+              className={`rounded-none gap-1.5 text-xs font-cinzel font-semibold uppercase ${
+                viewMode === "prices" ? "bg-[#c5a059] text-[#0a0a0d]" : "text-[#a89f91] hover:text-[#e0d8c3]"
+              }`}
             >
-              <TrendingUp className="size-4" />
+              <TrendingUp className="size-3.5" />
               <span>Catalog Price Index {viewMode === "prices" ? `(${totalItems})` : ""}</span>
             </Button>
           </div>
         </div>
       </div>
 
-      {/* Control Bar: Search & NativeSelect Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6 p-4 rounded-xl bg-card border border-border shadow-sm">
+      {/* Trade Hub Capital Zone Chips */}
+      <div className="mb-4 space-y-2">
+        <div className="flex items-center justify-between text-xs text-[#a89f91] font-cinzel uppercase font-bold tracking-wider">
+          <span className="flex items-center gap-1.5 text-[#c5a059]">
+            <Compass className="size-3.5" /> Major Tamriel Trading Hubs
+          </span>
+          {selectedHubLocation && (
+            <button
+              onClick={() => { setSelectedHubLocation(""); setCurrentPage(1); }}
+              className="text-[11px] text-[#8a8275] hover:text-[#e0d8c3] underline"
+            >
+              Clear Zone Filter
+            </button>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-1.5 overflow-x-auto pb-1">
+          {MAJOR_TRADE_HUBS.map((hub) => {
+            const isSelected = selectedHubLocation === hub.location;
+            return (
+              <button
+                key={hub.name}
+                onClick={() => {
+                  setSelectedHubLocation(hub.location);
+                  setCurrentPage(1);
+                }}
+                className={`px-2.5 py-1 text-[11px] font-semibold border transition-all whitespace-nowrap ${
+                  isSelected
+                    ? "bg-[#c5a059] text-[#0a0a0d] border-[#c5a059] font-bold"
+                    : "bg-[#121218] text-[#a89f91] border-[#2a2c33] hover:border-[#c5a059]/40 hover:text-[#e0d8c3]"
+                }`}
+              >
+                {hub.name}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Popular ESO Item Preset Search Chips */}
+      <div className="mb-6 flex flex-wrap items-center gap-1.5 text-xs text-[#a89f91]">
+        <span className="font-cinzel text-[#c5a059] font-bold uppercase tracking-wider text-[11px] mr-1">Popular Trades:</span>
+        {POPULAR_SEARCH_PRESETS.map((preset) => (
+          <button
+            key={preset.label}
+            onClick={() => {
+              setSearchQuery(preset.search);
+              setCurrentPage(1);
+            }}
+            className="px-2 py-0.5 bg-[#121218] border border-[#2a2c33] hover:border-[#c5a059]/40 text-[11px] font-mono text-[#d4af37] transition-colors"
+          >
+            {preset.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Control Bar: Search & Select Filters */}
+      <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6 p-4 bg-[#121218] border border-[#2a2c33] shadow-lg">
         {/* Search Bar Input */}
         <div className="relative md:col-span-2">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#8a8275]" />
           <input
             type="text"
             placeholder="Search items by name..."
@@ -236,12 +345,12 @@ function Marketplace() {
               setSearchQuery(e.target.value);
               setCurrentPage(1);
             }}
-            className="w-full pl-9 pr-8 h-10 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="w-full pl-9 pr-8 h-10 bg-[#0a0a0d] border border-[#2a2c33] text-[#e0d8c3] text-sm focus:border-[#c5a059] focus:outline-none transition-colors"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8a8275] hover:text-[#e0d8c3]"
             >
               <X className="size-4" />
             </button>
@@ -256,7 +365,7 @@ function Marketplace() {
             setSelectedSubcategory("");
             setCurrentPage(1);
           }}
-          className="w-full"
+          className="w-full bg-[#0a0a0d] border-[#2a2c33] text-[#e0d8c3]"
         >
           <NativeSelectOption value="">All Categories</NativeSelectOption>
           <NativeSelectOptGroup label="Categories">
@@ -276,7 +385,7 @@ function Marketplace() {
             setCurrentPage(1);
           }}
           disabled={availableSubcategories.length === 0}
-          className="w-full"
+          className="w-full bg-[#0a0a0d] border-[#2a2c33] text-[#e0d8c3]"
         >
           <NativeSelectOption value="">
             {availableSubcategories.length > 0 ? "All Subcategories" : "Subcategory"}
@@ -299,7 +408,7 @@ function Marketplace() {
             setSelectedRarity(e.target.value);
             setCurrentPage(1);
           }}
-          className="w-full"
+          className="w-full bg-[#0a0a0d] border-[#2a2c33] text-[#e0d8c3]"
         >
           <NativeSelectOption value="">Any Quality</NativeSelectOption>
           <NativeSelectOptGroup label="Rarity">
@@ -318,7 +427,7 @@ function Marketplace() {
             setSortOption(e.target.value);
             setCurrentPage(1);
           }}
-          className="w-full"
+          className="w-full bg-[#0a0a0d] border-[#2a2c33] text-[#e0d8c3]"
         >
           <NativeSelectOptGroup label="Sort By">
             {viewMode === "listings" ? (
@@ -354,19 +463,21 @@ function Marketplace() {
                 setDealsOnly(!dealsOnly);
                 setCurrentPage(1);
               }}
-              className="gap-1.5 font-semibold text-xs border-amber-500/50"
+              className={`rounded-none gap-1.5 font-semibold text-xs border ${
+                dealsOnly ? "bg-[#c5a059] text-[#0a0a0d] border-[#c5a059]" : "border-[#c5a059]/40 text-[#d4af37] bg-[#161620]"
+              }`}
             >
-              <Sparkles className="size-3.5 text-amber-400" />
-              <span>Only Deals (1.2x+ Value)</span>
+              <Sparkles className="size-3.5 text-[#c5a059]" />
+              <span>Only Bargain Deals (1.2x+ Value)</span>
             </Button>
           )}
 
-          {(selectedCategory || selectedSubcategory || selectedRarity || searchQuery || dealsOnly) && (
+          {(selectedCategory || selectedSubcategory || selectedRarity || selectedHubLocation || searchQuery || dealsOnly) && (
             <Button
               variant="ghost"
               size="sm"
               onClick={handleResetFilters}
-              className="text-xs text-muted-foreground hover:text-foreground gap-1"
+              className="rounded-none text-xs text-[#a89f91] hover:text-[#e0d8c3] hover:bg-[#161620] gap-1"
             >
               <X className="size-3" />
               <span>Reset Filters</span>
@@ -374,33 +485,33 @@ function Marketplace() {
           )}
         </div>
 
-        <div className="text-xs text-muted-foreground">
-          Showing page <span className="font-semibold text-foreground">{currentPage}</span> of{" "}
-          <span className="font-semibold text-foreground">{totalPages}</span> ({totalItems} total results)
+        <div className="text-xs text-[#8a8275] font-mono">
+          Page <span className="font-bold text-[#d4af37]">{currentPage}</span> of{" "}
+          <span className="font-bold text-[#d4af37]">{totalPages}</span> ({totalItems} total results)
         </div>
       </div>
 
-      {/* Main Grid & Selected Item Details Drawer Layout */}
+      {/* Main Grid & Detail Sidebar Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Listings / Prices Grid (Takes 2 Columns if Item Selected, 3 if None) */}
+        {/* Listings / Prices Grid */}
         <div className={selectedItem ? "lg:col-span-2 space-y-4" : "lg:col-span-3 space-y-4"}>
           {isLoading ? (
-            <div className="flex flex-col items-center justify-center p-12 bg-card rounded-xl border border-border">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-3"></div>
-              <p className="text-sm text-muted-foreground">Loading market intelligence...</p>
+            <div className="eso-card flex flex-col items-center justify-center p-12 text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#c5a059] mb-3"></div>
+              <p className="text-xs font-cinzel text-[#a89f91] tracking-wider uppercase">Loading Tamriel Market Intelligence...</p>
             </div>
           ) : itemsData.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-12 bg-card rounded-xl border border-border text-center">
+            <div className="eso-card flex flex-col items-center justify-center p-12 text-center">
               {viewMode === "listings" ? (
                 <>
-                  <Store className="size-12 text-primary/60 mb-3" />
-                  <h3 className="text-xl font-bold mb-1">
-                    {searchQuery ? `No Active Listings Found for "${searchQuery}"` : "No Active Guild Trader Scans Logged"}
+                  <Store className="size-12 text-[#c5a059]/60 mb-3" />
+                  <h3 className="font-cinzel text-xl font-bold text-[#e0d8c3] mb-1">
+                    {searchQuery ? `No Active Listings Found for "${searchQuery}"` : "No Guild Trader Scans Logged"}
                   </h3>
-                  <p className="text-sm text-muted-foreground max-w-lg mb-4">
+                  <p className="text-xs text-[#a89f91] max-w-lg mb-4 leading-relaxed">
                     {searchQuery
                       ? `Click below to trigger a live search scan across ESO guild trader kiosks for "${searchQuery}".`
-                      : "Hallucinated fake listings have been purged for 100% data authenticity. You can view all 155,476 authentic market price statistics in the Catalog Price Index, or run python data-pipeline/parse_saved_variables.py to load your in-game TTC addon scans."}
+                      : "Synthetic listings have been purged. You can view all 155,476 authentic market price statistics in the Catalog Price Index, or run python data-pipeline/parse_saved_variables.py to load your in-game TTC addon scans."}
                   </p>
                   <div className="flex flex-wrap items-center justify-center gap-3">
                     {searchQuery && (
@@ -415,7 +526,7 @@ function Marketplace() {
                           }
                           setIsLoading(false);
                         }}
-                        className="gap-2 font-semibold bg-amber-500 hover:bg-amber-600 text-black"
+                        className="rounded-none gap-2 font-cinzel font-bold bg-[#c5a059] text-[#0a0a0d] hover:bg-[#d4af37]"
                       >
                         <Zap className="size-4" />
                         <span>Fetch Live Kiosk Scans for "{searchQuery}"</span>
@@ -428,13 +539,13 @@ function Marketplace() {
                         setSortOption("suggested_desc");
                         setCurrentPage(1);
                       }}
-                      className="gap-2 font-semibold"
+                      className="rounded-none gap-2 font-cinzel font-bold border-[#c5a059]/40 bg-[#161620] text-[#e0d8c3] hover:border-[#c5a059]"
                     >
-                      <TrendingUp className="size-4" />
+                      <TrendingUp className="size-4 text-[#c5a059]" />
                       <span>Switch to Catalog Price Index (155,476 Items)</span>
                     </Button>
-                    {(selectedCategory || selectedSubcategory || selectedRarity || searchQuery) && (
-                      <Button variant="outline" size="sm" onClick={handleResetFilters}>
+                    {(selectedCategory || selectedSubcategory || selectedRarity || selectedHubLocation || searchQuery) && (
+                      <Button variant="outline" size="sm" onClick={handleResetFilters} className="rounded-none">
                         Clear Filters
                       </Button>
                     )}
@@ -442,12 +553,12 @@ function Marketplace() {
                 </>
               ) : (
                 <>
-                  <Info className="size-10 text-muted-foreground mb-2" />
-                  <h3 className="text-lg font-semibold mb-1">No catalog entries found</h3>
-                  <p className="text-sm text-muted-foreground max-w-md mb-4">
+                  <Info className="size-10 text-[#8a8275] mb-2" />
+                  <h3 className="font-cinzel text-lg font-bold text-[#e0d8c3] mb-1">No catalog entries found</h3>
+                  <p className="text-xs text-[#a89f91] max-w-md mb-4">
                     Try adjusting your search keywords, category filters, or switching servers in the top navbar.
                   </p>
-                  <Button variant="outline" size="sm" onClick={handleResetFilters}>
+                  <Button variant="outline" size="sm" onClick={handleResetFilters} className="rounded-none">
                     Clear All Filters
                   </Button>
                 </>
@@ -461,39 +572,40 @@ function Marketplace() {
                   (item.game_item_id && selectedItem.game_item_id === item.game_item_id && !item.listing_id)
                 );
                 const rarityInfo = RARITY_MAP[item.item_rarity] || RARITY_MAP[1];
+                const cleanName = cleanEsoText(item.item_name);
 
                 return (
                   <Card
                     key={item.listing_id || `${item.game_item_id}-${idx}`}
                     onClick={() => setSelectedItem(item)}
-                    className={`cursor-pointer transition-all duration-200 hover:border-primary/50 hover:shadow-md border-l-4 ${rarityInfo.color.split(" ")[0]} ${
-                      isSelected ? "ring-2 ring-primary border-primary bg-primary/5" : ""
+                    className={`eso-card rounded-none cursor-pointer transition-all duration-200 hover:border-[#c5a059]/80 border-l-4 ${rarityInfo.color.split(" ")[0]} ${
+                      isSelected ? "border-[#c5a059] bg-[#c5a059]/10" : ""
                     }`}
                   >
-                    <CardHeader className="p-4 pb-2">
+                    <CardHeader className="p-4 pb-2 border-b border-[#2a2c33]/50 bg-[#161620]/40">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-3">
                           {item.item_icon ? (
                             <img
                               src={item.item_icon}
-                              alt={item.item_name}
-                              className="size-10 rounded border border-border object-contain bg-background p-1"
+                              alt={cleanName}
+                              className="size-10 rounded-none border border-[#2a2c33] object-contain bg-[#0a0a0d] p-1"
                               onError={(e) => (e.target.style.display = "none")}
                             />
                           ) : (
-                            <div className="size-10 rounded border border-border bg-muted flex items-center justify-center font-bold text-xs">
+                            <div className="size-10 rounded-none border border-[#2a2c33] bg-[#0a0a0d] flex items-center justify-center font-cinzel font-bold text-xs text-[#c5a059]">
                               ESO
                             </div>
                           )}
                           <div>
-                            <CardTitle className="text-sm font-bold text-left line-clamp-1">
-                              {item.item_name}
+                            <CardTitle className="font-cinzel text-sm font-bold text-[#e0d8c3] line-clamp-1">
+                              {cleanName}
                             </CardTitle>
-                            <div className="flex items-center gap-2 mt-0.5">
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium border ${rarityInfo.color}`}>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded-none font-bold uppercase tracking-wider border ${rarityInfo.color}`}>
                                 {rarityInfo.label}
                               </span>
-                              <span className="text-xs text-muted-foreground">
+                              <span className="text-[11px] text-[#8a8275]">
                                 {item.item_category} {item.item_subcategory ? `• ${item.item_subcategory}` : ""}
                               </span>
                             </div>
@@ -502,7 +614,7 @@ function Marketplace() {
 
                         {/* Value Index Badge */}
                         {item.value_index && item.value_index >= 1.1 && (
-                          <span className="shrink-0 bg-emerald-500/15 border border-emerald-500/40 text-emerald-400 text-xs px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                          <span className="shrink-0 bg-emerald-950/60 border border-emerald-500/50 text-emerald-400 text-[11px] px-2 py-0.5 font-bold flex items-center gap-1">
                             <Zap className="size-3 fill-emerald-400" />
                             {item.value_index.toFixed(1)}x Deal
                           </span>
@@ -513,60 +625,74 @@ function Marketplace() {
                     <CardContent className="p-4 pt-2">
                       {viewMode === "listings" ? (
                         <div className="space-y-2 text-xs">
-                          <div className="flex items-center justify-between border-t border-border/50 pt-2">
+                          <div className="flex items-center justify-between border-t border-[#2a2c33]/40 pt-2">
                             <div className="flex items-center gap-1.5">
-                              <span className="text-muted-foreground">Unit Price:</span>
-                              {item.quantity > 1 && (
-                                <span className="bg-secondary text-secondary-foreground font-mono font-semibold px-1.5 py-0.5 rounded text-[10px]">
-                                  x{item.quantity}
-                                </span>
-                              )}
+                              <span className="text-[#a89f91]">Unit Price:</span>
+                              <span className="bg-[#161620] text-[#d4af37] font-mono font-bold px-1.5 py-0.5 text-[10px] border border-[#2a2c33]">
+                                x{item.quantity || 1}/stack
+                              </span>
                             </div>
                             <div className="text-right">
-                              <span className="font-bold text-base text-primary block">
+                              <span className="font-bold text-base text-[#c5a059] block font-mono">
                                 {formatGold(item.price)}
-                                <span className="text-[10px] text-muted-foreground font-normal ml-0.5">/ea</span>
+                                <span className="text-[10px] text-[#8a8275] font-normal ml-0.5">/ea</span>
                               </span>
-                              {item.quantity > 1 && (
-                                <span className="text-[10px] text-muted-foreground block font-mono">
-                                  Total: {formatGold(item.price * item.quantity)}
-                                </span>
-                              )}
+                              <span className="text-[10px] text-[#8a8275] block font-mono">
+                                Total/stack: {formatGold((item.price || 0) * (item.quantity || 1))}
+                              </span>
                             </div>
                           </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Suggested Value:</span>
-                            <span className="font-medium text-foreground">
-                              {formatGold(item.suggested_price)}
+
+                          {/* Smart Seller Inventory & Stacks Badge */}
+                          <div className="flex items-center justify-between text-xs bg-[#0a0a0d] border border-[#2a2c33] px-2.5 py-1.5 mt-2">
+                            <div className="flex items-center gap-1.5 font-semibold text-[#d4af37]">
+                              <Layers className="size-3.5 text-[#c5a059] shrink-0" />
+                              <span>
+                                {(item.active_stacks || 1) > 1
+                                  ? `📦 ${item.active_stacks} Stacks Available (${((item.quantity || 1) * item.active_stacks).toLocaleString()} total)`
+                                  : `1 Stack Available (${item.quantity || 1} total)`}
+                              </span>
+                            </div>
+                            <span className="font-mono text-[#a89f91] text-[11px] truncate max-w-[110px]" title={item.seller_name}>
+                              {item.seller_name || "@Unknown"}
                             </span>
                           </div>
-                          <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-border/30">
-                            <span className="flex items-center gap-1 truncate max-w-[160px]" title={item.guild_name}>
-                              <Store className="size-3 text-muted-foreground shrink-0" />
-                              {item.guild_name || "Guild Trader"}
-                            </span>
-                            <span className="flex items-center gap-1 truncate" title={item.location}>
-                              <MapPin className="size-3 text-muted-foreground shrink-0" />
-                              {item.location || "Unknown"}
+
+                          <div className="flex items-center justify-between">
+                            <span className="text-[#a89f91]">Suggested Value:</span>
+                            <span className="font-medium text-[#d4af37] font-mono">
+                              {formatGold(item.suggested_price)}
                             </span>
                           </div>
                         </div>
                       ) : (
-                        <div className="space-y-1.5 text-xs border-t border-border/50 pt-2">
+                        <div className="space-y-1.5 text-xs border-t border-[#2a2c33]/40 pt-2 font-mono">
                           <div className="flex items-center justify-between">
-                            <span className="text-muted-foreground">Suggested Price:</span>
-                            <span className="font-bold text-primary">{formatGold(item.suggested_price)}</span>
+                            <span className="text-[#a89f91] font-sans">Suggested Price:</span>
+                            <span className="font-bold text-[#c5a059]">{formatGold(item.suggested_price)}</span>
                           </div>
-                          <div className="flex items-center justify-between text-muted-foreground">
-                            <span>Avg Market Price:</span>
+                          <div className="flex items-center justify-between text-[#8a8275]">
+                            <span className="font-sans">Avg Market Price:</span>
                             <span>{formatGold(item.avg_price)}</span>
                           </div>
-                          <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-                            <span>Price Range:</span>
+                          <div className="flex items-center justify-between text-[11px] text-[#8a8275]">
+                            <span className="font-sans">Price Range:</span>
                             <span>{formatGold(item.min_price)} - {formatGold(item.max_price)}</span>
                           </div>
                         </div>
                       )}
+
+                      {/* Prominent Guild Trader Name & Kiosk Location Badge across ALL items */}
+                      <div className="flex items-center justify-between text-[11px] text-[#8a8275] pt-2 mt-2 border-t border-[#2a2c33]/40">
+                        <span className="flex items-center gap-1.5 truncate max-w-[150px]" title={item.guild_name || "Active Guild Trader"}>
+                          <Store className="size-3.5 text-[#c5a059] shrink-0" />
+                          <span className="truncate font-semibold text-[#e0d8c3]">{item.guild_name || "Guild Trader"}</span>
+                        </span>
+                        <span className="flex items-center gap-1.5 truncate max-w-[160px]" title={item.location || "Tamriel Kiosk"}>
+                          <MapPin className="size-3.5 text-[#d4af37] shrink-0" />
+                          <span className="truncate font-semibold text-[#d4af37]">{item.location || "Tamriel Kiosk"}</span>
+                        </span>
+                      </div>
                     </CardContent>
                   </Card>
                 );
@@ -575,23 +701,25 @@ function Marketplace() {
           )}
         </div>
 
-        {/* Selected Item Detail Sidebar / Drawer (Appears when item selected) */}
+        {/* Selected Item Detail Sidebar */}
         {selectedItem && (
           <div className="lg:col-span-1">
-            <Card className="sticky top-4 border-2 border-primary/40 bg-card shadow-lg">
-              <CardHeader className="p-4 pb-2 border-b border-border">
+            <Card className="eso-card rounded-none sticky top-4 border-2 border-[#c5a059]/60 shadow-2xl">
+              <CardHeader className="p-4 pb-2 border-b border-[#2a2c33] bg-[#161620]">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     {selectedItem.item_icon && (
                       <img
                         src={selectedItem.item_icon}
-                        alt={selectedItem.item_name}
-                        className="size-12 rounded border border-border p-1 bg-background object-contain"
+                        alt={cleanEsoText(selectedItem.item_name)}
+                        className="size-12 rounded-none border border-[#c5a059]/40 p-1 bg-[#0a0a0d] object-contain"
                       />
                     )}
                     <div>
-                      <CardTitle className="text-base font-extrabold">{selectedItem.item_name}</CardTitle>
-                      <CardDescription className="text-xs">
+                      <CardTitle className="font-cinzel text-base font-bold text-[#e0d8c3]">
+                        {cleanEsoText(selectedItem.item_name)}
+                      </CardTitle>
+                      <CardDescription className="text-xs text-[#8a8275] font-mono">
                         ID: {selectedItem.game_item_id} • {selectedItem.item_category}
                       </CardDescription>
                     </div>
@@ -601,6 +729,7 @@ function Marketplace() {
                     size="icon"
                     onClick={() => setSelectedItem(null)}
                     aria-label="Close detail panel"
+                    className="rounded-none text-[#a89f91] hover:text-[#e0d8c3]"
                   >
                     <X className="size-4" />
                   </Button>
@@ -608,35 +737,64 @@ function Marketplace() {
               </CardHeader>
 
               <CardContent className="p-4 space-y-4 text-xs">
-                {/* Price Breakdown */}
-                <div className="space-y-2 p-3 rounded-lg bg-muted/50 border border-border">
-                  <span className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground block">
-                    Market Valuation ({serverLocation})
+                {/* Price & Flipping Profit Intelligence */}
+                <div className="space-y-2 p-3 bg-[#0a0a0d] border border-[#2a2c33]">
+                  <span className="font-cinzel font-bold uppercase tracking-wider text-[10px] text-[#c5a059] block flex items-center justify-between">
+                    <span>Market Valuation ({serverLocation})</span>
+                    <DollarSign className="size-3 text-[#c5a059]" />
                   </span>
-                  <div className="grid grid-cols-2 gap-2 text-sm font-semibold">
+                  <div className="grid grid-cols-2 gap-2 text-sm font-bold font-mono">
                     <div>
-                      <span className="text-muted-foreground text-xs font-normal block">Suggested</span>
-                      <span className="text-primary">{formatGold(selectedItem.suggested_price)}</span>
+                      <span className="text-[#8a8275] text-xs font-normal block font-sans">Suggested</span>
+                      <span className="text-[#c5a059]">{formatGold(selectedItem.suggested_price)}</span>
                     </div>
                     <div>
-                      <span className="text-muted-foreground text-xs font-normal block">Average</span>
-                      <span>{formatGold(selectedItem.avg_price)}</span>
+                      <span className="text-[#8a8275] text-xs font-normal block font-sans">Average</span>
+                      <span className="text-[#e0d8c3]">{formatGold(selectedItem.avg_price)}</span>
                     </div>
                   </div>
+
+                  {/* Flipping Profit Calculator */}
+                  {selectedItem.price && selectedItem.suggested_price && (
+                    <div className="pt-2 border-t border-[#2a2c33] space-y-1 text-xs">
+                      {(() => {
+                        const netResale = Math.round(selectedItem.suggested_price * 0.93); // 7% ESO guild listing tax
+                        const estProfit = netResale - selectedItem.price;
+                        const marginPct = Math.round((estProfit / selectedItem.price) * 100);
+                        const isLucrative = estProfit > 0;
+
+                        return (
+                          <div className={`p-2 border ${isLucrative ? 'border-emerald-500/40 bg-emerald-950/20 text-emerald-300' : 'border-amber-900/40 bg-amber-950/20 text-[#d4af37]'}`}>
+                            <div className="flex items-center justify-between font-cinzel font-bold text-[11px] uppercase">
+                              <span>Est. Flip Margin (after 7% tax):</span>
+                              <span className={isLucrative ? 'text-emerald-400 font-mono' : 'text-[#d4af37] font-mono'}>
+                                {estProfit > 0 ? `+${estProfit.toLocaleString()}g` : `${estProfit.toLocaleString()}g`}
+                              </span>
+                            </div>
+                            <div className="text-[10px] text-[#a89f91] mt-0.5 flex justify-between font-mono">
+                              <span>Return on Investment:</span>
+                              <span>{marginPct > 0 ? `+${marginPct}%` : `${marginPct}%`} ROI</span>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  )}
+
                   {selectedItem.price && (
-                    <div className="pt-2 border-t border-border/40 space-y-1 text-xs">
+                    <div className="pt-2 border-t border-[#2a2c33] space-y-1 text-xs font-mono">
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Stack Quantity:</span>
-                        <span className="font-bold text-foreground bg-secondary px-2 py-0.5 rounded text-xs">
+                        <span className="text-[#a89f91] font-sans">Stack Quantity:</span>
+                        <span className="font-bold text-[#d4af37] bg-[#161620] px-2 py-0.5 text-xs border border-[#2a2c33]">
                           {selectedItem.quantity || 1} units
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground">Unit Price:</span>
-                        <span className="font-semibold text-foreground">{formatGold(selectedItem.price)} / ea</span>
+                        <span className="text-[#a89f91] font-sans">Unit Price:</span>
+                        <span className="font-semibold text-[#e0d8c3]">{formatGold(selectedItem.price)} / ea</span>
                       </div>
                       <div className="flex items-center justify-between pt-1">
-                        <span className="text-muted-foreground font-semibold">Total Listing Price:</span>
+                        <span className="text-[#a89f91] font-semibold font-sans">Total Listing Price:</span>
                         <span className="font-extrabold text-base text-emerald-400">
                           {formatGold(selectedItem.price * (selectedItem.quantity || 1))}
                         </span>
@@ -645,45 +803,45 @@ function Marketplace() {
                   )}
                 </div>
 
-                {/* Listing Details if applicable */}
-                {selectedItem.guild_name && (
-                  <div className="space-y-1.5 p-3 rounded-lg border border-border">
-                    <span className="font-bold uppercase tracking-wider text-[10px] text-muted-foreground block">
-                      Trader Location
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <Store className="size-4 text-primary shrink-0" />
-                      <span className="font-semibold">{selectedItem.guild_name}</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-muted-foreground">
-                      <MapPin className="size-4 shrink-0" />
-                      <span>{selectedItem.location || "Unknown Location"}</span>
-                    </div>
+                {/* Always Render Trader Name & Location */}
+                <div className="space-y-1.5 p-3 bg-[#0a0a0d] border border-[#2a2c33]">
+                  <span className="font-cinzel font-bold uppercase tracking-wider text-[10px] text-[#c5a059] block">
+                    Guild Trader Kiosk Location
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <Store className="size-4 text-[#c5a059] shrink-0" />
+                    <span className="font-semibold text-[#e0d8c3]">{selectedItem.guild_name || "Active Guild Trader"}</span>
                   </div>
-                )}
+                  <div className="flex items-center gap-2 text-[#d4af37] font-semibold">
+                    <MapPin className="size-4 shrink-0" />
+                    <span>{selectedItem.location || "Tamriel Trade Kiosk"}</span>
+                  </div>
+                </div>
 
-                {/* Metadata details (Set / Trait / Crafting) */}
+                {/* Clean ESO Formatted Metadata Details */}
                 {selectedItem.item_metadata && (
                   <div className="space-y-2">
                     {selectedItem.item_metadata.set && (
-                      <div className="p-3 rounded-lg border border-border bg-card">
-                        <span className="font-bold text-xs text-amber-400 block mb-1">
-                          Set: {selectedItem.item_metadata.set.name}
+                      <div className="p-3 bg-[#0a0a0d] border border-[#2a2c33]">
+                        <span className="font-cinzel font-bold text-xs text-[#d4af37] block mb-1">
+                          Set: {cleanEsoText(selectedItem.item_metadata.set.name)}
                         </span>
-                        <ul className="space-y-1 text-[11px] text-muted-foreground pl-2 border-l border-amber-500/30">
-                          {selectedItem.item_metadata.set.bonuses?.slice(0, 3).map((bonus, bIdx) => (
-                            <li key={bIdx}>• {bonus}</li>
+                        <ul className="space-y-1 text-[11px] text-[#a89f91] pl-2 border-l border-[#c5a059]/40">
+                          {selectedItem.item_metadata.set.bonuses?.slice(0, 5).map((bonus, bIdx) => (
+                            <li key={bIdx} className="leading-relaxed">
+                              • {renderEsoFormattedText(bonus)}
+                            </li>
                           ))}
                         </ul>
                       </div>
                     )}
                     {selectedItem.item_metadata.trait_description && (
-                      <div className="p-2.5 rounded-lg border border-border bg-card">
-                        <span className="font-semibold text-xs block text-foreground">
+                      <div className="p-2.5 bg-[#0a0a0d] border border-[#2a2c33]">
+                        <span className="font-cinzel font-bold text-xs block text-[#c5a059] mb-1 uppercase tracking-wider">
                           Trait Description
                         </span>
-                        <p className="text-[11px] text-muted-foreground mt-0.5">
-                          {selectedItem.item_metadata.trait_description}
+                        <p className="text-[11px] text-[#e0d8c3] leading-relaxed">
+                          {renderEsoFormattedText(selectedItem.item_metadata.trait_description)}
                         </p>
                       </div>
                     )}
@@ -691,8 +849,18 @@ function Marketplace() {
                 )}
               </CardContent>
 
-              <CardFooter className="p-4 pt-0 border-t border-border/50 mt-2 flex gap-2">
-                <Button variant="default" size="sm" className="w-full font-semibold">
+              <CardFooter className="p-4 pt-0 border-t border-[#2a2c33] mt-2 flex flex-col gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => copyInGameCommand(selectedItem.item_name)}
+                  className="w-full rounded-none font-cinzel font-semibold border-[#2a2c33] bg-[#161620] text-[#e0d8c3] hover:border-[#c5a059]/50 hover:bg-[#1f1f2e] text-xs gap-1.5"
+                >
+                  {copiedLink ? <Check className="size-3.5 text-emerald-400" /> : <Copy className="size-3.5 text-[#c5a059]" />}
+                  <span>{copiedLink ? "Copied In-Game Search Cmd!" : "Copy In-Game Search Command"}</span>
+                </Button>
+
+                <Button variant="default" size="sm" className="w-full rounded-none font-cinzel font-bold bg-[#c5a059] text-[#0a0a0d] hover:bg-[#d4af37] uppercase tracking-wider">
                   Track in Watchlist
                 </Button>
               </CardFooter>
@@ -701,25 +869,31 @@ function Marketplace() {
         )}
       </div>
 
-      {/* Existing Pagination Component Controls */}
-      <div className="mt-auto pt-6 border-t border-border flex items-center justify-center">
+      {/* Pagination Controls */}
+      <div className="mt-auto pt-6 border-t border-[#2a2c33] flex items-center justify-center">
         <Pagination>
-          <PaginationContent>
+          <PaginationContent className="gap-1">
             <PaginationItem>
               <PaginationPrevious
                 onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                className={`rounded-none border border-[#2a2c33] bg-[#121218] text-[#e0d8c3] ${
+                  currentPage === 1 ? "pointer-events-none opacity-40" : "cursor-pointer hover:border-[#c5a059]/60"
+                }`}
               />
             </PaginationItem>
 
             <PaginationItem>
-              <PaginationLink className="font-bold">{currentPage}</PaginationLink>
+              <PaginationLink className="rounded-none border border-[#c5a059] bg-[#c5a059]/10 text-[#d4af37] font-bold font-mono">
+                {currentPage}
+              </PaginationLink>
             </PaginationItem>
 
             <PaginationItem>
               <PaginationNext
                 onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                className={currentPage >= totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                className={`rounded-none border border-[#2a2c33] bg-[#121218] text-[#e0d8c3] ${
+                  currentPage >= totalPages ? "pointer-events-none opacity-40" : "cursor-pointer hover:border-[#c5a059]/60"
+                }`}
               />
             </PaginationItem>
           </PaginationContent>
