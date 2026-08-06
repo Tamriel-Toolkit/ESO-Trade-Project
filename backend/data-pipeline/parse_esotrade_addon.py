@@ -248,13 +248,14 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
         char_row = cursor.fetchone()
         if char_row:
             char_id = char_row[0]
-            gear_block = re.search(r'\["Gear"\]\s*=\s*\{([^}]+)\}', scans_text, re.DOTALL)
-            if gear_block:
-                gear_text = gear_block.group(1)
-                gear_item_blocks = list(re.finditer(r'\{([^}]+)\}', gear_text))
+            gear_pos = scans_text.find('["Gear"]')
+            if gear_pos != -1:
+                gear_section = scans_text[gear_pos:]
+                # Match every individual gear item block containing ["Slot"] = X
+                gear_item_blocks = list(re.finditer(r'\{[^{}]*?\["Slot"\]\s*=\s*\d+[^{}]*?\}', gear_section, re.DOTALL))
                 synced_gear_count = 0
                 for gm in gear_item_blocks:
-                    gsnippet = gm.group(1)
+                    gsnippet = gm.group(0)
                     g_slot = re.search(r'\["Slot"\]\s*=\s*(\d+)', gsnippet)
                     g_item_id = re.search(r'\["ItemId"\]\s*=\s*(\d+)', gsnippet)
                     g_name = re.search(r'\["Name"\]\s*=\s*"([^"]+)"', gsnippet)
