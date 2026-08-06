@@ -243,6 +243,51 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
         alliance_str = alliance_map.get(player_alliance, "Aldmeri Dominion")
         print(f"Synced character '{player_name}' ({player_class_name}, Lvl {player_level}, Alliance: {alliance_str}) to roster!")
 
+        # Sync character equipped gear loadout to character_gear table
+        cursor.execute("SELECT id FROM characters WHERE name = ?", (player_name,))
+        char_row = cursor.fetchone()
+        if char_row:
+            char_id = char_row[0]
+            gear_block = re.search(r'\["Gear"\]\s*=\s*\{([^}]+)\}', scans_text, re.DOTALL)
+            if gear_block:
+                gear_text = gear_block.group(1)
+                gear_item_blocks = list(re.finditer(r'\{([^}]+)\}', gear_text))
+                synced_gear_count = 0
+                for gm in gear_item_blocks:
+                    gsnippet = gm.group(1)
+                    g_slot = re.search(r'\["Slot"\]\s*=\s*(\d+)', gsnippet)
+                    g_item_id = re.search(r'\["ItemId"\]\s*=\s*(\d+)', gsnippet)
+                    g_name = re.search(r'\["Name"\]\s*=\s*"([^"]+)"', gsnippet)
+                    g_link = re.search(r'\["Link"\]\s*=\s*"([^"]+)"', gsnippet)
+                    g_qual = re.search(r'\["Quality"\]\s*=\s*(\d+)', gsnippet)
+                    g_trait = re.search(r'\["TraitId"\]\s*=\s*(\d+)', gsnippet)
+                    g_set = re.search(r'\["SetName"\]\s*=\s*"([^"]+)"', gsnippet)
+
+                    if g_slot and g_name:
+                        slot_id = int(g_slot.group(1))
+                        item_name = g_name.group(1).strip()
+                        item_link = g_link.group(1).strip() if g_link else ""
+                        item_id = int(g_item_id.group(1)) if g_item_id else 0
+                        quality = int(g_qual.group(1)) if g_qual else 1
+                        trait_id = int(g_trait.group(1)) if g_trait else 0
+                        set_name = g_set.group(1).strip() if g_set else ""
+
+                        cursor.execute("""
+                            INSERT INTO character_gear (character_id, slot_id, game_item_id, item_name, item_link, quality, trait_id, set_name, updated_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                            ON CONFLICT(character_id, slot_id) DO UPDATE SET
+                                game_item_id = excluded.game_item_id,
+                                item_name = excluded.item_name,
+                                item_link = excluded.item_link,
+                                quality = excluded.quality,
+                                trait_id = excluded.trait_id,
+                                set_name = excluded.set_name,
+                                updated_at = CURRENT_TIMESTAMP;
+                        """, (char_id, slot_id, item_id, item_name, item_link, quality, trait_id, set_name))
+                        synced_gear_count += 1
+                if synced_gear_count > 0:
+                    print(f"Synced {synced_gear_count} equipped gear items to character '{player_name}' loadout!")
+
         # Recalculate real-time market prices
         for item_id in affected_ids:
             cursor.execute("""
