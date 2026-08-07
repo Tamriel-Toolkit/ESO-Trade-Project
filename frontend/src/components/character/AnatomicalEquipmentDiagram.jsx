@@ -192,23 +192,50 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
 
       {/* Floating Hover Tooltip Panel */}
       {activeHoveredItem && (
-        <div className="mt-4 w-full p-3 bg-[#161620] border-2 border-[#c5a059]/60 shadow-2xl text-xs space-y-1.5 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between border-b border-[#2a2c33] pb-1">
-            <span className="font-cinzel font-bold text-sm text-[#e0d8c3]">{cleanEsoText(activeHoveredItem.item_name)}</span>
+        <div className="mt-4 w-full p-3.5 bg-[#161620] border-2 border-[#c5a059]/60 shadow-2xl text-xs space-y-2 animate-in fade-in duration-200">
+          <div className="flex items-center justify-between border-b border-[#2a2c33] pb-1.5">
+            <div className="flex items-center gap-2">
+              {activeHoveredItem.item_icon && (
+                <img src={activeHoveredItem.item_icon} alt="" className="size-6 border border-[#c5a059]/40 bg-[#0a0a0d] p-0.5 object-contain" />
+              )}
+              <span className="font-cinzel font-bold text-sm text-[#e0d8c3]">{cleanEsoText(activeHoveredItem.item_name)}</span>
+            </div>
             <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 border ${getQualityTheme(activeHoveredItem.quality).border} ${getQualityTheme(activeHoveredItem.quality).text}`}>
               {getQualityTheme(activeHoveredItem.quality).label}
             </span>
           </div>
-          {activeHoveredItem.set_name && (
-            <div className="text-[#d4af37] font-cinzel font-semibold text-[11px]">
-              Set: {cleanEsoText(activeHoveredItem.set_name)}
-            </div>
-          )}
-          {activeHoveredItem.enchantment_description && (
-            <div className="text-[#e0d8c3] text-[11px]">
-              Enchantment: {renderEsoFormattedText(activeHoveredItem.enchantment_description)}
-            </div>
-          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+            {activeHoveredItem.armor_rating > 0 && (
+              <div className="text-[#8a8275]">
+                <span className="text-[#e0d8c3] font-semibold">Armor Rating:</span> {activeHoveredItem.armor_rating.toLocaleString()}
+              </div>
+            )}
+            {activeHoveredItem.weapon_power > 0 && (
+              <div className="text-[#8a8275]">
+                <span className="text-[#e0d8c3] font-semibold">Weapon Power:</span> {activeHoveredItem.weapon_power.toLocaleString()}
+              </div>
+            )}
+            {activeHoveredItem.set_name && (
+              <div className="text-[#d4af37] font-cinzel font-semibold col-span-2">
+                Set: {cleanEsoText(activeHoveredItem.set_name)}
+              </div>
+            )}
+            {activeHoveredItem.trait_name && (
+              <div className="text-[#93c5fd] col-span-2">
+                <span className="font-semibold text-[#60a5fa]">Trait:</span> {cleanEsoText(activeHoveredItem.trait_name)}
+                {activeHoveredItem.trait_description && (
+                  <span className="text-[#8a8275] block text-[10px] mt-0.5">{cleanEsoText(activeHoveredItem.trait_description)}</span>
+                )}
+              </div>
+            )}
+            {activeHoveredItem.enchantment_description && (
+              <div className="text-[#e0d8c3] col-span-2 bg-[#0a0a0d]/60 p-2 border border-[#2a2c33]">
+                <span className="font-semibold text-[#c5a059] block text-[10px] uppercase mb-0.5">Enchantment Glyph:</span>
+                {renderEsoFormattedText(activeHoveredItem.enchantment_description)}
+              </div>
+            )}
+          </div>
         </div>
       )}
     </div>

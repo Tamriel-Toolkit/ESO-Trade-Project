@@ -87,11 +87,12 @@ function initializeDatabaseSchema() {
                 UNIQUE(character_id, slot_id)
             );
         `, (err) => {
-            if (err) {
-                console.error("Error creating 'character_gear' table:", err.message);
-            } else {
-                console.log("'character_gear' table initialized successfully.");
-            }
+            db.run("ALTER TABLE character_gear ADD COLUMN item_icon TEXT", () => {});
+            db.run("ALTER TABLE character_gear ADD COLUMN trait_name TEXT", () => {});
+            db.run("ALTER TABLE character_gear ADD COLUMN trait_description TEXT", () => {});
+            db.run("ALTER TABLE character_gear ADD COLUMN armor_rating INTEGER DEFAULT 0", () => {});
+            db.run("ALTER TABLE character_gear ADD COLUMN weapon_power INTEGER DEFAULT 0", () => {});
+            console.log("'character_gear' table initialized successfully.");
         });
 
         db.run(`
@@ -487,12 +488,12 @@ app.post("/api/characters/upload-gear", async (req, res) => {
 
         await dbRun("BEGIN IMMEDIATE TRANSACTION");
         for (const item of gear) {
-            const { slot_id, game_item_id, item_name, item_link, quality, trait_id, set_name, enchantment_description } = item;
+            const { slot_id, game_item_id, item_name, item_link, quality, trait_id, set_name, enchantment_description, item_icon, trait_name, trait_description, armor_rating, weapon_power } = item;
             await dbRun(`
                 INSERT INTO character_gear (
-                    character_id, slot_id, game_item_id, item_name, item_link, quality, trait_id, set_name, enchantment_description, updated_at
+                    character_id, slot_id, game_item_id, item_name, item_link, quality, trait_id, set_name, enchantment_description, item_icon, trait_name, trait_description, armor_rating, weapon_power, updated_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(character_id, slot_id) DO UPDATE SET
                     game_item_id = excluded.game_item_id,
                     item_name = excluded.item_name,
@@ -501,6 +502,11 @@ app.post("/api/characters/upload-gear", async (req, res) => {
                     trait_id = excluded.trait_id,
                     set_name = excluded.set_name,
                     enchantment_description = excluded.enchantment_description,
+                    item_icon = excluded.item_icon,
+                    trait_name = excluded.trait_name,
+                    trait_description = excluded.trait_description,
+                    armor_rating = excluded.armor_rating,
+                    weapon_power = excluded.weapon_power,
                     updated_at = excluded.updated_at;
             `, [
                 characterId,
@@ -511,7 +517,12 @@ app.post("/api/characters/upload-gear", async (req, res) => {
                 quality || 1,
                 trait_id || 0,
                 set_name || null,
-                enchantment_description || null
+                enchantment_description || null,
+                item_icon || null,
+                trait_name || null,
+                trait_description || null,
+                armor_rating || 0,
+                weapon_power || 0
             ]);
         }
         await dbRun("COMMIT");

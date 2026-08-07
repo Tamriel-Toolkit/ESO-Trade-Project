@@ -261,8 +261,12 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                     g_name = re.search(r'\["Name"\]\s*=\s*"([^"]+)"', gsnippet)
                     g_link = re.search(r'\["Link"\]\s*=\s*"([^"]+)"', gsnippet)
                     g_qual = re.search(r'\["Quality"\]\s*=\s*(\d+)', gsnippet)
-                    g_trait = re.search(r'\["TraitId"\]\s*=\s*(\d+)', gsnippet)
-                    g_set = re.search(r'\["SetName"\]\s*=\s*"([^"]+)"', gsnippet)
+                    g_icon = re.search(r'\["Icon"\]\s*=\s*"([^"]+)"', gsnippet)
+                    g_enc = re.search(r'\["Enchant"\]\s*=\s*"([^"]+)"', gsnippet)
+                    g_tname = re.search(r'\["TraitName"\]\s*=\s*"([^"]+)"', gsnippet)
+                    g_tdesc = re.search(r'\["TraitDesc"\]\s*=\s*"([^"]+)"', gsnippet)
+                    g_arm = re.search(r'\["Armor"\]\s*=\s*(\d+)', gsnippet)
+                    g_pow = re.search(r'\["Power"\]\s*=\s*(\d+)', gsnippet)
 
                     if g_slot and g_name:
                         slot_id = int(g_slot.group(1))
@@ -272,10 +276,16 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                         quality = int(g_qual.group(1)) if g_qual else 1
                         trait_id = int(g_trait.group(1)) if g_trait else 0
                         set_name = g_set.group(1).strip() if g_set else ""
+                        item_icon = g_icon.group(1).strip() if g_icon else ""
+                        enchant_text = g_enc.group(1).strip() if g_enc else ""
+                        trait_name = g_tname.group(1).strip() if g_tname else ""
+                        trait_desc = g_tdesc.group(1).strip() if g_tdesc else ""
+                        armor_rating = int(g_arm.group(1)) if g_arm else 0
+                        weapon_power = int(g_pow.group(1)) if g_pow else 0
 
                         cursor.execute("""
-                            INSERT INTO character_gear (character_id, slot_id, game_item_id, item_name, item_link, quality, trait_id, set_name, updated_at)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                            INSERT INTO character_gear (character_id, slot_id, game_item_id, item_name, item_link, quality, trait_id, set_name, enchantment_description, item_icon, trait_name, trait_description, armor_rating, weapon_power, updated_at)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                             ON CONFLICT(character_id, slot_id) DO UPDATE SET
                                 game_item_id = excluded.game_item_id,
                                 item_name = excluded.item_name,
@@ -283,8 +293,14 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                                 quality = excluded.quality,
                                 trait_id = excluded.trait_id,
                                 set_name = excluded.set_name,
+                                enchantment_description = excluded.enchantment_description,
+                                item_icon = excluded.item_icon,
+                                trait_name = excluded.trait_name,
+                                trait_description = excluded.trait_description,
+                                armor_rating = excluded.armor_rating,
+                                weapon_power = excluded.weapon_power,
                                 updated_at = CURRENT_TIMESTAMP;
-                        """, (char_id, slot_id, item_id, item_name, item_link, quality, trait_id, set_name))
+                        """, (char_id, slot_id, item_id, item_name, item_link, quality, trait_id, set_name, enchant_text, item_icon, trait_name, trait_desc, armor_rating, weapon_power))
                         synced_gear_count += 1
                 if synced_gear_count > 0:
                     print(f"Synced {synced_gear_count} equipped gear items to character '{player_name}' loadout!")
@@ -369,6 +385,12 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                     qual_m = re.search(r'\["Quality"\]\s*=\s*(\d+)', sb_text)
                     trait_m = re.search(r'\["TraitId"\]\s*=\s*(\d+)', sb_text)
                     set_m = re.search(r'\["SetName"\]\s*=\s*"([^"]+)"', sb_text)
+                    icon_m = re.search(r'\["Icon"\]\s*=\s*"([^"]+)"', sb_text)
+                    enc_m = re.search(r'\["Enchant"\]\s*=\s*"([^"]+)"', sb_text)
+                    tname_m = re.search(r'\["TraitName"\]\s*=\s*"([^"]+)"', sb_text)
+                    tdesc_m = re.search(r'\["TraitDesc"\]\s*=\s*"([^"]+)"', sb_text)
+                    arm_m = re.search(r'\["Armor"\]\s*=\s*(\d+)', sb_text)
+                    pow_m = re.search(r'\["Power"\]\s*=\s*(\d+)', sb_text)
 
                     if (name_m or link_m) and slot_m:
                         gear_items.append({
@@ -379,7 +401,12 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                             "quality": int(qual_m.group(1)) if qual_m else 1,
                             "trait_id": int(trait_m.group(1)) if trait_m else 0,
                             "set_name": set_m.group(1) if set_m else None,
-                            "enchantment_description": None
+                            "enchantment_description": enc_m.group(1) if enc_m else None,
+                            "item_icon": icon_m.group(1) if icon_m else None,
+                            "trait_name": tname_m.group(1) if tname_m else None,
+                            "trait_description": tdesc_m.group(1) if tdesc_m else None,
+                            "armor_rating": int(arm_m.group(1)) if arm_m else 0,
+                            "weapon_power": int(pow_m.group(1)) if pow_m else 0
                         })
 
         if gear_items and player_name:
