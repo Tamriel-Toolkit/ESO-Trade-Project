@@ -22,12 +22,19 @@ const SLOT_DEFINITIONS = [
   { slotId: 13, name: "Back Bar Off", side: "right", anchorY: "84%" },
 ];
 
+const DEFAULT_QUALITY = { label: "Normal", border: "border-gray-500", text: "text-gray-300", bg: "bg-gray-900/60" };
+
 const QUALITY_COLORS = {
   1: { label: "Normal", border: "border-gray-500", text: "text-gray-300", bg: "bg-gray-900/60" },
   2: { label: "Fine", border: "border-green-500", text: "text-green-400", bg: "bg-green-950/60" },
   3: { label: "Superior", border: "border-blue-500", text: "text-blue-400", bg: "bg-blue-950/60" },
   4: { label: "Epic", border: "border-purple-500", text: "text-purple-400", bg: "bg-purple-950/60" },
   5: { label: "Legendary", border: "border-[#c5a059]", text: "text-[#d4af37]", bg: "bg-amber-950/60" },
+};
+
+const getQualityTheme = (qualityVal) => {
+  const qNum = Number(qualityVal) || 1;
+  return QUALITY_COLORS[qNum] || DEFAULT_QUALITY;
 };
 
 export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front" }) {
@@ -50,7 +57,7 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
         <div className="md:col-span-2 space-y-3">
           {leftSlots.map((slot) => {
             const item = gearBySlot[slot.slotId];
-            const quality = QUALITY_COLORS[item?.quality || 1];
+            const quality = getQualityTheme(item?.quality);
             const isHovered = hoveredSlot === slot.slotId;
 
             return (
@@ -137,7 +144,7 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
         <div className="md:col-span-2 space-y-3">
           {rightSlots.map((slot) => {
             const item = gearBySlot[slot.slotId];
-            const quality = QUALITY_COLORS[item?.quality || 1];
+            const quality = getQualityTheme(item?.quality);
             const isHovered = hoveredSlot === slot.slotId;
             const isWeaponBarActive = activeBar === "front" ? (slot.slotId === 4 || slot.slotId === 5) : (slot.slotId === 12 || slot.slotId === 13);
 
@@ -188,8 +195,8 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
         <div className="mt-4 w-full p-3 bg-[#161620] border-2 border-[#c5a059]/60 shadow-2xl text-xs space-y-1.5 animate-in fade-in duration-200">
           <div className="flex items-center justify-between border-b border-[#2a2c33] pb-1">
             <span className="font-cinzel font-bold text-sm text-[#e0d8c3]">{cleanEsoText(activeHoveredItem.item_name)}</span>
-            <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 border ${QUALITY_COLORS[activeHoveredItem.quality || 1]?.border} ${QUALITY_COLORS[activeHoveredItem.quality || 1]?.text}`}>
-              {QUALITY_COLORS[activeHoveredItem.quality || 1]?.label}
+            <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 border ${getQualityTheme(activeHoveredItem.quality).border} ${getQualityTheme(activeHoveredItem.quality).text}`}>
+              {getQualityTheme(activeHoveredItem.quality).label}
             </span>
           </div>
           {activeHoveredItem.set_name && (
