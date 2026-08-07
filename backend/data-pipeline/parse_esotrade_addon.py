@@ -248,9 +248,9 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
         char_row = cursor.fetchone()
         if char_row:
             char_id = char_row[0]
-            gear_pos = scans_text.find('["Gear"]')
+            gear_pos = content.find('["Gear"]')
             if gear_pos != -1:
-                gear_section = scans_text[gear_pos:]
+                gear_section = content[gear_pos:]
                 # Match every individual gear item block containing ["Slot"] = X
                 gear_item_blocks = list(re.finditer(r'\{[^{}]*?\["Slot"\]\s*=\s*\d+[^{}]*?\}', gear_section, re.DOTALL))
                 synced_gear_count = 0
@@ -345,11 +345,11 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
             except Exception as e:
                 print(f"  [Notice] API Push Batch {b_idx//batch_size + 1} skipped:", e)
 
-        # Parse EquippedGear loadout if exported by ESOTrade.lua
+        # Parse Gear loadout if exported by ESOTrade.lua (for API push)
         gear_items = []
-        gear_pos = content.find('["EquippedGear"]')
-        if gear_pos != -1:
-            g_brace_start = content.find('{', gear_pos)
+        gear_pos2 = content.find('["Gear"]')
+        if gear_pos2 != -1:
+            g_brace_start = content.find('{', gear_pos2)
             if g_brace_start != -1:
                 depth = 1
                 g_idx = g_brace_start + 1
@@ -359,28 +359,27 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                     g_idx += 1
                 gear_text = content[g_brace_start+1:g_idx-1]
                 
-                slot_blocks = re.finditer(r'\[(\d+)\]\s*=\s*\{([^}]*)\}', gear_text)
+                slot_blocks = re.finditer(r'\{[^{}]*?\["Slot"\]\s*=\s*\d+[^{}]*?\}', gear_text, re.DOTALL)
                 for sb in slot_blocks:
-                    slot_id = int(sb.group(1))
-                    sb_text = sb.group(2)
+                    sb_text = sb.group(0)
+                    slot_m = re.search(r'\["Slot"\]\s*=\s*(\d+)', sb_text)
                     link_m = re.search(r'\["Link"\]\s*=\s*"([^"]+)"', sb_text)
                     name_m = re.search(r'\["Name"\]\s*=\s*"([^"]+)"', sb_text)
                     id_m = re.search(r'\["ItemId"\]\s*=\s*(\d+)', sb_text)
                     qual_m = re.search(r'\["Quality"\]\s*=\s*(\d+)', sb_text)
-                    trait_m = re.search(r'\["Trait"\]\s*=\s*(\d+)', sb_text)
-                    set_m = re.search(r'\["Set"\]\s*=\s*"([^"]+)"', sb_text)
-                    enc_m = re.search(r'\["Enchant"\]\s*=\s*"([^"]+)"', sb_text)
+                    trait_m = re.search(r'\["TraitId"\]\s*=\s*(\d+)', sb_text)
+                    set_m = re.search(r'\["SetName"\]\s*=\s*"([^"]+)"', sb_text)
 
-                    if name_m or link_m:
+                    if (name_m or link_m) and slot_m:
                         gear_items.append({
-                            "slot_id": slot_id,
+                            "slot_id": int(slot_m.group(1)),
                             "game_item_id": int(id_m.group(1)) if id_m else 0,
                             "item_name": name_m.group(1) if name_m else "Equipped Item",
                             "item_link": link_m.group(1) if link_m else "",
                             "quality": int(qual_m.group(1)) if qual_m else 1,
                             "trait_id": int(trait_m.group(1)) if trait_m else 0,
                             "set_name": set_m.group(1) if set_m else None,
-                            "enchantment_description": enc_m.group(1) if enc_m else None
+                            "enchantment_description": None
                         })
 
         if gear_items and player_name:
