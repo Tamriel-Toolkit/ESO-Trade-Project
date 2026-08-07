@@ -261,6 +261,8 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                     g_name = re.search(r'\["Name"\]\s*=\s*"([^"]+)"', gsnippet)
                     g_link = re.search(r'\["Link"\]\s*=\s*"([^"]+)"', gsnippet)
                     g_qual = re.search(r'\["Quality"\]\s*=\s*(\d+)', gsnippet)
+                    g_trait = re.search(r'\["TraitId"\]\s*=\s*(\d+)', gsnippet)
+                    g_set = re.search(r'\["SetName"\]\s*=\s*"([^"]+)"', gsnippet)
                     g_icon = re.search(r'\["Icon"\]\s*=\s*"([^"]+)"', gsnippet)
                     g_enc = re.search(r'\["Enchant"\]\s*=\s*"([^"]+)"', gsnippet)
                     g_tname = re.search(r'\["TraitName"\]\s*=\s*"([^"]+)"', gsnippet)
