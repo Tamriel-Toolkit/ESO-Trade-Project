@@ -37,6 +37,58 @@ const getQualityTheme = (qualityVal) => {
   return QUALITY_COLORS[qNum] || DEFAULT_QUALITY;
 };
 
+const ESO_TRAIT_NAMES = {
+  // Armor Traits
+  11: "Divines",
+  12: "Infused",
+  13: "Impenetrable",
+  14: "Sturdy",
+  15: "Well-Fitted",
+  16: "Training",
+  17: "Nirnhoned",
+  18: "Reinforced",
+  19: "Prosperous",
+
+  // Weapon Traits
+  1: "Powered",
+  2: "Charged",
+  3: "Precise",
+  4: "Infused",
+  5: "Defending",
+  6: "Training",
+  7: "Sharpened",
+  8: "Decisive",
+  9: "Nirnhoned",
+
+  // Jewelry Traits
+  21: "Arcane",
+  22: "Healthy",
+  23: "Robust",
+  24: "Triune",
+  25: "Bloodthirsty",
+  26: "Harmony",
+  27: "Protective",
+  28: "Swift",
+  29: "Infused",
+};
+
+const getTraitDisplayName = (item) => {
+  if (item?.trait_name && item.trait_name.trim() !== "") {
+    return cleanEsoText(item.trait_name);
+  }
+  if (item?.trait_id && ESO_TRAIT_NAMES[item.trait_id]) {
+    return ESO_TRAIT_NAMES[item.trait_id];
+  }
+  return null;
+};
+
+const getItemLevelDisplay = (item) => {
+  if (!item) return null;
+  if (item.item_level && item.item_level > 50) return `CP ${item.item_level}`;
+  if (item.item_level) return `Lvl ${item.item_level}`;
+  return "CP 160";
+};
+
 export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front" }) {
   const [hoveredSlot, setHoveredSlot] = useState(null);
 
@@ -59,6 +111,8 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
             const item = gearBySlot[slot.slotId];
             const quality = getQualityTheme(item?.quality);
             const isHovered = hoveredSlot === slot.slotId;
+            const traitName = getTraitDisplayName(item);
+            const levelDisplay = getItemLevelDisplay(item);
 
             return (
               <div
@@ -69,27 +123,46 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
                   isHovered ? "border-[#c5a059] bg-[#c5a059]/10 shadow-lg scale-[1.02]" : item ? `${quality.border} hover:border-[#c5a059]/60` : "border-[#2a2c33] opacity-60"
                 }`}
               >
-                <div className="flex items-center gap-2 overflow-hidden">
-                  <div className={`size-8 shrink-0 border ${item ? quality.border : "border-[#2a2c33]"} bg-[#0a0a0d] flex items-center justify-center p-0.5`}>
+                <div className="flex items-center gap-2 overflow-hidden min-w-0">
+                  <div className={`size-8 shrink-0 border ${item ? quality.border : "border-[#2a2c33]"} bg-[#0a0a0d] flex items-center justify-center p-0.5 relative`}>
                     {item?.item_icon ? (
                       <img src={item.item_icon} alt={item.item_name} className="size-full object-contain" />
                     ) : (
                       <Shield className="size-4 text-[#8a8275]" />
                     )}
                   </div>
-                  <div className="truncate">
-                    <span className="text-[10px] uppercase font-cinzel text-[#8a8275] block leading-none">{slot.name}</span>
+                  <div className="truncate min-w-0">
+                    <div className="flex items-center gap-1.5 leading-none">
+                      <span className="text-[10px] uppercase font-cinzel text-[#8a8275]">{slot.name}</span>
+                      {item && (
+                        <span className={`text-[9px] font-bold uppercase ${quality.text}`}>
+                          [{quality.label}]
+                        </span>
+                      )}
+                    </div>
                     <span className={`text-xs font-semibold truncate block ${item ? quality.text : "text-[#8a8275]"}`}>
                       {item ? cleanEsoText(item.item_name) : "Empty Slot"}
                     </span>
+                    {item && traitName && (
+                      <span className="text-[10px] text-[#93c5fd] font-sans truncate block leading-tight">
+                        Trait: {traitName}
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {item?.set_name && (
-                  <span className="text-[9px] px-1 py-0.5 border border-[#c5a059]/40 bg-[#c5a059]/10 text-[#d4af37] font-mono shrink-0">
-                    Set
-                  </span>
-                )}
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  {item && (
+                    <span className="text-[9px] px-1 py-0.5 border border-[#2a2c33] bg-[#0a0a0d] text-[#e0d8c3] font-mono">
+                      {levelDisplay}
+                    </span>
+                  )}
+                  {item?.set_name && (
+                    <span className="text-[9px] px-1 py-0.5 border border-[#c5a059]/40 bg-[#c5a059]/10 text-[#d4af37] font-mono">
+                      Set
+                    </span>
+                  )}
+                </div>
               </div>
             );
           })}
@@ -147,6 +220,8 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
             const quality = getQualityTheme(item?.quality);
             const isHovered = hoveredSlot === slot.slotId;
             const isWeaponBarActive = activeBar === "front" ? (slot.slotId === 4 || slot.slotId === 5) : (slot.slotId === 12 || slot.slotId === 13);
+            const traitName = getTraitDisplayName(item);
+            const levelDisplay = getItemLevelDisplay(item);
 
             return (
               <div
@@ -163,7 +238,7 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
                     : "border-[#2a2c33] opacity-60"
                 }`}
               >
-                <div className="flex items-center gap-2 overflow-hidden">
+                <div className="flex items-center gap-2 overflow-hidden min-w-0">
                   <div className={`size-8 shrink-0 border ${item ? quality.border : "border-[#2a2c33]"} bg-[#0a0a0d] flex items-center justify-center p-0.5`}>
                     {item?.item_icon ? (
                       <img src={item.item_icon} alt={item.item_name} className="size-full object-contain" />
@@ -171,19 +246,38 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
                       <Zap className="size-4 text-[#8a8275]" />
                     )}
                   </div>
-                  <div className="truncate">
-                    <span className="text-[10px] uppercase font-cinzel text-[#8a8275] block leading-none">{slot.name}</span>
+                  <div className="truncate min-w-0">
+                    <div className="flex items-center gap-1.5 leading-none">
+                      <span className="text-[10px] uppercase font-cinzel text-[#8a8275]">{slot.name}</span>
+                      {item && (
+                        <span className={`text-[9px] font-bold uppercase ${quality.text}`}>
+                          [{quality.label}]
+                        </span>
+                      )}
+                    </div>
                     <span className={`text-xs font-semibold truncate block ${item ? quality.text : "text-[#8a8275]"}`}>
                       {item ? cleanEsoText(item.item_name) : "Empty Slot"}
                     </span>
+                    {item && traitName && (
+                      <span className="text-[10px] text-[#93c5fd] font-sans truncate block leading-tight">
+                        Trait: {traitName}
+                      </span>
+                    )}
                   </div>
                 </div>
 
-                {item?.set_name && (
-                  <span className="text-[9px] px-1 py-0.5 border border-[#c5a059]/40 bg-[#c5a059]/10 text-[#d4af37] font-mono shrink-0">
-                    Set
-                  </span>
-                )}
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  {item && (
+                    <span className="text-[9px] px-1 py-0.5 border border-[#2a2c33] bg-[#0a0a0d] text-[#e0d8c3] font-mono">
+                      {levelDisplay}
+                    </span>
+                  )}
+                  {item?.set_name && (
+                    <span className="text-[9px] px-1 py-0.5 border border-[#c5a059]/40 bg-[#c5a059]/10 text-[#d4af37] font-mono">
+                      Set
+                    </span>
+                  )}
+                </div>
               </div>
             );
           })}
