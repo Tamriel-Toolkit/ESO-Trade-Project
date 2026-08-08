@@ -300,6 +300,9 @@ function Marketplace() {
                 key={hub.name}
                 onClick={() => {
                   setSelectedHubLocation(hub.location);
+                  if (hub.location && viewMode !== "listings") {
+                    setViewMode("listings");
+                  }
                   setCurrentPage(1);
                 }}
                 className={`px-2.5 py-1 text-[11px] font-semibold border transition-all whitespace-nowrap ${

@@ -1185,7 +1185,7 @@ app.get("/api/market/prices", async (req, res) => {
  * Calculates value_index (suggested_price / price).
  */
 app.get("/api/market/listings", async (req, res) => {
-    let { search, category, subcategory, rarity, server, min_price, max_price, min_value_index, limit, offset, sort } = req.query;
+    let { search, category, subcategory, rarity, location, server, min_price, max_price, min_value_index, limit, offset, sort } = req.query;
 
     limit = Math.min(parseInt(limit, 10) || 20, 100);
     offset = Math.max(parseInt(offset, 10) || 0, 0);
@@ -1209,6 +1209,10 @@ app.get("/api/market/listings", async (req, res) => {
     if (rarity) {
         conditions.push("i.rarity = ?");
         params.push(parseInt(rarity, 10));
+    }
+    if (location) {
+        conditions.push("gtl.location LIKE ?");
+        params.push(`%${location}%`);
     }
     if (min_price) {
         conditions.push("gtl.price >= ?");
