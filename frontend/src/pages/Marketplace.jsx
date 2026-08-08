@@ -219,7 +219,7 @@ function Marketplace() {
         <div>
           <h1 className="font-cinzel text-2xl md:text-3xl font-extrabold tracking-wide text-[#e0d8c3] flex items-center gap-2 uppercase">
             <Store className="size-7 text-[#c5a059]" />
-            <span>Tamriel Guild Kiosk Directory</span>
+            <span>Live Market</span>
           </h1>
           <p className="text-[#a89f91] text-xs md:text-sm mt-1">
             Real-time market analytics, active guild trader listings, and deal intelligence for{" "}
@@ -281,7 +281,7 @@ function Marketplace() {
       <div className="mb-4 space-y-2">
         <div className="flex items-center justify-between text-xs text-[#a89f91] font-cinzel uppercase font-bold tracking-wider">
           <span className="flex items-center gap-1.5 text-[#c5a059]">
-            <Compass className="size-3.5" /> Major Tamriel Trading Hubs
+            <Compass className="size-3.5" /> Major Trading Hubs
           </span>
           {selectedHubLocation && (
             <button

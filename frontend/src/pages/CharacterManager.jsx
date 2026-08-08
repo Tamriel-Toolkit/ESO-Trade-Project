@@ -116,7 +116,7 @@ export default function CharacterManager() {
                         <div className="flex items-center gap-3">
                             <h1 className="font-cinzel text-2xl md:text-3xl font-extrabold text-[#e0d8c3] tracking-wide uppercase flex items-center gap-2">
                                 <Shield className="w-7 h-7 text-[#c5a059]" />
-                                Tamriel Character Roster & Master Crafters
+                                Account Characters
                             </h1>
                             <span className="px-3 py-0.5 rounded-none bg-[#c5a059]/10 border border-[#c5a059]/40 text-[#d4af37] text-xs font-mono">
                                 {user ? `@${user.username}` : "Guest Session"}
@@ -146,7 +146,7 @@ export default function CharacterManager() {
                         <div className="eso-card p-4 flex items-center gap-3 border-l-4 border-l-[#c5a059]">
                             <Users className="w-8 h-8 text-[#c5a059]" />
                             <div>
-                                <span className="text-[11px] font-cinzel uppercase text-[#8a8275] block">Total Roster Characters</span>
+                                <span className="text-[11px] font-cinzel uppercase text-[#8a8275] block">Total  Characters</span>
                                 <span className="font-mono text-xl font-bold text-[#e0d8c3]">{stats.total}</span>
                             </div>
                         </div>
@@ -154,7 +154,7 @@ export default function CharacterManager() {
                         <div className="eso-card p-4 flex items-center gap-3 border-l-4 border-l-amber-500">
                             <Award className="w-8 h-8 text-amber-400" />
                             <div>
-                                <span className="text-[11px] font-cinzel uppercase text-[#8a8275] block">Master Crafters Unlocked</span>
+                                <span className="text-[11px] font-cinzel uppercase text-[#8a8275] block">Master Crafters</span>
                                 <span className="font-mono text-xl font-bold text-[#d4af37]">{stats.masterCrafters}</span>
                             </div>
                         </div>
@@ -162,7 +162,7 @@ export default function CharacterManager() {
                         <div className="eso-card p-4 flex items-center gap-3 border-l-4 border-l-emerald-500">
                             <CheckCircle2 className="w-8 h-8 text-emerald-400" />
                             <div>
-                                <span className="text-[11px] font-cinzel uppercase text-[#8a8275] block">Max Level (CP Ready)</span>
+                                <span className="text-[11px] font-cinzel uppercase text-[#8a8275] block">Level 50+</span>
                                 <span className="font-mono text-xl font-bold text-emerald-400">{stats.maxLevel}</span>
                             </div>
                         </div>

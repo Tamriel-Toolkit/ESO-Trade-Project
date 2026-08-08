@@ -119,8 +119,8 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
                 key={slot.slotId}
                 onMouseEnter={() => setHoveredSlot(slot.slotId)}
                 onMouseLeave={() => setHoveredSlot(null)}
-                className={`p-2 bg-[#121218] border transition-all cursor-pointer flex items-center justify-between gap-2 rounded-none ${
-                  isHovered ? "border-[#c5a059] bg-[#c5a059]/10 shadow-lg scale-[1.02]" : item ? `${quality.border} hover:border-[#c5a059]/60` : "border-[#2a2c33] opacity-60"
+                className={`p-2 bg-[#121218] border transition-colors cursor-pointer flex items-center justify-between gap-2 rounded-none ${
+                  isHovered ? "border-[#c5a059] bg-[#c5a059]/15 shadow-md" : item ? `${quality.border} hover:border-[#c5a059]/60` : "border-[#2a2c33] opacity-60"
                 }`}
               >
                 <div className="flex items-center gap-2 overflow-hidden min-w-0">
@@ -228,9 +228,9 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
                 key={slot.slotId}
                 onMouseEnter={() => setHoveredSlot(slot.slotId)}
                 onMouseLeave={() => setHoveredSlot(null)}
-                className={`p-2 bg-[#121218] border transition-all cursor-pointer flex items-center justify-between gap-2 rounded-none ${
+                className={`p-2 bg-[#121218] border transition-colors cursor-pointer flex items-center justify-between gap-2 rounded-none ${
                   isHovered
-                    ? "border-[#c5a059] bg-[#c5a059]/10 shadow-lg scale-[1.02]"
+                    ? "border-[#c5a059] bg-[#c5a059]/15 shadow-md"
                     : isWeaponBarActive
                     ? `${quality.border} bg-[#c5a059]/5 border-l-4`
                     : item
@@ -284,54 +284,64 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
         </div>
       </div>
 
-      {/* Floating Hover Tooltip Panel */}
-      {activeHoveredItem && (
-        <div className="mt-4 w-full p-3.5 bg-[#161620] border-2 border-[#c5a059]/60 shadow-2xl text-xs space-y-2 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between border-b border-[#2a2c33] pb-1.5">
-            <div className="flex items-center gap-2">
-              {activeHoveredItem.item_icon && (
-                <img src={activeHoveredItem.item_icon} alt="" className="size-6 border border-[#c5a059]/40 bg-[#0a0a0d] p-0.5 object-contain" />
-              )}
-              <span className="font-cinzel font-bold text-sm text-[#e0d8c3]">{cleanEsoText(activeHoveredItem.item_name)}</span>
-            </div>
-            <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 border ${getQualityTheme(activeHoveredItem.quality).border} ${getQualityTheme(activeHoveredItem.quality).text}`}>
-              {getQualityTheme(activeHoveredItem.quality).label}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
-            {activeHoveredItem.armor_rating > 0 && (
-              <div className="text-[#8a8275]">
-                <span className="text-[#e0d8c3] font-semibold">Armor Rating:</span> {activeHoveredItem.armor_rating.toLocaleString()}
-              </div>
-            )}
-            {activeHoveredItem.weapon_power > 0 && (
-              <div className="text-[#8a8275]">
-                <span className="text-[#e0d8c3] font-semibold">Weapon Power:</span> {activeHoveredItem.weapon_power.toLocaleString()}
-              </div>
-            )}
-            {activeHoveredItem.set_name && (
-              <div className="text-[#d4af37] font-cinzel font-semibold col-span-2">
-                Set: {cleanEsoText(activeHoveredItem.set_name)}
-              </div>
-            )}
-            {activeHoveredItem.trait_name && (
-              <div className="text-[#93c5fd] col-span-2">
-                <span className="font-semibold text-[#60a5fa]">Trait:</span> {cleanEsoText(activeHoveredItem.trait_name)}
-                {activeHoveredItem.trait_description && (
-                  <span className="text-[#8a8275] block text-[10px] mt-0.5">{cleanEsoText(activeHoveredItem.trait_description)}</span>
+      {/* Reserved Fixed-Height Equipment Details Inspector Panel */}
+      <div className="mt-4 w-full min-h-[140px] p-3.5 bg-[#161620] border-2 border-[#c5a059]/60 shadow-2xl text-xs flex flex-col justify-between">
+        {activeHoveredItem ? (
+          <div className="space-y-2 animate-in fade-in duration-150">
+            <div className="flex items-center justify-between border-b border-[#2a2c33] pb-1.5">
+              <div className="flex items-center gap-2">
+                {activeHoveredItem.item_icon && (
+                  <img src={activeHoveredItem.item_icon} alt="" className="size-6 border border-[#c5a059]/40 bg-[#0a0a0d] p-0.5 object-contain" />
                 )}
+                <span className="font-cinzel font-bold text-sm text-[#e0d8c3]">{cleanEsoText(activeHoveredItem.item_name)}</span>
               </div>
-            )}
-            {activeHoveredItem.enchantment_description && (
-              <div className="text-[#e0d8c3] col-span-2 bg-[#0a0a0d]/60 p-2 border border-[#2a2c33]">
-                <span className="font-semibold text-[#c5a059] block text-[10px] uppercase mb-0.5">Enchantment Glyph:</span>
-                {renderEsoFormattedText(activeHoveredItem.enchantment_description)}
-              </div>
-            )}
+              <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 border ${getQualityTheme(activeHoveredItem.quality).border} ${getQualityTheme(activeHoveredItem.quality).text}`}>
+                {getQualityTheme(activeHoveredItem.quality).label}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+              {activeHoveredItem.armor_rating > 0 && (
+                <div className="text-[#8a8275]">
+                  <span className="text-[#e0d8c3] font-semibold">Armor Rating:</span> {activeHoveredItem.armor_rating.toLocaleString()}
+                </div>
+              )}
+              {activeHoveredItem.weapon_power > 0 && (
+                <div className="text-[#8a8275]">
+                  <span className="text-[#e0d8c3] font-semibold">Weapon Power:</span> {activeHoveredItem.weapon_power.toLocaleString()}
+                </div>
+              )}
+              {activeHoveredItem.set_name && (
+                <div className="text-[#d4af37] font-cinzel font-semibold col-span-2">
+                  Set: {cleanEsoText(activeHoveredItem.set_name)}
+                </div>
+              )}
+              {activeHoveredItem.trait_name && (
+                <div className="text-[#93c5fd] col-span-2">
+                  <span className="font-semibold text-[#60a5fa]">Trait:</span> {cleanEsoText(activeHoveredItem.trait_name)}
+                  {activeHoveredItem.trait_description && (
+                    <span className="text-[#8a8275] block text-[10px] mt-0.5">{cleanEsoText(activeHoveredItem.trait_description)}</span>
+                  )}
+                </div>
+              )}
+              {activeHoveredItem.enchantment_description && (
+                <div className="text-[#e0d8c3] col-span-2 bg-[#0a0a0d]/60 p-2 border border-[#2a2c33]">
+                  <span className="font-semibold text-[#c5a059] block text-[10px] uppercase mb-0.5">Enchantment Glyph:</span>
+                  {renderEsoFormattedText(activeHoveredItem.enchantment_description)}
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="h-full flex flex-col items-center justify-center text-center p-4 text-[#8a8275] space-y-1">
+            <Info className="size-5 text-[#c5a059]/70 mb-1" />
+            <span className="font-cinzel text-xs font-semibold text-[#e0d8c3] uppercase tracking-wider">Item Inspector</span>
+            <p className="text-[11px] text-[#8a8275] max-w-md">
+              Hover over any equipment slot in the diagram above to inspect full item stats, glyph enchantments, traits, and armor ratings.
+            </p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

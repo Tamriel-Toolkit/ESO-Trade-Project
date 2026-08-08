@@ -63,7 +63,7 @@ function Home() {
         <div className="relative z-10 max-w-4xl mx-auto space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-none bg-[#c5a059]/10 border border-[#c5a059]/40 text-[#d4af37] text-xs font-cinzel tracking-widest uppercase">
             <Sparkles className="size-3.5 text-[#c5a059]" />
-            Official Tamriel Trade Guild Intelligence
+            ESO Trade Intelligence
           </div>
 
           <h1 className="font-cinzel text-3xl md:text-5xl font-extrabold text-[#e0d8c3] tracking-wide uppercase leading-tight">
@@ -81,14 +81,14 @@ function Home() {
             <Link to="/marketplace">
               <Button size="lg" className="rounded-none font-cinzel font-bold bg-[#c5a059] text-[#0a0a0d] hover:bg-[#d4af37] tracking-wider uppercase gap-2 shadow-lg">
                 <Store className="size-4" />
-                Browse Kiosk Marketplace
+                Browse Marketplace
               </Button>
             </Link>
 
             <Link to="/characters">
               <Button size="lg" variant="outline" className="rounded-none font-cinzel font-semibold border-[#c5a059]/40 bg-[#161620] text-[#e0d8c3] hover:border-[#c5a059] hover:bg-[#1f1f2e] tracking-wider uppercase gap-2">
                 <Award className="size-4 text-[#c5a059]" />
-                Roster & Crafters
+                Player Characters
               </Button>
             </Link>
           </div>
