@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Globe, Gamepad2, Monitor, Shield, Zap, User, Store, LogOut, Radio } from "lucide-react";
+import { Globe, Gamepad2, Monitor, Zap, User, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ModeToggle } from "@/components/ui/mode-toggle";
 import { useTheme } from "@/components/theme-provider";
