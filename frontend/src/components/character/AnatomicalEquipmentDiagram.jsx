@@ -32,28 +32,21 @@ const QUALITY_COLORS = {
   5: { label: "Legendary", border: "border-[#c5a059]", text: "text-[#d4af37]", bg: "bg-amber-950/60" },
 };
 
-const getItemQualityValue = (itemOrVal) => {
-  if (!itemOrVal) return 1;
-  if (typeof itemOrVal === "number" || typeof itemOrVal === "string") {
-    const val = Number(itemOrVal);
-    return !isNaN(val) && val > 1 ? val : 1;
-  }
-  const qNum = Number(itemOrVal.quality);
-  if (!isNaN(qNum) && qNum > 1) {
-    return qNum;
-  }
-  const rNum = Number(itemOrVal.item_rarity);
-  if (!isNaN(rNum) && rNum > 1) {
-    return rNum;
-  }
-  if (itemOrVal.set_name && itemOrVal.set_name.trim() !== "") {
-    return 5; // Legendary Set Equipment
-  }
-  return 1;
-};
+const getQualityTheme = (qualityVal, item = null) => {
+  let qNum = Number(qualityVal);
 
-const getQualityTheme = (itemOrVal) => {
-  const qNum = getItemQualityValue(itemOrVal);
+  // Parse quality directly from item_link if qualityVal is missing
+  if ((!qNum || isNaN(qNum)) && item?.item_link && item.item_link.includes(":")) {
+    const parts = item.item_link.split(":");
+    if (parts.length >= 7 && parts[5]) {
+      const pQ = parseInt(parts[5], 10);
+      if (!isNaN(pQ) && pQ >= 1 && pQ <= 5) {
+        qNum = pQ;
+      }
+    }
+  }
+
+  qNum = qNum && qNum >= 1 && qNum <= 5 ? qNum : 1;
   return QUALITY_COLORS[qNum] || DEFAULT_QUALITY;
 };
 
@@ -129,7 +122,7 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
         <div className="md:col-span-2 space-y-3">
           {leftSlots.map((slot) => {
             const item = gearBySlot[slot.slotId];
-            const quality = getQualityTheme(item);
+            const quality = getQualityTheme(item?.quality, item);
             const isHovered = hoveredSlot === slot.slotId;
             const traitName = getTraitDisplayName(item);
             const levelDisplay = getItemLevelDisplay(item);
@@ -237,7 +230,7 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
         <div className="md:col-span-2 space-y-3">
           {rightSlots.map((slot) => {
             const item = gearBySlot[slot.slotId];
-            const quality = getQualityTheme(item);
+            const quality = getQualityTheme(item?.quality, item);
             const isHovered = hoveredSlot === slot.slotId;
             const isWeaponBarActive = activeBar === "front" ? (slot.slotId === 4 || slot.slotId === 5) : (slot.slotId === 12 || slot.slotId === 13);
             const traitName = getTraitDisplayName(item);
@@ -315,8 +308,8 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
                 )}
                 <span className="font-cinzel font-bold text-sm text-[#e0d8c3]">{cleanEsoText(activeHoveredItem.item_name)}</span>
               </div>
-              <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 border ${getQualityTheme(activeHoveredItem).border} ${getQualityTheme(activeHoveredItem).text}`}>
-                {getQualityTheme(activeHoveredItem).label}
+              <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 border ${getQualityTheme(activeHoveredItem.quality, activeHoveredItem).border} ${getQualityTheme(activeHoveredItem.quality, activeHoveredItem).text}`}>
+                {getQualityTheme(activeHoveredItem.quality, activeHoveredItem).label}
               </span>
             </div>
 
@@ -336,18 +329,28 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
                   Set: {cleanEsoText(activeHoveredItem.set_name)}
                 </div>
               )}
-              {activeHoveredItem.trait_name && (
-                <div className="text-[#93c5fd] col-span-2">
-                  <span className="font-semibold text-[#60a5fa]">Trait:</span> {cleanEsoText(activeHoveredItem.trait_name)}
-                  {activeHoveredItem.trait_description && (
-                    <span className="text-[#8a8275] block text-[10px] mt-0.5">{cleanEsoText(activeHoveredItem.trait_description)}</span>
+              {getTraitDisplayName(activeHoveredItem) && (
+                <div className="text-[#e0d8c3] col-span-2 sm:col-span-1 bg-[#0a0a0d]/60 p-2 border border-[#2a2c33]">
+                  <span className="font-semibold text-[#60a5fa] block text-[10px] uppercase mb-0.5 flex items-center justify-between">
+                    <span>Item Trait: {getTraitDisplayName(activeHoveredItem)}</span>
+                    <Sparkles className="size-3 text-[#60a5fa]" />
+                  </span>
+                  {activeHoveredItem.trait_description ? (
+                    <p className="text-[11px] text-[#93c5fd] leading-snug">{renderEsoFormattedText(activeHoveredItem.trait_description)}</p>
+                  ) : (
+                    <p className="text-[11px] text-[#8a8275] italic">Active {getTraitDisplayName(activeHoveredItem)} trait bonus applied.</p>
                   )}
                 </div>
               )}
               {activeHoveredItem.enchantment_description && (
-                <div className="text-[#e0d8c3] col-span-2 bg-[#0a0a0d]/60 p-2 border border-[#2a2c33]">
-                  <span className="font-semibold text-[#c5a059] block text-[10px] uppercase mb-0.5">Enchantment Glyph:</span>
-                  {renderEsoFormattedText(activeHoveredItem.enchantment_description)}
+                <div className="text-[#e0d8c3] col-span-2 sm:col-span-1 bg-[#0a0a0d]/60 p-2 border border-[#2a2c33]">
+                  <span className="font-semibold text-[#c5a059] block text-[10px] uppercase mb-0.5 flex items-center justify-between">
+                    <span>Enchantment Glyph</span>
+                    <Zap className="size-3 text-[#c5a059]" />
+                  </span>
+                  <div className="text-[11px] text-[#e0d8c3] leading-snug">
+                    {renderEsoFormattedText(activeHoveredItem.enchantment_description)}
+                  </div>
                 </div>
               )}
             </div>

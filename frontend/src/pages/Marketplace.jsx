@@ -16,7 +16,8 @@ import {
   Copy,
   Check,
   DollarSign,
-  Compass
+  Compass,
+  Clock
 } from "lucide-react";
 
 import {
@@ -79,11 +80,27 @@ const POPULAR_SEARCH_PRESETS = [
   { label: "Perfect Roe", search: "Perfect Roe" },
   { label: "Kuta", search: "Kuta" },
   { label: "Aetherial Dust", search: "Aetherial Dust" },
-  { label: "Columbine", search: "Columbine" },
-  { label: "Deadly Strike", search: "Deadly Strike" },
-  { label: "Powerful Assault", search: "Powerful Assault" },
   { label: "Order's Wrath", search: "Order's Wrath" }
 ];
+
+const formatLastSeen = (timestamp) => {
+  if (!timestamp) return "Recently";
+  const now = new Date();
+  const past = new Date(timestamp);
+  const diffMs = now - past;
+  if (isNaN(diffMs) || diffMs < 0) return "Just now";
+
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+  const diffHours = Math.floor(diffMin / 60);
+  const diffDays = Math.floor(diffHours / 24);
+
+  if (diffSec < 60) return "Just now";
+  if (diffMin < 60) return `${diffMin}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays === 1) return "1 day ago";
+  return `${diffDays} days ago`;
+};
 
 function Marketplace() {
   const { serverLocation, platform } = useTheme();
@@ -95,6 +112,7 @@ function Marketplace() {
   const [selectedSubcategory, setSelectedSubcategory] = useState("");
   const [selectedRarity, setSelectedRarity] = useState("");
   const [selectedHubLocation, setSelectedHubLocation] = useState("");
+  const [selectedMaxAge, setSelectedMaxAge] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortOption, setSortOption] = useState("value_index");
   const [dealsOnly, setDealsOnly] = useState(false);
@@ -131,6 +149,7 @@ function Marketplace() {
       ...(selectedSubcategory && { subcategory: selectedSubcategory }),
       ...(selectedRarity && { rarity: selectedRarity }),
       ...(selectedHubLocation && { location: selectedHubLocation }),
+      ...(selectedMaxAge && { max_age: selectedMaxAge }),
       ...(sortOption && { sort: sortOption }),
     };
 
@@ -155,6 +174,7 @@ function Marketplace() {
     selectedSubcategory,
     selectedRarity,
     selectedHubLocation,
+    selectedMaxAge,
     searchQuery,
     sortOption,
     dealsOnly,
@@ -179,6 +199,7 @@ function Marketplace() {
     setSelectedSubcategory("");
     setSelectedRarity("");
     setSelectedHubLocation("");
+    setSelectedMaxAge("");
     setSearchQuery("");
     setSortOption("value_index");
     setDealsOnly(false);
@@ -423,6 +444,27 @@ function Marketplace() {
           </NativeSelectOptGroup>
         </NativeSelect>
 
+        {/* Time Since Last Seen NativeSelect */}
+        {viewMode === "listings" && (
+          <NativeSelect
+            value={selectedMaxAge}
+            onChange={(e) => {
+              setSelectedMaxAge(e.target.value);
+              setCurrentPage(1);
+            }}
+            className="w-full bg-[#0a0a0d] border-[#2a2c33] text-[#e0d8c3]"
+          >
+            <NativeSelectOption value="">Last Seen: Any Time</NativeSelectOption>
+            <NativeSelectOptGroup label="Scan Recency Scale">
+              <NativeSelectOption value="1">⏱️ Last 24 Hours</NativeSelectOption>
+              <NativeSelectOption value="3">⏱️ Last 3 Days</NativeSelectOption>
+              <NativeSelectOption value="7">⏱️ Last 7 Days</NativeSelectOption>
+              <NativeSelectOption value="14">⏱️ Last 14 Days</NativeSelectOption>
+              <NativeSelectOption value="30">⏱️ Last 30 Days</NativeSelectOption>
+            </NativeSelectOptGroup>
+          </NativeSelect>
+        )}
+
         {/* Sort Option NativeSelect */}
         <NativeSelect
           value={sortOption}
@@ -475,7 +517,7 @@ function Marketplace() {
             </Button>
           )}
 
-          {(selectedCategory || selectedSubcategory || selectedRarity || selectedHubLocation || searchQuery || dealsOnly) && (
+          {(selectedCategory || selectedSubcategory || selectedRarity || selectedHubLocation || selectedMaxAge || searchQuery || dealsOnly) && (
             <Button
               variant="ghost"
               size="sm"
@@ -685,16 +727,33 @@ function Marketplace() {
                         </div>
                       )}
 
-                      {/* Prominent Guild Trader Name & Kiosk Location Badge across ALL items */}
-                      <div className="flex items-center justify-between text-[11px] text-[#8a8275] pt-2 mt-2 border-t border-[#2a2c33]/40">
-                        <span className="flex items-center gap-1.5 truncate max-w-[150px]" title={item.guild_name || "Active Guild Trader"}>
+                      {/* Prominent Guild Trader Name, Kiosk Location, & Last Seen Marker */}
+                      <div className="flex items-center justify-between text-[11px] text-[#8a8275] pt-2 mt-2 border-t border-[#2a2c33]/40 gap-1">
+                        <span className="flex items-center gap-1.5 truncate max-w-[120px]" title={item.guild_name || "Active Guild Trader"}>
                           <Store className="size-3.5 text-[#c5a059] shrink-0" />
                           <span className="truncate font-semibold text-[#e0d8c3]">{item.guild_name || "Guild Trader"}</span>
                         </span>
-                        <span className="flex items-center gap-1.5 truncate max-w-[160px]" title={item.location || "Tamriel Kiosk"}>
+                        <span className="flex items-center gap-1.5 truncate max-w-[110px]" title={item.location || "Tamriel Kiosk"}>
                           <MapPin className="size-3.5 text-[#d4af37] shrink-0" />
                           <span className="truncate font-semibold text-[#d4af37]">{item.location || "Tamriel Kiosk"}</span>
                         </span>
+                        {(() => {
+                          const scanDate = item.discovered_at || item.updated_at;
+                          const isItemStale = scanDate && ((new Date() - new Date(scanDate)) / (1000 * 3600 * 24) > 7);
+                          return (
+                            <span
+                              className={`flex items-center gap-1 shrink-0 font-mono text-[10px] px-1.5 py-0.5 border ${
+                                isItemStale
+                                  ? "border-amber-500/50 bg-amber-950/60 text-amber-400"
+                                  : "border-[#2a2c33] bg-[#0a0a0d] text-[#38bdf8]"
+                              }`}
+                              title={`Last Seen Scan: ${scanDate ? new Date(scanDate).toLocaleString() : 'Recent scan'}${isItemStale ? ' (Stale >7d old)' : ''}`}
+                            >
+                              <Clock className={`size-3 shrink-0 ${isItemStale ? 'text-amber-400' : 'text-[#38bdf8]'}`} />
+                              <span className="font-semibold">{isItemStale ? `⚠️ Stale (${formatLastSeen(scanDate)})` : formatLastSeen(scanDate || item.created_at)}</span>
+                            </span>
+                          );
+                        })()}
                       </div>
                     </CardContent>
                   </Card>
@@ -806,10 +865,11 @@ function Marketplace() {
                   )}
                 </div>
 
-                {/* Always Render Trader Name & Location */}
-                <div className="space-y-1.5 p-3 bg-[#0a0a0d] border border-[#2a2c33]">
-                  <span className="font-cinzel font-bold uppercase tracking-wider text-[10px] text-[#c5a059] block">
-                    Guild Trader Kiosk Location
+                {/* Always Render Trader Name, Location & Last Seen Scan Marker */}
+                <div className="space-y-2 p-3 bg-[#0a0a0d] border border-[#2a2c33]">
+                  <span className="font-cinzel font-bold uppercase tracking-wider text-[10px] text-[#c5a059] block flex items-center justify-between">
+                    <span>Guild Trader Kiosk Details</span>
+                    <Store className="size-3.5 text-[#c5a059]" />
                   </span>
                   <div className="flex items-center gap-2">
                     <Store className="size-4 text-[#c5a059] shrink-0" />
@@ -819,6 +879,21 @@ function Marketplace() {
                     <MapPin className="size-4 shrink-0" />
                     <span>{selectedItem.location || "Tamriel Trade Kiosk"}</span>
                   </div>
+                  {(() => {
+                    const scanDate = selectedItem.discovered_at || selectedItem.updated_at;
+                    const isStale = scanDate && ((new Date() - new Date(scanDate)) / (1000 * 3600 * 24) > 7);
+                    return (
+                      <div className={`pt-2 border-t border-[#2a2c33]/60 flex items-center justify-between text-xs font-mono ${isStale ? 'text-amber-400' : ''}`}>
+                        <span className="text-[#a89f91] flex items-center gap-1.5 font-sans">
+                          <Clock className={`size-3.5 shrink-0 ${isStale ? 'text-amber-400' : 'text-[#38bdf8]'}`} />
+                          <span>Last Seen Scan:</span>
+                        </span>
+                        <span className={`font-bold ${isStale ? 'text-amber-400' : 'text-[#38bdf8]'}`}>
+                          {isStale ? `⚠️ Stale (${formatLastSeen(scanDate)})` : formatLastSeen(scanDate || selectedItem.created_at)}
+                        </span>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Clean ESO Formatted Metadata Details */}

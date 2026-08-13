@@ -435,10 +435,8 @@ app.get("/api/characters/:id/profile", async (req, res) => {
 
         const gearRows = await dbAll(`
             SELECT cg.slot_id, cg.game_item_id, cg.item_name, cg.item_link, cg.quality, cg.trait_id, 
-                   cg.trait_name, cg.trait_description, cg.set_name, cg.enchantment_description, 
-                   cg.armor_rating, cg.weapon_power, cg.updated_at,
-                   COALESCE(NULLIF(cg.item_icon, ''), i.icon_url) AS item_icon, 
-                   i.category AS item_category, i.subcategory AS item_subcategory,
+                   cg.set_name, cg.enchantment_description, cg.updated_at,
+                   i.icon_url AS item_icon, i.category AS item_category, i.subcategory AS item_subcategory,
                    i.rarity AS item_rarity, i.metadata AS item_metadata
             FROM character_gear cg
             LEFT JOIN items i ON cg.game_item_id = i.game_item_id
@@ -1187,7 +1185,7 @@ app.get("/api/market/prices", async (req, res) => {
  * Calculates value_index (suggested_price / price).
  */
 app.get("/api/market/listings", async (req, res) => {
-    let { search, category, subcategory, rarity, location, server, min_price, max_price, min_value_index, limit, offset, sort } = req.query;
+    let { search, category, subcategory, rarity, location, server, min_price, max_price, min_value_index, hide_stale, max_age, limit, offset, sort } = req.query;
 
     limit = Math.min(parseInt(limit, 10) || 20, 100);
     offset = Math.max(parseInt(offset, 10) || 0, 0);
@@ -1227,6 +1225,14 @@ app.get("/api/market/listings", async (req, res) => {
     if (min_value_index) {
         conditions.push("(CASE WHEN gtl.price > 0 THEN CAST(ip.suggested_price AS REAL) / gtl.price ELSE 0 END) >= ?");
         params.push(parseFloat(min_value_index));
+    }
+    if (max_age) {
+        const ageDays = parseInt(max_age, 10);
+        if (!isNaN(ageDays) && ageDays > 0) {
+            conditions.push(`datetime(gtl.discovered_at) >= datetime('now', '-${ageDays} days')`);
+        }
+    } else if (hide_stale === "true" || hide_stale === "1" || hide_stale === true) {
+        conditions.push("datetime(gtl.discovered_at) >= datetime('now', '-7 days')");
     }
 
     const whereClause = " WHERE " + conditions.join(" AND ");

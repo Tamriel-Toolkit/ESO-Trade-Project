@@ -142,7 +142,7 @@ export function CharacterProfileModal({ character, onClose }) {
                   activeWeaponBar === "front" ? "bg-[#c5a059] text-[#0a0a0d] border-[#c5a059]" : "text-[#8a8275] border-transparent hover:text-[#e0d8c3]"
                 }`}
               >
-                Front Bar (Slots 4,5)
+                Front Bar
               </button>
               <button
                 onClick={() => setActiveWeaponBar("back")}
@@ -150,7 +150,7 @@ export function CharacterProfileModal({ character, onClose }) {
                   activeWeaponBar === "back" ? "bg-[#c5a059] text-[#0a0a0d] border-[#c5a059]" : "text-[#8a8275] border-transparent hover:text-[#e0d8c3]"
                 }`}
               >
-                Back Bar (Slots 12,13)
+                Back Bar
               </button>
             </div>
 
