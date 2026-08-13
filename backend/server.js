@@ -155,6 +155,25 @@ function initializeDatabaseSchema() {
             ON guild_trader_listings (game_item_id, server, guild_name, seller_name, price, quantity, level, quality, trait_id);
         `);
         db.run("CREATE INDEX IF NOT EXISTS idx_listings_game_item_id ON guild_trader_listings(game_item_id);");
+        db.run("CREATE INDEX IF NOT EXISTS idx_listings_expires_at ON guild_trader_listings(expires_at);");
+
+        // SQLite triggers for automated expired listing TTL purging on insert & update
+        db.run(`
+            CREATE TRIGGER IF NOT EXISTS trg_purge_expired_listings_insert
+            AFTER INSERT ON guild_trader_listings
+            WHEN NEW.expires_at IS NOT NULL AND datetime(NEW.expires_at) < datetime('now')
+            BEGIN
+                DELETE FROM guild_trader_listings WHERE id = NEW.id;
+            END;
+        `);
+        db.run(`
+            CREATE TRIGGER IF NOT EXISTS trg_purge_expired_listings_update
+            AFTER UPDATE OF expires_at ON guild_trader_listings
+            WHEN NEW.expires_at IS NOT NULL AND datetime(NEW.expires_at) < datetime('now')
+            BEGIN
+                DELETE FROM guild_trader_listings WHERE id = NEW.id;
+            END;
+        `);
     });
 }
 /**
@@ -306,6 +325,27 @@ const dbAll = (sql, params = []) => new Promise((resolve, reject) => {
         else resolve(rows);
     });
 });
+
+/**
+ * Purges expired guild trader listings from the database.
+ */
+async function purgeExpiredListings() {
+    try {
+        const result = await dbRun("DELETE FROM guild_trader_listings WHERE expires_at IS NOT NULL AND datetime(expires_at) < datetime('now')");
+        if (result && result.changes > 0) {
+            console.log(`[TTL Purge] Purged ${result.changes} expired guild trader listings.`);
+        }
+        return result ? result.changes : 0;
+    } catch (err) {
+        console.error("[TTL Purge Error] Failed to purge expired listings:", err.message);
+        return 0;
+    }
+}
+
+// Background automated periodic TTL purge every hour (3,600,000 ms)
+const TTL_PURGE_INTERVAL_MS = 60 * 60 * 1000;
+setInterval(purgeExpiredListings, TTL_PURGE_INTERVAL_MS);
+setTimeout(purgeExpiredListings, 2000);
 
 /**
  * GET /api/status
@@ -1473,6 +1513,23 @@ app.post("/api/market/upload-scans", async (req, res) => {
         });
     } catch (err) {
         console.error("Error in upload-scans:", err.message);
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * POST /api/market/listings/purge-expired
+ * Manually trigger an immediate TTL purge of expired guild trader listings.
+ */
+app.post("/api/market/listings/purge-expired", async (req, res) => {
+    try {
+        const purgedCount = await purgeExpiredListings();
+        res.json({
+            success: true,
+            purged: purgedCount,
+            message: `Successfully purged ${purgedCount} expired listing(s).`
+        });
+    } catch (err) {
         res.status(500).json({ error: err.message });
     }
 });

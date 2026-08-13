@@ -164,6 +164,10 @@ Key architectural components:
     ```
 *   **Response (200 OK):** `{"success": true, "count": 1}`
 
+#### `POST /api/market/listings/purge-expired`
+*   **Description:** Manually triggers an immediate TTL purge of expired guild trader listings across all servers. (Also runs automatically every hour via background timer).
+*   **Response (200 OK):** `{"success": true, "purged": 0, "message": "Successfully purged 0 expired listing(s)."}`
+
 #### `POST /api/inventory/sync`
 *   **Description:** Syncs duplicate inventory bags owned by a character to allow trading matches.
 *   **Body Payload:**

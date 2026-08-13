@@ -120,6 +120,9 @@ def parse_ttc_saved_variables(file_path, db_conn, server="NA"):
 
     print(f"Extracted {len(listings)} authentic player-scanned listings from SavedVariables ({server}).")
 
+    # Purge any expired listings prior to inserting fresh scans
+    cursor.execute("DELETE FROM guild_trader_listings WHERE expires_at IS NOT NULL AND datetime(expires_at) < datetime('now');")
+
     if listings:
         cursor.executemany("""
             INSERT INTO guild_trader_listings (game_item_id, server, price, quantity, guild_name, location, expires_at, discovered_at)
