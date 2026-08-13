@@ -39,37 +39,37 @@ const getQualityTheme = (qualityVal) => {
 
 const ESO_TRAIT_NAMES = {
   // Armor Traits
-  11: "Divines",
-  12: "Infused",
-  13: "Impenetrable",
-  14: "Sturdy",
-  15: "Well-Fitted",
-  16: "Training",
-  17: "Nirnhoned",
-  18: "Reinforced",
-  19: "Prosperous",
+  1: "Sturdy",
+  2: "Impenetrable",
+  3: "Reinforced",
+  4: "Well-Fitted",
+  5: "Training",
+  6: "Infused",
+  7: "Prosperous",
+  8: "Divines",
+  9: "Nirnhoned",
 
   // Weapon Traits
-  1: "Powered",
-  2: "Charged",
-  3: "Precise",
-  4: "Infused",
-  5: "Defending",
-  6: "Training",
-  7: "Sharpened",
-  8: "Decisive",
-  9: "Nirnhoned",
+  11: "Powered",
+  12: "Charged",
+  13: "Precise",
+  14: "Sharpened",
+  15: "Defending",
+  16: "Training",
+  17: "Sharpened",
+  18: "Decisive",
+  19: "Nirnhoned",
 
   // Jewelry Traits
   21: "Arcane",
   22: "Healthy",
   23: "Robust",
-  24: "Triune",
-  25: "Bloodthirsty",
-  26: "Harmony",
-  27: "Protective",
-  28: "Swift",
-  29: "Infused",
+  24: "Bloodthirsty",
+  25: "Harmony",
+  26: "Infused",
+  27: "Triune",
+  28: "Protective",
+  29: "Swift"
 };
 
 const getTraitDisplayName = (item) => {

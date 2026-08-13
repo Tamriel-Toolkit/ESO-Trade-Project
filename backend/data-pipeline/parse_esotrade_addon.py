@@ -277,6 +277,20 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                         item_id = int(g_item_id.group(1)) if g_item_id else 0
                         quality = int(g_qual.group(1)) if g_qual else 1
                         trait_id = int(g_trait.group(1)) if g_trait else 0
+
+                        # Extract true quality and trait directly from ESO item_link if available
+                        if item_link and (quality <= 1 or trait_id <= 0):
+                            lparts = item_link.split(':')
+                            if len(lparts) >= 7:
+                                if quality <= 1 and lparts[5].isdigit():
+                                    parsed_q = int(lparts[5])
+                                    if 1 <= parsed_q <= 5:
+                                        quality = parsed_q
+                                if trait_id <= 0 and lparts[6].isdigit():
+                                    parsed_t = int(lparts[6])
+                                    if parsed_t > 0:
+                                        trait_id = parsed_t
+
                         set_name = g_set.group(1).strip() if g_set else ""
                         item_icon = g_icon.group(1).strip() if g_icon else ""
                         enchant_text = g_enc.group(1).strip() if g_enc else ""
@@ -395,13 +409,29 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                     pow_m = re.search(r'\["Power"\]\s*=\s*(\d+)', sb_text)
 
                     if (name_m or link_m) and slot_m:
+                        item_link_str = link_m.group(1) if link_m else ""
+                        parsed_q = int(qual_m.group(1)) if qual_m else 1
+                        parsed_t = int(trait_m.group(1)) if trait_m else 0
+
+                        if item_link_str and (parsed_q <= 1 or parsed_t <= 0):
+                            lparts = item_link_str.split(':')
+                            if len(lparts) >= 7:
+                                if parsed_q <= 1 and lparts[5].isdigit():
+                                    q_val = int(lparts[5])
+                                    if 1 <= q_val <= 5:
+                                        parsed_q = q_val
+                                if parsed_t <= 0 and lparts[6].isdigit():
+                                    t_val = int(lparts[6])
+                                    if t_val > 0:
+                                        parsed_t = t_val
+
                         gear_items.append({
                             "slot_id": int(slot_m.group(1)),
                             "game_item_id": int(id_m.group(1)) if id_m else 0,
                             "item_name": name_m.group(1) if name_m else "Equipped Item",
-                            "item_link": link_m.group(1) if link_m else "",
-                            "quality": int(qual_m.group(1)) if qual_m else 1,
-                            "trait_id": int(trait_m.group(1)) if trait_m else 0,
+                            "item_link": item_link_str,
+                            "quality": parsed_q,
+                            "trait_id": parsed_t,
                             "set_name": set_m.group(1) if set_m else None,
                             "enchantment_description": enc_m.group(1) if enc_m else None,
                             "item_icon": icon_m.group(1) if icon_m else None,
