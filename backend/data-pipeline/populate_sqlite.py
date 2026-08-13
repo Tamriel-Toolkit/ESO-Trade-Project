@@ -120,8 +120,25 @@ def populate_database():
     );
     """)
 
-    # Create index
+    # Create indexes and TTL purge triggers
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_listings_game_item_id ON guild_trader_listings(game_item_id);")
+    cursor.execute("CREATE INDEX IF NOT EXISTS idx_listings_expires_at ON guild_trader_listings(expires_at);")
+    cursor.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_purge_expired_listings_insert
+        AFTER INSERT ON guild_trader_listings
+        WHEN NEW.expires_at IS NOT NULL AND datetime(NEW.expires_at) < datetime('now')
+        BEGIN
+            DELETE FROM guild_trader_listings WHERE id = NEW.id;
+        END;
+    """)
+    cursor.execute("""
+        CREATE TRIGGER IF NOT EXISTS trg_purge_expired_listings_update
+        AFTER UPDATE OF expires_at ON guild_trader_listings
+        WHEN NEW.expires_at IS NOT NULL AND datetime(NEW.expires_at) < datetime('now')
+        BEGIN
+            DELETE FROM guild_trader_listings WHERE id = NEW.id;
+        END;
+    """)
 
     # Create helper function to generate uuid-like strings or use sequential keys since SQLite doesn't have native UUIDs
     # ZeniMax game_item_id is unique, so we can use "item_ID" as the text PK id

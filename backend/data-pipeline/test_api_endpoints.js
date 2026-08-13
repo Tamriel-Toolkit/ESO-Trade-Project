@@ -36,6 +36,32 @@ function httpGet(path) {
     });
 }
 
+function httpPost(path, body = {}) {
+    return new Promise((resolve, reject) => {
+        const payload = JSON.stringify(body);
+        const req = http.request(`http://localhost:${PORT}${path}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload)
+            }
+        }, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                try {
+                    resolve({ status: res.statusCode, data: JSON.parse(data) });
+                } catch (e) {
+                    resolve({ status: res.statusCode, raw: data });
+                }
+            });
+        });
+        req.on('error', err => reject(err));
+        req.write(payload);
+        req.end();
+    });
+}
+
 async function runTests() {
     // Wait 1.5s for server to start
     await new Promise(r => setTimeout(r, 1500));
@@ -64,6 +90,13 @@ async function runTests() {
         console.log("\n4. Testing GET /api/items?limit=2...");
         const itemsRes = await httpGet('/api/items?limit=2');
         console.log(`   Status: ${itemsRes.status}, Total catalog items: ${itemsRes.data.total}`);
+
+        console.log("\n5. Testing POST /api/market/listings/purge-expired...");
+        const purgeRes = await httpPost('/api/market/listings/purge-expired');
+        console.log(`   Status: ${purgeRes.status}, Purge Result: ${JSON.stringify(purgeRes.data)}`);
+        if (purgeRes.status !== 200 || !purgeRes.data.success) {
+            throw new Error(`TTL Purge endpoint failed with status ${purgeRes.status}`);
+        }
 
         console.log("\nAll API endpoint tests passed successfully!");
     } catch (err) {

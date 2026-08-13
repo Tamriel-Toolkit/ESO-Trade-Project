@@ -211,6 +211,9 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
 
     listings = list(grouped_listings.values())
 
+    # Purge any expired listings prior to ingesting fresh scans
+    cursor.execute("DELETE FROM guild_trader_listings WHERE expires_at IS NOT NULL AND datetime(expires_at) < datetime('now');")
+
     affected_ids = set()
     if listings:
         print(f"Direct Ingesting {len(listings)} custom ESOTrade listings into database...")

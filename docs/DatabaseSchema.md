@@ -196,3 +196,10 @@ ORDER BY p.suggested_price ASC;
 
 ### First-Class Identifiers
 While `uuid` remains the Primary Key for internal database integrity, the `game_item_id` is uniquely indexed. All ingestion pipelines (TTC, Addon syncs) will use `game_item_id` for UPSERT operations.
+
+### Automated Listing TTL Purge & Triggers
+To prevent database bloating and ensure only active market listings are presented:
+- **SQLite Triggers**: `trg_purge_expired_listings_insert` and `trg_purge_expired_listings_update` automatically delete listings where `expires_at` is older than `datetime('now')` upon insertion or update.
+- **Background Cron / Scheduled Daemon**: Both the Node.js Express backend (`server.js`) and the Python file watcher daemon (`watcher.py`) run hourly periodic purges executing `DELETE FROM guild_trader_listings WHERE expires_at IS NOT NULL AND datetime(expires_at) < datetime('now');`.
+- **Index**: `idx_listings_expires_at` on `guild_trader_listings(expires_at)` provides high-performance TTL range queries and rapid purges.
+
