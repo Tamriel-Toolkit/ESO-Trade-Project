@@ -32,8 +32,28 @@ const QUALITY_COLORS = {
   5: { label: "Legendary", border: "border-[#c5a059]", text: "text-[#d4af37]", bg: "bg-amber-950/60" },
 };
 
-const getQualityTheme = (qualityVal) => {
-  const qNum = Number(qualityVal) || 1;
+const getItemQualityValue = (itemOrVal) => {
+  if (!itemOrVal) return 1;
+  if (typeof itemOrVal === "number" || typeof itemOrVal === "string") {
+    const val = Number(itemOrVal);
+    return !isNaN(val) && val > 1 ? val : 1;
+  }
+  const qNum = Number(itemOrVal.quality);
+  if (!isNaN(qNum) && qNum > 1) {
+    return qNum;
+  }
+  const rNum = Number(itemOrVal.item_rarity);
+  if (!isNaN(rNum) && rNum > 1) {
+    return rNum;
+  }
+  if (itemOrVal.set_name && itemOrVal.set_name.trim() !== "") {
+    return 5; // Legendary Set Equipment
+  }
+  return 1;
+};
+
+const getQualityTheme = (itemOrVal) => {
+  const qNum = getItemQualityValue(itemOrVal);
   return QUALITY_COLORS[qNum] || DEFAULT_QUALITY;
 };
 
@@ -109,7 +129,7 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
         <div className="md:col-span-2 space-y-3">
           {leftSlots.map((slot) => {
             const item = gearBySlot[slot.slotId];
-            const quality = getQualityTheme(item?.quality);
+            const quality = getQualityTheme(item);
             const isHovered = hoveredSlot === slot.slotId;
             const traitName = getTraitDisplayName(item);
             const levelDisplay = getItemLevelDisplay(item);
@@ -217,7 +237,7 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
         <div className="md:col-span-2 space-y-3">
           {rightSlots.map((slot) => {
             const item = gearBySlot[slot.slotId];
-            const quality = getQualityTheme(item?.quality);
+            const quality = getQualityTheme(item);
             const isHovered = hoveredSlot === slot.slotId;
             const isWeaponBarActive = activeBar === "front" ? (slot.slotId === 4 || slot.slotId === 5) : (slot.slotId === 12 || slot.slotId === 13);
             const traitName = getTraitDisplayName(item);
@@ -295,8 +315,8 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
                 )}
                 <span className="font-cinzel font-bold text-sm text-[#e0d8c3]">{cleanEsoText(activeHoveredItem.item_name)}</span>
               </div>
-              <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 border ${getQualityTheme(activeHoveredItem.quality).border} ${getQualityTheme(activeHoveredItem.quality).text}`}>
-                {getQualityTheme(activeHoveredItem.quality).label}
+              <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 border ${getQualityTheme(activeHoveredItem).border} ${getQualityTheme(activeHoveredItem).text}`}>
+                {getQualityTheme(activeHoveredItem).label}
               </span>
             </div>
 
