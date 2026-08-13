@@ -247,6 +247,14 @@ Immediately after finishing the first implementation attempt, open a **Draft Pul
 
 2. Post a comment on the target GitHub Issue referencing the newly created Draft PR URL and summarizing the implementation.
 
+### Step 7: Re-evaluate & Synchronize Backlog Priority Queue
+To maintain the central zero-maintenance execution queue for both human maintainers and future agents:
+1. Call `issue_write` (method `update`) on **Master Tracking Issue #35** on GitHub:
+   - Update the resolved issue's status to `🟢 In Review (PR #<PR_NUMBER>)`.
+   - Check if any downstream issues were blocked by this issue, and update their status to `🟢 Ready to Start` / `⚪ Queued`.
+   - Ensure the next unblocked item is clearly identified as **Rank #1**.
+2. If working on `main`, synchronize [`.agents/PRIORITY_QUEUE.md`](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/PRIORITY_QUEUE.md) with the updated priority matrix.
+
 ---
 
 ## 6. Common Issue Patterns & Recipes
@@ -374,4 +382,5 @@ Before completing an issue resolution turn, verify ALL of the following:
 - [ ] Code follows existing conventions (Section 4)
 - [ ] **Dedicated Git Branch created and pushed to `origin`**
 - [ ] **Draft Pull Request created on GitHub (`draft: true`) with issue linked**
+- [ ] **Master Tracking Issue #35 updated on GitHub with latest PR and unblocked status**
 
