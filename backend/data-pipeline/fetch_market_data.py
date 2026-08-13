@@ -9,7 +9,6 @@ Features:
 - Handles NA & EU servers
 - Automated local caching to respect API rate limits (HTTP 429 handling)
 - Direct local file ingestion mode (--file)
-- Mock data generation mode (--mock) for offline development & testing
 - Batch SQLite UPSERT operations with index optimization
 """
 
@@ -22,7 +21,6 @@ import time
 import zipfile
 import sqlite3
 import argparse
-import random
 import requests
 
 # Default Paths & Configuration
@@ -225,98 +223,6 @@ def get_zip_content(server, force_download=False, max_cache_age=21600):
                 return f.read()
         raise e
 
-def generate_mock_market_data(db_conn, count=0, server="NA"):
-    """
-    Generates realistic, domain-accurate market price & guild listing data for catalog items.
-    Enforces realistic price ranges and stackability rules per ESO item category (mats vs equipment vs food).
-    """
-    print(f"Generating realistic market prices & active listings for catalog items ({server} server)...")
-    cursor = db_conn.cursor()
-
-    if count > 0:
-        cursor.execute("SELECT game_item_id, name, category, subcategory, rarity FROM items ORDER BY game_item_id LIMIT ?", (count,))
-    else:
-        cursor.execute("SELECT game_item_id, name, category, subcategory, rarity FROM items ORDER BY game_item_id")
-    
-    items = cursor.fetchall()
-    print(f"Processing {len(items)} items for market pool ({server})...")
-
-    prices = []
-    listings = []
-
-    guild_names = ["Traders of Tamriel", "Mournhold Merchants", "Wayrest Trade Syndicate", "Belkarth Bazaar", "Elden Root Exchange", "Craglorn Market", "Vivec City Traders"]
-    locations = ["Mournhold, Deshaan", "Wayrest, Stormhaven", "Elden Root, Grahtwood", "Belkarth, Craglorn", "Vivec City, Vvardenfell", "Alinor, Summerset", "Rimmen, Elsweyr"]
-
-    gold_mats = {"Dreugh Wax", "Tempering Alloy", "Rosin", "Kuta", "Perfect Roe", "Aetherial Dust", "Chromium Plating", "Chromium Grains", "Zircon Plating"}
-    basic_mats = {"Ancestor Silk", "Rubedite Ore", "Ruby Ash", "Platinum Ounce", "Heartwood", "Mundane Rune", "Bast", "Alchemical Resin", "Decorative Wax", "Raw Ancestor Silk", "Rubedite Ingot"}
-
-    for item_id, name, cat, subcat, rarity in items:
-        name_str = name or ""
-        cat_str = cat or ""
-        subcat_str = subcat or ""
-        r = rarity or 1
-
-        # Determine realistic base average price per unit
-        if name_str in gold_mats or "Plating" in name_str or "Wax" in name_str and "Crescent" not in name_str and "Paper" not in name_str and "Effigy" not in name_str and "Design" not in name_str:
-            if "Dreugh Wax" in name_str or "Tempering Alloy" in name_str or "Rosin" in name_str or "Kuta" in name_str:
-                avg = random.randint(14000, 32000)
-            elif "Plating" in name_str or "Roe" in name_str or "Dust" in name_str:
-                avg = random.randint(22000, 45000)
-            else:
-                avg = random.randint(1200, 8000)
-        elif name_str in basic_mats or "Ore" in name_str or "Silk" in name_str or "Ingot" in name_str or "Rune" in name_str:
-            avg = random.randint(15, 75)
-        elif "Weapon" in cat_str or "Armor" in cat_str or "Jewelry" in cat_str:
-            # Equipment pricing based on rarity tier
-            if r <= 1:
-                avg = random.randint(250, 1200)
-            elif r == 2:
-                avg = random.randint(800, 2500)
-            elif r == 3:
-                avg = random.randint(2000, 7500)
-            elif r == 4:
-                avg = random.randint(5000, 22000)
-            elif r == 5:
-                avg = random.randint(15000, 65000)
-            else: # Mythic/Artifact
-                avg = random.randint(45000, 150000)
-        elif "Consumable" in cat_str or "Drink" in subcat_str or "Food" in subcat_str or "Potion" in subcat_str or "Reagent" in subcat_str:
-            avg = random.randint(25, 250)
-        elif "Motif" in name_str or "Recipe" in name_str or "Design" in name_str or "Formula" in name_str or "Blueprint" in name_str:
-            if r >= 4:
-                avg = random.randint(12000, 120000)
-            else:
-                avg = random.randint(400, 4500)
-        else:
-            avg = random.randint(150, 3500) + (r * 500)
-
-        min_p = int(avg * random.uniform(0.75, 0.90))
-        max_p = int(avg * random.uniform(1.10, 1.45))
-        sug_p = int(avg * random.uniform(0.93, 1.05))
-
-        prices.append({
-            'game_item_id': item_id,
-            'server': server,
-            'avg_price': avg,
-            'min_price': min_p,
-            'max_price': max_p,
-            'suggested_price': sug_p
-        })
-
-        # Determine realistic stack quantity rule
-        # Equipment, Motifs, Recipes, Containers CANNOT stack (Quantity = 1)
-        if "Weapon" in cat_str or "Armor" in cat_str or "Jewelry" in cat_str or "Motif" in name_str or "Recipe" in name_str or "Design" in name_str or "Blueprint" in name_str:
-            possible_quantities = [1]
-        elif name_str in basic_mats or "Silk" in name_str or "Ore" in name_str or "Ingot" in name_str:
-            possible_quantities = [10, 20, 50, 100, 200]
-        elif name_str in gold_mats or "Wax" in name_str or "Rosin" in name_str or "Alloy" in name_str:
-            possible_quantities = [1, 2, 5, 10, 20, 50, 100, 200]
-        elif "Consumable" in cat_str or "Food" in subcat_str or "Drink" in subcat_str:
-            possible_quantities = [1, 2, 5, 10, 20, 50]
-        else:
-            possible_quantities = [1, 2, 5, 10]
-
-    return prices, []
 
 def upsert_market_data(db_conn, price_records, listing_records=None):
     """
@@ -369,7 +275,6 @@ def main():
     parser.add_argument("--server", type=str, choices=["NA", "EU", "BOTH"], default="NA", help="Target server (NA, EU, or BOTH)")
     parser.add_argument("--db-path", type=str, default=DEFAULT_DB_PATH, help=f"Path to SQLite database (default: {DEFAULT_DB_PATH})")
     parser.add_argument("--file", type=str, help="Path to local PriceTable Lua file (bypasses network download)")
-    parser.add_argument("--mock", action="store_true", help="Generate mock market data for testing")
     parser.add_argument("--force-download", action="store_true", help="Ignore local zip cache and force network download")
 
     args = parser.parse_args()
@@ -429,13 +334,8 @@ def main():
             price_records = parse_ttc_lua_content(content, server=s)
             upsert_market_data(conn, price_records)
         except Exception as e:
-            if args.mock:
-                print(f"[Notice] Generating mock dataset for offline development testing...")
-                prices, listings = generate_mock_market_data(conn, count=0, server=s)
-                upsert_market_data(conn, prices, listings)
-            else:
-                print(f"[Notice] Network fetch unavailable ({e}). Strict Real-Data Mode enabled: No mock entries inserted.")
-                print(f"To load real market data, place 'PriceTable{s}.lua' into 'backend/exports/cache/' or run with '--file <path>'.")
+            print(f"[Notice] Network fetch unavailable ({e}). Strict Real-Data Mode enabled: Zero synthetic fallback data generated.")
+            print(f"To load real market data, place 'PriceTable{s}.lua' into 'backend/exports/cache/' or run with '--file <path>'.")
 
     conn.close()
     print("\nMarket data ingestion process completed successfully!")
