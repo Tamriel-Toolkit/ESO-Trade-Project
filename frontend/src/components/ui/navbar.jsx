@@ -118,17 +118,19 @@ function Navbar() {
               )}
             </div>
 
-            {/* Developer Bypass Button */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setIsDevModalOpen(true)}
-              className="rounded-none gap-1.5 font-bold cursor-pointer bg-amber-950/30 hover:bg-amber-900/50 text-[#d4af37] border-[#c5a059]/40 hover:border-[#c5a059] shadow-sm transition-all text-xs"
-              title="Open Developer Account Switcher & Bypass Panel"
-            >
-              <Zap className="size-3.5 text-[#c5a059] fill-[#c5a059]" />
-              <span>[DEV] Accounts</span>
-            </Button>
+            {/* Developer Bypass Button (Dev mode only) */}
+            {!import.meta.env.PROD && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setIsDevModalOpen(true)}
+                className="rounded-none gap-1.5 font-bold cursor-pointer bg-amber-950/30 hover:bg-amber-900/50 text-[#d4af37] border-[#c5a059]/40 hover:border-[#c5a059] shadow-sm transition-all text-xs"
+                title="Open Developer Account Switcher & Bypass Panel"
+              >
+                <Zap className="size-3.5 text-[#c5a059] fill-[#c5a059]" />
+                <span>[DEV] Accounts</span>
+              </Button>
+            )}
 
             {/* Active Session Badge */}
             {user ? (
@@ -217,7 +219,9 @@ function Navbar() {
       </header>
 
       {/* Developer Account Switcher Modal */}
-      <DevAccountModal isOpen={isDevModalOpen} onClose={() => setIsDevModalOpen(false)} />
+      {!import.meta.env.PROD && (
+        <DevAccountModal isOpen={isDevModalOpen} onClose={() => setIsDevModalOpen(false)} />
+      )}
     </>
   );
 }
