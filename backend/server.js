@@ -1,9 +1,11 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const { rateLimit } = require("express-rate-limit");
 const sqlite3 = require("sqlite3").verbose();
 const app = express();
 const PORT = process.env.PORT || 5001;
+
 // Middleware
 const corsOptions = {
     origin: process.env.FRONTEND_URL || "http://localhost:5173",
@@ -11,6 +13,37 @@ const corsOptions = {
 };
 app.use(cors(corsOptions));
 app.use(express.json({ limit: "10mb" }));
+
+// Rate Limiting Middleware
+const generalLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    limit: 100, // 100 requests per minute per IP
+    standardHeaders: true,
+    legacyHeaders: true,
+    skip: () => process.env.NODE_ENV === "test",
+    message: { error: "Too many requests from this IP, please try again after a minute." }
+});
+
+const authLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    limit: 10, // 10 auth attempts per minute per IP
+    standardHeaders: true,
+    legacyHeaders: true,
+    skip: () => process.env.NODE_ENV === "test",
+    message: { error: "Too many authentication attempts. Please try again after a minute." }
+});
+
+const batchUploadLimiter = rateLimit({
+    windowMs: 60 * 1000, // 1 minute
+    limit: 10, // 10 batch uploads per minute per IP
+    standardHeaders: true,
+    legacyHeaders: true,
+    skip: () => process.env.NODE_ENV === "test",
+    message: { error: "Too many batch upload requests. Please slow down." }
+});
+
+app.use("/api/", generalLimiter);
+app.use("/api/auth/", authLimiter);
 // Database connection
 const dbPath = path.join(__dirname, "exports", "eso_catalog.db");
 const db = new sqlite3.Database(dbPath, (err) => {
@@ -527,7 +560,7 @@ app.get("/api/characters/:id/profile", async (req, res) => {
  * POST /api/characters/upload-gear
  * Receives JSON loadout payload containing BAG_WORN slots [0-13] and updates character_gear table.
  */
-app.post("/api/characters/upload-gear", async (req, res) => {
+app.post("/api/characters/upload-gear", batchUploadLimiter, async (req, res) => {
     const { character_name, gear } = req.body;
     if (!character_name || !Array.isArray(gear)) {
         return res.status(400).json({ error: "character_name and gear array are required." });
@@ -1426,7 +1459,7 @@ app.post("/api/market/listings/extract", async (req, res) => {
  * Accepts raw SavedVariables file content or JSON listings array from User A's client,
  * ingests into central database, making them instantly visible to User B on the web app.
  */
-app.post("/api/market/upload-scans", async (req, res) => {
+app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
     const { server, listings, player_name, player_class, player_level, player_alliance, master_crafter } = req.body;
     const targetServer = server || "NA";
 

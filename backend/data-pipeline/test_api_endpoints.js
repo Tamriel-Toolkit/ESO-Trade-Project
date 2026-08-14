@@ -27,9 +27,9 @@ function httpGet(path, headers = {}) {
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
                 try {
-                    resolve({ status: res.statusCode, data: JSON.parse(data) });
+                    resolve({ status: res.statusCode, headers: res.headers, data: JSON.parse(data) });
                 } catch (e) {
-                    resolve({ status: res.statusCode, raw: data });
+                    resolve({ status: res.statusCode, headers: res.headers, raw: data });
                 }
             });
         }).on('error', err => reject(err));
@@ -51,9 +51,9 @@ function httpPost(path, body = {}, headers = {}) {
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
                 try {
-                    resolve({ status: res.statusCode, data: JSON.parse(data) });
+                    resolve({ status: res.statusCode, headers: res.headers, data: JSON.parse(data) });
                 } catch (e) {
-                    resolve({ status: res.statusCode, raw: data });
+                    resolve({ status: res.statusCode, headers: res.headers, raw: data });
                 }
             });
         });
@@ -192,6 +192,15 @@ async function runTests() {
             console.log(`\n13. Cleaning up ephemeral test user (ID: ${createdUserId})...`);
             const delRes = await httpDelete(`/api/dev/users/${createdUserId}`);
             console.log(`   Cleaned up test user: ${delRes.data?.success ? 'OK' : 'Error'}`);
+        }
+
+        console.log("\n14. Testing Rate Limiting headers on /api/ endpoints...");
+        const rateCheck = await httpGet('/api/taxonomy');
+        const limitHeader = rateCheck.headers['ratelimit-limit'];
+        const remainingHeader = rateCheck.headers['ratelimit-remaining'];
+        console.log(`   Status: ${rateCheck.status}, Limit Header: ${limitHeader || 'N/A'}, Remaining: ${remainingHeader || 'N/A'}`);
+        if (rateCheck.status !== 200) {
+            throw new Error(`Rate limit test failed on /api/taxonomy`);
         }
 
         console.log("\nAll API endpoint tests passed successfully!");
