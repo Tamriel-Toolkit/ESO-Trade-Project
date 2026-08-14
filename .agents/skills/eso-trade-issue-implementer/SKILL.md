@@ -164,7 +164,7 @@ When assigned an issue, follow this exact workflow:
 
 ### Step 1: Read the Issue & Resolve Target
 - If a specific issue number was provided (e.g. "Implement issue #25"), read that issue body from GitHub via `issue_read`.
-- If asked generically (e.g. "begin working on the item at the top of the work queue" or "start next task"), inspect [Master Tracking Issue #35](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/35) or [`.agents/PRIORITY_QUEUE.md`](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/PRIORITY_QUEUE.md) to locate the single item marked **`🟡 Next Up`** (Rank #1).
+- If asked generically (e.g. "begin working on the item at the top of the work queue" or "start next task"), **always fetch [Master Tracking Issue #35](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/35) directly via `issue_read`**. GitHub Issue #35 is the **authoritative live Single Source of Truth (SSOT)** across all branches. Locate the single item marked **`🟡 Next Up`** (Rank #1).
 - Identify: severity, affected files, required changes, estimated effort.
 
 ### Step 2: Locate Affected Files
@@ -231,6 +231,7 @@ Every time an issue resolution is attempted:
    git add <changed-files>
    git commit -m "fix(#25): replace unsalted SHA-256 password hashing with bcrypt"
    ```
+   *(Note: Do NOT include `.agents/PRIORITY_QUEUE.md` in feature branch commits to avoid merge conflicts across parallel PRs).*
 3. Push the branch to the remote origin:
    ```bash
    git push -u origin fix/issue-25-bcrypt-password-hashing
@@ -249,13 +250,14 @@ Immediately after finishing the first implementation attempt, open a **Draft Pul
 
 2. Post a comment on the target GitHub Issue referencing the newly created Draft PR URL and summarizing the implementation.
 
-### Step 7: Re-evaluate & Synchronize Backlog Priority Queue
+### Step 7: Re-evaluate & Synchronize Master Tracking Issue #35
 To maintain the central zero-maintenance execution queue with a strict Single Work-In-Progress (`WIP = 1`) policy:
-1. Call `issue_write` (method `update`) on **Master Tracking Issue #35** on GitHub:
+1. Call `issue_write` (method `update`) on **Master Tracking Issue #35** on GitHub (the authoritative live SSOT):
    - Change the implemented issue's status from `🟡 Next Up` $\rightarrow$ `🟢 In Review (PR #<PR_NUMBER>)`.
    - Check if any downstream issues were `🔴 Blocked` by this issue, and update them to `⚪ Queued`.
    - Promote the very next unblocked item in the list from `⚪ Queued` $\rightarrow$ `🟡 Next Up` (ensuring EXACTLY ONE item across the entire matrix has status `🟡 Next Up`).
-2. If working on `main`, synchronize [`.agents/PRIORITY_QUEUE.md`](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/PRIORITY_QUEUE.md) with the updated priority matrix.
+2. Optional: If updating `main` directly (or after PR merges), sync [`.agents/PRIORITY_QUEUE.md`](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/PRIORITY_QUEUE.md) on `main` to match Tracking Issue #35.
+
 
 ---
 

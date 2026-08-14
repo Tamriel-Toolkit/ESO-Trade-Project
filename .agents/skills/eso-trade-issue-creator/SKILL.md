@@ -86,9 +86,10 @@ Immediately after creating the new GitHub issue:
    - **Tier 4 (Feature Plans & Milestones)**: Placed after core stability.
    - **Tier 5 (Documentation & Nitpicks)**: Placed at bottom of queue.
 
-2. **Update Master Tracking Issue #35**:
+2. **Update Master Tracking Issue #35 (Live SSOT)**:
    - Call `issue_write` with method `update` on issue #35 to insert the new row into the **Live Execution Matrix**.
    - Format: `| Rank | #<N> | <Area> | <SEVERITY> | ⚪ Queued | <Blockers> | <Rationale> |`
 
-3. **Update Local In-Tree Mirror**:
-   - Update [`.agents/PRIORITY_QUEUE.md`](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/PRIORITY_QUEUE.md) to match Tracking Issue #35.
+3. **Update Local In-Tree Mirror on `main`**:
+   - If working on `main`, update [`.agents/PRIORITY_QUEUE.md`](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/PRIORITY_QUEUE.md) to match Tracking Issue #35.
+
