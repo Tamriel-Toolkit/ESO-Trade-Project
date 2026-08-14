@@ -36,16 +36,17 @@ This living document provides the prioritized execution queue for both human mai
 | **9** | `#18` | Frontend / Auth | NITPICK | 🔴 Blocked | `#25, #27` | Implements full `Login.jsx` UI and connects to the hardened auth endpoints. |
 | **10** | `#17` | Frontend / UX | MINOR | ⚪ Queued | None | Improves WCAG text contrast ratios for dark theme legibility. |
 | **11** | `#37` | Frontend / UI | MINOR | ⚪ Queued | None | Auto-fits dropdown menu width in `EsoSelect` to accommodate full alliance names without truncation. |
-| **12** | `#8` | Core Milestone | FEATURE | 🔴 Blocked | `#25, #28` | Milestone Epic: Smart Build Importer & Market Deal Recommendation Engine. |
-| **13** | `#10` | Feature Plan | FEATURE | ⚪ Queued | None | Trait Research Tracker & Automated Kiosk Matching Engine. |
-| **14** | `#9` | Feature Plan | FEATURE | ⚪ Queued | None | Structured Public Crafting & WTB (Want-To-Buy) Request Board. |
-| **15** | `#16` | Config / Env | MINOR | ⚪ Queued | None | Adds documented `.env.example` file for backend and frontend. |
-| **16** | `#15` | Documentation | MINOR | ⚪ Queued | None | Expands root `README.md` with system overview, architecture, and getting-started guide. |
-| **17** | `#14` | Documentation | MINOR | ⚪ Queued | None | Fixes PostgreSQL references in `DatabaseSchema.md` to reflect SQLite 3. |
-| **18** | `#22` | Documentation | NITPICK | ⚪ Queued | None | Adds setup, watcher daemon, and ingestion guide in `backend/data-pipeline/README.md`. |
-| **19** | `#23` | Documentation | NITPICK | ⚪ Queued | None | Adds deployment guide and production configuration documentation. |
-| **20** | `#19` | Database / Perf | NITPICK | ⚪ Queued | None | Adds SQLite FTS5 Full-Text Search virtual table for sub-millisecond item catalog lookups. |
-| **21** | `#21` | Testing / QA | NITPICK | ⚪ Queued | None | Expands unit & integration test coverage across all Express endpoints and Python parsers. |
+| **12** | `#38` | CI/CD / Automation | FEAT | ⚪ Queued | None | Automated GitHub Action to synchronize Master Tracking Issue #35 and PRIORITY_QUEUE.md on PR merge. |
+| **13** | `#8` | Core Milestone | FEATURE | 🔴 Blocked | `#25, #28` | Milestone Epic: Smart Build Importer & Market Deal Recommendation Engine. |
+| **14** | `#10` | Feature Plan | FEATURE | ⚪ Queued | None | Trait Research Tracker & Automated Kiosk Matching Engine. |
+| **15** | `#9` | Feature Plan | FEATURE | ⚪ Queued | None | Structured Public Crafting & WTB (Want-To-Buy) Request Board. |
+| **16** | `#16` | Config / Env | MINOR | ⚪ Queued | None | Adds documented `.env.example` file for backend and frontend. |
+| **17** | `#15` | Documentation | MINOR | ⚪ Queued | None | Expands root `README.md` with system overview, architecture, and getting-started guide. |
+| **18** | `#14` | Documentation | MINOR | ⚪ Queued | None | Fixes PostgreSQL references in `DatabaseSchema.md` to reflect SQLite 3. |
+| **19** | `#22` | Documentation | NITPICK | ⚪ Queued | None | Adds setup, watcher daemon, and ingestion guide in `backend/data-pipeline/README.md`. |
+| **20** | `#23` | Documentation | NITPICK | ⚪ Queued | None | Adds deployment guide and production configuration documentation. |
+| **21** | `#19` | Database / Perf | NITPICK | ⚪ Queued | None | Adds SQLite FTS5 Full-Text Search virtual table for sub-millisecond item catalog lookups. |
+| **22** | `#21` | Testing / QA | NITPICK | ⚪ Queued | None | Expands unit & integration test coverage across all Express endpoints and Python parsers. |
 | — | `#25` | Security / Auth | CRITICAL | 🟢 In Review (PR #36) | None | Replaces unsalted SHA-256 with bcrypt salt+hash. Foundation for secure user accounts. |
 
 ---
