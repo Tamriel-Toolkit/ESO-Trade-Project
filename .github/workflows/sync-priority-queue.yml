@@ -1,0 +1,51 @@
+name: Sync Priority Queue
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+  issues:
+    types: [closed]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+jobs:
+  sync-queue:
+    # Only run for pull requests if they were actually merged (not closed without merging)
+    if: (github.event_name != 'pull_request' || github.event.pull_request.merged == true)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run Queue Synchronization
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          TRACKING_ISSUE_NUMBER: 35
+        run: |
+          node .agents/scripts/sync_priority_queue.js
+
+      - name: Commit and Push Updated PRIORITY_QUEUE.md (if changed)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .agents/PRIORITY_QUEUE.md
+          if git diff --staged --quiet; then
+            echo "No changes to .agents/PRIORITY_QUEUE.md. Skipping commit."
+          else
+            git commit -m "chore(queue): auto-sync priority matrix on issue/PR merge [skip ci]"
+            git push origin main
+          fi

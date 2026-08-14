@@ -1,11 +1,11 @@
 # 📌 ESO Trade Project — Central Agent Task & Issue Execution Queue
 
 > **Live Status**: Canonical Roadmap & Priority Matrix  
-> **Master Tracking Issue on GitHub**: [Issue #35](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/35)  
+> **Master Tracking Issue on GitHub (Live Single Source of Truth)**: [Issue #35](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/35)  
 > **Repository Rules**: [.agents/AGENTS.md](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/AGENTS.md)  
-> **Last Evaluated**: 2026-08-13  
+> **Last Evaluated**: 2026-08-14  
 
-This living document provides the prioritized execution queue for both human maintainers and autonomous AI agents. Whenever an issue is created or resolved, this document and GitHub Issue #35 are updated in synchronization.
+This living document provides the prioritized execution queue for both human maintainers and autonomous AI agents. Whenever an issue is created or resolved, GitHub Issue #35 (the live runtime SSOT) and this document are updated.
 
 ---
 
@@ -50,14 +50,15 @@ This living document provides the prioritized execution queue for both human mai
 ---
 
 ## 🏆 Recently Completed / Merged
-- **`#20`** — `[NITPICK] No automated expired listing TTL purge trigger in SQLite` (Merged in PR #34)
-- **`#24`** — `[CRITICAL] Purge synthetic mock data generator and enforce 100% data authenticity` (Merged in PR #33)
+- **`#38`** — `[FEAT] Automated GitHub Action to synchronize Master Tracking Issue #35 and PRIORITY_QUEUE.md on PR merge` (Resolved)
+- **#20** — `[NITPICK] No automated expired listing TTL purge trigger in SQLite` (Merged in PR #34)
+- **#24** — `[CRITICAL] Purge synthetic mock data generator and enforce 100% data authenticity` (Merged in PR #33)
 
 ---
 
 ## 🤖 Rules for Agents
-1. When asked to **"work on the next task"** or **"start top of the queue"**, look for the single item marked **`🟡 Next Up`** (Rank #1).
-2. Confirm no **Blocked By** prerequisite issues remain open.
+1. When asked to **"work on the next task"** or **"start top of the queue"**, **always fetch [Master Tracking Issue #35](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/35) via `issue_read`**.
+2. Locate the single item marked **`🟡 Next Up`** (Rank #1) and confirm no **Blocked By** prerequisite issues remain open.
 3. Follow the issue resolution workflow in [`.agents/skills/eso-trade-issue-implementer/SKILL.md`](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/skills/eso-trade-issue-implementer/SKILL.md).
 4. Upon opening a Draft PR:
    - Mark the completed item as `🟢 In Review (PR #X)`
