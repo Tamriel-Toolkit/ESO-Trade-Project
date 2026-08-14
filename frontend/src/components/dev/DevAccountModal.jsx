@@ -10,7 +10,7 @@ export default function DevAccountModal({ isOpen, onClose }) {
     const [editingUserId, setEditingUserId] = useState(null);
     const [editForm, setEditForm] = useState({ username: '', email: '', eso_handle: '', role: 'user' });
     const [showCreate, setShowCreate] = useState(false);
-    const [createForm, setCreateForm] = useState({ username: '', email: '', password: 'password123', eso_handle: '' });
+    const [createForm, setCreateForm] = useState({ username: '', email: '', password: '', eso_handle: '' });
 
     const loadUsers = async () => {
         setLoading(true);
@@ -27,7 +27,7 @@ export default function DevAccountModal({ isOpen, onClose }) {
         }
     }, [isOpen]);
 
-    if (!isOpen) return null;
+    if (!isOpen || import.meta.env.PROD) return null;
 
     const handleBypass = async (userId) => {
         const res = await devBypass(userId);
@@ -72,7 +72,7 @@ export default function DevAccountModal({ isOpen, onClose }) {
         const res = await registerUser(createForm.username, createForm.email, createForm.password, createForm.eso_handle);
         if (res.success) {
             setShowCreate(false);
-            setCreateForm({ username: '', email: '', password: 'password123', eso_handle: '' });
+            setCreateForm({ username: '', email: '', password: '', eso_handle: '' });
             loadUsers();
         } else {
             alert("Create failed: " + res.error);
@@ -120,7 +120,7 @@ export default function DevAccountModal({ isOpen, onClose }) {
 
                 {/* Create Quick User Form */}
                 {showCreate && (
-                    <form onSubmit={handleCreateAccount} className="mb-4 p-4 bg-[#0a0a0d] border border-[#c5a059]/30 grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <form onSubmit={handleCreateAccount} className="mb-4 p-4 bg-[#0a0a0d] border border-[#c5a059]/30 grid grid-cols-1 md:grid-cols-5 gap-3">
                         <input
                             type="text"
                             placeholder="Username"
@@ -134,6 +134,14 @@ export default function DevAccountModal({ isOpen, onClose }) {
                             placeholder="Email"
                             value={createForm.email}
                             onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                            className="px-3 py-1.5 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] focus:border-[#c5a059] focus:outline-none"
+                            required
+                        />
+                        <input
+                            type="password"
+                            placeholder="Password"
+                            value={createForm.password}
+                            onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
                             className="px-3 py-1.5 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] focus:border-[#c5a059] focus:outline-none"
                             required
                         />
