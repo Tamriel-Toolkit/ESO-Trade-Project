@@ -29,13 +29,13 @@ This living document provides the prioritized execution queue for both human mai
 | **2** | `#27` | Security / API | CRITICAL | ⚪ Queued | None | Restricts `/api/dev/bypass-login` to non-production environments (`NODE_ENV !== 'production'`). |
 | **3** | `#32` | Security / UI | MODERATE | ⚪ Queued | None | Removes hardcoded `password123` defaults from `DevAccountModal.jsx`. |
 | **4** | `#30` | Security / API | MODERATE | ⚪ Queued | None | Adds express-rate-limit middleware on auth and search routes. |
-| **5** | `#31` | Security / DB | MODERATE | ⚪ Queued | None | Moves in-memory session Map to SQLite persistent store or signed tokens. (Prereq #25 in review) |
+| **5** | `#31` | Security / DB | MODERATE | 🔴 Blocked | `#25` | Moves in-memory session Map to SQLite persistent store or signed tokens. |
 | **6** | `#28` | Backend / API | MODERATE | ⚪ Queued | None | Fixes duplicate `GET /api/characters` route definition shadowing character profile queries. |
 | **7** | `#29` | Pipeline / Py | MODERATE | ⚪ Queued | None | Removes dead legacy code block in `fetch_market_data.py` (lines 140-182). |
 | **8** | `#13` | Backend / Deps | MINOR | ⚪ Queued | None | Removes unused `body-parser` dependency from `backend/package.json`. |
-| **9** | `#18` | Frontend / Auth | NITPICK | ⚪ Queued | `#27` | Implements full `Login.jsx` UI and connects to the hardened auth endpoints. |
+| **9** | `#18` | Frontend / Auth | NITPICK | 🔴 Blocked | `#25, #27` | Implements full `Login.jsx` UI and connects to the hardened auth endpoints. |
 | **10** | `#17` | Frontend / UX | MINOR | ⚪ Queued | None | Improves WCAG text contrast ratios for dark theme legibility. |
-| **11** | `#8` | Core Milestone | FEATURE | ⚪ Queued | `#28` | Milestone Epic: Smart Build Importer & Market Deal Recommendation Engine. |
+| **11** | `#8` | Core Milestone | FEATURE | 🔴 Blocked | `#25, #28` | Milestone Epic: Smart Build Importer & Market Deal Recommendation Engine. |
 | **12** | `#10` | Feature Plan | FEATURE | ⚪ Queued | None | Trait Research Tracker & Automated Kiosk Matching Engine. |
 | **13** | `#9` | Feature Plan | FEATURE | ⚪ Queued | None | Structured Public Crafting & WTB (Want-To-Buy) Request Board. |
 | **14** | `#16` | Config / Env | MINOR | ⚪ Queued | None | Adds documented `.env.example` file for backend and frontend. |
