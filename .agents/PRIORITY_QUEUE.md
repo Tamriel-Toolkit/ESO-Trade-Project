@@ -24,10 +24,10 @@ This living document provides the prioritized execution queue for both human mai
 ## 🚦 Live Execution Matrix
 
 | Rank | Issue | Area | Severity | Status | Blocked By | Strategic Rationale |
-|:---:|:---|:---|:---:|:---:|:---:|:---|
-| **1** | #32 | Security / UI | MODERATE | 🟡 Next Up | None | Removes hardcoded `password123` defaults from `DevAccountModal.jsx`. |
-| **2** | #30 | Security / API | MODERATE | ⚪ Queued | None | Adds express-rate-limit middleware on auth and search routes. |
-| **3** | #31 | Security / DB | MODERATE | ⚪ Queued | None | Moves in-memory session Map to SQLite persistent store or signed tokens. |
+|:---:|:---|:---|:---:|:---:|:---|:---|
+| **1** | #30 | Security / API | MODERATE | 🟡 Next Up | None | Adds express-rate-limit middleware on auth and search routes. |
+| **2** | #31 | Security / DB | MODERATE | ⚪ Queued | None | Moves in-memory session Map to SQLite persistent store or signed tokens. |
+| **3** | #43 | Pipeline / UI | MODERATE | ⚪ Queued | None | Extracts, maps, and displays jewelry traits (Arcane, Bloodthirsty, Triune, etc.) and fixes slot alignment. |
 | **4** | #28 | Backend / API | MODERATE | ⚪ Queued | None | Fixes duplicate `GET /api/characters` route definition shadowing character profile queries. |
 | **5** | #29 | Pipeline / Py | MODERATE | ⚪ Queued | None | Removes dead legacy code block in `fetch_market_data.py` (lines 140-182). |
 | **6** | #13 | Backend / Deps | MINOR | ⚪ Queued | None | Removes unused `body-parser` dependency from `backend/package.json`. |
@@ -44,6 +44,7 @@ This living document provides the prioritized execution queue for both human mai
 | **17** | #23 | Documentation | NITPICK | ⚪ Queued | None | Adds deployment guide and production configuration documentation. |
 | **18** | #19 | Database / Perf | NITPICK | ⚪ Queued | None | Adds SQLite FTS5 Full-Text Search virtual table for sub-millisecond item catalog lookups. |
 | **19** | #21 | Testing / QA | NITPICK | ⚪ Queued | None | Expands unit & integration test coverage across all Express endpoints and Python parsers. |
+| — | #32 | Security / UI | MODERATE | 🟢 In Review (PR #42) | None | Removes hardcoded `password123` defaults from `DevAccountModal.jsx`. |
 
 ---
 
