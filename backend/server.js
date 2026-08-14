@@ -1603,8 +1603,11 @@ function generateToken(user) {
 }
 
 const activeSessions = new Map();
-activeSessions.set("dev-token-blake-123", 1);
-activeSessions.set("dev-token-demo-456", 2);
+if (process.env.NODE_ENV !== "production") {
+    activeSessions.set("dev-token-blake-123", 1);
+    activeSessions.set("dev-token-demo-456", 2);
+    console.log("[AUTH] Dev backdoor session tokens enabled for local development (NODE_ENV !== 'production').");
+}
 
 function getAuthUserId(req) {
     const authHeader = req.headers["authorization"] || req.headers["x-auth-token"];

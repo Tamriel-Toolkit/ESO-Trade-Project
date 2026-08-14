@@ -173,9 +173,16 @@ async function runTests() {
             throw new Error(`Legacy user login failed with status ${legacyLoginRes.status}`);
         }
 
+        console.log("\n11. Testing GET /api/auth/me with invalid/unauthorized token (expect 401)...");
+        const badTokenRes = await httpGet('/api/auth/me', { 'Authorization': 'Bearer bogus-random-token-xyz' });
+        console.log(`   Status: ${badTokenRes.status}, Error: ${badTokenRes.data.error}`);
+        if (badTokenRes.status !== 401) {
+            throw new Error(`Auth /me with bogus token returned status ${badTokenRes.status}, expected 401`);
+        }
+
         // Clean up test user
         if (createdUserId) {
-            console.log(`\n11. Cleaning up ephemeral test user (ID: ${createdUserId})...`);
+            console.log(`\n12. Cleaning up ephemeral test user (ID: ${createdUserId})...`);
             const delRes = await httpDelete(`/api/dev/users/${createdUserId}`);
             console.log(`   Cleaned up test user: ${delRes.data?.success ? 'OK' : 'Error'}`);
         }
