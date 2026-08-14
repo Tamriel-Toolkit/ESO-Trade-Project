@@ -180,9 +180,16 @@ async function runTests() {
             throw new Error(`Auth /me with bogus token returned status ${badTokenRes.status}, expected 401`);
         }
 
+        console.log("\n12. Testing POST /api/dev/bypass-login in non-production mode...");
+        const bypassRes = await httpPost('/api/dev/bypass-login', { user_id: 1 });
+        console.log(`   Status: ${bypassRes.status}, Bypassed user: @${bypassRes.data.user?.username}`);
+        if (bypassRes.status !== 200 || !bypassRes.data.token) {
+            throw new Error(`Dev bypass login failed with status ${bypassRes.status}`);
+        }
+
         // Clean up test user
         if (createdUserId) {
-            console.log(`\n12. Cleaning up ephemeral test user (ID: ${createdUserId})...`);
+            console.log(`\n13. Cleaning up ephemeral test user (ID: ${createdUserId})...`);
             const delRes = await httpDelete(`/api/dev/users/${createdUserId}`);
             console.log(`   Cleaned up test user: ${delRes.data?.success ? 'OK' : 'Error'}`);
         }
