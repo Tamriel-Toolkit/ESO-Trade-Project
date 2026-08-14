@@ -366,12 +366,13 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                     "player_alliance": player_alliance,
                     "master_crafter": master_crafter
                 }
+                auth_token = os.environ.get("ESOTRADE_AUTH_TOKEN", "dev-token-blake-123")
                 req = urllib.request.Request(
                     f"{server_url}/api/market/upload-scans",
                     data=json.dumps(payload).encode('utf-8'),
                     headers={
                         "Content-Type": "application/json",
-                        "Authorization": "Bearer dev-token-blake-123"
+                        "Authorization": f"Bearer {auth_token}"
                     }
                 )
                 with urllib.request.urlopen(req, timeout=10) as r:
@@ -450,12 +451,13 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                     "character_name": player_name,
                     "gear": gear_items
                 }
+                auth_token = os.environ.get("ESOTRADE_AUTH_TOKEN", "dev-token-blake-123")
                 g_req = urllib.request.Request(
                     f"{server_url}/api/characters/upload-gear",
                     data=json.dumps(gear_payload).encode('utf-8'),
                     headers={
                         "Content-Type": "application/json",
-                        "Authorization": "Bearer dev-token-blake-123"
+                        "Authorization": f"Bearer {auth_token}"
                     }
                 )
                 with urllib.request.urlopen(g_req, timeout=10) as g_res:
