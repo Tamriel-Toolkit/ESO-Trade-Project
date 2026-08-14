@@ -25,18 +25,18 @@ This living document provides the prioritized execution queue for both human mai
 
 | Rank | Issue | Area | Severity | Status | Blocked By | Strategic Rationale |
 |:---:|:---|:---|:---:|:---:|:---:|:---|
-| **1** | `#26` | Security / Auth | CRITICAL | 🟡 Next Up | None | Eliminates hardcoded backdoor session tokens from production code. |
-| **2** | `#27` | Security / API | CRITICAL | ⚪ Queued | None | Restricts `/api/dev/bypass-login` to non-production environments (`NODE_ENV !== 'production'`). |
-| **3** | `#32` | Security / UI | MODERATE | ⚪ Queued | None | Removes hardcoded `password123` defaults from `DevAccountModal.jsx`. |
-| **4** | `#30` | Security / API | MODERATE | ⚪ Queued | None | Adds express-rate-limit middleware on auth and search routes. |
-| **5** | `#31` | Security / DB | MODERATE | 🔴 Blocked | `#25` | Moves in-memory session Map to SQLite persistent store or signed tokens. |
-| **6** | `#28` | Backend / API | MODERATE | ⚪ Queued | None | Fixes duplicate `GET /api/characters` route definition shadowing character profile queries. |
-| **7** | `#29` | Pipeline / Py | MODERATE | ⚪ Queued | None | Removes dead legacy code block in `fetch_market_data.py` (lines 140-182). |
-| **8** | `#13` | Backend / Deps | MINOR | ⚪ Queued | None | Removes unused `body-parser` dependency from `backend/package.json`. |
-| **9** | `#18` | Frontend / Auth | NITPICK | 🔴 Blocked | `#25, #27` | Implements full `Login.jsx` UI and connects to the hardened auth endpoints. |
-| **10** | `#17` | Frontend / UX | MINOR | ⚪ Queued | None | Improves WCAG text contrast ratios for dark theme legibility. |
-| **11** | `#37` | Frontend / UI | MINOR | ⚪ Queued | None | Auto-fits dropdown menu width in `EsoSelect` to accommodate full alliance names without truncation. |
-| **12** | `#38` | CI/CD / Automation | FEAT | ⚪ Queued | None | Automated GitHub Action to synchronize Master Tracking Issue #35 and PRIORITY_QUEUE.md on PR merge. |
+| **1** | `#38` | CI/CD / Automation | FEAT | 🟡 Next Up | None | Automated GitHub Action to synchronize Master Tracking Issue #35 and PRIORITY_QUEUE.md on PR merge. |
+| **2** | `#26` | Security / Auth | CRITICAL | ⚪ Queued | None | Eliminates hardcoded backdoor session tokens from production code. |
+| **3** | `#27` | Security / API | CRITICAL | ⚪ Queued | None | Restricts `/api/dev/bypass-login` to non-production environments (`NODE_ENV !== 'production'`). |
+| **4** | `#32` | Security / UI | MODERATE | ⚪ Queued | None | Removes hardcoded `password123` defaults from `DevAccountModal.jsx`. |
+| **5** | `#30` | Security / API | MODERATE | ⚪ Queued | None | Adds express-rate-limit middleware on auth and search routes. |
+| **6** | `#31` | Security / DB | MODERATE | 🔴 Blocked | `#25` | Moves in-memory session Map to SQLite persistent store or signed tokens. |
+| **7** | `#28` | Backend / API | MODERATE | ⚪ Queued | None | Fixes duplicate `GET /api/characters` route definition shadowing character profile queries. |
+| **8** | `#29` | Pipeline / Py | MODERATE | ⚪ Queued | None | Removes dead legacy code block in `fetch_market_data.py` (lines 140-182). |
+| **9** | `#13` | Backend / Deps | MINOR | ⚪ Queued | None | Removes unused `body-parser` dependency from `backend/package.json`. |
+| **10** | `#18` | Frontend / Auth | NITPICK | 🔴 Blocked | `#25, #27` | Implements full `Login.jsx` UI and connects to the hardened auth endpoints. |
+| **11** | `#17` | Frontend / UX | MINOR | ⚪ Queued | None | Improves WCAG text contrast ratios for dark theme legibility. |
+| **12** | `#37` | Frontend / UI | MINOR | ⚪ Queued | None | Auto-fits dropdown menu width in `EsoSelect` to accommodate full alliance names without truncation. |
 | **13** | `#8` | Core Milestone | FEATURE | 🔴 Blocked | `#25, #28` | Milestone Epic: Smart Build Importer & Market Deal Recommendation Engine. |
 | **14** | `#10` | Feature Plan | FEATURE | ⚪ Queued | None | Trait Research Tracker & Automated Kiosk Matching Engine. |
 | **15** | `#9` | Feature Plan | FEATURE | ⚪ Queued | None | Structured Public Crafting & WTB (Want-To-Buy) Request Board. |
