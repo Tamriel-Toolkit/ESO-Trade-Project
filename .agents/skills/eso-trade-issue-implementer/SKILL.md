@@ -252,11 +252,13 @@ Immediately after finishing the first implementation attempt, open a **Draft Pul
 
 ### Step 7: Re-evaluate & Synchronize Master Tracking Issue #35
 To maintain the central zero-maintenance execution queue with a strict Single Work-In-Progress (`WIP = 1`) policy:
-1. Call `issue_write` (method `update`) on **Master Tracking Issue #35** on GitHub (the authoritative live SSOT):
-   - Change the implemented issue's status from `🟡 Next Up` $\rightarrow$ `🟢 In Review (PR #<PR_NUMBER>)`.
-   - Check if any downstream issues were `🔴 Blocked` by this issue, and update them to `⚪ Queued`.
+1. Fetch latest closed issues from GitHub to ensure no already-merged PRs/issues are resurrected into `🟢 In Review` or the active matrix.
+2. Call `issue_write` (method `update`) on **Master Tracking Issue #35** on GitHub (the authoritative live SSOT):
+   - Change the currently implemented issue's status from `🟡 Next Up` $\rightarrow$ `🟢 In Review (PR #<PR_NUMBER>)`.
+   - Ensure all closed/merged issues reside in `🏆 Recently Completed / Merged` and NOT in the active matrix.
+   - Check if any downstream issues were `🔴 Blocked` by merged/closed issues, and update them to `⚪ Queued`.
    - Promote the very next unblocked item in the list from `⚪ Queued` $\rightarrow$ `🟡 Next Up` (ensuring EXACTLY ONE item across the entire matrix has status `🟡 Next Up`).
-2. Optional: If updating `main` directly (or after PR merges), sync [`.agents/PRIORITY_QUEUE.md`](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/PRIORITY_QUEUE.md) on `main` to match Tracking Issue #35.
+3. Optional: If updating `main` directly (or after PR merges), run `node .agents/scripts/sync_priority_queue.js` to keep [`.agents/PRIORITY_QUEUE.md`](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/PRIORITY_QUEUE.md) synchronized.
 
 
 ---
