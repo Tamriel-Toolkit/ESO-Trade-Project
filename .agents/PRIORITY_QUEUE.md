@@ -9,13 +9,25 @@ This living document provides the prioritized execution queue for both human mai
 
 ---
 
+## 🚦 Status Legend (Strict Single WIP Policy)
+
+| Status | Meaning | Permitted Count | Action Required |
+|:---:|:---|:---:|:---|
+| `🟡 Next Up` | **Active Work Item** (Rank #1) | **Exactly 1** | The only task an agent should pick when starting work. |
+| `⚪ Queued` | Unblocked & ready in backlog | Multiple | Waiting in sequence behind Rank #1. |
+| `🔴 Blocked` | Blocked by a prerequisite issue | Multiple | Do NOT start until prerequisite issue is resolved. |
+| `🟢 In Review (PR #X)` | Implementation complete, PR open | Multiple | Waiting for maintainer review & merge. |
+| `✅ Closed` | Merged and resolved | Multiple | Archived in Recently Completed. |
+
+---
+
 ## 🚦 Live Execution Matrix
 
 | Rank | Issue | Area | Severity | Status | Blocked By | Strategic Rationale |
 |:---:|:---|:---|:---:|:---:|:---:|:---|
-| **1** | `#25` | Security / Auth | CRITICAL | 🟡 Ready to Start | None | Replaces unsalted SHA-256 with bcrypt salt+hash. Foundation for secure user accounts. |
-| **2** | `#26` | Security / Auth | CRITICAL | 🟡 Ready to Start | None | Eliminates hardcoded backdoor session tokens from production code. |
-| **3** | `#27` | Security / API | CRITICAL | 🟡 Ready to Start | None | Restricts `/api/dev/bypass-login` to non-production environments (`NODE_ENV !== 'production'`). |
+| **1** | `#25` | Security / Auth | CRITICAL | 🟡 Next Up | None | Replaces unsalted SHA-256 with bcrypt salt+hash. Foundation for secure user accounts. |
+| **2** | `#26` | Security / Auth | CRITICAL | ⚪ Queued | None | Eliminates hardcoded backdoor session tokens from production code. |
+| **3** | `#27` | Security / API | CRITICAL | ⚪ Queued | None | Restricts `/api/dev/bypass-login` to non-production environments (`NODE_ENV !== 'production'`). |
 | **4** | `#32` | Security / UI | MODERATE | ⚪ Queued | None | Removes hardcoded `password123` defaults from `DevAccountModal.jsx`. |
 | **5** | `#30` | Security / API | MODERATE | ⚪ Queued | None | Adds express-rate-limit middleware on auth and search routes. |
 | **6** | `#31` | Security / DB | MODERATE | ⚪ Queued | `#25` | Moves in-memory session Map to SQLite persistent store or signed tokens. |
@@ -44,7 +56,10 @@ This living document provides the prioritized execution queue for both human mai
 ---
 
 ## 🤖 Rules for Agents
-1. When asked to **"work on the next task"**, pick **Rank #1** from this table.
+1. When asked to **"work on the next task"** or **"start top of the queue"**, look for the single item marked **`🟡 Next Up`** (Rank #1).
 2. Confirm no **Blocked By** prerequisite issues remain open.
 3. Follow the issue resolution workflow in [`.agents/skills/eso-trade-issue-implementer/SKILL.md`](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/skills/eso-trade-issue-implementer/SKILL.md).
-4. Upon opening a Draft PR, update Master Tracking Issue #35 and this document to mark the item as `🟢 In Review (PR #X)`.
+4. Upon opening a Draft PR:
+   - Mark the completed item as `🟢 In Review (PR #X)`
+   - Promote the next unblocked item from `⚪ Queued` $\rightarrow$ `🟡 Next Up`
+   - Update Master Tracking Issue #35 and this file.

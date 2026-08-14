@@ -2,13 +2,14 @@
 name: eso-trade-issue-implementer
 description: >-
   Use this skill when the user asks to implement, fix, or resolve any GitHub
-  issue on the ESO-Trade-Project repository. Covers all subsystems: backend
-  API (Express/SQLite), data pipeline (Python), frontend UI (React/Vite),
-  documentation, security hardening, and database schema changes. Provides
-  full architecture context, file maps, coding conventions, testing, and
-  deployment verification procedures specific to this codebase. Automatically
-  creates a new dedicated git branch and opens a Draft Pull Request (Draft PR)
-  on GitHub upon finishing the first implementation attempt.
+  issue on the ESO-Trade-Project repository, or when asked to "work on the next
+  task", "begin working on the item at the top of the work queue", or "start
+  the top of the queue". Covers all subsystems: backend API (Express/SQLite),
+  data pipeline (Python), frontend UI (React/Vite), documentation, security
+  hardening, and database schema changes. Provides full architecture context,
+  file maps, coding conventions, testing, and deployment verification procedures.
+  Automatically creates a new dedicated git branch, opens a Draft Pull Request
+  (Draft PR) on GitHub, and re-evaluates the priority queue on Tracking Issue #35.
 ---
 
 # ESO Trade Project — Issue Implementation Skill
@@ -161,9 +162,10 @@ These rules come from `.agents/AGENTS.md` and override everything else:
 
 When assigned an issue, follow this exact workflow:
 
-### Step 1: Read the Issue
-- Read the full issue body from GitHub (use `issue_read` MCP tool if needed)
-- Identify: severity, affected files, required changes, estimated effort
+### Step 1: Read the Issue & Resolve Target
+- If a specific issue number was provided (e.g. "Implement issue #25"), read that issue body from GitHub via `issue_read`.
+- If asked generically (e.g. "begin working on the item at the top of the work queue" or "start next task"), inspect [Master Tracking Issue #35](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/35) or [`.agents/PRIORITY_QUEUE.md`](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/PRIORITY_QUEUE.md) to locate the single item marked **`🟡 Next Up`** (Rank #1).
+- Identify: severity, affected files, required changes, estimated effort.
 
 ### Step 2: Locate Affected Files
 Use this quick reference to find what to edit:
@@ -248,11 +250,11 @@ Immediately after finishing the first implementation attempt, open a **Draft Pul
 2. Post a comment on the target GitHub Issue referencing the newly created Draft PR URL and summarizing the implementation.
 
 ### Step 7: Re-evaluate & Synchronize Backlog Priority Queue
-To maintain the central zero-maintenance execution queue for both human maintainers and future agents:
+To maintain the central zero-maintenance execution queue with a strict Single Work-In-Progress (`WIP = 1`) policy:
 1. Call `issue_write` (method `update`) on **Master Tracking Issue #35** on GitHub:
-   - Update the resolved issue's status to `🟢 In Review (PR #<PR_NUMBER>)`.
-   - Check if any downstream issues were blocked by this issue, and update their status to `🟢 Ready to Start` / `⚪ Queued`.
-   - Ensure the next unblocked item is clearly identified as **Rank #1**.
+   - Change the implemented issue's status from `🟡 Next Up` $\rightarrow$ `🟢 In Review (PR #<PR_NUMBER>)`.
+   - Check if any downstream issues were `🔴 Blocked` by this issue, and update them to `⚪ Queued`.
+   - Promote the very next unblocked item in the list from `⚪ Queued` $\rightarrow$ `🟡 Next Up` (ensuring EXACTLY ONE item across the entire matrix has status `🟡 Next Up`).
 2. If working on `main`, synchronize [`.agents/PRIORITY_QUEUE.md`](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/PRIORITY_QUEUE.md) with the updated priority matrix.
 
 ---
