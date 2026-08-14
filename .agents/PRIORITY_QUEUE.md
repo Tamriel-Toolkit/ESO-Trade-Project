@@ -25,31 +25,33 @@ This living document provides the prioritized execution queue for both human mai
 
 | Rank | Issue | Area | Severity | Status | Blocked By | Strategic Rationale |
 |:---:|:---|:---|:---:|:---:|:---:|:---|
-| **1** | #27 | Security / API | CRITICAL | 🟡 Next Up | None | Restricts `/api/dev/bypass-login` to non-production environments (`NODE_ENV !== 'production'`). |
-| **2** | #32 | Security / UI | MODERATE | ⚪ Queued | None | Removes hardcoded `password123` defaults from `DevAccountModal.jsx`. |
-| **3** | #30 | Security / API | MODERATE | ⚪ Queued | None | Adds express-rate-limit middleware on auth and search routes. |
-| **4** | #31 | Security / DB | MODERATE | ⚪ Queued | None | Moves in-memory session Map to SQLite persistent store or signed tokens. |
-| **5** | #28 | Backend / API | MODERATE | ⚪ Queued | None | Fixes duplicate `GET /api/characters` route definition shadowing character profile queries. |
-| **6** | #29 | Pipeline / Py | MODERATE | ⚪ Queued | None | Removes dead legacy code block in `fetch_market_data.py` (lines 140-182). |
-| **7** | #13 | Backend / Deps | MINOR | ⚪ Queued | None | Removes unused `body-parser` dependency from `backend/package.json`. |
-| **8** | #18 | Frontend / Auth | NITPICK | 🔴 Blocked | #27 | Implements full `Login.jsx` UI and connects to the hardened auth endpoints. |
-| **9** | #17 | Frontend / UX | MINOR | ⚪ Queued | None | Improves WCAG text contrast ratios for dark theme legibility. |
-| **10** | #37 | Frontend / UI | MINOR | ⚪ Queued | None | Auto-fits dropdown menu width in `EsoSelect` to accommodate full alliance names without truncation. |
-| **11** | #8 | Core Milestone | FEATURE | 🔴 Blocked | #28 | Milestone Epic: Smart Build Importer & Market Deal Recommendation Engine. |
-| **12** | #10 | Feature Plan | FEATURE | ⚪ Queued | None | Trait Research Tracker & Automated Kiosk Matching Engine. |
-| **13** | #9 | Feature Plan | FEATURE | ⚪ Queued | None | Structured Public Crafting & WTB (Want-To-Buy) Request Board. |
-| **14** | #16 | Config / Env | MINOR | ⚪ Queued | None | Adds documented `.env.example` file for backend and frontend. |
-| **15** | #15 | Documentation | MINOR | ⚪ Queued | None | Expands root `README.md` with system overview, architecture, and getting-started guide. |
-| **16** | #14 | Documentation | MINOR | ⚪ Queued | None | Fixes PostgreSQL references in `DatabaseSchema.md` to reflect SQLite 3. |
-| **17** | #22 | Documentation | NITPICK | ⚪ Queued | None | Adds setup, watcher daemon, and ingestion guide in `backend/data-pipeline/README.md`. |
-| **18** | #23 | Documentation | NITPICK | ⚪ Queued | None | Adds deployment guide and production configuration documentation. |
-| **19** | #19 | Database / Perf | NITPICK | ⚪ Queued | None | Adds SQLite FTS5 Full-Text Search virtual table for sub-millisecond item catalog lookups. |
-| **20** | #21 | Testing / QA | NITPICK | ⚪ Queued | None | Expands unit & integration test coverage across all Express endpoints and Python parsers. |
+| **1** | #32 | Security / UI | MODERATE | 🟡 Next Up | None | Removes hardcoded `password123` defaults from `DevAccountModal.jsx`. |
+| **2** | #30 | Security / API | MODERATE | ⚪ Queued | None | Adds express-rate-limit middleware on auth and search routes. |
+| **3** | #31 | Security / DB | MODERATE | ⚪ Queued | None | Moves in-memory session Map to SQLite persistent store or signed tokens. |
+| **4** | #28 | Backend / API | MODERATE | ⚪ Queued | None | Fixes duplicate `GET /api/characters` route definition shadowing character profile queries. |
+| **5** | #29 | Pipeline / Py | MODERATE | ⚪ Queued | None | Removes dead legacy code block in `fetch_market_data.py` (lines 140-182). |
+| **6** | #13 | Backend / Deps | MINOR | ⚪ Queued | None | Removes unused `body-parser` dependency from `backend/package.json`. |
+| **7** | #18 | Frontend / Auth | NITPICK | ⚪ Queued | None | Implements full `Login.jsx` UI and connects to the hardened auth endpoints. |
+| **8** | #17 | Frontend / UX | MINOR | ⚪ Queued | None | Improves WCAG text contrast ratios for dark theme legibility. |
+| **9** | #37 | Frontend / UI | MINOR | ⚪ Queued | None | Auto-fits dropdown menu width in `EsoSelect` to accommodate full alliance names without truncation. |
+| **10** | #8 | Core Milestone | FEATURE | 🔴 Blocked | #28 | Milestone Epic: Smart Build Importer & Market Deal Recommendation Engine. |
+| **11** | #10 | Feature Plan | FEATURE | ⚪ Queued | None | Trait Research Tracker & Automated Kiosk Matching Engine. |
+| **12** | #9 | Feature Plan | FEATURE | ⚪ Queued | None | Structured Public Crafting & WTB (Want-To-Buy) Request Board. |
+| **13** | #16 | Config / Env | MINOR | ⚪ Queued | None | Adds documented `.env.example` file for backend and frontend. |
+| **14** | #15 | Documentation | MINOR | ⚪ Queued | None | Expands root `README.md` with system overview, architecture, and getting-started guide. |
+| **15** | #14 | Documentation | MINOR | ⚪ Queued | None | Fixes PostgreSQL references in `DatabaseSchema.md` to reflect SQLite 3. |
+| **16** | #22 | Documentation | NITPICK | ⚪ Queued | None | Adds setup, watcher daemon, and ingestion guide in `backend/data-pipeline/README.md`. |
+| **17** | #23 | Documentation | NITPICK | ⚪ Queued | None | Adds deployment guide and production configuration documentation. |
+| **18** | #19 | Database / Perf | NITPICK | ⚪ Queued | None | Adds SQLite FTS5 Full-Text Search virtual table for sub-millisecond item catalog lookups. |
+| **19** | #21 | Testing / QA | NITPICK | ⚪ Queued | None | Expands unit & integration test coverage across all Express endpoints and Python parsers. |
 
 ---
 
 ## 🏆 Recently Completed / Merged
-- **`#26`** — `[CRITICAL] Remove hardcoded backdoor session tokens from production code` (Resolved)
+- **`#27`** — `[CRITICAL] Gate or remove unauthenticated `/api/dev/bypass-login` endpoint` (Resolved)
+- **#26** — `[CRITICAL] Remove hardcoded backdoor session tokens from production code` (Merged in PR #40)
+- **#38** — `[FEAT] Automated GitHub Action to synchronize Master Tracking Issue #35 and PRIORITY_QUEUE.md on PR merge` (Merged in PR #39)
+- **#25** — `[CRITICAL] Replace unsalted SHA-256 password hashing with bcrypt` (Merged in PR #36)
 - **#20** — `[NITPICK] No automated expired listing TTL purge trigger in SQLite` (Merged in PR #34)
 - **#24** — `[CRITICAL] Purge synthetic mock data generator and enforce 100% data authenticity` (Merged in PR #33)
 
