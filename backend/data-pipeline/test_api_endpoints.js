@@ -20,9 +20,9 @@ serverProcess.stderr.on('data', (data) => {
     console.error(`[Server Error]: ${data}`);
 });
 
-function httpGet(path) {
+function httpGet(path, headers = {}) {
     return new Promise((resolve, reject) => {
-        http.get(`http://localhost:${PORT}${path}`, (res) => {
+        http.get(`http://localhost:${PORT}${path}`, { headers }, (res) => {
             let data = '';
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
@@ -36,14 +36,15 @@ function httpGet(path) {
     });
 }
 
-function httpPost(path, body = {}) {
+function httpPost(path, body = {}, headers = {}) {
     return new Promise((resolve, reject) => {
         const payload = JSON.stringify(body);
         const req = http.request(`http://localhost:${PORT}${path}`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Content-Length': Buffer.byteLength(payload)
+                'Content-Length': Buffer.byteLength(payload),
+                ...headers
             }
         }, (res) => {
             let data = '';
@@ -62,9 +63,32 @@ function httpPost(path, body = {}) {
     });
 }
 
+function httpDelete(path, headers = {}) {
+    return new Promise((resolve, reject) => {
+        const req = http.request(`http://localhost:${PORT}${path}`, {
+            method: 'DELETE',
+            headers
+        }, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                try {
+                    resolve({ status: res.statusCode, data: JSON.parse(data) });
+                } catch (e) {
+                    resolve({ status: res.statusCode, raw: data });
+                }
+            });
+        });
+        req.on('error', err => reject(err));
+        req.end();
+    });
+}
+
 async function runTests() {
     // Wait 1.5s for server to start
     await new Promise(r => setTimeout(r, 1500));
+
+    let createdUserId = null;
 
     try {
         console.log("\n1. Testing GET /api/taxonomy...");
@@ -98,12 +122,71 @@ async function runTests() {
             throw new Error(`TTL Purge endpoint failed with status ${purgeRes.status}`);
         }
 
+        console.log("\n6. Testing POST /api/auth/register (bcrypt salted hashing)...");
+        const testUser = {
+            username: `BcryptTester_${Date.now()}`,
+            email: `tester_${Date.now()}@tamriel.trade`,
+            password: "SecurePassword123!",
+            eso_handle: `@BcryptTester`
+        };
+        const regRes = await httpPost('/api/auth/register', testUser);
+        console.log(`   Status: ${regRes.status}, Success: ${regRes.data.success}, Token: ${regRes.data.token?.substring(0, 20)}...`);
+        if (regRes.status !== 200 || !regRes.data.token) {
+            throw new Error(`Auth register failed with status ${regRes.status}`);
+        }
+        createdUserId = regRes.data.user?.id;
+
+        console.log("\n7. Testing POST /api/auth/login with valid bcrypt credentials...");
+        const loginRes = await httpPost('/api/auth/login', {
+            usernameOrEmail: testUser.username,
+            password: testUser.password
+        });
+        console.log(`   Status: ${loginRes.status}, User: @${loginRes.data.user?.username}`);
+        if (loginRes.status !== 200 || !loginRes.data.token) {
+            throw new Error(`Auth login failed with status ${loginRes.status}`);
+        }
+
+        console.log("\n8. Testing POST /api/auth/login with invalid password (expect 401)...");
+        const badLoginRes = await httpPost('/api/auth/login', {
+            usernameOrEmail: testUser.username,
+            password: "WrongPassword456!"
+        });
+        console.log(`   Status: ${badLoginRes.status}, Error: ${badLoginRes.data.error}`);
+        if (badLoginRes.status !== 401) {
+            throw new Error(`Auth login with bad password returned status ${badLoginRes.status}, expected 401`);
+        }
+
+        console.log("\n9. Testing GET /api/auth/me with session token...");
+        const meRes = await httpGet('/api/auth/me', { 'Authorization': `Bearer ${loginRes.data.token}` });
+        console.log(`   Status: ${meRes.status}, Authenticated user: @${meRes.data.user?.username}`);
+        if (meRes.status !== 200 || meRes.data.user?.username !== testUser.username) {
+            throw new Error(`Auth /me failed with status ${meRes.status}`);
+        }
+
+        console.log("\n10. Testing Legacy SHA-256 account login & automatic bcrypt migration...");
+        const legacyLoginRes = await httpPost('/api/auth/login', {
+            usernameOrEmail: "Blake",
+            password: "password123"
+        });
+        console.log(`   Status: ${legacyLoginRes.status}, User: @${legacyLoginRes.data.user?.username}`);
+        if (legacyLoginRes.status !== 200 || !legacyLoginRes.data.token) {
+            throw new Error(`Legacy user login failed with status ${legacyLoginRes.status}`);
+        }
+
+        // Clean up test user
+        if (createdUserId) {
+            console.log(`\n11. Cleaning up ephemeral test user (ID: ${createdUserId})...`);
+            const delRes = await httpDelete(`/api/dev/users/${createdUserId}`);
+            console.log(`   Cleaned up test user: ${delRes.data?.success ? 'OK' : 'Error'}`);
+        }
+
         console.log("\nAll API endpoint tests passed successfully!");
     } catch (err) {
         console.error("API test failed:", err);
+        process.exitCode = 1;
     } finally {
         serverProcess.kill();
-        process.exit(0);
+        process.exit(process.exitCode || 0);
     }
 }
 

@@ -36,6 +36,25 @@ const db = new sqlite3.Database(dbPath, (err) => {
 function initializeDatabaseSchema() {
     db.serialize(() => {
         db.run(`
+            CREATE TABLE IF NOT EXISTS users (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                email TEXT UNIQUE NOT NULL,
+                password_hash TEXT NOT NULL,
+                eso_handle TEXT,
+                api_token TEXT UNIQUE,
+                role TEXT DEFAULT 'user',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            );
+        `, (err) => {
+            if (err) {
+                console.error("Error creating 'users' table:", err.message);
+            } else {
+                console.log("'users' table initialized successfully.");
+            }
+        });
+
+        db.run(`
             CREATE TABLE IF NOT EXISTS characters (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT UNIQUE NOT NULL,
@@ -1556,9 +1575,27 @@ app.post("/api/market/dev/clear-listings", async (req, res) => {
 // AUTHENTICATION & DEVELOPER BYPASS ENDPOINTS
 // ============================================================================
 const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
+
+const BCRYPT_SALT_ROUNDS = 12;
 
 function hashPassword(password) {
-    return crypto.createHash("sha256").update(password || "").digest("hex");
+    return bcrypt.hashSync(password || "", BCRYPT_SALT_ROUNDS);
+}
+
+function verifyPassword(password, storedHash) {
+    if (!password || !storedHash) return false;
+    // Check if the stored hash is a bcrypt hash
+    if (storedHash.startsWith("$2a$") || storedHash.startsWith("$2b$") || storedHash.startsWith("$2y$")) {
+        try {
+            return bcrypt.compareSync(password, storedHash);
+        } catch {
+            return false;
+        }
+    }
+    // Legacy fallback: unsalted SHA-256 hash comparison
+    const legacyHash = crypto.createHash("sha256").update(password).digest("hex");
+    return storedHash === legacyHash;
 }
 
 function generateToken(user) {
@@ -1615,21 +1652,42 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     try {
-        const pwHash = hashPassword(password);
         const user = await dbGet(`
-            SELECT id, username, email, eso_handle, role, api_token, created_at 
+            SELECT id, username, email, password_hash, eso_handle, role, api_token, created_at 
             FROM users 
-            WHERE (LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?)) AND password_hash = ?;
-        `, [usernameOrEmail, usernameOrEmail, pwHash]);
+            WHERE LOWER(username) = LOWER(?) OR LOWER(email) = LOWER(?);
+        `, [usernameOrEmail, usernameOrEmail]);
 
         if (!user) {
             return res.status(401).json({ error: "Invalid username/email or password." });
         }
 
-        const sessionToken = generateToken(user);
-        activeSessions.set(sessionToken, user.id);
+        const isMatch = verifyPassword(password, user.password_hash);
+        if (!isMatch) {
+            return res.status(401).json({ error: "Invalid username/email or password." });
+        }
 
-        res.json({ success: true, token: sessionToken, user });
+        // If user was stored with legacy SHA-256 hash, transparently migrate to bcrypt
+        if (!user.password_hash.startsWith("$2a$") && !user.password_hash.startsWith("$2b$") && !user.password_hash.startsWith("$2y$")) {
+            const upgradedHash = hashPassword(password);
+            await dbRun(`UPDATE users SET password_hash = ? WHERE id = ?;`, [upgradedHash, user.id]);
+            console.log(`[AUTH] Seamlessly upgraded password hash to bcrypt for user @${user.username} (ID: ${user.id})`);
+        }
+
+        const userPayload = {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            eso_handle: user.eso_handle,
+            role: user.role,
+            api_token: user.api_token,
+            created_at: user.created_at
+        };
+
+        const sessionToken = generateToken(userPayload);
+        activeSessions.set(sessionToken, userPayload.id);
+
+        res.json({ success: true, token: sessionToken, user: userPayload });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
