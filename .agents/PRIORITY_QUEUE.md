@@ -25,32 +25,32 @@ This living document provides the prioritized execution queue for both human mai
 
 | Rank | Issue | Area | Severity | Status | Blocked By | Strategic Rationale |
 |:---:|:---|:---|:---:|:---:|:---:|:---|
-| **1** | #30 | Security / API | MODERATE | 🟡 Next Up | None | Adds express-rate-limit middleware on auth and search routes. |
-| **2** | #31 | Security / DB | MODERATE | ⚪ Queued | None | Moves in-memory session Map to SQLite persistent store or signed tokens. |
-| **3** | #43 | Pipeline / UI | MODERATE | ⚪ Queued | None | Extracts, maps, and displays jewelry traits (Arcane, Bloodthirsty, Triune, etc.) and fixes slot alignment. |
-| **4** | #44 | CI/CD / QA | FEAT | ⚪ Queued | None | Adds automated GitHub Actions CI workflow (.github/workflows/ci.yml) for PRs and push validation. |
-| **5** | #45 | CI/CD / Docs | FEAT | ⚪ Queued | None | Standardizes PR templates and squash-merge defaults to guarantee automated issue closure. |
-| **6** | #28 | Backend / API | MODERATE | ⚪ Queued | None | Fixes duplicate `GET /api/characters` route definition shadowing character profile queries. |
-| **7** | #29 | Pipeline / Py | MODERATE | ⚪ Queued | None | Removes dead legacy code block in `fetch_market_data.py` (lines 140-182). |
-| **8** | #13 | Backend / Deps | MINOR | ⚪ Queued | None | Removes unused `body-parser` dependency from `backend/package.json`. |
-| **9** | #18 | Frontend / Auth | NITPICK | ⚪ Queued | None | Implements full `Login.jsx` UI and connects to the hardened auth endpoints. |
-| **10** | #17 | Frontend / UX | MINOR | ⚪ Queued | None | Improves WCAG text contrast ratios for dark theme legibility. |
-| **11** | #37 | Frontend / UI | MINOR | ⚪ Queued | None | Auto-fits dropdown menu width in `EsoSelect` to accommodate full alliance names without truncation. |
-| **12** | #8 | Core Milestone | FEATURE | 🔴 Blocked | #28 | Milestone Epic: Smart Build Importer & Market Deal Recommendation Engine. |
-| **13** | #10 | Feature Plan | FEATURE | ⚪ Queued | None | Trait Research Tracker & Automated Kiosk Matching Engine. |
-| **14** | #9 | Feature Plan | FEATURE | ⚪ Queued | None | Structured Public Crafting & WTB (Want-To-Buy) Request Board. |
-| **15** | #16 | Config / Env | MINOR | ⚪ Queued | None | Adds documented `.env.example` file for backend and frontend. |
-| **16** | #15 | Documentation | MINOR | ⚪ Queued | None | Expands root `README.md` with system overview, architecture, and getting-started guide. |
-| **17** | #14 | Documentation | MINOR | ⚪ Queued | None | Fixes PostgreSQL references in `DatabaseSchema.md` to reflect SQLite 3. |
-| **18** | #22 | Documentation | NITPICK | ⚪ Queued | None | Adds setup, watcher daemon, and ingestion guide in `backend/data-pipeline/README.md`. |
-| **19** | #23 | Documentation | NITPICK | ⚪ Queued | None | Adds deployment guide and production configuration documentation. |
-| **20** | #19 | Database / Perf | NITPICK | ⚪ Queued | None | Adds SQLite FTS5 Full-Text Search virtual table for sub-millisecond item catalog lookups. |
-| **21** | #21 | Testing / QA | NITPICK | ⚪ Queued | None | Expands unit & integration test coverage across all Express endpoints and Python parsers. |
+| **1** | #31 | Security / DB | MODERATE | 🟡 Next Up | None | Moves in-memory session Map to SQLite persistent store or signed tokens. |
+| **2** | #43 | Pipeline / UI | MODERATE | ⚪ Queued | None | Extracts, maps, and displays jewelry traits (Arcane, Bloodthirsty, Triune, etc.) and fixes slot alignment. |
+| **3** | #44 | CI/CD / QA | FEAT | ⚪ Queued | None | Adds automated GitHub Actions CI workflow (.github/workflows/ci.yml) for PRs and push validation. |
+| **4** | #45 | CI/CD / Docs | FEAT | ⚪ Queued | None | Standardizes PR templates and squash-merge defaults to guarantee automated issue closure. |
+| **5** | #28 | Backend / API | MODERATE | ⚪ Queued | None | Fixes duplicate `GET /api/characters` route definition shadowing character profile queries. |
+| **6** | #29 | Pipeline / Py | MODERATE | ⚪ Queued | None | Removes dead legacy code block in `fetch_market_data.py` (lines 140-182). |
+| **7** | #13 | Backend / Deps | MINOR | ⚪ Queued | None | Removes unused `body-parser` dependency from `backend/package.json`. |
+| **8** | #18 | Frontend / Auth | NITPICK | ⚪ Queued | None | Implements full `Login.jsx` UI and connects to the hardened auth endpoints. |
+| **9** | #17 | Frontend / UX | MINOR | ⚪ Queued | None | Improves WCAG text contrast ratios for dark theme legibility. |
+| **10** | #37 | Frontend / UI | MINOR | ⚪ Queued | None | Auto-fits dropdown menu width in `EsoSelect` to accommodate full alliance names without truncation. |
+| **11** | #8 | Core Milestone | FEATURE | 🔴 Blocked | #28 | Milestone Epic: Smart Build Importer & Market Deal Recommendation Engine. |
+| **12** | #10 | Feature Plan | FEATURE | ⚪ Queued | None | Trait Research Tracker & Automated Kiosk Matching Engine. |
+| **13** | #9 | Feature Plan | FEATURE | ⚪ Queued | None | Structured Public Crafting & WTB (Want-To-Buy) Request Board. |
+| **14** | #16 | Config / Env | MINOR | ⚪ Queued | None | Adds documented `.env.example` file for backend and frontend. |
+| **15** | #15 | Documentation | MINOR | ⚪ Queued | None | Expands root `README.md` with system overview, architecture, and getting-started guide. |
+| **16** | #14 | Documentation | MINOR | ⚪ Queued | None | Fixes PostgreSQL references in `DatabaseSchema.md` to reflect SQLite 3. |
+| **17** | #22 | Documentation | NITPICK | ⚪ Queued | None | Adds setup, watcher daemon, and ingestion guide in `backend/data-pipeline/README.md`. |
+| **18** | #23 | Documentation | NITPICK | ⚪ Queued | None | Adds deployment guide and production configuration documentation. |
+| **19** | #19 | Database / Perf | NITPICK | ⚪ Queued | None | Adds SQLite FTS5 Full-Text Search virtual table for sub-millisecond item catalog lookups. |
+| **20** | #21 | Testing / QA | NITPICK | ⚪ Queued | None | Expands unit & integration test coverage across all Express endpoints and Python parsers. |
 
 ---
 
 ## 🏆 Recently Completed / Merged
-- **`#32`** — `[MODERATE] Hardcoded default password `password123` in DevAccountModal` (Resolved)
+- **`#30`** — `[MODERATE] No rate limiting middleware on any API endpoint` (Resolved)
+- **#32** — `[MODERATE] Hardcoded default password password123 in DevAccountModal` (Merged in PR #42)
 - **#27** — `[CRITICAL] Gate or remove unauthenticated /api/dev/bypass-login endpoint` (Merged in PR #41)
 - **#26** — `[CRITICAL] Remove hardcoded backdoor session tokens from production code` (Merged in PR #40)
 - **#38** — `[FEAT] Automated GitHub Action to synchronize Master Tracking Issue #35 and PRIORITY_QUEUE.md on PR merge` (Merged in PR #39)
