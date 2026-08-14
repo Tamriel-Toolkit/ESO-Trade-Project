@@ -1554,22 +1554,24 @@ app.post("/api/market/listings/purge-expired", async (req, res) => {
 });
 
 // Start server
-/**
- * POST /api/market/dev/clear-listings
- * Dev endpoint to clear all listings and item prices from database.
- */
-app.post("/api/market/dev/clear-listings", async (req, res) => {
-    try {
-        await dbRun("DELETE FROM guild_trader_listings;");
-        await dbRun("DELETE FROM item_prices;");
-        res.json({
-            success: true,
-            message: "Successfully cleared all market listings and price entries."
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
+if (process.env.NODE_ENV !== "production") {
+    /**
+     * POST /api/market/dev/clear-listings
+     * Dev endpoint to clear all listings and item prices from database.
+     */
+    app.post("/api/market/dev/clear-listings", async (req, res) => {
+        try {
+            await dbRun("DELETE FROM guild_trader_listings;");
+            await dbRun("DELETE FROM item_prices;");
+            res.json({
+                success: true,
+                message: "Successfully cleared all market listings and price entries."
+            });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    });
+}
 
 // ============================================================================
 // AUTHENTICATION & DEVELOPER BYPASS ENDPOINTS
@@ -1716,93 +1718,98 @@ app.get("/api/auth/me", async (req, res) => {
 
 // ============================================================================
 // DEVELOPER BYPASS & ACCOUNT MANAGEMENT ENDPOINTS ([DEV])
+// Gated strictly to non-production environments (NODE_ENV !== 'production')
 // ============================================================================
 
-/**
- * GET /api/dev/users
- * Returns list of all registered accounts for developer bypass panel
- */
-app.get("/api/dev/users", async (req, res) => {
-    try {
-        const users = await dbAll(`
-            SELECT u.id, u.username, u.email, u.eso_handle, u.role, u.api_token, u.created_at,
-                   COUNT(c.id) AS character_count
-            FROM users u
-            LEFT JOIN characters c ON u.id = c.user_id
-            GROUP BY u.id
-            ORDER BY u.id ASC;
-        `);
-        res.json({ success: true, users });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
+if (process.env.NODE_ENV !== "production") {
+    console.log("[DEV] Developer bypass and debug account management routes registered.");
 
-/**
- * POST /api/dev/bypass-login
- * Developer 1-click bypass to log into any account instantly without password
- */
-app.post("/api/dev/bypass-login", async (req, res) => {
-    const { user_id } = req.body;
-    if (!user_id) return res.status(400).json({ error: "user_id is required." });
+    /**
+     * GET /api/dev/users
+     * Returns list of all registered accounts for developer bypass panel
+     */
+    app.get("/api/dev/users", async (req, res) => {
+        try {
+            const users = await dbAll(`
+                SELECT u.id, u.username, u.email, u.eso_handle, u.role, u.api_token, u.created_at,
+                       COUNT(c.id) AS character_count
+                FROM users u
+                LEFT JOIN characters c ON u.id = c.user_id
+                GROUP BY u.id
+                ORDER BY u.id ASC;
+            `);
+            res.json({ success: true, users });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    });
 
-    try {
-        const user = await dbGet(`SELECT id, username, email, eso_handle, role, api_token, created_at FROM users WHERE id = ?;`, [user_id]);
-        if (!user) return res.status(404).json({ error: "Account not found." });
+    /**
+     * POST /api/dev/bypass-login
+     * Developer 1-click bypass to log into any account instantly without password
+     */
+    app.post("/api/dev/bypass-login", async (req, res) => {
+        const { user_id } = req.body;
+        if (!user_id) return res.status(400).json({ error: "user_id is required." });
 
-        const sessionToken = generateToken(user);
-        activeSessions.set(sessionToken, user.id);
+        try {
+            const user = await dbGet(`SELECT id, username, email, eso_handle, role, api_token, created_at FROM users WHERE id = ?;`, [user_id]);
+            if (!user) return res.status(404).json({ error: "Account not found." });
 
-        res.json({
-            success: true,
-            message: `[DEV BYPASS] Successfully logged into account: @${user.username}`,
-            token: sessionToken,
-            user
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
+            const sessionToken = generateToken(user);
+            activeSessions.set(sessionToken, user.id);
 
-/**
- * PUT /api/dev/users/:id
- * Developer edit account details
- */
-app.put("/api/dev/users/:id", async (req, res) => {
-    const userId = req.params.id;
-    const { username, email, eso_handle, role } = req.body;
+            res.json({
+                success: true,
+                message: `[DEV BYPASS] Successfully logged into account: @${user.username}`,
+                token: sessionToken,
+                user
+            });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    });
 
-    try {
-        await dbRun(`
-            UPDATE users 
-            SET username = COALESCE(?, username),
-                email = COALESCE(?, email),
-                eso_handle = COALESCE(?, eso_handle),
-                role = COALESCE(?, role)
-            WHERE id = ?;
-        `, [username, email, eso_handle, role, userId]);
+    /**
+     * PUT /api/dev/users/:id
+     * Developer edit account details
+     */
+    app.put("/api/dev/users/:id", async (req, res) => {
+        const userId = req.params.id;
+        const { username, email, eso_handle, role } = req.body;
 
-        const user = await dbGet(`SELECT id, username, email, eso_handle, role, api_token, created_at FROM users WHERE id = ?;`, [userId]);
-        res.json({ success: true, message: "Account updated successfully.", user });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
+        try {
+            await dbRun(`
+                UPDATE users 
+                SET username = COALESCE(?, username),
+                    email = COALESCE(?, email),
+                    eso_handle = COALESCE(?, eso_handle),
+                    role = COALESCE(?, role)
+                WHERE id = ?;
+            `, [username, email, eso_handle, role, userId]);
 
-/**
- * DELETE /api/dev/users/:id
- * Developer delete account
- */
-app.delete("/api/dev/users/:id", async (req, res) => {
-    const userId = req.params.id;
-    try {
-        await dbRun(`DELETE FROM characters WHERE user_id = ?;`, [userId]);
-        await dbRun(`DELETE FROM users WHERE id = ?;`, [userId]);
-        res.json({ success: true, message: `Account ID ${userId} and associated characters deleted.` });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
+            const user = await dbGet(`SELECT id, username, email, eso_handle, role, api_token, created_at FROM users WHERE id = ?;`, [userId]);
+            res.json({ success: true, message: "Account updated successfully.", user });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    });
+
+    /**
+     * DELETE /api/dev/users/:id
+     * Developer delete account
+     */
+    app.delete("/api/dev/users/:id", async (req, res) => {
+        const userId = req.params.id;
+        try {
+            await dbRun(`DELETE FROM characters WHERE user_id = ?;`, [userId]);
+            await dbRun(`DELETE FROM users WHERE id = ?;`, [userId]);
+            res.json({ success: true, message: `Account ID ${userId} and associated characters deleted.` });
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    });
+}
 
 // ============================================================================
 // CHARACTER MANAGER ENDPOINTS
