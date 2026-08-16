@@ -40,12 +40,12 @@ export function CharacterProfileModal({ character, onClose }) {
       gearBySlot[1], // Neck
       gearBySlot[2], // Chest
       gearBySlot[3], // Shoulders
-      gearBySlot[16] || gearBySlot[11] || gearBySlot[13], // Hands
+      gearBySlot[16] || gearBySlot[13], // Hands
       gearBySlot[6], // Waist
-      gearBySlot[7], // Legs
-      gearBySlot[8], // Feet
-      gearBySlot[9] || gearBySlot[11], // Ring 1
-      gearBySlot[10] || gearBySlot[12], // Ring 2
+      gearBySlot[8] || gearBySlot[7], // Legs
+      gearBySlot[9] || gearBySlot[8], // Feet
+      gearBySlot[11] || gearBySlot[9], // Ring 1
+      gearBySlot[12] || gearBySlot[10], // Ring 2
     ].filter(Boolean);
 
     activeItems.forEach((item) => {

@@ -241,7 +241,7 @@ async function runTests() {
                     enchantment_description: "Adds 174 Spell Damage.\\nIncreases Magicka Recovery by 100."
                 },
                 {
-                    slot_id: 9, // Ring 1
+                    slot_id: 11, // Ring 1
                     game_item_id: 1002,
                     item_name: "Ring of the Sun",
                     item_link: "|H1:item:1002:364:50:5:31:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0|h",
@@ -252,7 +252,7 @@ async function runTests() {
                     set_name: "Silks of the Sun"
                 },
                 {
-                    slot_id: 10, // Ring 2
+                    slot_id: 12, // Ring 2
                     game_item_id: 1003,
                     item_name: "Band of the Sun",
                     item_link: "|H1:item:1003:364:50:5:30:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0|h",
@@ -281,8 +281,8 @@ async function runTests() {
 
         const charProfileRes = await httpGet(`/api/characters/${gearUploadRes.data.character_id}/profile`);
         console.log(`   Profile Status: ${charProfileRes.status}, Character: ${charProfileRes.data.character?.name}`);
-        const ring1 = charProfileRes.data.gear?.['9'];
-        const ring2 = charProfileRes.data.gear?.['10'];
+        const ring1 = charProfileRes.data.gear?.['11'];
+        const ring2 = charProfileRes.data.gear?.['12'];
         const neck = charProfileRes.data.gear?.['1'];
         const hands = charProfileRes.data.gear?.['16'];
 
