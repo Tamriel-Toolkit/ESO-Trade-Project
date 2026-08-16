@@ -84,6 +84,9 @@ function initializeDatabaseSchema() {
         `, (err) => {
             if (err) console.error("Error creating 'items' table:", err.message);
         });
+        db.run("ALTER TABLE items ADD COLUMN set_name TEXT;", () => {});
+        db.run("ALTER TABLE items ADD COLUMN type TEXT;", () => {});
+        db.run("ALTER TABLE items ADD COLUMN icon TEXT;", () => {});
         db.run("CREATE INDEX IF NOT EXISTS idx_items_name ON items(name);");
         db.run("CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);");
         db.run("CREATE INDEX IF NOT EXISTS idx_items_set_name ON items(set_name);");
@@ -144,10 +147,10 @@ function initializeDatabaseSchema() {
 
         if (process.env.NODE_ENV !== "production") {
             db.run(`
-                INSERT INTO users (id, username, email, password_hash, eso_handle, role)
+                INSERT INTO users (id, username, email, password_hash, eso_handle, api_token, role)
                 VALUES 
-                    (1, 'Blake', 'blake@esotrade.local', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', '@Blake', 'admin'),
-                    (2, 'Demo', 'demo@esotrade.local', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', '@Demo', 'user')
+                    (1, 'Blake', 'blake@esotrade.local', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', '@Blake', 'token_blake_seed_1', 'admin'),
+                    (2, 'Demo', 'demo@esotrade.local', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', '@Demo', 'token_demo_seed_2', 'user')
                 ON CONFLICT(id) DO UPDATE SET
                     username = excluded.username;
             `);
