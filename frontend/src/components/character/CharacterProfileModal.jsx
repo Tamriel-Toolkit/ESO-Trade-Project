@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { X, Shield, Award, Sparkles, User, Sword, CheckCircle2, Zap, Layers, RefreshCw } from "lucide-react";
 import { fetchCharacterProfile } from "@/api/api";
-import { AnatomicalEquipmentDiagram } from "./AnatomicalEquipmentDiagram";
+import { AnatomicalEquipmentDiagram, ESO_TRAIT_NAMES } from "./AnatomicalEquipmentDiagram";
 import { getAllianceIcon } from "@/components/ui/alliance-icons";
 import { renderEsoFormattedText, cleanEsoText } from "@/lib/utils";
 
@@ -9,30 +9,6 @@ const ALLIANCE_NAMES = {
   1: { name: "Aldmeri Dominion", color: "text-[#d4af37] border-[#c5a059]/40 bg-amber-950/20" },
   2: { name: "Ebonheart Pact", color: "text-red-400 border-red-600/40 bg-red-950/20" },
   3: { name: "Daggerfall Covenant", color: "text-blue-400 border-blue-600/40 bg-blue-950/20" }
-};
-
-const TRAIT_NAMES = {
-  1: "Sturdy",
-  2: "Impenetrable",
-  3: "Reinforced",
-  4: "Well-Fitted",
-  5: "Training",
-  6: "Infused",
-  7: "Prosperous",
-  8: "Divines",
-  9: "Nirnhoned",
-  11: "Powered",
-  12: "Charged",
-  13: "Precise",
-  14: "Sharpened",
-  15: "Decisive",
-  21: "Arcane",
-  22: "Healthy",
-  23: "Robust",
-  24: "Bloodthirsty",
-  25: "Harmony",
-  26: "Infused",
-  27: "Triune"
 };
 
 export function CharacterProfileModal({ character, onClose }) {
@@ -58,12 +34,21 @@ export function CharacterProfileModal({ character, onClose }) {
   const setBonusAnalysis = useMemo(() => {
     const counts = {};
 
-    // Standard Armor & Jewelry slots ALWAYS active:
-    // Head(0), Neck(1), Chest(2), Shoulders(3), Waist(6), Legs(7), Feet(8), Ring1(9), Ring2(10), Hands(11)
-    const alwaysActiveSlots = [0, 1, 2, 3, 6, 7, 8, 9, 10, 11];
+    // Standard Armor & Jewelry items ALWAYS active:
+    const activeItems = [
+      gearBySlot[0], // Head
+      gearBySlot[1], // Neck
+      gearBySlot[2], // Chest
+      gearBySlot[3], // Shoulders
+      gearBySlot[16] || gearBySlot[13], // Hands
+      gearBySlot[6], // Waist
+      gearBySlot[7], // Legs
+      gearBySlot[8], // Feet
+      gearBySlot[11] || gearBySlot[9], // Ring 1
+      gearBySlot[12] || gearBySlot[10], // Ring 2
+    ].filter(Boolean);
 
-    alwaysActiveSlots.forEach((s) => {
-      const item = gearBySlot[s];
+    activeItems.forEach((item) => {
       if (item && item.set_name) {
         const sName = cleanEsoText(item.set_name);
         counts[sName] = (counts[sName] || 0) + 1;
@@ -71,9 +56,8 @@ export function CharacterProfileModal({ character, onClose }) {
     });
 
     // Active Weapon Bar Slots
-    const weaponSlots = activeWeaponBar === "front" ? [4, 5] : [12, 13];
-    const mainWeapon = gearBySlot[weaponSlots[0]];
-    const offWeapon = gearBySlot[weaponSlots[1]];
+    const mainWeapon = activeWeaponBar === "front" ? gearBySlot[4] : (gearBySlot[20] || gearBySlot[12]);
+    const offWeapon = activeWeaponBar === "front" ? gearBySlot[5] : (gearBySlot[21] || gearBySlot[13]);
 
     if (mainWeapon && mainWeapon.set_name) {
       const sName = cleanEsoText(mainWeapon.set_name);
@@ -95,8 +79,8 @@ export function CharacterProfileModal({ character, onClose }) {
   const traitAnalysis = useMemo(() => {
     const traits = {};
     Object.values(gearBySlot).forEach((item) => {
-      if (item.trait_id) {
-        const tName = TRAIT_NAMES[item.trait_id] || `Trait #${item.trait_id}`;
+      if (item.trait_id || item.trait_name) {
+        const tName = item.trait_name ? cleanEsoText(item.trait_name) : (ESO_TRAIT_NAMES[item.trait_id] || `Trait #${item.trait_id}`);
         traits[tName] = (traits[tName] || 0) + 1;
       }
     });

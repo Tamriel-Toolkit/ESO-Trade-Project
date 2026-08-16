@@ -3,23 +3,23 @@ import { Shield, Sparkles, Zap, Award, Info } from "lucide-react";
 import { renderEsoFormattedText, cleanEsoText } from "@/lib/utils";
 
 const SLOT_DEFINITIONS = [
-  // Left Column (Armor & Accessories)
+  // Left Column (Armor)
   { slotId: 0, name: "Head", side: "left", anchorY: "12%" },
   { slotId: 3, name: "Shoulders", side: "left", anchorY: "24%" },
   { slotId: 2, name: "Chest", side: "left", anchorY: "36%" },
-  { slotId: 11, name: "Hands", side: "left", anchorY: "48%" },
+  { slotId: 16, fallbackSlotIds: [13], name: "Hands", side: "left", anchorY: "48%" },
   { slotId: 6, name: "Waist", side: "left", anchorY: "60%" },
   { slotId: 7, name: "Legs", side: "left", anchorY: "72%" },
   { slotId: 8, name: "Feet", side: "left", anchorY: "84%" },
 
   // Right Column (Jewelry & Weapons)
   { slotId: 1, name: "Necklace", side: "right", anchorY: "12%" },
-  { slotId: 9, name: "Ring 1", side: "right", anchorY: "24%" },
-  { slotId: 10, name: "Ring 2", side: "right", anchorY: "36%" },
+  { slotId: 11, fallbackSlotIds: [9], name: "Ring 1", side: "right", anchorY: "24%" },
+  { slotId: 12, fallbackSlotIds: [10], name: "Ring 2", side: "right", anchorY: "36%" },
   { slotId: 4, name: "Front Bar Main", side: "right", anchorY: "48%" },
   { slotId: 5, name: "Front Bar Off", side: "right", anchorY: "60%" },
-  { slotId: 12, name: "Back Bar Main", side: "right", anchorY: "72%" },
-  { slotId: 13, name: "Back Bar Off", side: "right", anchorY: "84%" },
+  { slotId: 20, fallbackSlotIds: [12], name: "Back Bar Main", side: "right", anchorY: "72%" },
+  { slotId: 21, fallbackSlotIds: [13], name: "Back Bar Off", side: "right", anchorY: "84%" },
 ];
 
 const DEFAULT_QUALITY = { label: "Normal", border: "border-gray-500", text: "text-gray-300", bg: "bg-gray-900/60" };
@@ -50,7 +50,7 @@ const getQualityTheme = (qualityVal, item = null) => {
   return QUALITY_COLORS[qNum] || DEFAULT_QUALITY;
 };
 
-const ESO_TRAIT_NAMES = {
+export const ESO_TRAIT_NAMES = {
   // Armor Traits
   1: "Sturdy",
   2: "Impenetrable",
@@ -61,17 +61,19 @@ const ESO_TRAIT_NAMES = {
   7: "Prosperous",
   8: "Divines",
   9: "Nirnhoned",
+  10: "Ornate",
 
   // Weapon Traits
   11: "Powered",
   12: "Charged",
   13: "Precise",
-  14: "Sharpened",
+  14: "Infused",
   15: "Defending",
   16: "Training",
   17: "Sharpened",
   18: "Decisive",
   19: "Nirnhoned",
+  20: "Ornate",
 
   // Jewelry Traits
   21: "Arcane",
@@ -85,12 +87,67 @@ const ESO_TRAIT_NAMES = {
   29: "Swift"
 };
 
+export const DEFAULT_TRAIT_DESCRIPTIONS = {
+  1: "Reduces Block cost by up to 4%.",
+  2: "Increases Critical Resistance by up to 127.",
+  3: "Increases this item's Armor value by up to 16%.",
+  4: "Reduces Sprint, Roll Dodge, and Sneak cost by up to 5%.",
+  5: "Increases experience gained from kills by up to 11%.",
+  6: "Increases Armor Enchantment effect by up to 20%.",
+  7: "Increases Health, Magicka, and Stamina Recovery by up to 11.",
+  8: "Increases Mundus Stone effects by up to 9.1%.",
+  9: "Increases Spell and Physical Resistance by up to 301.",
+  10: "Increases sell price to merchants by 280%.",
+  11: "Increases healing done by up to 9%.",
+  12: "Increases chance to apply status effects by up to 480%.",
+  13: "Increases Weapon and Spell Critical by up to 7.7%.",
+  14: "Increases weapon enchantment effect by up to 30% and reduces enchantment cooldown by up to 50%.",
+  15: "Increases total Armor by up to 3276.",
+  16: "Increases experience gained from kills by up to 9%.",
+  17: "Increases Armor Penetration by up to 3276.",
+  18: "Chance to gain 1 additional Ultimate when gaining Ultimate by up to 60%.",
+  19: "Increases Weapon and Spell Damage by up to 15%.",
+  20: "Increases sell price to merchants by 280%.",
+  21: "Increases Maximum Magicka by up to 870.",
+  22: "Increases Maximum Health by up to 957.",
+  23: "Increases Maximum Stamina by up to 870.",
+  24: "Increases your Damage done against enemies under 25% Health by up to 350.",
+  25: "Increases the damage, healing, resource restore, and damage shield strength of synergies you activate by up to 880.",
+  26: "Increases Jewelry Enchantment effectiveness by up to 60%.",
+  27: "Increases Maximum Health by up to 478, Maximum Magicka by up to 435, and Maximum Stamina by up to 435.",
+  28: "Increases Spell and Physical Resistance by up to 1190.",
+  29: "Increases your Movement Speed by up to 7%."
+};
+
+const getGearItemForSlot = (gearBySlot, slotDef) => {
+  if (!gearBySlot || !slotDef) return null;
+  if (gearBySlot[slotDef.slotId]) return gearBySlot[slotDef.slotId];
+  if (slotDef.fallbackSlotIds) {
+    for (const fId of slotDef.fallbackSlotIds) {
+      if (gearBySlot[fId]) return gearBySlot[fId];
+    }
+  }
+  return null;
+};
+
 const getTraitDisplayName = (item) => {
-  if (item?.trait_name && item.trait_name.trim() !== "") {
+  if (!item) return null;
+  if (item.trait_name && item.trait_name.trim() !== "") {
     return cleanEsoText(item.trait_name);
   }
-  if (item?.trait_id && ESO_TRAIT_NAMES[item.trait_id]) {
+  if (item.trait_id && ESO_TRAIT_NAMES[item.trait_id]) {
     return ESO_TRAIT_NAMES[item.trait_id];
+  }
+  return null;
+};
+
+const getTraitDescription = (item) => {
+  if (!item) return null;
+  if (item.trait_description && item.trait_description.trim() !== "") {
+    return item.trait_description;
+  }
+  if (item.trait_id && DEFAULT_TRAIT_DESCRIPTIONS[item.trait_id]) {
+    return DEFAULT_TRAIT_DESCRIPTIONS[item.trait_id];
   }
   return null;
 };
@@ -108,7 +165,8 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
   const leftSlots = SLOT_DEFINITIONS.filter((s) => s.side === "left");
   const rightSlots = SLOT_DEFINITIONS.filter((s) => s.side === "right");
 
-  const activeHoveredItem = hoveredSlot !== null ? gearBySlot[hoveredSlot] : null;
+  const activeHoveredSlotDef = hoveredSlot !== null ? SLOT_DEFINITIONS.find((s) => s.slotId === hoveredSlot) : null;
+  const activeHoveredItem = activeHoveredSlotDef ? getGearItemForSlot(gearBySlot, activeHoveredSlotDef) : null;
 
   return (
     <div className="relative w-full bg-[#0a0a0d] border-2 border-[#2a2c33] p-4 flex flex-col items-center select-none shadow-2xl">
@@ -121,7 +179,7 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
         {/* Left Column: Armor Slots */}
         <div className="md:col-span-2 space-y-3">
           {leftSlots.map((slot) => {
-            const item = gearBySlot[slot.slotId];
+            const item = getGearItemForSlot(gearBySlot, slot);
             const quality = getQualityTheme(item?.quality, item);
             const isHovered = hoveredSlot === slot.slotId;
             const traitName = getTraitDisplayName(item);
@@ -216,12 +274,12 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
             <line x1="20%" y1="84%" x2="40%" y2="90%" strokeWidth="1.5" strokeDasharray="3,3" />
 
             {/* Right Column Lines */}
-            <line x1="80%" y1="12%" x2="56%" y2="15%" strokeWidth="1.5" strokeDasharray="3,3" />
-            <line x1="80%" y1="24%" x2="68%" y2="50%" strokeWidth="1.5" strokeDasharray="3,3" />
+            <line x1="80%" y1="12%" x2="56%" y2="17%" strokeWidth="1.5" strokeDasharray="3,3" />
+            <line x1="80%" y1="24%" x2="68%" y2="48%" strokeWidth="1.5" strokeDasharray="3,3" />
             <line x1="80%" y1="36%" x2="68%" y2="52%" strokeWidth="1.5" strokeDasharray="3,3" />
-            <line x1="80%" y1="48%" x2="68%" y2="46%" strokeWidth="1.5" strokeDasharray="3,3" />
-            <line x1="80%" y1="60%" x2="68%" y2="48%" strokeWidth="1.5" strokeDasharray="3,3" />
-            <line x1="80%" y1="72%" x2="65%" y2="30%" strokeWidth="1.5" strokeDasharray="3,3" />
+            <line x1="80%" y1="48%" x2="68%" y2="36%" strokeWidth="1.5" strokeDasharray="3,3" />
+            <line x1="80%" y1="60%" x2="68%" y2="40%" strokeWidth="1.5" strokeDasharray="3,3" />
+            <line x1="80%" y1="72%" x2="65%" y2="28%" strokeWidth="1.5" strokeDasharray="3,3" />
             <line x1="80%" y1="84%" x2="65%" y2="32%" strokeWidth="1.5" strokeDasharray="3,3" />
           </svg>
         </div>
@@ -229,10 +287,10 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
         {/* Right Column: Jewelry & Weapons Slots */}
         <div className="md:col-span-2 space-y-3">
           {rightSlots.map((slot) => {
-            const item = gearBySlot[slot.slotId];
+            const item = getGearItemForSlot(gearBySlot, slot);
             const quality = getQualityTheme(item?.quality, item);
             const isHovered = hoveredSlot === slot.slotId;
-            const isWeaponBarActive = activeBar === "front" ? (slot.slotId === 4 || slot.slotId === 5) : (slot.slotId === 12 || slot.slotId === 13);
+            const isWeaponBarActive = activeBar === "front" ? (slot.slotId === 4 || slot.slotId === 5) : (slot.slotId === 20 || slot.slotId === 21);
             const traitName = getTraitDisplayName(item);
             const levelDisplay = getItemLevelDisplay(item);
 
@@ -335,8 +393,8 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
                     <span>Item Trait: {getTraitDisplayName(activeHoveredItem)}</span>
                     <Sparkles className="size-3 text-[#60a5fa]" />
                   </span>
-                  {activeHoveredItem.trait_description ? (
-                    <p className="text-[11px] text-[#93c5fd] leading-snug">{renderEsoFormattedText(activeHoveredItem.trait_description)}</p>
+                  {getTraitDescription(activeHoveredItem) ? (
+                    <div className="text-[11px] text-[#93c5fd] leading-snug">{renderEsoFormattedText(getTraitDescription(activeHoveredItem))}</div>
                   ) : (
                     <p className="text-[11px] text-[#8a8275] italic">Active {getTraitDisplayName(activeHoveredItem)} trait bonus applied.</p>
                   )}

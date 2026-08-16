@@ -224,6 +224,82 @@ async function runTests() {
             throw new Error(`Rate limit test failed on /api/taxonomy`);
         }
 
+        console.log("\n18. Testing POST /api/characters/upload-gear and GET /api/characters/:id/profile with jewelry traits...");
+        const gearUploadRes = await httpPost('/api/characters/upload-gear', {
+            character_name: "TestHero",
+            gear: [
+                {
+                    slot_id: 1, // Necklace
+                    game_item_id: 1001,
+                    item_name: "Necklace of the Sun",
+                    item_link: "|H1:item:1001:364:50:5:21:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0|h",
+                    quality: 5,
+                    trait_id: 21,
+                    trait_name: "Arcane",
+                    trait_description: "Increases Maximum Magicka by 870.",
+                    set_name: "Silks of the Sun",
+                    enchantment_description: "Adds 174 Spell Damage.\\nIncreases Magicka Recovery by 100."
+                },
+                {
+                    slot_id: 11, // Ring 1
+                    game_item_id: 1002,
+                    item_name: "Ring of the Sun",
+                    item_link: "|H1:item:1002:364:50:5:24:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0|h",
+                    quality: 5,
+                    trait_id: 24,
+                    trait_name: "Bloodthirsty",
+                    trait_description: "Increases your Damage done against enemies under 25% Health by up to 350.",
+                    set_name: "Silks of the Sun"
+                },
+                {
+                    slot_id: 12, // Ring 2
+                    game_item_id: 1003,
+                    item_name: "Band of the Sun",
+                    item_link: "|H1:item:1003:364:50:5:27:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0:0|h",
+                    quality: 5,
+                    trait_id: 27,
+                    trait_name: "Triune",
+                    trait_description: "Increases Maximum Health, Magicka, and Stamina.",
+                    set_name: "Silks of the Sun"
+                },
+                {
+                    slot_id: 16, // Hands
+                    game_item_id: 1004,
+                    item_name: "Gloves of the Sun",
+                    quality: 4,
+                    trait_id: 8,
+                    trait_name: "Divines",
+                    trait_description: "Increases Mundus Stone effects by 9.1%.",
+                    armor_rating: 1200
+                }
+            ]
+        }, { 'Authorization': 'Bearer dev-token-blake-123' });
+        console.log(`   Upload Status: ${gearUploadRes.status}, Success: ${gearUploadRes.data.success}`);
+        if (gearUploadRes.status !== 200 || !gearUploadRes.data.success) {
+            throw new Error(`Upload gear failed with status ${gearUploadRes.status}`);
+        }
+
+        const charProfileRes = await httpGet(`/api/characters/${gearUploadRes.data.character_id}/profile`);
+        console.log(`   Profile Status: ${charProfileRes.status}, Character: ${charProfileRes.data.character?.name}`);
+        const ring1 = charProfileRes.data.gear?.['11'];
+        const ring2 = charProfileRes.data.gear?.['12'];
+        const neck = charProfileRes.data.gear?.['1'];
+        const hands = charProfileRes.data.gear?.['16'];
+
+        if (!ring1 || ring1.trait_id !== 24 || ring1.trait_name !== "Bloodthirsty") {
+            throw new Error(`Ring 1 trait not correctly mapped in profile: ${JSON.stringify(ring1)}`);
+        }
+        if (!ring2 || ring2.trait_id !== 27 || ring2.trait_name !== "Triune") {
+            throw new Error(`Ring 2 trait not correctly mapped in profile: ${JSON.stringify(ring2)}`);
+        }
+        if (!neck || neck.trait_id !== 21 || neck.trait_name !== "Arcane" || !neck.trait_description) {
+            throw new Error(`Necklace trait or description not correctly mapped in profile: ${JSON.stringify(neck)}`);
+        }
+        if (!hands || hands.slot_id !== 16 || hands.armor_rating !== 1200) {
+            throw new Error(`Hands slot 16 not correctly mapped in profile: ${JSON.stringify(hands)}`);
+        }
+        console.log("   Jewelry traits & slot alignment successfully verified in profile!");
+
         console.log("\nAll API endpoint tests passed successfully!");
     } catch (err) {
         console.error("API test failed:", err);
