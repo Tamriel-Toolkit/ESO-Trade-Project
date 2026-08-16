@@ -45,7 +45,7 @@ const batchUploadLimiter = rateLimit({
 app.use("/api/", generalLimiter);
 app.use("/api/auth/", authLimiter);
 // Database connection
-const dbPath = path.join(__dirname, "exports", "eso_catalog.db");
+const dbPath = process.env.DB_PATH || path.join(__dirname, "exports", "eso_catalog.db");
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         console.error("Error connecting to the database:", err.message);
@@ -69,6 +69,50 @@ const db = new sqlite3.Database(dbPath, (err) => {
 function initializeDatabaseSchema() {
     db.serialize(() => {
         db.run(`
+            CREATE TABLE IF NOT EXISTS items (
+                game_item_id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                category TEXT,
+                subcategory TEXT,
+                rarity INTEGER DEFAULT 1,
+                type TEXT,
+                set_name TEXT,
+                icon TEXT,
+                metadata TEXT,
+                icon_url TEXT
+            );
+        `, (err) => {
+            if (err) console.error("Error creating 'items' table:", err.message);
+        });
+        db.run("CREATE INDEX IF NOT EXISTS idx_items_name ON items(name);");
+        db.run("CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);");
+        db.run("CREATE INDEX IF NOT EXISTS idx_items_set_name ON items(set_name);");
+
+        // Seed starter items (runs sequentially inside db.serialize before foreign keys reference items)
+        db.run(`
+            INSERT OR IGNORE INTO items (game_item_id, name, category, subcategory, rarity, type, set_name, icon, metadata, icon_url)
+            VALUES 
+                (1129, 'Werewolf Hide King Deleyn''s Longbow', 'Weapon', 'Bow', 5, 'Weapon', NULL, '/esoui/art/icons/gear_nord_bow_a.dds', '{"rarity": 5}', '/esoui/art/icons/gear_nord_bow_a.dds'),
+                (1321, 'Maple Bow', 'Weapon', 'Bow', 5, 'Weapon', NULL, '/esoui/art/icons/gear_nord_bow_a.dds', '{"rarity": 5}', '/esoui/art/icons/gear_nord_bow_a.dds'),
+                (1727, 'Brackenleaf''s Bough', 'Weapon', 'Bow', 5, 'Weapon', NULL, '/esoui/art/icons/gear_nord_bow_a.dds', '{"rarity": 5}', '/esoui/art/icons/gear_nord_bow_a.dds'),
+                (2501, 'Ebony-Inlaid Longbow', 'Weapon', 'Bow', 5, 'Weapon', NULL, '/esoui/art/icons/gear_nord_bow_a.dds', '{"rarity": 5}', '/esoui/art/icons/gear_nord_bow_a.dds'),
+                (4317, 'Naryu''s Sniper''s Bow', 'Weapon', 'Bow', 5, 'Weapon', NULL, '/esoui/art/icons/gear_nord_bow_a.dds', '{"rarity": 5}', '/esoui/art/icons/gear_nord_bow_a.dds'),
+                (68447, 'Briarheart Jack', 'Armor', 'Medium Armor', 4, 'Armor', 'Briarheart', '/esoui/art/icons/gear_reach_medium_chest_a.dds', '{"set": {"name": "Briarheart"}}', '/esoui/art/icons/gear_reach_medium_chest_a.dds'),
+                (68448, 'Briarheart Boots', 'Armor', 'Medium Armor', 4, 'Armor', 'Briarheart', '/esoui/art/icons/gear_reach_medium_feet_a.dds', '{"set": {"name": "Briarheart"}}', '/esoui/art/icons/gear_reach_medium_feet_a.dds'),
+                (68449, 'Briarheart Bracers', 'Armor', 'Medium Armor', 4, 'Armor', 'Briarheart', '/esoui/art/icons/gear_reach_medium_hands_a.dds', '{"set": {"name": "Briarheart"}}', '/esoui/art/icons/gear_reach_medium_hands_a.dds'),
+                (68450, 'Briarheart Helmet', 'Armor', 'Medium Armor', 4, 'Armor', 'Briarheart', '/esoui/art/icons/gear_reach_medium_head_a.dds', '{"set": {"name": "Briarheart"}}', '/esoui/art/icons/gear_reach_medium_head_a.dds'),
+                (68451, 'Briarheart Guards', 'Armor', 'Medium Armor', 4, 'Armor', 'Briarheart', '/esoui/art/icons/gear_reach_medium_legs_a.dds', '{"set": {"name": "Briarheart"}}', '/esoui/art/icons/gear_reach_medium_legs_a.dds'),
+                (97218, 'Necklace of a Mother''s Sorrow', 'Armor', 'Jewelry', 4, 'Armor', 'Mother''s Sorrow', '/esoui/art/icons/gear_nord_necklace_a.dds', '{"set": {"name": "Mother''s Sorrow"}}', '/esoui/art/icons/gear_nord_necklace_a.dds'),
+                (97227, 'Inferno Staff of a Mother''s Sorrow', 'Weapon', 'Destruction Staff', 5, 'Weapon', 'Mother''s Sorrow', '/esoui/art/icons/gear_nord_staff_inferno_a.dds', '{"set": {"name": "Mother''s Sorrow"}}', '/esoui/art/icons/gear_nord_staff_inferno_a.dds'),
+                (97253, 'Robe of a Mother''s Sorrow', 'Armor', 'Light Armor', 5, 'Armor', 'Mother''s Sorrow', '/esoui/art/icons/gear_nord_light_robe_a.dds', '{"set": {"name": "Mother''s Sorrow"}}', '/esoui/art/icons/gear_nord_light_robe_a.dds'),
+                (142765, 'Bright-Throat''s Boast Hat', 'Armor', 'Light Armor', 3, 'Armor', 'Bright-Throat''s Boast', '/esoui/art/icons/gear_nord_light_hat_a.dds', '{"set": {"name": "Bright-Throat''s Boast"}}', '/esoui/art/icons/gear_nord_light_hat_a.dds'),
+                (150001, 'Recipe: Hearty Garlic Corn Chowder', 'Recipe', 'Provisioning', 2, 'Recipe', NULL, '/esoui/art/icons/crafting_provisioner_bowl_soup.dds', '{"rarity": 2}', '/esoui/art/icons/crafting_provisioner_bowl_soup.dds'),
+                (150002, 'Alinor Gaming Table', 'Furnishing', 'Parlor', 3, 'Furnishing', NULL, '/esoui/art/icons/furnishing_table_a.dds', '{"rarity": 3}', '/esoui/art/icons/furnishing_table_a.dds'),
+                (150003, 'Crown Tri-Restoration Potion', 'Consumable', 'Potion', 4, 'Consumable', NULL, '/esoui/art/icons/potion_tri_a.dds', '{"rarity": 4}', '/esoui/art/icons/potion_tri_a.dds'),
+                (150004, 'Kutas Runestone', 'Other', 'Enchanting', 4, 'Crafting Material', NULL, '/esoui/art/icons/crafting_runestone_kuta.dds', '{"rarity": 4}', '/esoui/art/icons/crafting_runestone_kuta.dds');
+        `);
+
+        db.run(`
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
@@ -80,11 +124,7 @@ function initializeDatabaseSchema() {
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP
             );
         `, (err) => {
-            if (err) {
-                console.error("Error creating 'users' table:", err.message);
-            } else {
-                console.log("'users' table initialized successfully.");
-            }
+            if (err) console.error("Error creating 'users' table:", err.message);
         });
 
         db.run(`
@@ -96,17 +136,21 @@ function initializeDatabaseSchema() {
                 FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
             );
         `, (err) => {
-            if (err) {
-                console.error("Error creating 'sessions' table:", err.message);
-            } else {
-                console.log("'sessions' table initialized successfully.");
-            }
+            if (err) console.error("Error creating 'sessions' table:", err.message);
         });
 
         db.run("CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);");
         db.run("CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);");
 
         if (process.env.NODE_ENV !== "production") {
+            db.run(`
+                INSERT INTO users (id, username, email, password_hash, eso_handle, role)
+                VALUES 
+                    (1, 'Blake', 'blake@esotrade.local', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', '@Blake', 'admin'),
+                    (2, 'Demo', 'demo@esotrade.local', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', '@Demo', 'user')
+                ON CONFLICT(id) DO UPDATE SET
+                    username = excluded.username;
+            `);
             db.run(`
                 INSERT INTO sessions (token, user_id, expires_at)
                 VALUES 
@@ -115,29 +159,31 @@ function initializeDatabaseSchema() {
                 ON CONFLICT(token) DO UPDATE SET 
                     user_id = excluded.user_id,
                     expires_at = datetime('now', '+1 year');
-            `, (err) => {
-                if (err) console.error("Error seeding dev sessions:", err.message);
-                else console.log("[AUTH] Dev backdoor session tokens seeded in SQLite (NODE_ENV !== 'production').");
-            });
+            `);
         }
 
 
         db.run(`
             CREATE TABLE IF NOT EXISTS characters (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER DEFAULT 1,
                 name TEXT UNIQUE NOT NULL,
                 class TEXT,
-                level INTEGER,
+                level INTEGER DEFAULT 50,
+                alliance INTEGER DEFAULT 1,
                 is_master_crafter INTEGER DEFAULT 0,
-                last_sync_at TEXT DEFAULT CURRENT_TIMESTAMP
+                master_crafter_unlocked INTEGER DEFAULT 0,
+                last_sync_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
             );
         `, (err) => {
-            if (err) {
-                console.error("Error creating 'characters' table:", err.message);
-            } else {
-                console.log("'characters' table initialized successfully.");
-            }
+            if (err) console.error("Error creating 'characters' table:", err.message);
+            else console.log("'characters' table initialized successfully.");
         });
+
+        db.run("ALTER TABLE characters ADD COLUMN user_id INTEGER DEFAULT 1;", () => {});
+        db.run("ALTER TABLE characters ADD COLUMN alliance INTEGER DEFAULT 1;", () => {});
+        db.run("ALTER TABLE characters ADD COLUMN master_crafter_unlocked INTEGER DEFAULT 0;", () => {});
 
         db.run(`
             CREATE TABLE IF NOT EXISTS knowledge (
@@ -227,6 +273,22 @@ function initializeDatabaseSchema() {
                 console.log("'guild_trader_listings' table initialized successfully.");
             }
         });
+
+        // Seed starter prices & listings (for clean test/CI environments)
+        db.run(`
+            INSERT OR IGNORE INTO item_prices (game_item_id, server, avg_price, min_price, max_price, suggested_price)
+            VALUES 
+                (97218, 'NA', 130000, 100000, 150000, 130000),
+                (97227, 'NA', 45000, 35000, 60000, 45000),
+                (150001, 'NA', 36, 20, 50, 36);
+        `);
+
+        db.run(`
+            INSERT OR IGNORE INTO guild_trader_listings (game_item_id, server, seller_name, price, quantity, active_stacks, guild_name, location, level, quality, trait_id)
+            VALUES 
+                (150001, 'NA', '@TraderJoe', 22, 1, 1, 'Scourge Alliance', 'Mournhold, Deshaan', 1, 2, 0),
+                (97227, 'NA', '@MageGuildMaster', 42000, 1, 1, 'Tamriel Merchants', 'Elden Root, Grahtwood', 50, 5, 3);
+        `);
 
         // Migration columns for existing databases
         db.run("ALTER TABLE guild_trader_listings ADD COLUMN seller_name TEXT DEFAULT '@Unknown';", (err) => {});
