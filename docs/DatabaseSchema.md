@@ -165,10 +165,14 @@ erDiagram
 - **`price_history`**: Time-series data for market analytics and trend forecasting.
 - **`guild_trader_listings`**: Active listings for the "Personalized Shop" feature.
 
-### 2.5. Personalization & Trading
-- **`user_inventory`**: Tracks duplicates for the Trade Matcher.
-- **`watchlists`**: User alerts for price drops.
-- **`trade_requests`**: Facilitates WTT (Want To Trade) interactions.
+### 2.6. Authentication & Sessions
+- **`users`**: System user accounts (password hashed with bcrypt, api_token for programmatic sync).
+- **`sessions`**: Persistent SQLite-backed session store.
+    - `token`: Unique cryptographically secure session identifier (`session_<user_id>_<hex>`).
+    - `user_id`: Foreign key referencing `users(id)` with `ON DELETE CASCADE`.
+    - `created_at`: Creation timestamp.
+    - `expires_at`: ISO timestamp indicating session expiration (default TTL: 7 days).
+    - Indexes: `idx_sessions_expires_at`, `idx_sessions_user_id`.
 
 ## 3. Scalability & Logic
 
@@ -197,9 +201,10 @@ ORDER BY p.suggested_price ASC;
 ### First-Class Identifiers
 While `uuid` remains the Primary Key for internal database integrity, the `game_item_id` is uniquely indexed. All ingestion pipelines (TTC, Addon syncs) will use `game_item_id` for UPSERT operations.
 
-### Automated Listing TTL Purge & Triggers
-To prevent database bloating and ensure only active market listings are presented:
+### Automated Listing & Session TTL Purge
+To prevent database bloating and ensure only active market listings and valid sessions are retained:
 - **SQLite Triggers**: `trg_purge_expired_listings_insert` and `trg_purge_expired_listings_update` automatically delete listings where `expires_at` is older than `datetime('now')` upon insertion or update.
-- **Background Cron / Scheduled Daemon**: Both the Node.js Express backend (`server.js`) and the Python file watcher daemon (`watcher.py`) run hourly periodic purges executing `DELETE FROM guild_trader_listings WHERE expires_at IS NOT NULL AND datetime(expires_at) < datetime('now');`.
-- **Index**: `idx_listings_expires_at` on `guild_trader_listings(expires_at)` provides high-performance TTL range queries and rapid purges.
+- **Background Cron / Scheduled Daemon**: Both the Node.js Express backend (`server.js`) and the Python file watcher daemon (`watcher.py`) run hourly periodic purges executing `DELETE FROM guild_trader_listings WHERE expires_at IS NOT NULL AND datetime(expires_at) < datetime('now');` and `DELETE FROM sessions WHERE datetime(expires_at) <= datetime('now');`.
+- **Indexes**: `idx_listings_expires_at` on `guild_trader_listings(expires_at)` and `idx_sessions_expires_at` on `sessions(expires_at)` provide high-performance TTL range queries and rapid purges.
+
 

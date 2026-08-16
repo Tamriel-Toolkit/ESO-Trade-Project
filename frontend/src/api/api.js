@@ -145,6 +145,20 @@ export async function registerUser(username, email, password, eso_handle) {
     }
 }
 
+export async function logoutUser() {
+    try {
+        const response = await fetch(`${BASE_URL}/api/auth/logout`, {
+            method: 'POST',
+            headers: getHeaders()
+        });
+        setAuthToken('');
+        return await response.json();
+    } catch (error) {
+        setAuthToken('');
+        return { success: false, error: error.message };
+    }
+}
+
 export async function fetchCurrentUser() {
     try {
         const response = await fetch(`${BASE_URL}/api/auth/me`, { headers: getHeaders() });
