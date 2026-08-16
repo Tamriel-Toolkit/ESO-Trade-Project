@@ -187,14 +187,35 @@ async function runTests() {
             throw new Error(`Dev bypass login failed with status ${bypassRes.status}`);
         }
 
+        console.log("\n13. Testing SQLite persistent session with dev token ('dev-token-blake-123')...");
+        const devTokenRes = await httpGet('/api/auth/me', { 'Authorization': 'Bearer dev-token-blake-123' });
+        console.log(`   Status: ${devTokenRes.status}, Dev User: @${devTokenRes.data.user?.username}`);
+        if (devTokenRes.status !== 200 || devTokenRes.data.user?.id !== 1) {
+            throw new Error(`Dev token authentication failed with status ${devTokenRes.status}`);
+        }
+
+        console.log("\n14. Testing POST /api/auth/logout (session revocation)...");
+        const logoutRes = await httpPost('/api/auth/logout', {}, { 'Authorization': `Bearer ${loginRes.data.token}` });
+        console.log(`   Status: ${logoutRes.status}, Success: ${logoutRes.data.success}`);
+        if (logoutRes.status !== 200 || !logoutRes.data.success) {
+            throw new Error(`Auth logout failed with status ${logoutRes.status}`);
+        }
+
+        console.log("\n15. Testing GET /api/auth/me with revoked session token (expect 401)...");
+        const revokedRes = await httpGet('/api/auth/me', { 'Authorization': `Bearer ${loginRes.data.token}` });
+        console.log(`   Status: ${revokedRes.status}, Error: ${revokedRes.data.error}`);
+        if (revokedRes.status !== 401) {
+            throw new Error(`Auth /me with revoked token returned status ${revokedRes.status}, expected 401`);
+        }
+
         // Clean up test user
         if (createdUserId) {
-            console.log(`\n13. Cleaning up ephemeral test user (ID: ${createdUserId})...`);
+            console.log(`\n16. Cleaning up ephemeral test user (ID: ${createdUserId})...`);
             const delRes = await httpDelete(`/api/dev/users/${createdUserId}`);
             console.log(`   Cleaned up test user: ${delRes.data?.success ? 'OK' : 'Error'}`);
         }
 
-        console.log("\n14. Testing Rate Limiting headers on /api/ endpoints...");
+        console.log("\n17. Testing Rate Limiting headers on /api/ endpoints...");
         const rateCheck = await httpGet('/api/taxonomy');
         const limitHeader = rateCheck.headers['ratelimit-limit'];
         const remainingHeader = rateCheck.headers['ratelimit-remaining'];

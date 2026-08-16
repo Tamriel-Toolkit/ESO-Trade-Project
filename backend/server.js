@@ -88,6 +88,41 @@ function initializeDatabaseSchema() {
         });
 
         db.run(`
+            CREATE TABLE IF NOT EXISTS sessions (
+                token TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                expires_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+        `, (err) => {
+            if (err) {
+                console.error("Error creating 'sessions' table:", err.message);
+            } else {
+                console.log("'sessions' table initialized successfully.");
+            }
+        });
+
+        db.run("CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);");
+        db.run("CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);");
+
+        if (process.env.NODE_ENV !== "production") {
+            db.run(`
+                INSERT INTO sessions (token, user_id, expires_at)
+                VALUES 
+                    ('dev-token-blake-123', 1, datetime('now', '+1 year')),
+                    ('dev-token-demo-456', 2, datetime('now', '+1 year'))
+                ON CONFLICT(token) DO UPDATE SET 
+                    user_id = excluded.user_id,
+                    expires_at = datetime('now', '+1 year');
+            `, (err) => {
+                if (err) console.error("Error seeding dev sessions:", err.message);
+                else console.log("[AUTH] Dev backdoor session tokens seeded in SQLite (NODE_ENV !== 'production').");
+            });
+        }
+
+
+        db.run(`
             CREATE TABLE IF NOT EXISTS characters (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT UNIQUE NOT NULL,
@@ -426,7 +461,7 @@ app.get("/api/status", async (req, res) => {
  * Returns a list of all characters in the database
  */
 app.get("/api/characters", async (req, res) => {
-    const userId = getAuthUserId(req);
+    const userId = await getAuthUserId(req);
     if (!userId) {
         return res.json({ success: true, characters: [] });
     }
@@ -1468,7 +1503,7 @@ app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
     }
 
     try {
-        const userId = getAuthUserId(req) || 1; // Default to Blake (1) for dev sync
+        const userId = (await getAuthUserId(req)) || 1; // Default to Blake (1) for dev sync
 
         // AUTOMATED CHARACTER AUTO-DISCOVERY: Upsert scanner character into account roster
         if (player_name) {
@@ -1633,22 +1668,67 @@ function verifyPassword(password, storedHash) {
     return storedHash === legacyHash;
 }
 
-function generateToken(user) {
-    return `session_${user.id}_${crypto.randomBytes(16).toString("hex")}`;
+const SESSION_TTL_HOURS = parseInt(process.env.SESSION_TTL_HOURS, 10) || (24 * 7); // Default: 7 days
+
+async function createSession(userId, ttlHours = SESSION_TTL_HOURS) {
+    const token = `session_${userId}_${crypto.randomBytes(24).toString("hex")}`;
+    const expiresAt = new Date(Date.now() + ttlHours * 3600 * 1000).toISOString();
+    await dbRun(
+        `INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?);`,
+        [token, userId, expiresAt]
+    );
+    return { token, expires_at: expiresAt };
 }
 
-const activeSessions = new Map();
-if (process.env.NODE_ENV !== "production") {
-    activeSessions.set("dev-token-blake-123", 1);
-    activeSessions.set("dev-token-demo-456", 2);
-    console.log("[AUTH] Dev backdoor session tokens enabled for local development (NODE_ENV !== 'production').");
+async function deleteSession(token) {
+    if (!token) return 0;
+    const result = await dbRun(`DELETE FROM sessions WHERE token = ?;`, [token]);
+    return result ? result.changes : 0;
 }
 
-function getAuthUserId(req) {
+async function purgeExpiredSessions() {
+    try {
+        const result = await dbRun(`DELETE FROM sessions WHERE datetime(expires_at) <= datetime('now');`);
+        if (result && result.changes > 0) {
+            console.log(`[AUTH Purge] Purged ${result.changes} expired session(s) from SQLite.`);
+        }
+        return result ? result.changes : 0;
+    } catch (err) {
+        console.error("[AUTH Purge Error] Failed to purge expired sessions:", err.message);
+        return 0;
+    }
+}
+
+// Periodic cleanup of expired sessions every hour
+setInterval(purgeExpiredSessions, 60 * 60 * 1000);
+setTimeout(purgeExpiredSessions, 3000);
+
+async function getAuthUserId(req) {
     const authHeader = req.headers["authorization"] || req.headers["x-auth-token"];
     if (!authHeader) return null;
     const token = authHeader.replace("Bearer ", "").trim();
-    return activeSessions.get(token) || null;
+    if (!token) return null;
+
+    try {
+        const session = await dbGet(
+            `SELECT user_id, expires_at FROM sessions WHERE token = ? AND datetime(expires_at) > datetime('now');`,
+            [token]
+        );
+        if (session) {
+            return session.user_id;
+        }
+
+        // Support direct api_token lookup (for background sync / addon / scripts)
+        const apiKeyUser = await dbGet(`SELECT id FROM users WHERE api_token = ?;`, [token]);
+        if (apiKeyUser) {
+            return apiKeyUser.id;
+        }
+
+        return null;
+    } catch (err) {
+        console.error("[AUTH Error] Error verifying session token:", err.message);
+        return null;
+    }
 }
 
 /**
@@ -1671,10 +1751,9 @@ app.post("/api/auth/register", async (req, res) => {
         `, [username, email, pwHash, handle, apiToken]);
 
         const user = await dbGet(`SELECT id, username, email, eso_handle, role, api_token, created_at FROM users WHERE id = ?;`, [result.lastID]);
-        const sessionToken = generateToken(user);
-        activeSessions.set(sessionToken, user.id);
+        const session = await createSession(user.id);
 
-        res.json({ success: true, token: sessionToken, user });
+        res.json({ success: true, token: session.token, expires_at: session.expires_at, user });
     } catch (err) {
         res.status(400).json({ error: err.message.includes("UNIQUE") ? "Username or email already taken." : err.message });
     }
@@ -1722,10 +1801,28 @@ app.post("/api/auth/login", async (req, res) => {
             created_at: user.created_at
         };
 
-        const sessionToken = generateToken(userPayload);
-        activeSessions.set(sessionToken, userPayload.id);
+        const session = await createSession(userPayload.id);
 
-        res.json({ success: true, token: sessionToken, user: userPayload });
+        res.json({ success: true, token: session.token, expires_at: session.expires_at, user: userPayload });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * POST /api/auth/logout
+ * Revokes the active session token from the SQLite store
+ */
+app.post("/api/auth/logout", async (req, res) => {
+    try {
+        const authHeader = req.headers["authorization"] || req.headers["x-auth-token"];
+        if (authHeader) {
+            const token = authHeader.replace("Bearer ", "").trim();
+            if (token) {
+                await deleteSession(token);
+            }
+        }
+        res.json({ success: true, message: "Logged out successfully." });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -1735,7 +1832,7 @@ app.post("/api/auth/login", async (req, res) => {
  * GET /api/auth/me
  */
 app.get("/api/auth/me", async (req, res) => {
-    const userId = getAuthUserId(req);
+    const userId = await getAuthUserId(req);
     if (!userId) {
         return res.status(401).json({ error: "Not authenticated." });
     }
@@ -1789,13 +1886,13 @@ if (process.env.NODE_ENV !== "production") {
             const user = await dbGet(`SELECT id, username, email, eso_handle, role, api_token, created_at FROM users WHERE id = ?;`, [user_id]);
             if (!user) return res.status(404).json({ error: "Account not found." });
 
-            const sessionToken = generateToken(user);
-            activeSessions.set(sessionToken, user.id);
+            const session = await createSession(user.id);
 
             res.json({
                 success: true,
                 message: `[DEV BYPASS] Successfully logged into account: @${user.username}`,
-                token: sessionToken,
+                token: session.token,
+                expires_at: session.expires_at,
                 user
             });
         } catch (err) {
@@ -1852,7 +1949,7 @@ if (process.env.NODE_ENV !== "production") {
  * GET /api/characters
  */
 app.get("/api/characters", async (req, res) => {
-    const userId = getAuthUserId(req);
+    const userId = await getAuthUserId(req);
     if (!userId) {
         return res.json({ success: true, characters: [] });
     }
@@ -1873,7 +1970,7 @@ app.get("/api/characters", async (req, res) => {
  * POST /api/characters
  */
 app.post("/api/characters", async (req, res) => {
-    const userId = getAuthUserId(req) || 1;
+    const userId = (await getAuthUserId(req)) || 1;
     const { name, class: charClass, level, alliance, master_crafter_unlocked } = req.body;
     if (!name) return res.status(400).json({ error: "Character name is required." });
 

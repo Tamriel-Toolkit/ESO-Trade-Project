@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { fetchCurrentUser, loginUser, registerUser, devBypassLogin, setAuthToken } from '../api/api';
+import { fetchCurrentUser, loginUser, registerUser, devBypassLogin, logoutUser, setAuthToken } from '../api/api';
 
 const AuthContext = createContext();
 
@@ -49,8 +49,8 @@ export function AuthProvider({ children }) {
         return { success: false, error: res?.error || 'Bypass failed' };
     };
 
-    const logout = () => {
-        setAuthToken('');
+    const logout = async () => {
+        await logoutUser();
         setUser(null);
     };
 
