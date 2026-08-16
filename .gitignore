@@ -1,7 +1,8 @@
 # Ignore generated data catalog exports (exceeds GitHub file size limits)
 backend/exports/items.json
-backend/exports/eso_catalog.db
-backend/exports/eso_catalog.db-journal
+backend/exports/*.db
+backend/exports/*.db*
+*.bak
 
 # Ignore Node dependencies
 node_modules/

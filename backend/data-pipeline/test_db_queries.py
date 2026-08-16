@@ -4,7 +4,7 @@ import os
 
 def test_db():
     script_dir = os.path.dirname(os.path.abspath(__file__))
-    db_path = os.path.abspath(os.path.join(script_dir, "..", "exports", "eso_catalog.db"))
+    db_path = os.environ.get("DB_PATH", os.path.abspath(os.path.join(script_dir, "..", "exports", "eso_catalog.db")))
     print(f"Connecting to database at {db_path}...")
     conn = sqlite3.connect(db_path)
     cursor = conn.cursor()
