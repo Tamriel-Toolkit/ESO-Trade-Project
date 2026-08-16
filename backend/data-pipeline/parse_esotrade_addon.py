@@ -20,6 +20,89 @@ sys.stdout.reconfigure(encoding='utf-8')
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DB_PATH = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "exports", "eso_catalog.db"))
 
+ESO_TRAIT_NAMES = {
+    0: "None",
+    # Weapon Traits (1-10)
+    1: "Powered",
+    2: "Charged",
+    3: "Precise",
+    4: "Infused",
+    5: "Defending",
+    6: "Training",
+    7: "Sharpened",
+    8: "Decisive",
+    9: "Intricate",
+    10: "Ornate",
+    # Armor Traits (11-20)
+    11: "Sturdy",
+    12: "Impenetrable",
+    13: "Reinforced",
+    14: "Well-Fitted",
+    15: "Training",
+    16: "Infused",
+    17: "Invigorating",
+    18: "Divines",
+    19: "Intricate",
+    20: "Ornate",
+    # Jewelry Traits (21-24, 27, 30-35)
+    21: "Healthy",
+    22: "Arcane",
+    23: "Robust",
+    24: "Intricate",
+    25: "Nirnhoned",
+    26: "Nirnhoned",
+    27: "Ornate",
+    28: "Protective",
+    29: "Swift",
+    30: "Triune",
+    31: "Bloodthirsty",
+    32: "Harmony",
+    33: "Swift",
+    34: "Protective",
+    35: "Infused",
+}
+
+DEFAULT_TRAIT_DESCRIPTIONS = {
+    # Weapon Traits
+    1: "Increases healing done by up to 9%.",
+    2: "Increases chance to apply status effects by up to 480%.",
+    3: "Increases Weapon and Spell Critical by up to 7.7%.",
+    4: "Increases weapon enchantment effect by up to 30% and reduces enchantment cooldown by up to 50%.",
+    5: "Increases total Armor by up to 3276.",
+    6: "Increases experience gained from kills by up to 9%.",
+    7: "Increases Armor Penetration by up to 3276.",
+    8: "Chance to gain 1 additional Ultimate when gaining Ultimate by up to 60%.",
+    9: "Increases Inspiration gained from deconstruction by up to 300%.",
+    10: "Increases sell price to merchants by 280%.",
+    # Armor Traits
+    11: "Reduces Block cost by up to 4%.",
+    12: "Increases Critical Resistance by up to 127.",
+    13: "Increases this item's Armor value by up to 16%.",
+    14: "Reduces Sprint, Roll Dodge, and Sneak cost by up to 5%.",
+    15: "Increases experience gained from kills by up to 11%.",
+    16: "Increases Armor Enchantment effect by up to 20%.",
+    17: "Increases Health, Magicka, and Stamina Recovery by up to 16.",
+    18: "Increases Mundus Stone effects by up to 9.1%.",
+    19: "Increases Inspiration gained from deconstruction by up to 300%.",
+    20: "Increases sell price to merchants by 280%.",
+    # Jewelry & Nirnhoned
+    21: "Increases Maximum Health by up to 957.",
+    22: "Increases Maximum Magicka by up to 870.",
+    23: "Increases Maximum Stamina by up to 870.",
+    24: "Increases Inspiration gained from deconstruction by up to 300%.",
+    25: "Increases Spell and Physical Resistance by up to 301.",
+    26: "Increases Weapon and Spell Damage by up to 15%.",
+    27: "Increases sell price to merchants by 280%.",
+    28: "Increases Spell and Physical Resistance by up to 1190.",
+    29: "Increases your Movement Speed by up to 7%.",
+    30: "Increases Maximum Health by up to 478, Maximum Magicka by up to 435, and Maximum Stamina by up to 435.",
+    31: "Increases your Damage done against enemies under 25% Health by up to 350.",
+    32: "Increases the damage, healing, resource restore, and damage shield strength of synergies you activate by up to 880.",
+    33: "Increases your Movement Speed by up to 7%.",
+    34: "Increases Spell and Physical Resistance by up to 1190.",
+    35: "Increases Jewelry Enchantment effectiveness by up to 60%.",
+}
+
 SAVED_VARS_PATHS = [
     os.path.expanduser("~/Documents/Elder Scrolls Online/live/SavedVariables/ESOTrade.lua"),
     os.path.expanduser("~/OneDrive/Documents/Elder Scrolls Online/live/SavedVariables/ESOTrade.lua"),
@@ -115,7 +198,7 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
 
         level_m = re.search(r'\["Level"\]\s*=\s*(\d+)', snippet)
         qual_m = re.search(r'\["Quality"\]\s*=\s*(\d+)', snippet)
-        trait_m = re.search(r'\["Trait"\]\s*=\s*(\d+)', snippet)
+        trait_m = re.search(r'\["Trait"\]\s*=\s*(\d+)', snippet) or re.search(r'\["TraitId"\]\s*=\s*(\d+)', snippet)
 
         raw_link_id = int(link_m.group(1)) if link_m else 0
         raw_table_id = int(item_id_m.group(1)) if item_id_m else 0
@@ -129,6 +212,15 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
         level = int(level_m.group(1)) if level_m else 1
         quality = int(qual_m.group(1)) if qual_m else 1
         trait_id = int(trait_m.group(1)) if trait_m else 0
+
+        # If trait_id is 0, attempt parsing from full item link
+        if trait_id <= 0:
+            link_full_m = re.search(r'\|H\d+:item:[^|]+\|h', snippet)
+            if link_full_m:
+                lparts = link_full_m.group(0).split(':')
+                if len(lparts) >= 7 and lparts[6].isdigit():
+                    trait_id = int(lparts[6])
+
         raw_uid = uid_m.group(1).strip() if uid_m else ""
 
         if item_id > 0 and total_price and total_price > 0:
@@ -299,6 +391,11 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                         enchant_text = g_enc.group(1).strip() if g_enc else ""
                         trait_name = g_tname.group(1).strip() if g_tname else ""
                         trait_desc = g_tdesc.group(1).strip() if g_tdesc else ""
+                        if not trait_name and trait_id in ESO_TRAIT_NAMES:
+                            trait_name = ESO_TRAIT_NAMES[trait_id]
+                        if not trait_desc and trait_id in DEFAULT_TRAIT_DESCRIPTIONS:
+                            trait_desc = DEFAULT_TRAIT_DESCRIPTIONS[trait_id]
+
                         armor_rating = int(g_arm.group(1)) if g_arm else 0
                         weapon_power = int(g_pow.group(1)) if g_pow else 0
 
@@ -429,6 +526,13 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                                     if t_val > 0:
                                         parsed_t = t_val
 
+                        g_tname_str = tname_m.group(1).strip() if tname_m else ""
+                        g_tdesc_str = tdesc_m.group(1).strip() if tdesc_m else ""
+                        if not g_tname_str and parsed_t in ESO_TRAIT_NAMES:
+                            g_tname_str = ESO_TRAIT_NAMES[parsed_t]
+                        if not g_tdesc_str and parsed_t in DEFAULT_TRAIT_DESCRIPTIONS:
+                            g_tdesc_str = DEFAULT_TRAIT_DESCRIPTIONS[parsed_t]
+
                         gear_items.append({
                             "slot_id": int(slot_m.group(1)),
                             "game_item_id": int(id_m.group(1)) if id_m else 0,
@@ -439,8 +543,8 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                             "set_name": set_m.group(1) if set_m else None,
                             "enchantment_description": enc_m.group(1) if enc_m else None,
                             "item_icon": icon_m.group(1) if icon_m else None,
-                            "trait_name": tname_m.group(1) if tname_m else None,
-                            "trait_description": tdesc_m.group(1) if tdesc_m else None,
+                            "trait_name": g_tname_str if g_tname_str else None,
+                            "trait_description": g_tdesc_str if g_tdesc_str else None,
                             "armor_rating": int(arm_m.group(1)) if arm_m else 0,
                             "weapon_power": int(pow_m.group(1)) if pow_m else 0
                         })
@@ -485,4 +589,9 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
     return len(listings)
 
 if __name__ == "__main__":
-    parse_and_sync_esotrade()
+    import argparse
+    parser = argparse.ArgumentParser(description="Parse and sync ESOTrade SavedVariables")
+    parser.add_argument("--file", help="Path to ESOTrade.lua SavedVariables file")
+    parser.add_argument("--server-url", default="http://localhost:5001", help="API server URL")
+    args = parser.parse_args()
+    parse_and_sync_esotrade(file_path=args.file, server_url=args.server_url)

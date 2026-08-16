@@ -562,8 +562,9 @@ app.get("/api/characters/:id/profile", async (req, res) => {
 
         const gearRows = await dbAll(`
             SELECT cg.slot_id, cg.game_item_id, cg.item_name, cg.item_link, cg.quality, cg.trait_id, 
+                   cg.trait_name, cg.trait_description, cg.armor_rating, cg.weapon_power,
                    cg.set_name, cg.enchantment_description, cg.updated_at,
-                   i.icon_url AS item_icon, i.category AS item_category, i.subcategory AS item_subcategory,
+                   COALESCE(cg.item_icon, i.icon_url) AS item_icon, i.category AS item_category, i.subcategory AS item_subcategory,
                    i.rarity AS item_rarity, i.metadata AS item_metadata
             FROM character_gear cg
             LEFT JOIN items i ON cg.game_item_id = i.game_item_id

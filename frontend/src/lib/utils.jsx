@@ -15,6 +15,9 @@ export function cleanEsoText(text) {
 
   let cleaned = text;
 
+  // 0. Normalize literal escaped newlines to space for clean single-line title/name displays
+  cleaned = cleaned.replace(/\\n/g, " ");
+
   // 1. Strip ESO hyperlink wrappers: |H1:item:...|h[Name]|h -> [Name]
   cleaned = cleaned.replace(/\|H[^|]*\|h([^|]*)\|h/gi, "$1");
 
@@ -32,42 +35,61 @@ export function cleanEsoText(text) {
 }
 
 /**
- * Parses ESO Lua text with color codes |cRRGGBB...|r into React JSX elements with colored spans.
+ * Parses ESO Lua text with color codes |cRRGGBB...|r and newline sequences into React JSX elements with colored spans and line breaks.
  */
 export function renderEsoFormattedText(text) {
   if (!text || typeof text !== "string") return null;
 
-  // First clean links & textures
-  let str = text.replace(/\|H[^|]*\|h([^|]*)\|h/gi, "$1").replace(/\|t[^|]*\|t/gi, "");
+  // Normalize literal escaped newlines to real newlines
+  const normalized = text.replace(/\\n/g, "\n");
+  const lines = normalized.split("\n");
 
-  // Check if string contains color tags
-  if (!/\|c[0-9a-fA-F]{6}/i.test(str)) {
-    return str.replace(/\|r/gi, "");
-  }
+  const renderedLines = lines.map((line, lineIdx) => {
+    // First clean links & textures
+    let str = line.replace(/\|H[^|]*\|h([^|]*)\|h/gi, "$1").replace(/\|t[^|]*\|t/gi, "");
 
-  const regex = /\|c([0-9a-fA-F]{6})(.*?)(?:\|r|$)/gi;
-  const parts = [];
-  let lastIndex = 0;
-  let match;
-
-  while ((match = regex.exec(str)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(str.substring(lastIndex, match.index));
+    // Check if line contains color tags
+    if (!/\|c[0-9a-fA-F]{6}/i.test(str)) {
+      const cleanLine = str.replace(/\|r/gi, "");
+      return (
+        <React.Fragment key={`line-${lineIdx}`}>
+          {cleanLine}
+          {lineIdx < lines.length - 1 && <br />}
+        </React.Fragment>
+      );
     }
-    const hexColor = `#${match[1]}`;
-    const innerText = match[2];
-    parts.push(
-      <span key={match.index} style={{ color: hexColor }} className="font-semibold">
-        {innerText}
-      </span>
+
+    const regex = /\|c([0-9a-fA-F]{6})(.*?)(?:\|r|$)/gi;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = regex.exec(str)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push(str.substring(lastIndex, match.index));
+      }
+      const hexColor = `#${match[1]}`;
+      const innerText = match[2];
+      parts.push(
+        <span key={`color-${lineIdx}-${match.index}`} style={{ color: hexColor }} className="font-semibold">
+          {innerText}
+        </span>
+      );
+      lastIndex = regex.lastIndex;
+    }
+
+    if (lastIndex < str.length) {
+      const remaining = str.substring(lastIndex).replace(/\|r/gi, "");
+      if (remaining) parts.push(remaining);
+    }
+
+    return (
+      <React.Fragment key={`line-${lineIdx}`}>
+        {parts}
+        {lineIdx < lines.length - 1 && <br />}
+      </React.Fragment>
     );
-    lastIndex = regex.lastIndex;
-  }
+  });
 
-  if (lastIndex < str.length) {
-    const remaining = str.substring(lastIndex).replace(/\|r/gi, "");
-    if (remaining) parts.push(remaining);
-  }
-
-  return parts;
+  return renderedLines;
 }
