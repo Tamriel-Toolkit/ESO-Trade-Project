@@ -40,12 +40,12 @@ export function CharacterProfileModal({ character, onClose }) {
       gearBySlot[1], // Neck
       gearBySlot[2], // Chest
       gearBySlot[3], // Shoulders
-      gearBySlot[16] || gearBySlot[13], // Hands
+      gearBySlot[16] || gearBySlot[11] || gearBySlot[13], // Hands
       gearBySlot[6], // Waist
       gearBySlot[7], // Legs
       gearBySlot[8], // Feet
-      gearBySlot[11] || gearBySlot[9], // Ring 1
-      gearBySlot[12] || gearBySlot[10], // Ring 2
+      gearBySlot[9] || gearBySlot[11], // Ring 1
+      gearBySlot[10] || gearBySlot[12], // Ring 2
     ].filter(Boolean);
 
     activeItems.forEach((item) => {
@@ -79,9 +79,11 @@ export function CharacterProfileModal({ character, onClose }) {
   const traitAnalysis = useMemo(() => {
     const traits = {};
     Object.values(gearBySlot).forEach((item) => {
-      if (item.trait_id || item.trait_name) {
+      if (item.trait_name || item.trait_id) {
         const tName = item.trait_name ? cleanEsoText(item.trait_name) : (ESO_TRAIT_NAMES[item.trait_id] || `Trait #${item.trait_id}`);
-        traits[tName] = (traits[tName] || 0) + 1;
+        if (tName && tName !== "None" && tName !== "0") {
+          traits[tName] = (traits[tName] || 0) + 1;
+        }
       }
     });
     return traits;

@@ -1,0 +1,8 @@
+## Title: ESO Trade Addon
+## APIVersion: 101044 101045
+## Version: 1.6.0
+## Author: ESO Trade Project
+## Description: Real-time guild trader kiosk auto-logger & character gear loadout exporter
+## SavedVariables: ESOTradeVars
+
+ESOTrade.lua

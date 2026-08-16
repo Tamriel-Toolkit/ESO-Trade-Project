@@ -7,15 +7,15 @@ const SLOT_DEFINITIONS = [
   { slotId: 0, name: "Head", side: "left", anchorY: "12%" },
   { slotId: 3, name: "Shoulders", side: "left", anchorY: "24%" },
   { slotId: 2, name: "Chest", side: "left", anchorY: "36%" },
-  { slotId: 16, fallbackSlotIds: [13], name: "Hands", side: "left", anchorY: "48%" },
+  { slotId: 16, fallbackSlotIds: [11, 13], name: "Hands", side: "left", anchorY: "48%" },
   { slotId: 6, name: "Waist", side: "left", anchorY: "60%" },
   { slotId: 7, name: "Legs", side: "left", anchorY: "72%" },
   { slotId: 8, name: "Feet", side: "left", anchorY: "84%" },
 
   // Right Column (Jewelry & Weapons)
   { slotId: 1, name: "Necklace", side: "right", anchorY: "12%" },
-  { slotId: 11, fallbackSlotIds: [9], name: "Ring 1", side: "right", anchorY: "24%" },
-  { slotId: 12, fallbackSlotIds: [10], name: "Ring 2", side: "right", anchorY: "36%" },
+  { slotId: 9, fallbackSlotIds: [11], name: "Ring 1", side: "right", anchorY: "24%" },
+  { slotId: 10, fallbackSlotIds: [12], name: "Ring 2", side: "right", anchorY: "36%" },
   { slotId: 4, name: "Front Bar Main", side: "right", anchorY: "48%" },
   { slotId: 5, name: "Front Bar Off", side: "right", anchorY: "60%" },
   { slotId: 20, fallbackSlotIds: [12], name: "Back Bar Main", side: "right", anchorY: "72%" },
@@ -51,72 +51,90 @@ const getQualityTheme = (qualityVal, item = null) => {
 };
 
 export const ESO_TRAIT_NAMES = {
-  // Armor Traits
-  1: "Sturdy",
-  2: "Impenetrable",
-  3: "Reinforced",
-  4: "Well-Fitted",
-  5: "Training",
-  6: "Infused",
-  7: "Prosperous",
-  8: "Divines",
-  9: "Nirnhoned",
+  0: "None",
+  // Weapon Traits (1-10)
+  1: "Powered",
+  2: "Charged",
+  3: "Precise",
+  4: "Infused",
+  5: "Defending",
+  6: "Training",
+  7: "Sharpened",
+  8: "Decisive",
+  9: "Intricate",
   10: "Ornate",
 
-  // Weapon Traits
-  11: "Powered",
-  12: "Charged",
-  13: "Precise",
-  14: "Infused",
-  15: "Defending",
-  16: "Training",
-  17: "Sharpened",
-  18: "Decisive",
-  19: "Nirnhoned",
+  // Armor Traits (11-20)
+  11: "Sturdy",
+  12: "Impenetrable",
+  13: "Reinforced",
+  14: "Well-Fitted",
+  15: "Training",
+  16: "Infused",
+  17: "Invigorating",
+  18: "Divines",
+  19: "Intricate",
   20: "Ornate",
 
-  // Jewelry Traits
-  21: "Arcane",
-  22: "Healthy",
+  // Jewelry Traits (21-24, 27, 30-35)
+  21: "Healthy",
+  22: "Arcane",
   23: "Robust",
-  24: "Bloodthirsty",
-  25: "Harmony",
-  26: "Infused",
-  27: "Triune",
+  24: "Intricate",
+  25: "Nirnhoned",
+  26: "Nirnhoned",
+  27: "Ornate",
   28: "Protective",
-  29: "Swift"
+  29: "Swift",
+  30: "Triune",
+  31: "Bloodthirsty",
+  32: "Harmony",
+  33: "Swift",
+  34: "Protective",
+  35: "Infused"
 };
 
 export const DEFAULT_TRAIT_DESCRIPTIONS = {
-  1: "Reduces Block cost by up to 4%.",
-  2: "Increases Critical Resistance by up to 127.",
-  3: "Increases this item's Armor value by up to 16%.",
-  4: "Reduces Sprint, Roll Dodge, and Sneak cost by up to 5%.",
-  5: "Increases experience gained from kills by up to 11%.",
-  6: "Increases Armor Enchantment effect by up to 20%.",
-  7: "Increases Health, Magicka, and Stamina Recovery by up to 11.",
-  8: "Increases Mundus Stone effects by up to 9.1%.",
-  9: "Increases Spell and Physical Resistance by up to 301.",
+  // Weapon Traits
+  1: "Increases healing done by up to 9%.",
+  2: "Increases chance to apply status effects by up to 480%.",
+  3: "Increases Weapon and Spell Critical by up to 7.7%.",
+  4: "Increases weapon enchantment effect by up to 30% and reduces enchantment cooldown by up to 50%.",
+  5: "Increases total Armor by up to 3276.",
+  6: "Increases experience gained from kills by up to 9%.",
+  7: "Increases Armor Penetration by up to 3276.",
+  8: "Chance to gain 1 additional Ultimate when gaining Ultimate by up to 60%.",
+  9: "Increases Inspiration gained from deconstruction by up to 300%.",
   10: "Increases sell price to merchants by 280%.",
-  11: "Increases healing done by up to 9%.",
-  12: "Increases chance to apply status effects by up to 480%.",
-  13: "Increases Weapon and Spell Critical by up to 7.7%.",
-  14: "Increases weapon enchantment effect by up to 30% and reduces enchantment cooldown by up to 50%.",
-  15: "Increases total Armor by up to 3276.",
-  16: "Increases experience gained from kills by up to 9%.",
-  17: "Increases Armor Penetration by up to 3276.",
-  18: "Chance to gain 1 additional Ultimate when gaining Ultimate by up to 60%.",
-  19: "Increases Weapon and Spell Damage by up to 15%.",
+
+  // Armor Traits
+  11: "Reduces Block cost by up to 4%.",
+  12: "Increases Critical Resistance by up to 127.",
+  13: "Increases this item's Armor value by up to 16%.",
+  14: "Reduces Sprint, Roll Dodge, and Sneak cost by up to 5%.",
+  15: "Increases experience gained from kills by up to 11%.",
+  16: "Increases Armor Enchantment effect by up to 20%.",
+  17: "Increases Health, Magicka, and Stamina Recovery by up to 16.",
+  18: "Increases Mundus Stone effects by up to 9.1%.",
+  19: "Increases Inspiration gained from deconstruction by up to 300%.",
   20: "Increases sell price to merchants by 280%.",
-  21: "Increases Maximum Magicka by up to 870.",
-  22: "Increases Maximum Health by up to 957.",
+
+  // Jewelry & Nirnhoned
+  21: "Increases Maximum Health by up to 957.",
+  22: "Increases Maximum Magicka by up to 870.",
   23: "Increases Maximum Stamina by up to 870.",
-  24: "Increases your Damage done against enemies under 25% Health by up to 350.",
-  25: "Increases the damage, healing, resource restore, and damage shield strength of synergies you activate by up to 880.",
-  26: "Increases Jewelry Enchantment effectiveness by up to 60%.",
-  27: "Increases Maximum Health by up to 478, Maximum Magicka by up to 435, and Maximum Stamina by up to 435.",
+  24: "Increases Inspiration gained from deconstruction by up to 300%.",
+  25: "Increases Spell and Physical Resistance by up to 301.",
+  26: "Increases Weapon and Spell Damage by up to 15%.",
+  27: "Increases sell price to merchants by 280%.",
   28: "Increases Spell and Physical Resistance by up to 1190.",
-  29: "Increases your Movement Speed by up to 7%."
+  29: "Increases your Movement Speed by up to 7%.",
+  30: "Increases Maximum Health by up to 478, Maximum Magicka by up to 435, and Maximum Stamina by up to 435.",
+  31: "Increases your Damage done against enemies under 25% Health by up to 350.",
+  32: "Increases the damage, healing, resource restore, and damage shield strength of synergies you activate by up to 880.",
+  33: "Increases your Movement Speed by up to 7%.",
+  34: "Increases Spell and Physical Resistance by up to 1190.",
+  35: "Increases Jewelry Enchantment effectiveness by up to 60%."
 };
 
 const getGearItemForSlot = (gearBySlot, slotDef) => {
@@ -133,9 +151,12 @@ const getGearItemForSlot = (gearBySlot, slotDef) => {
 const getTraitDisplayName = (item) => {
   if (!item) return null;
   if (item.trait_name && item.trait_name.trim() !== "") {
-    return cleanEsoText(item.trait_name);
+    const cleaned = cleanEsoText(item.trait_name);
+    if (cleaned && cleaned !== "None" && cleaned !== "0") {
+      return cleaned;
+    }
   }
-  if (item.trait_id && ESO_TRAIT_NAMES[item.trait_id]) {
+  if (item.trait_id && ESO_TRAIT_NAMES[item.trait_id] && ESO_TRAIT_NAMES[item.trait_id] !== "None") {
     return ESO_TRAIT_NAMES[item.trait_id];
   }
   return null;
