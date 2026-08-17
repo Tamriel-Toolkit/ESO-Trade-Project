@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: "📌 Master Tracking Issue & Live Queue (Issue #35)"
+    url: "https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/35"
+    about: "View the authoritative single-source-of-truth priority queue and roadmap execution matrix."
+  - name: "📖 Architecture Blueprint & Inviolable Rules"
+    url: "https://github.com/Tamriel-Toolkit/ESO-Trade-Project/blob/main/.agents/AGENTS.md"
+    about: "Read the system constraints, data authenticity rules, and ZOS TOS compliance standards."

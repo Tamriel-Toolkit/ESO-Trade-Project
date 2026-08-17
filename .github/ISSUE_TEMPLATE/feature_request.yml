@@ -1,0 +1,75 @@
+name: "💡 Feature Request / Proposal"
+description: "Propose a new feature, optimization, UX improvement, or architecture enhancement."
+title: "[FEAT] "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form to propose new features or improvements to the **ESO Trade Project**.
+  - type: dropdown
+    id: subsystem
+    attributes:
+      label: Target Subsystem
+      description: Which area of the platform will this feature enhance?
+      options:
+        - "Core Milestone / Engine (Build Importer, Recommendation Engine)"
+        - "Backend API (Node.js / Express)"
+        - "Frontend UI & Pages (React / Tailwind)"
+        - "Data Pipeline & Scrapers (Python)"
+        - "Database & Indexes (SQLite)"
+        - "In-Game Lua Addon (ESOTrade.lua)"
+        - "Agent Skills & Automation"
+        - "CI/CD & DevOps"
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Feature Summary & Motivation
+      description: What problem does this solve for ESO players, traders, or developers?
+      placeholder: "e.g., Add an automated Trait Research Tracker matching player knowledge gaps to active guild trader kiosks..."
+    validations:
+      required: true
+  - type: textarea
+    id: proposed-architecture
+    attributes:
+      label: Target Architecture & Implementation Details
+      description: How should this feature be designed and structured?
+      placeholder: |
+        - Endpoint: `GET /api/traits/matching`
+        - UI: Add a dedicated 'Trait Kiosks' tab in Character Manager
+        - Query: Filter listings where trait_id in (missing player traits)
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance Criteria & Test Requirements
+      description: What concrete requirements must be met to mark this feature complete?
+      placeholder: |
+        - [ ] Schema migration or new table created
+        - [ ] API endpoint implemented and covered by automated tests
+        - [ ] React UI component styled with dark-fantasy theme
+        - [ ] Performance benchmark executed
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies & Blockers
+      description: List any prerequisite issues or downstream features dependent on this.
+      placeholder: |
+        - **Blocked By**: #28 (if any)
+        - **Prerequisite For**: None
+    validations:
+      required: false
+  - type: checkboxes
+    id: compliance
+    attributes:
+      label: Rule Compliance
+      options:
+        - label: "This feature complies with ZOS Terms of Service (read-only in-game data, no memory injection)."
+          required: true
+        - label: "This feature uses 100% authentic market and catalog data."
+          required: true

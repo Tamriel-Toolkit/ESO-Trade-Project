@@ -306,6 +306,23 @@ This living document provides the prioritized execution queue for both human mai
 }
 
 /**
+ * Extract issue numbers from GitHub closing keywords (Closes #X, Fixes #X, Resolves #X)
+ */
+function extractClosingKeywords(text) {
+    if (!text) return [];
+    const regex = /(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/gi;
+    const matches = [];
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+        const num = parseInt(match[1], 10);
+        if (!isNaN(num) && !matches.includes(num)) {
+            matches.push(num);
+        }
+    }
+    return matches;
+}
+
+/**
  * Main Execution Function
  */
 async function main() {
@@ -322,6 +339,24 @@ async function main() {
             if (num && !closedIssuesMap.has(num)) {
                 closedIssuesMap.set(num, { number: num, title: `Issue #${num}`, state: 'closed' });
             }
+        }
+    }
+
+    // Also parse PR body, PR title, and commit messages from environment or CLI flags
+    const prBody = process.env.PR_BODY || (process.argv.indexOf('--pr-body') !== -1 ? process.argv[process.argv.indexOf('--pr-body') + 1] : '');
+    const prTitle = process.env.PR_TITLE || (process.argv.indexOf('--pr-title') !== -1 ? process.argv[process.argv.indexOf('--pr-title') + 1] : '');
+    const commitMsg = process.env.COMMIT_MESSAGE || (process.argv.indexOf('--commit-message') !== -1 ? process.argv[process.argv.indexOf('--commit-message') + 1] : '');
+
+    const extractedIssueNums = [
+        ...extractClosingKeywords(prBody),
+        ...extractClosingKeywords(prTitle),
+        ...extractClosingKeywords(commitMsg)
+    ];
+
+    for (const num of extractedIssueNums) {
+        if (num && !closedIssuesMap.has(num)) {
+            console.log(`[SYNC] Detected closing keyword for Issue #${num} in PR/commit metadata.`);
+            closedIssuesMap.set(num, { number: num, title: `Issue #${num}`, state: 'closed' });
         }
     }
 
@@ -367,5 +402,6 @@ module.exports = {
     parseMatrixTable,
     parseRecentlyCompleted,
     updateQueueState,
-    renderMarkdown
+    renderMarkdown,
+    extractClosingKeywords
 };
