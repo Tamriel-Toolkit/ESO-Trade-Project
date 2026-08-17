@@ -25,44 +25,43 @@ This living document provides the prioritized execution queue for both human mai
 
 | Rank | Issue | Area | Severity | Status | Blocked By | Strategic Rationale |
 |:---:|:---|:---|:---:|:---:|:---:|:---|
-| **1** | #59 | Backend / Security | CRITICAL | 🟡 Next Up | None | Gates dev bypass and destructive user management endpoints behind strict admin authorization. |
-| **2** | #62 | Backend / Stability | MODERATE | ⚪ Queued | None | Handles child process error event in scraper endpoint to prevent server crashes. |
-| **3** | #61 | Backend / Config | MODERATE | ⚪ Queued | None | Adds dotenv dependency and loader to backend server initialization. |
-| **4** | #60 | Frontend / UI | MODERATE | ⚪ Queued | None | Gates DEV-Only Clear Listings button from production Marketplace UI. |
-| **5** | #63 | Backend / Security | MODERATE | ⚪ Queued | None | Implements input validation and sanitization on authentication endpoints. |
-| **6** | #64 | Pipeline / Security | MODERATE | ⚪ Queued | None | Restores SSL certificate and hostname verification in live trader extractor. |
-| **7** | #65 | Backend / Stability | MODERATE | ⚪ Queued | None | Adds global unhandledRejection and graceful shutdown handlers in server.js. |
-| **8** | #66 | Backend / Perf | MODERATE | ⚪ Queued | None | Dedicated rate limiting and single-flight lock for live scraper extraction endpoint. |
-| **9** | #29 | Pipeline / Py | MODERATE | ⚪ Queued | None | Removes dead legacy code block in `fetch_market_data.py` (lines 140-182). |
-| **10** | #69 | Database / Perf | MODERATE | ⚪ Queued | None | Adds composite database indexes on guild_trader_listings for megaserver filtering. |
-| **11** | #71 | Frontend / Security | MODERATE | ⚪ Queued | None | Migrates frontend session token storage to HttpOnly SameSite cookies. |
-| **12** | #72 | Backend / Security | MODERATE | ⚪ Queued | None | Adds helmet middleware for HTTP security headers and CSP protection. |
-| **13** | #73 | Backend / API | MODERATE | ⚪ Queued | None | Adds batch size limits and numeric range validation on market and price uploads. |
-| **14** | #67 | Frontend / UX | MINOR | ⚪ Queued | None | Synchronizes Deals Only filter threshold with Deal badge calculation in Marketplace UI. |
-| **15** | #68 | Frontend / UX | MINOR | ⚪ Queued | None | Adds catch-all 404 route and themed NotFound page in React Router. |
-| **16** | #13 | Backend / Deps | MINOR | ⚪ Queued | None | Removes unused `body-parser` dependency from `backend/package.json`. |
-| **17** | #18 | Frontend / Auth | NITPICK | ⚪ Queued | None | Implements full `Login.jsx` UI and connects to the hardened auth endpoints. |
-| **18** | #17 | Frontend / UX | MINOR | ⚪ Queued | None | Improves WCAG text contrast ratios for dark theme legibility. |
-| **19** | #37 | Frontend / UI | MINOR | ⚪ Queued | None | Auto-fits dropdown menu width in `EsoSelect` to accommodate full alliance names without truncation. |
-| **20** | #8 | Core Milestone | FEATURE | ⚪ Queued | None | Milestone Epic: Smart Build Importer & Market Deal Recommendation Engine. |
-| **21** | #10 | Feature Plan | FEATURE | ⚪ Queued | None | Trait Research Tracker & Automated Kiosk Matching Engine. |
-| **22** | #9 | Feature Plan | FEATURE | ⚪ Queued | None | Structured Public Crafting & WTB (Want-To-Buy) Request Board. |
-| **23** | #82 | Feature Plan | FEATURE | ⚪ Queued | None | Saved search presets sidebar & quick-filter drawer for authenticated users in Marketplace UI. |
-| **24** | #16 | Config / Env | MINOR | ⚪ Queued | None | Adds documented `.env.example` file for backend and frontend. |
-| **25** | #74 | Pipeline / Deps | MINOR | ⚪ Queued | None | Adds playwright to backend/data-pipeline/requirements.txt. |
-| **26** | #76 | Backend / Config | MINOR | ⚪ Queued | None | Configures trust proxy setting for express rate limiters behind reverse proxies. |
-| **27** | #77 | Backend / Config | MINOR | ⚪ Queued | None | Expands CORS configuration to support multiple origins and dynamic local network testing. |
-| **28** | #78 | Backend / Security | MINOR | ⚪ Queued | None | Deprecates legacy unsalted SHA-256 password fallback in favor of strict bcrypt verification. |
-| **29** | #70 | Backend / DB | NITPICK | ⚪ Queued | None | Handles and logs schema migration and transaction rollback errors. |
-| **30** | #75 | Pipeline / Logging | NITPICK | ⚪ Queued | None | Logs network and parsing exceptions in live trader extractor instead of silent pass. |
-| **31** | #79 | Frontend / Infra | NITPICK | ⚪ Queued | None | Adds standard start script to frontend/package.json for production deployment. |
-| **32** | #80 | Frontend / QA | NITPICK | ⚪ Queued | None | Configures Vitest and React Testing Library for frontend component unit tests. |
-| **33** | #15 | Documentation | MINOR | ⚪ Queued | None | Expands root `README.md` with system overview, architecture, and getting-started guide. |
-| **34** | #14 | Documentation | MINOR | ⚪ Queued | None | Fixes PostgreSQL references in `DatabaseSchema.md` to reflect SQLite 3. |
-| **35** | #22 | Documentation | NITPICK | ⚪ Queued | None | Adds setup, watcher daemon, and ingestion guide in `backend/data-pipeline/README.md`. |
-| **36** | #23 | Documentation | NITPICK | ⚪ Queued | None | Adds deployment guide and production configuration documentation. |
-| **37** | #19 | Database / Perf | NITPICK | ⚪ Queued | None | Adds SQLite FTS5 Full-Text Search virtual table for sub-millisecond item catalog lookups. |
-| **38** | #21 | Testing / QA | NITPICK | ⚪ Queued | None | Expands unit & integration test coverage across all Express endpoints and Python parsers. |
+| **1** | #62 | Backend / Stability | MODERATE | 🟡 Next Up | None | Handles child process error event in scraper endpoint to prevent server crashes. |
+| **2** | #61 | Backend / Config | MODERATE | ⚪ Queued | None | Adds dotenv dependency and loader to backend server initialization. |
+| **3** | #60 | Frontend / UI | MODERATE | ⚪ Queued | None | Gates DEV-Only Clear Listings button from production Marketplace UI. |
+| **4** | #63 | Backend / Security | MODERATE | ⚪ Queued | None | Implements input validation and sanitization on authentication endpoints. |
+| **5** | #64 | Pipeline / Security | MODERATE | ⚪ Queued | None | Restores SSL certificate and hostname verification in live trader extractor. |
+| **6** | #65 | Backend / Stability | MODERATE | ⚪ Queued | None | Adds global unhandledRejection and graceful shutdown handlers in server.js. |
+| **7** | #66 | Backend / Perf | MODERATE | ⚪ Queued | None | Dedicated rate limiting and single-flight lock for live scraper extraction endpoint. |
+| **8** | #29 | Pipeline / Py | MODERATE | ⚪ Queued | None | Removes dead legacy code block in `fetch_market_data.py` (lines 140-182). |
+| **9** | #69 | Database / Perf | MODERATE | ⚪ Queued | None | Adds composite database indexes on guild_trader_listings for megaserver filtering. |
+| **10** | #71 | Frontend / Security | MODERATE | ⚪ Queued | None | Migrates frontend session token storage to HttpOnly SameSite cookies. |
+| **11** | #72 | Backend / Security | MODERATE | ⚪ Queued | None | Adds helmet middleware for HTTP security headers and CSP protection. |
+| **12** | #73 | Backend / API | MODERATE | ⚪ Queued | None | Adds batch size limits and numeric range validation on market and price uploads. |
+| **13** | #67 | Frontend / UX | MINOR | ⚪ Queued | None | Synchronizes Deals Only filter threshold with Deal badge calculation in Marketplace UI. |
+| **14** | #68 | Frontend / UX | MINOR | ⚪ Queued | None | Adds catch-all 404 route and themed NotFound page in React Router. |
+| **15** | #13 | Backend / Deps | MINOR | ⚪ Queued | None | Removes unused `body-parser` dependency from `backend/package.json`. |
+| **16** | #18 | Frontend / Auth | NITPICK | ⚪ Queued | None | Implements full `Login.jsx` UI and connects to the hardened auth endpoints. |
+| **17** | #17 | Frontend / UX | MINOR | ⚪ Queued | None | Improves WCAG text contrast ratios for dark theme legibility. |
+| **18** | #37 | Frontend / UI | MINOR | ⚪ Queued | None | Auto-fits dropdown menu width in `EsoSelect` to accommodate full alliance names without truncation. |
+| **19** | #8 | Core Milestone | FEATURE | ⚪ Queued | None | Milestone Epic: Smart Build Importer & Market Deal Recommendation Engine. |
+| **20** | #10 | Feature Plan | FEATURE | ⚪ Queued | None | Trait Research Tracker & Automated Kiosk Matching Engine. |
+| **21** | #9 | Feature Plan | FEATURE | ⚪ Queued | None | Structured Public Crafting & WTB (Want-To-Buy) Request Board. |
+| **22** | #82 | Feature Plan | FEATURE | ⚪ Queued | None | Saved search presets sidebar & quick-filter drawer for authenticated users in Marketplace UI. |
+| **23** | #16 | Config / Env | MINOR | ⚪ Queued | None | Adds documented `.env.example` file for backend and frontend. |
+| **24** | #74 | Pipeline / Deps | MINOR | ⚪ Queued | None | Adds playwright to backend/data-pipeline/requirements.txt. |
+| **25** | #76 | Backend / Config | MINOR | ⚪ Queued | None | Configures trust proxy setting for express rate limiters behind reverse proxies. |
+| **26** | #77 | Backend / Config | MINOR | ⚪ Queued | None | Expands CORS configuration to support multiple origins and dynamic local network testing. |
+| **27** | #78 | Backend / Security | MINOR | ⚪ Queued | None | Deprecates legacy unsalted SHA-256 password fallback in favor of strict bcrypt verification. |
+| **28** | #70 | Backend / DB | NITPICK | ⚪ Queued | None | Handles and logs schema migration and transaction rollback errors. |
+| **29** | #75 | Pipeline / Logging | NITPICK | ⚪ Queued | None | Logs network and parsing exceptions in live trader extractor instead of silent pass. |
+| **30** | #79 | Frontend / Infra | NITPICK | ⚪ Queued | None | Adds standard start script to frontend/package.json for production deployment. |
+| **31** | #80 | Frontend / QA | NITPICK | ⚪ Queued | None | Configures Vitest and React Testing Library for frontend component unit tests. |
+| **32** | #15 | Documentation | MINOR | ⚪ Queued | None | Expands root `README.md` with system overview, architecture, and getting-started guide. |
+| **33** | #14 | Documentation | MINOR | ⚪ Queued | None | Fixes PostgreSQL references in `DatabaseSchema.md` to reflect SQLite 3. |
+| **34** | #22 | Documentation | NITPICK | ⚪ Queued | None | Adds setup, watcher daemon, and ingestion guide in `backend/data-pipeline/README.md`. |
+| **35** | #23 | Documentation | NITPICK | ⚪ Queued | None | Adds deployment guide and production configuration documentation. |
+| **36** | #19 | Database / Perf | NITPICK | ⚪ Queued | None | Adds SQLite FTS5 Full-Text Search virtual table for sub-millisecond item catalog lookups. |
+| **37** | #21 | Testing / QA | NITPICK | ⚪ Queued | None | Expands unit & integration test coverage across all Express endpoints and Python parsers. |
 
 ---
 
@@ -70,6 +69,7 @@ This living document provides the prioritized execution queue for both human mai
 - **`#57`** — `[CRITICAL] Broken Access Control & IDOR: Unauthenticated mutations default to User 1 and arbitrary deletions allowed` (Resolved)
 - **`#84`** — `[MODERATE] Equipment and marketplace item icons failing to render due to raw DDS texture format` (Resolved)
 - **`#58`** — `[CRITICAL] Protect unauthenticated state-modifying sync and watchlist mutation endpoints` (Resolved)
+- **`#59`** — `[CRITICAL] Gate dev bypass and destructive user management endpoints behind strict admin guards` (Resolved)
 - **`#56`** — `[CRITICAL] Hardcoded dev session tokens seeded in SQLite and Python fallback` (Merged in PR #81)
 - **`#28`** — `[MODERATE] Duplicate GET /api/characters route definition in server.js` (Merged in PR #55)
 - **`#48`** — `[FEAT] Create feature & enhancement opportunity scanner skill` (Merged in PR #54)
