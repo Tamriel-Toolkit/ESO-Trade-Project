@@ -8,6 +8,9 @@ const sqlite3 = require("sqlite3").verbose();
 const app = express();
 const PORT = process.env.PORT || 5001;
 
+// Developer & Testing Environment Flag
+const isDevMode = (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test" || process.env.ENABLE_DEV_ENDPOINTS === "true") && process.env.NODE_ENV !== "production";
+
 // Middleware
 const corsOptions = {
     origin: process.env.FRONTEND_URL || "http://localhost:5173",
@@ -147,7 +150,7 @@ function initializeDatabaseSchema() {
         db.run("CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);");
         db.run("CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);");
 
-        if (process.env.NODE_ENV !== "production") {
+        if (isDevMode) {
             const seedBlakeToken = process.env.BLAKE_API_TOKEN || crypto.randomBytes(16).toString("hex");
             const seedDemoToken = process.env.DEMO_API_TOKEN || crypto.randomBytes(16).toString("hex");
             db.run(`
@@ -1794,12 +1797,18 @@ app.post("/api/market/listings/purge-expired", async (req, res) => {
 });
 
 // Start server
-if (process.env.NODE_ENV !== "production") {
+if (isDevMode) {
     /**
      * POST /api/market/dev/clear-listings
-     * Dev endpoint to clear all listings and item prices from database.
+     * Dev endpoint to clear all listings and item prices from database (strictly requires admin authorization).
      */
     app.post("/api/market/dev/clear-listings", async (req, res) => {
+        const authUserId = await getAuthUserId(req);
+        const authUser = authUserId ? await dbGet("SELECT role FROM users WHERE id = ?", [authUserId]) : null;
+        if (!authUser || authUser.role !== "admin") {
+            return res.status(403).json({ error: "Forbidden: Admin privileges required to clear market listings." });
+        }
+
         try {
             await dbRun("DELETE FROM guild_trader_listings;");
             await dbRun("DELETE FROM item_prices;");
@@ -2020,17 +2029,17 @@ app.get("/api/auth/me", async (req, res) => {
 // Gated strictly to non-production environments (NODE_ENV !== 'production')
 // ============================================================================
 
-if (process.env.NODE_ENV !== "production") {
+if (isDevMode) {
     console.log("[DEV] Developer bypass and debug account management routes registered.");
 
     /**
      * GET /api/dev/users
-     * Returns list of all registered accounts for developer bypass panel
+     * Returns list of all registered accounts for developer bypass panel (safely omits api_token and password_hash)
      */
     app.get("/api/dev/users", async (req, res) => {
         try {
             const users = await dbAll(`
-                SELECT u.id, u.username, u.email, u.eso_handle, u.role, u.api_token, u.created_at,
+                SELECT u.id, u.username, u.email, u.eso_handle, u.role, u.created_at,
                        COUNT(c.id) AS character_count
                 FROM users u
                 LEFT JOIN characters c ON u.id = c.user_id
@@ -2052,7 +2061,7 @@ if (process.env.NODE_ENV !== "production") {
         if (!user_id) return res.status(400).json({ error: "user_id is required." });
 
         try {
-            const user = await dbGet(`SELECT id, username, email, eso_handle, role, api_token, created_at FROM users WHERE id = ?;`, [user_id]);
+            const user = await dbGet(`SELECT id, username, email, eso_handle, role, created_at FROM users WHERE id = ?;`, [user_id]);
             if (!user) return res.status(404).json({ error: "Account not found." });
 
             const session = await createSession(user.id);
@@ -2071,9 +2080,15 @@ if (process.env.NODE_ENV !== "production") {
 
     /**
      * PUT /api/dev/users/:id
-     * Developer edit account details
+     * Developer edit account details (strictly requires admin authorization)
      */
     app.put("/api/dev/users/:id", async (req, res) => {
+        const authUserId = await getAuthUserId(req);
+        const authUser = authUserId ? await dbGet("SELECT role FROM users WHERE id = ?", [authUserId]) : null;
+        if (!authUser || authUser.role !== "admin") {
+            return res.status(403).json({ error: "Forbidden: Admin privileges required for developer user management." });
+        }
+
         const userId = req.params.id;
         const { username, email, eso_handle, role } = req.body;
 
@@ -2087,7 +2102,7 @@ if (process.env.NODE_ENV !== "production") {
                 WHERE id = ?;
             `, [username, email, eso_handle, role, userId]);
 
-            const user = await dbGet(`SELECT id, username, email, eso_handle, role, api_token, created_at FROM users WHERE id = ?;`, [userId]);
+            const user = await dbGet(`SELECT id, username, email, eso_handle, role, created_at FROM users WHERE id = ?;`, [userId]);
             res.json({ success: true, message: "Account updated successfully.", user });
         } catch (err) {
             res.status(500).json({ error: err.message });
@@ -2096,10 +2111,20 @@ if (process.env.NODE_ENV !== "production") {
 
     /**
      * DELETE /api/dev/users/:id
-     * Developer delete account
+     * Developer delete account (strictly requires admin authorization)
      */
     app.delete("/api/dev/users/:id", async (req, res) => {
-        const userId = req.params.id;
+        const authUserId = await getAuthUserId(req);
+        const authUser = authUserId ? await dbGet("SELECT role FROM users WHERE id = ?", [authUserId]) : null;
+        if (!authUser || authUser.role !== "admin") {
+            return res.status(403).json({ error: "Forbidden: Admin privileges required for developer user management." });
+        }
+
+        const userId = parseInt(req.params.id, 10);
+        if (userId === 1) {
+            return res.status(400).json({ error: "Cannot delete the primary root admin account (ID: 1)." });
+        }
+
         try {
             await dbRun(`DELETE FROM characters WHERE user_id = ?;`, [userId]);
             await dbRun(`DELETE FROM users WHERE id = ?;`, [userId]);
@@ -2107,6 +2132,11 @@ if (process.env.NODE_ENV !== "production") {
         } catch (err) {
             res.status(500).json({ error: err.message });
         }
+    });
+} else {
+    // Disabled in production
+    app.use(["/api/dev", "/api/market/dev"], (req, res) => {
+        res.status(404).json({ error: "Developer endpoints are disabled in this environment." });
     });
 }
 
