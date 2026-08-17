@@ -463,14 +463,14 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                     "player_alliance": player_alliance,
                     "master_crafter": master_crafter
                 }
-                auth_token = os.environ.get("ESOTRADE_AUTH_TOKEN", "dev-token-blake-123")
+                auth_token = os.environ.get("ESOTRADE_AUTH_TOKEN")
+                headers = {"Content-Type": "application/json"}
+                if auth_token:
+                    headers["Authorization"] = f"Bearer {auth_token}"
                 req = urllib.request.Request(
                     f"{server_url}/api/market/upload-scans",
                     data=json.dumps(payload).encode('utf-8'),
-                    headers={
-                        "Content-Type": "application/json",
-                        "Authorization": f"Bearer {auth_token}"
-                    }
+                    headers=headers
                 )
                 with urllib.request.urlopen(req, timeout=10) as r:
                     res_data = json.loads(r.read().decode('utf-8'))
@@ -555,14 +555,14 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                     "character_name": player_name,
                     "gear": gear_items
                 }
-                auth_token = os.environ.get("ESOTRADE_AUTH_TOKEN", "dev-token-blake-123")
+                auth_token = os.environ.get("ESOTRADE_AUTH_TOKEN")
+                headers = {"Content-Type": "application/json"}
+                if auth_token:
+                    headers["Authorization"] = f"Bearer {auth_token}"
                 g_req = urllib.request.Request(
                     f"{server_url}/api/characters/upload-gear",
                     data=json.dumps(gear_payload).encode('utf-8'),
-                    headers={
-                        "Content-Type": "application/json",
-                        "Authorization": f"Bearer {auth_token}"
-                    }
+                    headers=headers
                 )
                 with urllib.request.urlopen(g_req, timeout=10) as g_res:
                     g_data = json.loads(g_res.read().decode('utf-8'))

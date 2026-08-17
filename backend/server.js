@@ -146,23 +146,16 @@ function initializeDatabaseSchema() {
         db.run("CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);");
 
         if (process.env.NODE_ENV !== "production") {
+            const seedBlakeToken = process.env.BLAKE_API_TOKEN || crypto.randomBytes(16).toString("hex");
+            const seedDemoToken = process.env.DEMO_API_TOKEN || crypto.randomBytes(16).toString("hex");
             db.run(`
                 INSERT INTO users (id, username, email, password_hash, eso_handle, api_token, role)
                 VALUES 
-                    (1, 'Blake', 'blake@esotrade.local', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', '@Blake', 'token_blake_seed_1', 'admin'),
-                    (2, 'Demo', 'demo@esotrade.local', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', '@Demo', 'token_demo_seed_2', 'user')
+                    (1, 'Blake', 'blake@esotrade.local', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', '@Blake', ?, 'admin'),
+                    (2, 'Demo', 'demo@esotrade.local', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', '@Demo', ?, 'user')
                 ON CONFLICT(id) DO UPDATE SET
                     username = excluded.username;
-            `);
-            db.run(`
-                INSERT INTO sessions (token, user_id, expires_at)
-                VALUES 
-                    ('dev-token-blake-123', 1, datetime('now', '+1 year')),
-                    ('dev-token-demo-456', 2, datetime('now', '+1 year'))
-                ON CONFLICT(token) DO UPDATE SET 
-                    user_id = excluded.user_id,
-                    expires_at = datetime('now', '+1 year');
-            `);
+            `, [seedBlakeToken, seedDemoToken]);
         }
 
 
