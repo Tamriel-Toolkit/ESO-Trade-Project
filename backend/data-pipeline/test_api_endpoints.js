@@ -8,7 +8,7 @@ const SERVER_PATH = path.join(__dirname, '..', 'server.js');
 console.log("Starting temporary test server on port " + PORT + "...");
 
 const serverProcess = spawn('node', [SERVER_PATH], {
-    env: { ...process.env, PORT: PORT },
+    env: { ...process.env, PORT: PORT, NODE_ENV: process.env.NODE_ENV || 'test', ENABLE_DEV_ENDPOINTS: 'true' },
     stdio: 'pipe'
 });
 
@@ -200,6 +200,20 @@ async function runTests() {
         if (bypassRes.status !== 200 || !bypassRes.data.token) {
             throw new Error(`Dev bypass login failed with status ${bypassRes.status}`);
         }
+        if (bypassRes.data.user?.api_token || bypassRes.data.user?.password_hash) {
+            throw new Error("Dev bypass leaked sensitive user credentials (api_token/password_hash)!");
+        }
+
+        console.log("\n12b. Testing GET /api/dev/users credential sanitization...");
+        const devUsersRes = await httpGet('/api/dev/users');
+        if (devUsersRes.status !== 200 || !Array.isArray(devUsersRes.data.users)) {
+            throw new Error(`GET /api/dev/users failed with status ${devUsersRes.status}`);
+        }
+        const hasLeakedToken = devUsersRes.data.users.some(u => u.api_token || u.password_hash);
+        if (hasLeakedToken) {
+            throw new Error("GET /api/dev/users leaked plaintext api_token or password_hash!");
+        }
+        console.log(`   Verified: ${devUsersRes.data.users.length} accounts returned without exposing api_tokens or hashes.`);
 
         console.log("\n13. Testing SQLite persistent session with dynamic bypass token...");
         const devTokenRes = await httpGet('/api/auth/me', { 'Authorization': `Bearer ${bypassRes.data.token}` });
@@ -222,12 +236,42 @@ async function runTests() {
             throw new Error(`Auth /me with revoked token returned status ${revokedRes.status}, expected 401`);
         }
 
-        // Clean up test user
+        // Clean up test user & verify admin authorization guards
         if (createdUserId) {
-            console.log(`\n16. Cleaning up ephemeral test user (ID: ${createdUserId})...`);
-            const delRes = await httpDelete(`/api/dev/users/${createdUserId}`);
-            console.log(`   Cleaned up test user: ${delRes.data?.success ? 'OK' : 'Error'}`);
+            console.log(`\n16. Testing admin authorization on DELETE /api/dev/users/:id...`);
+            // Attempt 1: unauthenticated (expect 403)
+            const unauthDel = await httpDelete(`/api/dev/users/${createdUserId}`);
+            if (unauthDel.status !== 403) throw new Error(`Expected 403 for unauthenticated dev delete, got ${unauthDel.status}`);
+
+            // Attempt 2: non-admin (expect 403)
+            const user2BypassResEarly = await httpPost('/api/dev/bypass-login', { user_id: 2 });
+            const nonAdminDel = await httpDelete(`/api/dev/users/${createdUserId}`, {
+                'Authorization': `Bearer ${user2BypassResEarly.data.token}`
+            });
+            if (nonAdminDel.status !== 403) throw new Error(`Expected 403 for non-admin dev delete, got ${nonAdminDel.status}`);
+
+            // Attempt 3: prevent deleting root admin (user 1)
+            const rootAdminDel = await httpDelete('/api/dev/users/1', {
+                'Authorization': `Bearer ${bypassRes.data.token}`
+            });
+            if (rootAdminDel.status !== 400) throw new Error(`Expected 400 when attempting to delete root admin, got ${rootAdminDel.status}`);
+
+            // Attempt 4: authorized admin delete (expect 200)
+            const authAdminDel = await httpDelete(`/api/dev/users/${createdUserId}`, {
+                'Authorization': `Bearer ${bypassRes.data.token}`
+            });
+            if (authAdminDel.status !== 200) throw new Error(`Expected 200 for admin dev delete, got ${authAdminDel.status}`);
+            console.log(`   Cleaned up test user (ID: ${createdUserId}) with admin authorization: OK`);
         }
+
+        console.log("\n16b. Testing admin authorization on PUT /api/dev/users/:id and POST /api/market/dev/clear-listings...");
+        const unauthClear = await httpPost('/api/market/dev/clear-listings');
+        if (unauthClear.status !== 403) throw new Error(`Expected 403 for unauthenticated clear-listings, got ${unauthClear.status}`);
+        const authClear = await httpPost('/api/market/dev/clear-listings', {}, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (authClear.status !== 200) throw new Error(`Expected 200 for admin clear-listings, got ${authClear.status}`);
+        console.log("   Admin authorization guards verified on market dev clear endpoints!");
 
         console.log("\n17. Testing Rate Limiting headers on /api/ endpoints...");
         const rateCheck = await httpGet('/api/taxonomy');

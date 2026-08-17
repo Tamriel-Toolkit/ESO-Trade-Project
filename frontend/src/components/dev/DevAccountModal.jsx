@@ -237,10 +237,12 @@ export default function DevAccountModal({ isOpen, onClose }) {
                                                     <span>•</span>
                                                     <span>Characters: <strong className="text-[#a89f91]">{u.character_count || 0}</strong></span>
                                                 </div>
-                                                <div className="text-[11px] text-[#8a8275] font-mono flex items-center gap-1">
-                                                    <Key className="w-3 h-3 text-[#c5a059]" />
-                                                    <span>API Token: {u.api_token}</span>
-                                                </div>
+                                                {u.api_token && (
+                                                    <div className="text-[11px] text-[#8a8275] font-mono flex items-center gap-1">
+                                                        <Key className="w-3 h-3 text-[#c5a059]" />
+                                                        <span>API Token: {u.api_token}</span>
+                                                    </div>
+                                                )}
                                             </div>
 
                                             {/* Action Buttons */}
