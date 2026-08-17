@@ -66,6 +66,7 @@ This living document provides the prioritized execution queue for both human mai
 ---
 
 ## 🏆 Recently Completed / Merged
+- **`#59`** — `Issue #59` (Closed/Merged)
 - **`#57`** — `[CRITICAL] Broken Access Control & IDOR: Unauthenticated mutations default to User 1 and arbitrary deletions allowed` (Resolved)
 - **`#84`** — `[MODERATE] Equipment and marketplace item icons failing to render due to raw DDS texture format` (Resolved)
 - **`#58`** — `[CRITICAL] Protect unauthenticated state-modifying sync and watchlist mutation endpoints` (Resolved)

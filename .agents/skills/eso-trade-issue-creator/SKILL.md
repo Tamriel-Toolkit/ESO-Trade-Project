@@ -87,9 +87,12 @@ Immediately after creating the new GitHub issue:
    - **Tier 5 (Documentation & Nitpicks)**: Placed at bottom of queue.
 
 2. **Update Master Tracking Issue #35 (Live SSOT)**:
-   - Call `issue_write` with method `update` on issue #35 to insert the new row into the **Live Execution Matrix**.
-   - Format: `| Rank | #<N> | <Area> | <SEVERITY> | ⚪ Queued | <Blockers> | <Rationale> |`
+   - Query closed issues (`list_issues` with state: "closed") and PRs to ensure no merged items are resurrected.
+   - Run `.agents/scripts/sync_priority_queue.js` or reconcile closed issues before writing to Issue #35.
+   - Insert the new row into the **Live Execution Matrix**:
+     `| Rank | #<N> | <Area> | <SEVERITY> | ⚪ Queued | <Blockers> | <Rationale> |`
+   - Re-rank all active rows with sequential integers (**1**, **2**, **3**...) ensuring exactly ONE unblocked item is `🟡 Next Up` (Rank #1).
 
 3. **Update Local In-Tree Mirror on `main`**:
-   - If working on `main`, update [`.agents/PRIORITY_QUEUE.md`](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/PRIORITY_QUEUE.md) to match Tracking Issue #35.
+   - If working on `main`, run `node .agents/scripts/sync_priority_queue.js --local-file-only --closed-issues <closed-ids>` to update [`.agents/PRIORITY_QUEUE.md`](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/PRIORITY_QUEUE.md) in exact alignment with Tracking Issue #35.
 

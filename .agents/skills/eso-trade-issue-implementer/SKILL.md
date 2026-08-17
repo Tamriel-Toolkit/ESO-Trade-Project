@@ -251,14 +251,18 @@ Immediately after finishing the first implementation attempt, open a **Draft Pul
 2. Post a comment on the target GitHub Issue referencing the newly created Draft PR URL and summarizing the implementation.
 
 ### Step 7: Re-evaluate & Synchronize Master Tracking Issue #35
-To maintain the central zero-maintenance execution queue with a strict Single Work-In-Progress (`WIP = 1`) policy:
-1. Fetch latest closed issues from GitHub to ensure no already-merged PRs/issues are resurrected into `🟢 In Review` or the active matrix.
-2. Call `issue_write` (method `update`) on **Master Tracking Issue #35** on GitHub (the authoritative live SSOT):
-   - Change the currently implemented issue's status from `🟡 Next Up` $\rightarrow$ `🟢 In Review (PR #<PR_NUMBER>)`.
-   - Ensure all closed/merged issues reside in `🏆 Recently Completed / Merged` and NOT in the active matrix.
-   - Check if any downstream issues were `🔴 Blocked` by merged/closed issues, and update them to `⚪ Queued`.
-   - Promote the very next unblocked item in the list from `⚪ Queued` $\rightarrow$ `🟡 Next Up` (ensuring EXACTLY ONE item across the entire matrix has status `🟡 Next Up`).
-3. Optional: If updating `main` directly (or after PR merges), run `node .agents/scripts/sync_priority_queue.js` to keep [`.agents/PRIORITY_QUEUE.md`](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/PRIORITY_QUEUE.md) synchronized.
+To maintain the central zero-maintenance execution queue with a strict Single Work-In-Progress (`WIP = 1`) policy and **NEVER re-insert merged PRs or closed issues**:
+1. **Query Closed Issues & PRs**: Call `list_issues` (state: "closed") and `list_pull_requests` (state: "closed") via GitHub MCP to retrieve the up-to-date set of all closed issues.
+2. **Execute Queue Synchronizer**: Run `.agents/scripts/sync_priority_queue.js` locally to reconcile all closed issues and promote the newly implemented issue to In Review:
+   ```bash
+   node .agents/scripts/sync_priority_queue.js --local-file-only --closed-issues <comma-separated-closed-ids> --mark-in-review <ISSUE_NUM> <PR_NUM> --print-markdown
+   ```
+3. **Update Master Tracking Issue #35**: Call `issue_write` (method `update`) on **Master Tracking Issue #35** on GitHub with the exact generated markdown output:
+   - The implemented issue is marked `🟢 In Review (PR #<PR_NUMBER>)`.
+   - All merged/closed issues are permanently filed under `🏆 Recently Completed / Merged` and stripped from the active matrix table.
+   - Downstream issues unblocked by closed prerequisites transition to `⚪ Queued`.
+   - Exactly ONE unblocked item is assigned `🟡 Next Up` (Rank #1).
+4. **No Stale Snapshots**: NEVER manually type or paste an older markdown matrix that includes already-merged PRs or closed issues. Always generate from the current closed set.
 
 
 ---

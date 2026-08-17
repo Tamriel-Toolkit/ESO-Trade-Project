@@ -20,6 +20,7 @@ const LOCAL_QUEUE_FILE = path.join(__dirname, '..', 'PRIORITY_QUEUE.md');
 
 const isDryRun = process.argv.includes('--dry-run');
 const localFileOnly = process.argv.includes('--local-file-only');
+const printMarkdown = process.argv.includes('--print-markdown');
 
 async function githubRequest(endpoint, method = 'GET', body = null) {
     if (!GITHUB_TOKEN) {
@@ -52,19 +53,20 @@ async function githubRequest(endpoint, method = 'GET', body = null) {
 }
 
 /**
- * Fetch all closed issues in the repository
+ * Fetch all closed issues and merged pull requests in the repository
  */
 async function fetchClosedIssues() {
+    const closedMap = new Map();
+
     if (!GITHUB_TOKEN) {
         console.warn('[WARN] No GITHUB_TOKEN provided; skipping remote closed issue fetch.');
-        return new Map();
+        return closedMap;
     }
 
     try {
+        // 1. Fetch closed issues
         const closedIssues = await githubRequest(`/repos/${REPO_OWNER}/${REPO_NAME}/issues?state=closed&per_page=100`);
-        const closedMap = new Map();
         for (const issue of closedIssues) {
-            // Exclude pull requests if any returned by issues endpoint
             closedMap.set(issue.number, {
                 number: issue.number,
                 title: issue.title,
@@ -73,10 +75,30 @@ async function fetchClosedIssues() {
                 pull_request: issue.pull_request || null
             });
         }
+
+        // 2. Fetch closed/merged PRs and parse linked closing keywords
+        const closedPulls = await githubRequest(`/repos/${REPO_OWNER}/${REPO_NAME}/pulls?state=closed&per_page=100`);
+        for (const pr of closedPulls) {
+            const linked = [
+                ...extractClosingKeywords(pr.body),
+                ...extractClosingKeywords(pr.title)
+            ];
+            for (const issueNum of linked) {
+                if (!closedMap.has(issueNum)) {
+                    closedMap.set(issueNum, {
+                        number: issueNum,
+                        title: `Issue #${issueNum}`,
+                        state: 'closed',
+                        merged_pr: pr.number
+                    });
+                }
+            }
+        }
+
         return closedMap;
     } catch (err) {
-        console.error('[ERROR] Failed to fetch closed issues:', err.message);
-        return new Map();
+        console.error('[ERROR] Failed to fetch closed issues/PRs from GitHub:', err.message);
+        return closedMap;
     }
 }
 
@@ -84,8 +106,8 @@ async function fetchClosedIssues() {
  * Fetch Master Tracking Issue body
  */
 async function fetchTrackingIssueBody() {
-    if (!GITHUB_TOKEN) {
-        console.log('[INFO] Reading local PRIORITY_QUEUE.md since GITHUB_TOKEN is not set.');
+    if (!GITHUB_TOKEN || localFileOnly) {
+        console.log('[INFO] Reading local PRIORITY_QUEUE.md.');
         return fs.readFileSync(LOCAL_QUEUE_FILE, 'utf-8');
     }
 
@@ -120,11 +142,14 @@ function parseMatrixTable(markdown) {
         if (inTable && line.startsWith('|') && line.endsWith('|')) {
             const cells = line.split('|').slice(1, -1).map(c => c.trim());
             if (cells.length >= 7) {
+                const issueMatch = cells[1].match(/\d+/);
+                const issueNum = issueMatch ? parseInt(issueMatch[0], 10) : 0;
+
                 tableRows.push({
                     rawLine: line,
                     rankStr: cells[0],
                     issueRaw: cells[1],
-                    issueNum: parseInt((cells[1].match(/\d+/) || [])[0] || '0', 10),
+                    issueNum,
                     area: cells[2],
                     severity: cells[3],
                     status: cells[4],
@@ -169,12 +194,29 @@ function parseRecentlyCompleted(markdown) {
 /**
  * Process queue updates based on closed issues
  */
-function updateQueueState(tableRows, completedList, closedIssuesMap) {
+function updateQueueState(tableRows, completedList, closedIssuesMap, options = {}) {
+    // 1. Cross-populate closedIssuesMap with any issues already in completedList
+    for (const item of completedList) {
+        const match = item.match(/#(\d+)/);
+        if (match) {
+            const num = parseInt(match[1], 10);
+            if (!closedIssuesMap.has(num)) {
+                closedIssuesMap.set(num, { number: num, title: item, state: 'closed' });
+            }
+        }
+    }
+
     const activeRows = [];
     const newlyCompletedRows = [];
+    const seenIssueNums = new Set();
 
-    // 1. Identify closed issues vs active issues
+    // 2. Identify closed issues vs active issues and eliminate duplicates
     for (const row of tableRows) {
+        if (!row.issueNum || seenIssueNums.has(row.issueNum)) {
+            continue; // skip invalid or duplicate rows
+        }
+        seenIssueNums.add(row.issueNum);
+
         const isClosed = closedIssuesMap.has(row.issueNum);
         if (isClosed) {
             newlyCompletedRows.push(row);
@@ -183,11 +225,11 @@ function updateQueueState(tableRows, completedList, closedIssuesMap) {
         }
     }
 
-    // 2. Add newly completed rows to completed list
+    // 3. Add newly completed rows to completed list
     for (const row of newlyCompletedRows) {
         const closedInfo = closedIssuesMap.get(row.issueNum);
-        const title = closedInfo?.title || row.rationale;
-        const entry = `- **\`#${row.issueNum}\`** — \`${title}\` (Resolved)`;
+        const title = closedInfo?.title?.replace(/^-\s+\*\*[#`\d]+[\*`]*\s+—\s+/, '') || row.rationale;
+        const entry = `- **\`#${row.issueNum}\`** — \`${title.replace(/`/g, '')}\` (Closed/Merged)`;
         if (!completedList.some(item => item.includes(`#${row.issueNum}`) || item.includes(`\`#${row.issueNum}\``))) {
             completedList.unshift(entry);
         }
@@ -196,7 +238,16 @@ function updateQueueState(tableRows, completedList, closedIssuesMap) {
     // Set of all closed issue numbers for blocker resolution
     const allClosedNumbers = new Set(closedIssuesMap.keys());
 
-    // 3. Re-evaluate Blocked By for remaining active rows
+    // 4. Handle optional CLI flags: --mark-in-review <issueNum> <prNum>
+    if (options.markInReviewIssue && options.markInReviewPr) {
+        const targetRow = activeRows.find(r => r.issueNum === options.markInReviewIssue);
+        if (targetRow) {
+            targetRow.status = `🟢 In Review (PR #${options.markInReviewPr})`;
+            targetRow.rankStr = '—';
+        }
+    }
+
+    // 5. Re-evaluate Blocked By for remaining active rows
     for (const row of activeRows) {
         if (row.blockedBy && row.blockedBy !== 'None' && row.blockedBy !== 'none') {
             const rawBlockerMatches = row.blockedBy.match(/#?\d+/g) || [];
@@ -217,9 +268,21 @@ function updateQueueState(tableRows, completedList, closedIssuesMap) {
         }
     }
 
-    // 4. Ensure exactly ONE unblocked item is marked 🟡 Next Up
-    const hasNextUp = activeRows.some(r => r.status.includes('Next Up') || r.status.includes('🟡'));
-    if (!hasNextUp) {
+    // 6. Ensure exactly ONE unblocked item is marked 🟡 Next Up
+    // First, clear any multiple 'Next Up' items
+    let nextUpAssigned = false;
+    for (const row of activeRows) {
+        if (row.status.includes('Next Up') || row.status.includes('🟡')) {
+            if (!nextUpAssigned && row.blockedBy === 'None') {
+                nextUpAssigned = true;
+                row.status = '🟡 Next Up';
+            } else {
+                row.status = '⚪ Queued';
+            }
+        }
+    }
+
+    if (!nextUpAssigned) {
         // Find the first unblocked row (status ⚪ Queued and Blocked By None)
         const nextCandidate = activeRows.find(r => (r.status.includes('Queued') || r.status.includes('⚪')) && r.blockedBy === 'None');
         if (nextCandidate) {
@@ -227,7 +290,7 @@ function updateQueueState(tableRows, completedList, closedIssuesMap) {
         }
     }
 
-    // 5. Re-assign Ranks (1, 2, 3...)
+    // 7. Re-assign Ranks (1, 2, 3...)
     let currentRank = 1;
     for (const row of activeRows) {
         if (row.status.includes('In Review') || row.status.includes('🟢')) {
@@ -326,12 +389,22 @@ function extractClosingKeywords(text) {
  * Main Execution Function
  */
 async function main() {
-    console.log(`[SYNC] Starting Priority Queue Synchronization for ${REPO_OWNER}/${REPO_NAME}...`);
+    if (!printMarkdown) {
+        console.log(`[SYNC] Starting Priority Queue Synchronization for ${REPO_OWNER}/${REPO_NAME}...`);
+    }
 
     const markdownBody = await fetchTrackingIssueBody();
     const closedIssuesMap = await fetchClosedIssues();
 
-    // Check if explicit closed issues were passed as CLI flags (e.g. from GitHub Actions PR merge context)
+    // Parse options from CLI flags
+    const options = {};
+    const markInReviewIdx = process.argv.indexOf('--mark-in-review');
+    if (markInReviewIdx !== -1 && process.argv[markInReviewIdx + 1] && process.argv[markInReviewIdx + 2]) {
+        options.markInReviewIssue = parseInt(process.argv[markInReviewIdx + 1], 10);
+        options.markInReviewPr = parseInt(process.argv[markInReviewIdx + 2], 10);
+    }
+
+    // Check if explicit closed issues were passed as CLI flags
     const closedArgIdx = process.argv.indexOf('--closed-issues');
     if (closedArgIdx !== -1 && process.argv[closedArgIdx + 1]) {
         const explicitNums = process.argv[closedArgIdx + 1].split(',').map(n => parseInt(n.trim(), 10));
@@ -355,21 +428,30 @@ async function main() {
 
     for (const num of extractedIssueNums) {
         if (num && !closedIssuesMap.has(num)) {
-            console.log(`[SYNC] Detected closing keyword for Issue #${num} in PR/commit metadata.`);
+            if (!printMarkdown) console.log(`[SYNC] Detected closing keyword for Issue #${num} in PR/commit metadata.`);
             closedIssuesMap.set(num, { number: num, title: `Issue #${num}`, state: 'closed' });
         }
     }
 
-    console.log(`[SYNC] Found ${closedIssuesMap.size} closed issue(s).`);
+    if (!printMarkdown) {
+        console.log(`[SYNC] Tracking ${closedIssuesMap.size} closed/resolved issue(s).`);
+    }
 
     const tableRows = parseMatrixTable(markdownBody);
     const completedList = parseRecentlyCompleted(markdownBody);
 
-    console.log(`[SYNC] Parsed ${tableRows.length} matrix rows and ${completedList.length} completed archive entries.`);
+    if (!printMarkdown) {
+        console.log(`[SYNC] Parsed ${tableRows.length} matrix rows and ${completedList.length} completed archive entries.`);
+    }
 
-    const { activeRows, completedList: updatedCompleted } = updateQueueState(tableRows, completedList, closedIssuesMap);
+    const { activeRows, completedList: updatedCompleted } = updateQueueState(tableRows, completedList, closedIssuesMap, options);
 
     const updatedMarkdown = renderMarkdown(activeRows, updatedCompleted);
+
+    if (printMarkdown) {
+        process.stdout.write(updatedMarkdown);
+        return;
+    }
 
     if (isDryRun) {
         console.log('\n[DRY RUN] Generated Markdown:\n');
@@ -405,3 +487,4 @@ module.exports = {
     renderMarkdown,
     extractClosingKeywords
 };
+

@@ -7,3 +7,4 @@
    - **Macro Market Data**: 155,476 catalog items with price statistics (`item_prices`) populated from official TTC `PriceTableNA.lua` archives.
    - **Micro Live Listings**: Populated via native in-game `ESOTrade` addon + `watcher.py` desktop sync daemon (`POST /api/market/upload-scans`) and on-demand web searches (`POST /api/market/listings/extract`).
 4. **ZOS TOS Compliance**: Strictly use official ESO Lua Addon API hooks (`EVENT_TRADING_HOUSE_RESPONSE_RECEIVED`). No memory manipulation or direct network calls inside Lua.
+5. **Zero Stale Queue Re-insertion**: Merged pull requests and closed issues are permanently completed. They MUST NEVER be re-inserted into the active Live Execution Matrix table or marked as 'In Review' after merging. Always query closed issues and run `.agents/scripts/sync_priority_queue.js` when updating queue documentation.
