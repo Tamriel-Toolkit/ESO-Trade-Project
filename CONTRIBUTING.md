@@ -35,11 +35,34 @@ git pull origin main
 git checkout -b feat/issue-45-pr-templates-squash-merge
 ```
 
-### 3. Commit Message Standards
-Use Conventional Commits format referencing the issue number:
-- `feat(#<N>): add automated CI workflow for push validation`
-- `fix(#<N>): resolve race condition in watcher daemon`
-- `docs(#<N>): update DatabaseSchema.md for SQLite 3`
+---
+
+## 📝 Submitting Issues & Backlog Triage
+
+All issues filed against **ESO-Trade-Project** (whether by human contributors or automated agent tools) must follow standardized severity prefixes and structure. Use the interactive issue forms available in GitHub:
+
+- 🐛 [Bug Report](.github/ISSUE_TEMPLATE/bug_report.yml)
+- 💡 [Feature Request](.github/ISSUE_TEMPLATE/feature_request.yml)
+- 🔒 [Security Vulnerability](.github/ISSUE_TEMPLATE/security_vulnerability.yml)
+
+### 1. Title & Severity Taxonomy
+Every issue title must begin with an appropriate severity prefix:
+
+| Prefix | Severity Category | Example Scenario |
+|---|---|---|
+| `[CRITICAL]` | Security vulnerability, data loss, crash, ZOS TOS breach | Plaintext passwords, backdoor tokens, SQL injections |
+| `[MODERATE]` | Core functional bug, shadowed route, API contract break | Ingestion parser exception, duplicate route handler |
+| `[MINOR]` | Secondary bug, contrast issue, minor config gap | Missing `.env.example`, unused dependency |
+| `[NITPICK]` | Code cleanup, logging formatting, style tweak | Comment spelling, unused variable, dead code |
+| `[FEAT]` | New feature or architectural enhancement | New pricing algorithm, UI filter modal, FTS search |
+
+### 2. Backlog Placement & Prioritization
+Once an issue is created, it is evaluated and added to [Master Tracking Issue #35](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/35):
+1. **Tier 1 (Critical Security & Data Integrity)**: Top of backlog (`Ranks 1–6`).
+2. **Tier 2 (Core Backend & Ingestion Pipeline)**: Middle backlog (`Ranks 7–10`).
+3. **Tier 3 (UI & User Experience)**: Queued behind core backend dependencies.
+4. **Tier 4 (Milestones & Feature Epics)**: Ordered chronologically by architectural phase.
+5. **Tier 5 (Documentation & Nitpicks)**: Background queue.
 
 ---
 

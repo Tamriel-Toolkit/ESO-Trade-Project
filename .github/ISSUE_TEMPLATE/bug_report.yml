@@ -1,0 +1,98 @@
+name: "🐛 Bug Report"
+description: "Report a bug, data pipeline error, UI issue, or unexpected behavior in the ESO Trade Project."
+title: "[MODERATE] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve the **ESO Trade Project**! Please fill out this form to help us diagnose and resolve the issue quickly.
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity Classification
+      description: Select the appropriate severity level based on repository standards.
+      options:
+        - "[CRITICAL] - Security vulnerability, data loss, crash, ZOS TOS breach"
+        - "[MODERATE] - Core functional bug, shadowed route, API contract break"
+        - "[MINOR] - Secondary bug, contrast issue, minor config gap"
+        - "[NITPICK] - Code cleanup, logging formatting, style tweak"
+    validations:
+      required: true
+  - type: dropdown
+    id: subsystem
+    attributes:
+      label: Affected Subsystem
+      description: Select the primary subsystem affected by this bug.
+      options:
+        - "Backend API (server.js)"
+        - "Frontend UI (React / Tailwind)"
+        - "Data Pipeline (Python / watcher.py)"
+        - "Database Schema (SQLite / eso_catalog.db)"
+        - "In-Game Lua Addon (ESOTrade.lua)"
+        - "CI/CD & Workflows"
+        - "Documentation"
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: A concise 2-3 sentence overview of the bug.
+      placeholder: "Describe what went wrong..."
+    validations:
+      required: true
+  - type: textarea
+    id: current-behavior
+    attributes:
+      label: Current Behavior
+      description: What currently happens in the application?
+      placeholder: "e.g., When querying /api/market/listings with server=NA, duplicate listings are returned..."
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected Behavior / Target Architecture
+      description: What should happen instead according to ESO Trade Project specifications?
+      placeholder: "e.g., Each listing should be uniquely deduplicated by listing UID..."
+    validations:
+      required: true
+  - type: textarea
+    id: files-affected
+    attributes:
+      label: Files & Code Paths Affected
+      description: List relevant source files, line numbers, or endpoints if known.
+      placeholder: |
+        - `backend/server.js` (L:238-250)
+        - `frontend/src/pages/Marketplace.jsx`
+    validations:
+      required: false
+  - type: textarea
+    id: reproduction-steps
+    attributes:
+      label: Steps to Reproduce
+      description: Exact steps to reproduce the issue.
+      placeholder: |
+        1. Start backend server: `cd backend && node server.js`
+        2. Open Marketplace in browser
+        3. Filter by category 'Weapon'
+        4. See error in browser console...
+    validations:
+      required: false
+  - type: textarea
+    id: logs-screenshots
+    attributes:
+      label: Logs, Terminal Output, or Screenshots
+      description: Paste relevant terminal logs, stack traces, or upload screenshots.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checklists
+    attributes:
+      label: Pre-Submission Verification
+      options:
+        - label: "I have confirmed this bug adheres to the 100% Data Authenticity rule (no mock data involved)."
+          required: true
+        - label: "I have checked the Master Tracking Issue #35 to ensure this is not a known duplicate."
+          required: true
