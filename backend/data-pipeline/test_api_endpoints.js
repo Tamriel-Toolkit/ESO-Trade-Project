@@ -85,8 +85,22 @@ function httpDelete(path, headers = {}) {
 }
 
 async function runTests() {
-    // Wait 1.5s for server to start
-    await new Promise(r => setTimeout(r, 1500));
+    // Poll server health up to 10 seconds for robust startup across all runner environments
+    let serverReady = false;
+    for (let attempt = 0; attempt < 20; attempt++) {
+        try {
+            const probe = await httpGet('/api/taxonomy');
+            if (probe.status === 200) {
+                serverReady = true;
+                break;
+            }
+        } catch (e) {
+            await new Promise(r => setTimeout(r, 500));
+        }
+    }
+    if (!serverReady) {
+        throw new Error("Temporary test server failed to start within 10 seconds.");
+    }
 
     let createdUserId = null;
 

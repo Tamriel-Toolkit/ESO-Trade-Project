@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
 const { rateLimit } = require("express-rate-limit");
 const sqlite3 = require("sqlite3").verbose();
 const app = express();
@@ -1784,9 +1786,6 @@ if (process.env.NODE_ENV !== "production") {
 // ============================================================================
 // AUTHENTICATION & DEVELOPER BYPASS ENDPOINTS
 // ============================================================================
-const crypto = require("crypto");
-const bcrypt = require("bcryptjs");
-
 const BCRYPT_SALT_ROUNDS = 12;
 
 function hashPassword(password) {
