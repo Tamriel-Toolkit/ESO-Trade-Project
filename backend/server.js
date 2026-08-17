@@ -1,6 +1,8 @@
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
+const crypto = require("crypto");
+const bcrypt = require("bcryptjs");
 const { rateLimit } = require("express-rate-limit");
 const sqlite3 = require("sqlite3").verbose();
 const app = express();
@@ -270,6 +272,36 @@ function initializeDatabaseSchema() {
             } else {
                 console.log("'guild_trader_listings' table initialized successfully.");
             }
+        });
+
+        db.run(`
+            CREATE TABLE IF NOT EXISTS user_inventory (
+                character_id INTEGER NOT NULL,
+                game_item_id INTEGER NOT NULL,
+                quantity INTEGER DEFAULT 1,
+                PRIMARY KEY (character_id, game_item_id),
+                FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+                FOREIGN KEY (game_item_id) REFERENCES items(game_item_id) ON DELETE CASCADE
+            );
+        `, (err) => {
+            if (err) console.error("Error creating 'user_inventory' table:", err.message);
+            else console.log("'user_inventory' table initialized successfully.");
+        });
+
+        db.run(`
+            CREATE TABLE IF NOT EXISTS watchlists (
+                character_id INTEGER NOT NULL,
+                game_item_id INTEGER NOT NULL,
+                target_price INTEGER NOT NULL,
+                is_notified INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (character_id, game_item_id),
+                FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+                FOREIGN KEY (game_item_id) REFERENCES items(game_item_id) ON DELETE CASCADE
+            );
+        `, (err) => {
+            if (err) console.error("Error creating 'watchlists' table:", err.message);
+            else console.log("'watchlists' table initialized successfully.");
         });
 
         // Seed starter prices & listings (for clean test/CI environments)
@@ -544,6 +576,11 @@ app.get("/api/characters", async (req, res) => {
  * Performs an upsert on characters and syncs items in a transaction.
  */
 app.post("/api/characters/sync", async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) {
+        return res.status(401).json({ error: "Authentication required to sync character data." });
+    }
+
     const { name, class: charClass, level, is_master_crafter, known_items } = req.body;
 
     if (!name) {
@@ -551,19 +588,25 @@ app.post("/api/characters/sync", async (req, res) => {
     }
 
     try {
+        const existingChar = await dbGet("SELECT id, user_id FROM characters WHERE name = ?", [name]);
+        if (existingChar && existingChar.user_id && existingChar.user_id !== userId) {
+            return res.status(403).json({ error: "Forbidden: Character belongs to another user." });
+        }
+
         // Begin immediate transaction to prevent concurrent modifications
         await dbRun("BEGIN IMMEDIATE TRANSACTION");
 
         // 1. Upsert character metadata
         await dbRun(`
-            INSERT INTO characters (name, class, level, is_master_crafter, last_sync_at)
-            VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            INSERT INTO characters (name, class, level, is_master_crafter, user_id, last_sync_at)
+            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(name) DO UPDATE SET
                 class = excluded.class,
                 level = excluded.level,
                 is_master_crafter = excluded.is_master_crafter,
+                user_id = COALESCE(characters.user_id, excluded.user_id),
                 last_sync_at = excluded.last_sync_at;
-        `, [name, charClass || null, level ? parseInt(level, 10) : null, is_master_crafter ? 1 : 0]);
+        `, [name, charClass || null, level ? parseInt(level, 10) : null, is_master_crafter ? 1 : 0, userId]);
 
         // 2. Safely retrieve the character's primary key ID
         const charRow = await dbGet("SELECT id FROM characters WHERE name = ?", [name]);
@@ -642,12 +685,27 @@ app.get("/api/characters/:id/profile", async (req, res) => {
             gearBySlot[row.slot_id] = row;
         });
 
+        // Compute set bonus aggregates directly in SQL or memory
+        const setCounts = {};
+        const traitCounts = {};
+        gearRows.forEach(g => {
+            if (g.set_name) {
+                setCounts[g.set_name] = (setCounts[g.set_name] || 0) + 1;
+            }
+            if (g.trait_name && g.trait_name !== "None" && g.trait_name !== "0") {
+                traitCounts[g.trait_name] = (traitCounts[g.trait_name] || 0) + 1;
+            }
+        });
+
         res.json({
             success: true,
             character,
-            gear: gearBySlot
+            gear: gearBySlot,
+            active_sets: setCounts,
+            active_traits: traitCounts
         });
     } catch (err) {
+        console.error("Error fetching character profile:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
@@ -657,19 +715,28 @@ app.get("/api/characters/:id/profile", async (req, res) => {
  * Receives JSON loadout payload containing BAG_WORN slots [0-13] and updates character_gear table.
  */
 app.post("/api/characters/upload-gear", batchUploadLimiter, async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) {
+        return res.status(401).json({ error: "Authentication required to upload character gear." });
+    }
+
     const { character_name, gear } = req.body;
     if (!character_name || !Array.isArray(gear)) {
         return res.status(400).json({ error: "character_name and gear array are required." });
     }
 
     try {
-        let charRow = await dbGet("SELECT id FROM characters WHERE name = ?", [character_name]);
-        if (!charRow) {
+        let charRow = await dbGet("SELECT id, user_id FROM characters WHERE name = ?", [character_name]);
+        if (charRow) {
+            if (charRow.user_id && charRow.user_id !== userId) {
+                return res.status(403).json({ error: "Forbidden: You do not have permission to modify gear for this character." });
+            }
+        } else {
             await dbRun(`
-                INSERT INTO characters (name, class, level, is_master_crafter, last_sync_at)
-                VALUES (?, 'Dragonknight', 50, 0, CURRENT_TIMESTAMP)
-            `, [character_name]);
-            charRow = await dbGet("SELECT id FROM characters WHERE name = ?", [character_name]);
+                INSERT INTO characters (name, class, level, is_master_crafter, user_id, last_sync_at)
+                VALUES (?, 'Dragonknight', 50, 0, ?, CURRENT_TIMESTAMP)
+            `, [character_name, userId]);
+            charRow = await dbGet("SELECT id, user_id FROM characters WHERE name = ?", [character_name]);
         }
 
         const characterId = charRow.id;
@@ -778,6 +845,11 @@ app.get("/api/character/:character_id", async (req, res) => {
  * Batch upserts item prices. Runs in a transaction with chunked inserts.
  */
 app.post("/api/prices/sync", async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) {
+        return res.status(401).json({ error: "Authentication required to sync market prices." });
+    }
+
     const prices = req.body;
     if (!Array.isArray(prices)) {
         return res.status(400).json({ error: "Expected an array of price objects." });
@@ -834,6 +906,11 @@ app.post("/api/prices/sync", async (req, res) => {
  * Batch upserts active guild trader listings (clear out-of-date listings first).
  */
 app.post("/api/listings/sync", async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) {
+        return res.status(401).json({ error: "Authentication required to sync guild trader listings." });
+    }
+
     const { server, listings } = req.body;
     const targetServer = server || "NA";
 
@@ -896,6 +973,11 @@ app.post("/api/listings/sync", async (req, res) => {
  * Syncs a character's duplicates list from their in-game bags.
  */
 app.post("/api/inventory/sync", async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) {
+        return res.status(401).json({ error: "Authentication required to sync inventory." });
+    }
+
     const { character_id, inventory } = req.body;
 
     if (!character_id) {
@@ -906,10 +988,13 @@ app.post("/api/inventory/sync", async (req, res) => {
     }
 
     try {
-        // Verify character existence first
-        const character = await dbGet("SELECT id FROM characters WHERE id = ?", [character_id]);
+        // Verify character existence and ownership
+        const character = await dbGet("SELECT id, user_id FROM characters WHERE id = ?", [character_id]);
         if (!character) {
             return res.status(404).json({ error: "Character not found" });
+        }
+        if (character.user_id && character.user_id !== userId) {
+            return res.status(403).json({ error: "Forbidden: You do not have permission to sync inventory for this character." });
         }
 
         await dbRun("BEGIN IMMEDIATE TRANSACTION");
@@ -1102,6 +1187,11 @@ app.get("/api/watchlist/:character_id", async (req, res) => {
  * Add an item to the character's watchlist with a target_price.
  */
 app.post("/api/watchlist", async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) {
+        return res.status(401).json({ error: "Authentication required to modify watchlist." });
+    }
+
     const { character_id, game_item_id, target_price } = req.body;
 
     if (!character_id || !game_item_id || target_price === undefined) {
@@ -1109,10 +1199,13 @@ app.post("/api/watchlist", async (req, res) => {
     }
 
     try {
-        // Verify character exists
-        const character = await dbGet("SELECT id FROM characters WHERE id = ?", [character_id]);
+        // Verify character exists and ownership
+        const character = await dbGet("SELECT id, user_id FROM characters WHERE id = ?", [character_id]);
         if (!character) {
             return res.status(404).json({ error: "Character not found" });
+        }
+        if (character.user_id && character.user_id !== userId) {
+            return res.status(403).json({ error: "Forbidden: You do not have permission to modify this character's watchlist." });
         }
 
         // Verify item exists
@@ -1140,6 +1233,11 @@ app.post("/api/watchlist", async (req, res) => {
  * Remove an item from a character's watchlist.
  */
 app.delete("/api/watchlist/:character_id/:game_item_id", async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) {
+        return res.status(401).json({ error: "Authentication required to delete watchlist items." });
+    }
+
     const characterId = parseInt(req.params.character_id, 10);
     const gameItemId = parseInt(req.params.game_item_id, 10);
 
@@ -1148,10 +1246,13 @@ app.delete("/api/watchlist/:character_id/:game_item_id", async (req, res) => {
     }
 
     try {
-        // Verify character exists
-        const character = await dbGet("SELECT id FROM characters WHERE id = ?", [characterId]);
+        // Verify character exists and ownership
+        const character = await dbGet("SELECT id, user_id FROM characters WHERE id = ?", [characterId]);
         if (!character) {
             return res.status(404).json({ error: "Character not found" });
+        }
+        if (character.user_id && character.user_id !== userId) {
+            return res.status(403).json({ error: "Forbidden: You do not have permission to modify this character's watchlist." });
         }
 
         await dbRun("DELETE FROM watchlists WHERE character_id = ? AND game_item_id = ?", [characterId, gameItemId]);
@@ -1715,9 +1816,6 @@ if (process.env.NODE_ENV !== "production") {
 // ============================================================================
 // AUTHENTICATION & DEVELOPER BYPASS ENDPOINTS
 // ============================================================================
-const crypto = require("crypto");
-const bcrypt = require("bcryptjs");
-
 const BCRYPT_SALT_ROUNDS = 12;
 
 function hashPassword(password) {
