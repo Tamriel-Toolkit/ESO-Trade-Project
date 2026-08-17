@@ -2012,27 +2012,6 @@ if (process.env.NODE_ENV !== "production") {
 // ============================================================================
 
 /**
- * GET /api/characters
- */
-app.get("/api/characters", async (req, res) => {
-    const userId = await getAuthUserId(req);
-    if (!userId) {
-        return res.json({ success: true, characters: [] });
-    }
-    try {
-        const characters = await dbAll(`
-            SELECT id, user_id, name, class, level, master_crafter_unlocked, alliance, last_sync_at
-            FROM characters
-            WHERE user_id = ?
-            ORDER BY level DESC, name ASC;
-        `, [userId]);
-        res.json({ success: true, characters });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-/**
  * POST /api/characters
  */
 app.post("/api/characters", async (req, res) => {
