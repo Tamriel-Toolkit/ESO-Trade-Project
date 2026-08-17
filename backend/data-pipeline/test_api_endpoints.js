@@ -187,8 +187,8 @@ async function runTests() {
             throw new Error(`Dev bypass login failed with status ${bypassRes.status}`);
         }
 
-        console.log("\n13. Testing SQLite persistent session with dev token ('dev-token-blake-123')...");
-        const devTokenRes = await httpGet('/api/auth/me', { 'Authorization': 'Bearer dev-token-blake-123' });
+        console.log("\n13. Testing SQLite persistent session with dynamic bypass token...");
+        const devTokenRes = await httpGet('/api/auth/me', { 'Authorization': `Bearer ${bypassRes.data.token}` });
         console.log(`   Status: ${devTokenRes.status}, Dev User: @${devTokenRes.data.user?.username}`);
         if (devTokenRes.status !== 200 || devTokenRes.data.user?.id !== 1) {
             throw new Error(`Dev token authentication failed with status ${devTokenRes.status}`);
@@ -273,7 +273,7 @@ async function runTests() {
                     armor_rating: 1200
                 }
             ]
-        }, { 'Authorization': 'Bearer dev-token-blake-123' });
+        }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
         console.log(`   Upload Status: ${gearUploadRes.status}, Success: ${gearUploadRes.data.success}`);
         if (gearUploadRes.status !== 200 || !gearUploadRes.data.success) {
             throw new Error(`Upload gear failed with status ${gearUploadRes.status}`);
