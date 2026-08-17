@@ -1557,12 +1557,16 @@ app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
     const { server, listings, player_name, player_class, player_level, player_alliance, master_crafter } = req.body;
     const targetServer = server || "NA";
 
+    const userId = await getAuthUserId(req);
+    if (!userId) {
+        return res.status(401).json({ error: "Authentication required to upload market scans." });
+    }
+
     if (!Array.isArray(listings) || listings.length === 0) {
         return res.status(400).json({ error: "Invalid listings array." });
     }
 
     try {
-        const userId = (await getAuthUserId(req)) || 1; // Default to Blake (1) for dev sync
 
         // AUTOMATED CHARACTER AUTO-DISCOVERY: Upsert scanner character into account roster
         if (player_name) {
@@ -2008,7 +2012,10 @@ if (process.env.NODE_ENV !== "production") {
  * POST /api/characters
  */
 app.post("/api/characters", async (req, res) => {
-    const userId = (await getAuthUserId(req)) || 1;
+    const userId = await getAuthUserId(req);
+    if (!userId) {
+        return res.status(401).json({ error: "Authentication required to manage characters." });
+    }
     const { name, class: charClass, level, alliance, master_crafter_unlocked } = req.body;
     if (!name) return res.status(400).json({ error: "Character name is required." });
 
@@ -2036,9 +2043,20 @@ app.post("/api/characters", async (req, res) => {
  * DELETE /api/characters/:id
  */
 app.delete("/api/characters/:id", async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) {
+        return res.status(401).json({ error: "Authentication required to delete characters." });
+    }
     const charId = req.params.id;
     try {
-        await dbRun(`DELETE FROM characters WHERE id = ?;`, [charId]);
+        const char = await dbGet(`SELECT id, user_id FROM characters WHERE id = ?;`, [charId]);
+        if (!char) {
+            return res.status(404).json({ error: "Character not found." });
+        }
+        if (char.user_id !== userId) {
+            return res.status(403).json({ error: "Forbidden: You do not have permission to delete this character." });
+        }
+        await dbRun(`DELETE FROM characters WHERE id = ? AND user_id = ?;`, [charId, userId]);
         res.json({ success: true, message: "Character removed from roster." });
     } catch (err) {
         res.status(500).json({ error: err.message });
