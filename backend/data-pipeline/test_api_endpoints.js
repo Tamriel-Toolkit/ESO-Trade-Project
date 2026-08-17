@@ -300,6 +300,63 @@ async function runTests() {
         }
         console.log("   Jewelry traits & slot alignment successfully verified in profile!");
 
+        console.log("\n19. Testing unauthenticated POST /api/market/upload-scans (expect 401)...");
+        const unauthScanRes = await httpPost('/api/market/upload-scans', {
+            server: "NA",
+            listings: [{ game_item_id: 1001, price: 100, quantity: 1, guild_name: "Test Guild" }]
+        });
+        console.log(`   Status: ${unauthScanRes.status}, Error: ${unauthScanRes.data.error}`);
+        if (unauthScanRes.status !== 401) {
+            throw new Error(`Expected 401 for unauthenticated upload-scans, got ${unauthScanRes.status}`);
+        }
+
+        console.log("\n20. Testing unauthenticated POST /api/characters (expect 401)...");
+        const unauthCharRes = await httpPost('/api/characters', { name: "HackerChar", class: "Nightblade" });
+        console.log(`   Status: ${unauthCharRes.status}, Error: ${unauthCharRes.data.error}`);
+        if (unauthCharRes.status !== 401) {
+            throw new Error(`Expected 401 for unauthenticated character create, got ${unauthCharRes.status}`);
+        }
+
+        console.log("\n21. Testing authenticated POST /api/characters with User 1...");
+        const authCharRes = await httpPost('/api/characters', {
+            name: "BlakeHeroTest",
+            class: "Sorcerer",
+            level: 50,
+            alliance: 2,
+            master_crafter_unlocked: 1
+        }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
+        console.log(`   Status: ${authCharRes.status}, Char ID: ${authCharRes.data.character?.id}`);
+        if (authCharRes.status !== 200 || !authCharRes.data.character?.id) {
+            throw new Error(`Failed to create character for User 1: ${JSON.stringify(authCharRes.data)}`);
+        }
+        const createdCharId = authCharRes.data.character.id;
+
+        console.log("\n22. Testing IDOR protection: User 2 attempting to DELETE User 1's character (expect 403)...");
+        const user2BypassRes = await httpPost('/api/dev/bypass-login', { user_id: 2 });
+        const idorDeleteRes = await httpDelete(`/api/characters/${createdCharId}`, {
+            'Authorization': `Bearer ${user2BypassRes.data.token}`
+        });
+        console.log(`   Status: ${idorDeleteRes.status}, Error: ${idorDeleteRes.data.error}`);
+        if (idorDeleteRes.status !== 403) {
+            throw new Error(`Expected 403 Forbidden for IDOR delete attempt, got ${idorDeleteRes.status}`);
+        }
+
+        console.log("\n23. Testing unauthenticated DELETE /api/characters/:id (expect 401)...");
+        const unauthDelRes = await httpDelete(`/api/characters/${createdCharId}`);
+        console.log(`   Status: ${unauthDelRes.status}, Error: ${unauthDelRes.data.error}`);
+        if (unauthDelRes.status !== 401) {
+            throw new Error(`Expected 401 for unauthenticated character delete, got ${unauthDelRes.status}`);
+        }
+
+        console.log("\n24. Testing authorized character deletion by owner (User 1)...");
+        const authDelRes = await httpDelete(`/api/characters/${createdCharId}`, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        console.log(`   Status: ${authDelRes.status}, Success: ${authDelRes.data.success}`);
+        if (authDelRes.status !== 200 || !authDelRes.data.success) {
+            throw new Error(`Failed to delete character by owner: ${JSON.stringify(authDelRes.data)}`);
+        }
+
         console.log("\nAll API endpoint tests passed successfully!");
     } catch (err) {
         console.error("API test failed:", err);
