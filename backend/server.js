@@ -274,6 +274,36 @@ function initializeDatabaseSchema() {
             }
         });
 
+        db.run(`
+            CREATE TABLE IF NOT EXISTS user_inventory (
+                character_id INTEGER NOT NULL,
+                game_item_id INTEGER NOT NULL,
+                quantity INTEGER DEFAULT 1,
+                PRIMARY KEY (character_id, game_item_id),
+                FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+                FOREIGN KEY (game_item_id) REFERENCES items(game_item_id) ON DELETE CASCADE
+            );
+        `, (err) => {
+            if (err) console.error("Error creating 'user_inventory' table:", err.message);
+            else console.log("'user_inventory' table initialized successfully.");
+        });
+
+        db.run(`
+            CREATE TABLE IF NOT EXISTS watchlists (
+                character_id INTEGER NOT NULL,
+                game_item_id INTEGER NOT NULL,
+                target_price INTEGER NOT NULL,
+                is_notified INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (character_id, game_item_id),
+                FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+                FOREIGN KEY (game_item_id) REFERENCES items(game_item_id) ON DELETE CASCADE
+            );
+        `, (err) => {
+            if (err) console.error("Error creating 'watchlists' table:", err.message);
+            else console.log("'watchlists' table initialized successfully.");
+        });
+
         // Seed starter prices & listings (for clean test/CI environments)
         db.run(`
             INSERT OR IGNORE INTO item_prices (game_item_id, server, avg_price, min_price, max_price, suggested_price)
