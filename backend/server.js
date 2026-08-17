@@ -221,6 +221,8 @@ function initializeDatabaseSchema() {
             db.run("ALTER TABLE character_gear ADD COLUMN trait_description TEXT", () => {});
             db.run("ALTER TABLE character_gear ADD COLUMN armor_rating INTEGER DEFAULT 0", () => {});
             db.run("ALTER TABLE character_gear ADD COLUMN weapon_power INTEGER DEFAULT 0", () => {});
+            db.run("UPDATE items SET icon_url = REPLACE(icon_url, '.dds', '.png') WHERE icon_url LIKE '%.dds'", () => {});
+            db.run("UPDATE character_gear SET item_icon = REPLACE(item_icon, '.dds', '.png') WHERE item_icon LIKE '%.dds'", () => {});
             console.log("'character_gear' table initialized successfully.");
         });
 
@@ -622,7 +624,7 @@ app.get("/api/characters/:id/profile", async (req, res) => {
             SELECT cg.slot_id, cg.game_item_id, cg.item_name, cg.item_link, cg.quality, cg.trait_id, 
                    cg.trait_name, cg.trait_description, cg.armor_rating, cg.weapon_power,
                    cg.set_name, cg.enchantment_description, cg.updated_at,
-                   COALESCE(cg.item_icon, i.icon_url) AS item_icon, i.category AS item_category, i.subcategory AS item_subcategory,
+                   REPLACE(COALESCE(cg.item_icon, i.icon_url), '.dds', '.png') AS item_icon, i.category AS item_category, i.subcategory AS item_subcategory,
                    i.rarity AS item_rarity, i.metadata AS item_metadata
             FROM character_gear cg
             LEFT JOIN items i ON cg.game_item_id = i.game_item_id
@@ -675,6 +677,12 @@ app.post("/api/characters/upload-gear", batchUploadLimiter, async (req, res) => 
         await dbRun("BEGIN IMMEDIATE TRANSACTION");
         for (const item of gear) {
             const { slot_id, game_item_id, item_name, item_link, quality, trait_id, set_name, enchantment_description, item_icon, trait_name, trait_description, armor_rating, weapon_power } = item;
+            
+            let normalizedIcon = item_icon ? item_icon.replace(/\.dds$/i, '.png') : null;
+            if (normalizedIcon && (normalizedIcon.startsWith('/esoui/') || normalizedIcon.startsWith('esoui/'))) {
+                normalizedIcon = `https://esoicons.uesp.net${normalizedIcon.startsWith('/') ? '' : '/'}${normalizedIcon}`;
+            }
+
             await dbRun(`
                 INSERT INTO character_gear (
                     character_id, slot_id, game_item_id, item_name, item_link, quality, trait_id, set_name, enchantment_description, item_icon, trait_name, trait_description, armor_rating, weapon_power, updated_at
@@ -704,7 +712,7 @@ app.post("/api/characters/upload-gear", batchUploadLimiter, async (req, res) => 
                 trait_id || 0,
                 set_name || null,
                 enchantment_description || null,
-                item_icon || null,
+                normalizedIcon,
                 trait_name || null,
                 trait_description || null,
                 armor_rating || 0,

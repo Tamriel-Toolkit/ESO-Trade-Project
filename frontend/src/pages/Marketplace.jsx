@@ -48,7 +48,7 @@ import {
 import Navbar from "@/components/ui/navbar";
 import { useTheme } from "@/components/theme-provider";
 import { fetchTaxonomy, fetchMarketListings, fetchMarketPrices, extractLiveListings, clearAllListings } from "@/api/api";
-import { cleanEsoText, renderEsoFormattedText } from "@/lib/utils";
+import { cleanEsoText, renderEsoFormattedText, getEsoIconUrl } from "@/lib/utils";
 
 const RARITY_MAP = {
   1: { label: "Normal", color: "border-gray-600 text-gray-300 bg-gray-900/40" },
@@ -630,12 +630,13 @@ function Marketplace() {
                     <CardHeader className="p-4 pb-2 border-b border-[#2a2c33]/50 bg-[#161620]/40">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-3">
-                          {item.item_icon ? (
+                          {getEsoIconUrl(item.item_icon) ? (
                             <img
-                              src={item.item_icon}
+                              src={getEsoIconUrl(item.item_icon)}
                               alt={cleanName}
                               className="size-10 rounded-none border border-[#2a2c33] object-contain bg-[#0a0a0d] p-1"
                               onError={(e) => (e.target.style.display = "none")}
+                              loading="lazy"
                             />
                           ) : (
                             <div className="size-10 rounded-none border border-[#2a2c33] bg-[#0a0a0d] flex items-center justify-center font-cinzel font-bold text-xs text-[#c5a059]">
@@ -770,11 +771,13 @@ function Marketplace() {
               <CardHeader className="p-4 pb-2 border-b border-[#2a2c33] bg-[#161620]">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    {selectedItem.item_icon && (
+                    {getEsoIconUrl(selectedItem.item_icon) && (
                       <img
-                        src={selectedItem.item_icon}
+                        src={getEsoIconUrl(selectedItem.item_icon)}
                         alt={cleanEsoText(selectedItem.item_name)}
                         className="size-12 rounded-none border border-[#c5a059]/40 p-1 bg-[#0a0a0d] object-contain"
+                        onError={(e) => (e.target.style.display = "none")}
+                        loading="lazy"
                       />
                     )}
                     <div>

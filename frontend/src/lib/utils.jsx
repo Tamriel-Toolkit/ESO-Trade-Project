@@ -93,3 +93,37 @@ export function renderEsoFormattedText(text) {
 
   return renderedLines;
 }
+
+/**
+ * Normalizes ESO item icon paths and URLs:
+ * 1. Converts DirectDraw Surface texture (.dds) paths to web-friendly .png URLs.
+ * 2. Prepends official UESP CDN domain if given relative in-game path (/esoui/art/icons/...).
+ * 3. Handles empty, null, or undefined values gracefully.
+ */
+export function getEsoIconUrl(rawIcon) {
+  if (!rawIcon || typeof rawIcon !== "string") return null;
+
+  let icon = rawIcon.trim();
+  if (!icon) return null;
+
+  // Replace .dds / .DDS with .png for browser rendering
+  icon = icon.replace(/\.dds$/i, ".png");
+
+  // If it's already an absolute HTTP/HTTPS URL, return normalized URL
+  if (icon.startsWith("http://") || icon.startsWith("https://")) {
+    return icon;
+  }
+
+  // If it starts with /esoui/ or esoui/, prefix with UESP CDN
+  if (icon.startsWith("/esoui/")) {
+    return `https://esoicons.uesp.net${icon}`;
+  }
+  if (icon.startsWith("esoui/")) {
+    return `https://esoicons.uesp.net/${icon}`;
+  }
+  if (icon.startsWith("/")) {
+    return `https://esoicons.uesp.net/esoui/art/icons${icon}`;
+  }
+
+  return `https://esoicons.uesp.net/esoui/art/icons/${icon}`;
+}
