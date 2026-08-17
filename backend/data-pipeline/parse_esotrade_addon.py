@@ -388,6 +388,11 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
 
                         set_name = g_set.group(1).strip() if g_set else ""
                         item_icon = g_icon.group(1).strip() if g_icon else ""
+                        if item_icon:
+                            item_icon = item_icon.replace(".dds", ".png").replace(".DDS", ".png")
+                            if item_icon.startswith("/esoui/") or item_icon.startswith("esoui/"):
+                                item_icon = f"https://esoicons.uesp.net/{item_icon.lstrip('/')}"
+
                         enchant_text = g_enc.group(1).strip() if g_enc else ""
                         trait_name = g_tname.group(1).strip() if g_tname else ""
                         trait_desc = g_tdesc.group(1).strip() if g_tdesc else ""
@@ -533,6 +538,12 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                         if not g_tdesc_str and parsed_t in DEFAULT_TRAIT_DESCRIPTIONS:
                             g_tdesc_str = DEFAULT_TRAIT_DESCRIPTIONS[parsed_t]
 
+                        parsed_icon = icon_m.group(1).strip() if icon_m else None
+                        if parsed_icon:
+                            parsed_icon = parsed_icon.replace(".dds", ".png").replace(".DDS", ".png")
+                            if parsed_icon.startswith("/esoui/") or parsed_icon.startswith("esoui/"):
+                                parsed_icon = f"https://esoicons.uesp.net/{parsed_icon.lstrip('/')}"
+
                         gear_items.append({
                             "slot_id": int(slot_m.group(1)),
                             "game_item_id": int(id_m.group(1)) if id_m else 0,
@@ -542,9 +553,9 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                             "trait_id": parsed_t,
                             "set_name": set_m.group(1) if set_m else None,
                             "enchantment_description": enc_m.group(1) if enc_m else None,
-                            "item_icon": icon_m.group(1) if icon_m else None,
-                            "trait_name": g_tname_str if g_tname_str else None,
-                            "trait_description": g_tdesc_str if g_tdesc_str else None,
+                            "item_icon": parsed_icon,
+                            "trait_name": g_tname_str or None,
+                            "trait_description": g_tdesc_str or None,
                             "armor_rating": int(arm_m.group(1)) if arm_m else 0,
                             "weapon_power": int(pow_m.group(1)) if pow_m else 0
                         })

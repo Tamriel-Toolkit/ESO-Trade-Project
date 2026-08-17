@@ -1,25 +1,25 @@
 import React, { useState } from "react";
-import { Shield, Sparkles, Zap, Award, Info } from "lucide-react";
-import { renderEsoFormattedText, cleanEsoText } from "@/lib/utils";
+import { Shield, Sparkles, Zap, Award, Info, Sword } from "lucide-react";
+import { renderEsoFormattedText, cleanEsoText, getEsoIconUrl } from "@/lib/utils";
 
 const SLOT_DEFINITIONS = [
   // Left Column (Armor)
-  { slotId: 0, name: "Head", side: "left", anchorY: "12%" },
-  { slotId: 3, name: "Shoulders", side: "left", anchorY: "24%" },
-  { slotId: 2, name: "Chest", side: "left", anchorY: "36%" },
-  { slotId: 16, fallbackSlotIds: [13], name: "Hands", side: "left", anchorY: "48%" },
-  { slotId: 6, name: "Waist", side: "left", anchorY: "60%" },
-  { slotId: 8, fallbackSlotIds: [7], name: "Legs", side: "left", anchorY: "72%" },
-  { slotId: 9, fallbackSlotIds: [8], name: "Feet", side: "left", anchorY: "84%" },
+  { slotId: 0, name: "Head", side: "left", anchorY: "12%", lineTarget: { x: "44%", y: "11%" }, iconType: "armor" },
+  { slotId: 3, name: "Shoulders", side: "left", anchorY: "24%", lineTarget: { x: "32%", y: "23%" }, iconType: "armor" },
+  { slotId: 2, name: "Chest", side: "left", anchorY: "36%", lineTarget: { x: "38%", y: "35%" }, iconType: "armor" },
+  { slotId: 16, fallbackSlotIds: [13], name: "Hands", side: "left", anchorY: "48%", lineTarget: { x: "22%", y: "50%" }, iconType: "armor" },
+  { slotId: 6, name: "Waist", side: "left", anchorY: "60%", lineTarget: { x: "36%", y: "53%" }, iconType: "armor" },
+  { slotId: 7, fallbackSlotIds: [8], name: "Legs", side: "left", anchorY: "72%", lineTarget: { x: "38%", y: "70%" }, iconType: "armor" },
+  { slotId: 8, fallbackSlotIds: [9], name: "Feet", side: "left", anchorY: "84%", lineTarget: { x: "34%", y: "92%" }, iconType: "armor" },
 
   // Right Column (Jewelry & Weapons)
-  { slotId: 1, name: "Necklace", side: "right", anchorY: "12%" },
-  { slotId: 11, fallbackSlotIds: [9], name: "Ring 1", side: "right", anchorY: "24%" },
-  { slotId: 12, fallbackSlotIds: [10], name: "Ring 2", side: "right", anchorY: "36%" },
-  { slotId: 4, name: "Front Bar Main", side: "right", anchorY: "48%" },
-  { slotId: 5, name: "Front Bar Off", side: "right", anchorY: "60%" },
-  { slotId: 20, fallbackSlotIds: [12], name: "Back Bar Main", side: "right", anchorY: "72%" },
-  { slotId: 21, fallbackSlotIds: [13], name: "Back Bar Off", side: "right", anchorY: "84%" },
+  { slotId: 1, name: "Necklace", side: "right", anchorY: "12%", lineTarget: { x: "56%", y: "16%" }, iconType: "jewelry" },
+  { slotId: 9, fallbackSlotIds: [11], name: "Ring 1", side: "right", anchorY: "24%", lineTarget: { x: "78%", y: "48%" }, iconType: "jewelry" },
+  { slotId: 10, fallbackSlotIds: [12], name: "Ring 2", side: "right", anchorY: "36%", lineTarget: { x: "78%", y: "52%" }, iconType: "jewelry" },
+  { slotId: 4, name: "Front Bar Main", side: "right", anchorY: "48%", lineTarget: { x: "80%", y: "50%" }, iconType: "weapon" },
+  { slotId: 5, name: "Front Bar Off", side: "right", anchorY: "60%", lineTarget: { x: "80%", y: "55%" }, iconType: "weapon" },
+  { slotId: 20, fallbackSlotIds: [12], name: "Back Bar Main", side: "right", anchorY: "72%", lineTarget: { x: "70%", y: "38%" }, iconType: "weapon" },
+  { slotId: 21, fallbackSlotIds: [13], name: "Back Bar Off", side: "right", anchorY: "84%", lineTarget: { x: "70%", y: "42%" }, iconType: "weapon" },
 ];
 
 const DEFAULT_QUALITY = { label: "Normal", border: "border-gray-500", text: "text-gray-300", bg: "bg-gray-900/60" };
@@ -180,6 +180,34 @@ const getItemLevelDisplay = (item) => {
   return "CP 160";
 };
 
+/**
+ * Robust Item Icon Component with CDN URL Normalization and Graceful Fallback
+ */
+function SlotItemIcon({ icon, itemName, iconType = "armor", className = "size-full object-contain" }) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const normalizedUrl = getEsoIconUrl(icon);
+
+  if (normalizedUrl && !imgFailed) {
+    return (
+      <img
+        src={normalizedUrl}
+        alt={cleanEsoText(itemName) || "Item Icon"}
+        onError={() => setImgFailed(true)}
+        className={className}
+        loading="lazy"
+      />
+    );
+  }
+
+  if (iconType === "weapon") {
+    return <Sword className="size-4 text-[#c5a059]" />;
+  }
+  if (iconType === "jewelry") {
+    return <Sparkles className="size-4 text-[#c5a059]" />;
+  }
+  return <Shield className="size-4 text-[#8a8275]" />;
+}
+
 export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front" }) {
   const [hoveredSlot, setHoveredSlot] = useState(null);
 
@@ -217,11 +245,11 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
               >
                 <div className="flex items-center gap-2 overflow-hidden min-w-0">
                   <div className={`size-8 shrink-0 border ${item ? quality.border : "border-[#2a2c33]"} bg-[#0a0a0d] flex items-center justify-center p-0.5 relative`}>
-                    {item?.item_icon ? (
-                      <img src={item.item_icon} alt={item.item_name} className="size-full object-contain" />
-                    ) : (
-                      <Shield className="size-4 text-[#8a8275]" />
-                    )}
+                    <SlotItemIcon
+                      icon={item?.item_icon}
+                      itemName={item?.item_name}
+                      iconType={slot.iconType}
+                    />
                   </div>
                   <div className="truncate min-w-0">
                     <div className="flex items-center gap-1.5 leading-none">
@@ -278,30 +306,46 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
           </svg>
 
           {/* SVG Dynamic Glowing Pointer Connector Lines */}
-          <svg className="absolute inset-0 w-full h-full pointer-events-none stroke-[#c5a059]/60">
-            {/* Head line */}
-            <line x1="20%" y1="12%" x2="44%" y2="12%" strokeWidth="1.5" strokeDasharray="3,3" />
-            {/* Shoulders line */}
-            <line x1="20%" y1="24%" x2="38%" y2="22%" strokeWidth="1.5" strokeDasharray="3,3" />
-            {/* Chest line */}
-            <line x1="20%" y1="36%" x2="42%" y2="35%" strokeWidth="1.5" strokeDasharray="3,3" />
-            {/* Hands line */}
-            <line x1="20%" y1="48%" x2="32%" y2="50%" strokeWidth="1.5" strokeDasharray="3,3" />
-            {/* Waist line */}
-            <line x1="20%" y1="60%" x2="42%" y2="54%" strokeWidth="1.5" strokeDasharray="3,3" />
-            {/* Legs line */}
-            <line x1="20%" y1="72%" x2="40%" y2="70%" strokeWidth="1.5" strokeDasharray="3,3" />
-            {/* Feet line */}
-            <line x1="20%" y1="84%" x2="40%" y2="90%" strokeWidth="1.5" strokeDasharray="3,3" />
+          <svg className="absolute inset-0 w-full h-full pointer-events-none">
+            {/* Left Column Lines */}
+            {leftSlots.map((slot) => {
+              const isHovered = hoveredSlot === slot.slotId;
+              const hasItem = Boolean(getGearItemForSlot(gearBySlot, slot));
+              return (
+                <line
+                  key={`line-left-${slot.slotId}`}
+                  x1="0%"
+                  y1={slot.anchorY}
+                  x2={slot.lineTarget.x}
+                  y2={slot.lineTarget.y}
+                  stroke={isHovered ? "#c5a059" : hasItem ? "#c5a059" : "#4a4d5a"}
+                  strokeOpacity={isHovered ? 1 : hasItem ? 0.45 : 0.2}
+                  strokeWidth={isHovered ? 2.5 : 1.5}
+                  strokeDasharray={isHovered ? "none" : "3,3"}
+                  className="transition-all duration-200"
+                />
+              );
+            })}
 
             {/* Right Column Lines */}
-            <line x1="80%" y1="12%" x2="56%" y2="17%" strokeWidth="1.5" strokeDasharray="3,3" />
-            <line x1="80%" y1="24%" x2="68%" y2="48%" strokeWidth="1.5" strokeDasharray="3,3" />
-            <line x1="80%" y1="36%" x2="68%" y2="52%" strokeWidth="1.5" strokeDasharray="3,3" />
-            <line x1="80%" y1="48%" x2="68%" y2="36%" strokeWidth="1.5" strokeDasharray="3,3" />
-            <line x1="80%" y1="60%" x2="68%" y2="40%" strokeWidth="1.5" strokeDasharray="3,3" />
-            <line x1="80%" y1="72%" x2="65%" y2="28%" strokeWidth="1.5" strokeDasharray="3,3" />
-            <line x1="80%" y1="84%" x2="65%" y2="32%" strokeWidth="1.5" strokeDasharray="3,3" />
+            {rightSlots.map((slot) => {
+              const isHovered = hoveredSlot === slot.slotId;
+              const hasItem = Boolean(getGearItemForSlot(gearBySlot, slot));
+              return (
+                <line
+                  key={`line-right-${slot.slotId}`}
+                  x1="100%"
+                  y1={slot.anchorY}
+                  x2={slot.lineTarget.x}
+                  y2={slot.lineTarget.y}
+                  stroke={isHovered ? "#c5a059" : hasItem ? "#c5a059" : "#4a4d5a"}
+                  strokeOpacity={isHovered ? 1 : hasItem ? 0.45 : 0.2}
+                  strokeWidth={isHovered ? 2.5 : 1.5}
+                  strokeDasharray={isHovered ? "none" : "3,3"}
+                  className="transition-all duration-200"
+                />
+              );
+            })}
           </svg>
         </div>
 
@@ -332,11 +376,11 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
               >
                 <div className="flex items-center gap-2 overflow-hidden min-w-0">
                   <div className={`size-8 shrink-0 border ${item ? quality.border : "border-[#2a2c33]"} bg-[#0a0a0d] flex items-center justify-center p-0.5`}>
-                    {item?.item_icon ? (
-                      <img src={item.item_icon} alt={item.item_name} className="size-full object-contain" />
-                    ) : (
-                      <Zap className="size-4 text-[#8a8275]" />
-                    )}
+                    <SlotItemIcon
+                      icon={item?.item_icon}
+                      itemName={item?.item_name}
+                      iconType={slot.iconType}
+                    />
                   </div>
                   <div className="truncate min-w-0">
                     <div className="flex items-center gap-1.5 leading-none">
@@ -382,9 +426,13 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
           <div className="space-y-2 animate-in fade-in duration-150">
             <div className="flex items-center justify-between border-b border-[#2a2c33] pb-1.5">
               <div className="flex items-center gap-2">
-                {activeHoveredItem.item_icon && (
-                  <img src={activeHoveredItem.item_icon} alt="" className="size-6 border border-[#c5a059]/40 bg-[#0a0a0d] p-0.5 object-contain" />
-                )}
+                <div className="size-6 border border-[#c5a059]/40 bg-[#0a0a0d] p-0.5 flex items-center justify-center">
+                  <SlotItemIcon
+                    icon={activeHoveredItem.item_icon}
+                    itemName={activeHoveredItem.item_name}
+                    iconType={activeHoveredSlotDef?.iconType || "armor"}
+                  />
+                </div>
                 <span className="font-cinzel font-bold text-sm text-[#e0d8c3]">{cleanEsoText(activeHoveredItem.item_name)}</span>
               </div>
               <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 border ${getQualityTheme(activeHoveredItem.quality, activeHoveredItem).border} ${getQualityTheme(activeHoveredItem.quality, activeHoveredItem).text}`}>
