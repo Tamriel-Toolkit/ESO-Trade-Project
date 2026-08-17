@@ -357,7 +357,104 @@ async function runTests() {
             throw new Error(`Failed to delete character by owner: ${JSON.stringify(authDelRes.data)}`);
         }
 
-        console.log("\nAll API endpoint tests passed successfully!");
+        // Re-create a test character for User 1 to test sync, inventory, and watchlist operations
+        const syncCharRes = await httpPost('/api/characters', {
+            name: "SecuredHeroTest",
+            class: "Templar",
+            level: 50,
+            alliance: 1
+        }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
+        const securedCharId = syncCharRes.data.character.id;
+
+        console.log("\n25. Testing POST /api/prices/sync authentication (expect 401 unauth, 200 auth)...");
+        const unauthPrices = await httpPost('/api/prices/sync', [{ game_item_id: 1129, avg_price: 500 }]);
+        if (unauthPrices.status !== 401) throw new Error(`Expected 401 for unauth prices/sync, got ${unauthPrices.status}`);
+        const authPrices = await httpPost('/api/prices/sync', [{ game_item_id: 1129, avg_price: 500 }], {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (authPrices.status !== 200) throw new Error(`Expected 200 for auth prices/sync, got ${authPrices.status}`);
+        console.log("   Prices sync auth & mutation verified!");
+
+        console.log("\n26. Testing POST /api/listings/sync authentication (expect 401 unauth, 200 auth)...");
+        const unauthListings = await httpPost('/api/listings/sync', { server: "NA", listings: [] });
+        if (unauthListings.status !== 401) throw new Error(`Expected 401 for unauth listings/sync, got ${unauthListings.status}`);
+        const authListings = await httpPost('/api/listings/sync', { server: "NA", listings: [] }, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (authListings.status !== 200) throw new Error(`Expected 200 for auth listings/sync, got ${authListings.status}`);
+        console.log("   Listings sync auth & mutation verified!");
+
+        console.log("\n27. Testing POST /api/characters/sync auth & IDOR protection...");
+        const unauthCharSync = await httpPost('/api/characters/sync', { name: "SecuredHeroTest", known_items: [1129] });
+        if (unauthCharSync.status !== 401) throw new Error(`Expected 401 for unauth characters/sync, got ${unauthCharSync.status}`);
+        const idorCharSync = await httpPost('/api/characters/sync', { name: "SecuredHeroTest", known_items: [1129] }, {
+            'Authorization': `Bearer ${user2BypassRes.data.token}`
+        });
+        if (idorCharSync.status !== 403) throw new Error(`Expected 403 for IDOR characters/sync, got ${idorCharSync.status}`);
+        const authCharSync = await httpPost('/api/characters/sync', { name: "SecuredHeroTest", known_items: [1129] }, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (authCharSync.status !== 200) throw new Error(`Expected 200 for auth characters/sync, got ${authCharSync.status}`);
+        console.log("   Character sync auth & IDOR protection verified!");
+
+        console.log("\n28. Testing POST /api/characters/upload-gear auth & IDOR protection...");
+        const unauthGear = await httpPost('/api/characters/upload-gear', { character_name: "SecuredHeroTest", gear: [] });
+        if (unauthGear.status !== 401) throw new Error(`Expected 401 for unauth upload-gear, got ${unauthGear.status}`);
+        const idorGear = await httpPost('/api/characters/upload-gear', { character_name: "SecuredHeroTest", gear: [] }, {
+            'Authorization': `Bearer ${user2BypassRes.data.token}`
+        });
+        if (idorGear.status !== 403) throw new Error(`Expected 403 for IDOR upload-gear, got ${idorGear.status}`);
+        const authGear = await httpPost('/api/characters/upload-gear', { character_name: "SecuredHeroTest", gear: [] }, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (authGear.status !== 200) throw new Error(`Expected 200 for auth upload-gear, got ${authGear.status}`);
+        console.log("   Upload gear auth & IDOR protection verified!");
+
+        console.log("\n29. Testing POST /api/inventory/sync auth & IDOR protection...");
+        const unauthInv = await httpPost('/api/inventory/sync', { character_id: securedCharId, inventory: [] });
+        if (unauthInv.status !== 401) throw new Error(`Expected 401 for unauth inventory/sync, got ${unauthInv.status}`);
+        const idorInv = await httpPost('/api/inventory/sync', { character_id: securedCharId, inventory: [] }, {
+            'Authorization': `Bearer ${user2BypassRes.data.token}`
+        });
+        if (idorInv.status !== 403) throw new Error(`Expected 403 for IDOR inventory/sync, got ${idorInv.status}`);
+        const authInv = await httpPost('/api/inventory/sync', { character_id: securedCharId, inventory: [] }, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (authInv.status !== 200) throw new Error(`Expected 200 for auth inventory/sync, got ${authInv.status}`);
+        console.log("   Inventory sync auth & IDOR protection verified!");
+
+        console.log("\n30. Testing POST /api/watchlist auth & IDOR protection...");
+        const unauthWatch = await httpPost('/api/watchlist', { character_id: securedCharId, game_item_id: 1129, target_price: 50 });
+        if (unauthWatch.status !== 401) throw new Error(`Expected 401 for unauth watchlist post, got ${unauthWatch.status}`);
+        const idorWatch = await httpPost('/api/watchlist', { character_id: securedCharId, game_item_id: 1129, target_price: 50 }, {
+            'Authorization': `Bearer ${user2BypassRes.data.token}`
+        });
+        if (idorWatch.status !== 403) throw new Error(`Expected 403 for IDOR watchlist post, got ${idorWatch.status}`);
+        const authWatch = await httpPost('/api/watchlist', { character_id: securedCharId, game_item_id: 1129, target_price: 50 }, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (authWatch.status !== 200) throw new Error(`Expected 200 for auth watchlist post, got ${authWatch.status}`);
+        console.log("   Watchlist add auth & IDOR protection verified!");
+
+        console.log("\n31. Testing DELETE /api/watchlist/:character_id/:game_item_id auth & IDOR protection...");
+        const unauthDelWatch = await httpDelete(`/api/watchlist/${securedCharId}/1129`);
+        if (unauthDelWatch.status !== 401) throw new Error(`Expected 401 for unauth watchlist delete, got ${unauthDelWatch.status}`);
+        const idorDelWatch = await httpDelete(`/api/watchlist/${securedCharId}/1129`, {
+            'Authorization': `Bearer ${user2BypassRes.data.token}`
+        });
+        if (idorDelWatch.status !== 403) throw new Error(`Expected 403 for IDOR watchlist delete, got ${idorDelWatch.status}`);
+        const authDelWatch = await httpDelete(`/api/watchlist/${securedCharId}/1129`, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (authDelWatch.status !== 200) throw new Error(`Expected 200 for auth watchlist delete, got ${authDelWatch.status}`);
+        console.log("   Watchlist delete auth & IDOR protection verified!");
+
+        // Cleanup test character
+        await httpDelete(`/api/characters/${securedCharId}`, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+
+        console.log("\nAll 31 API endpoint test suites passed successfully!");
     } catch (err) {
         console.error("API test failed:", err);
         process.exitCode = 1;
