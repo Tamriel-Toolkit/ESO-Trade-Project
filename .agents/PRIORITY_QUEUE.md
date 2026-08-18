@@ -25,15 +25,15 @@ This living document provides the prioritized execution queue for both human mai
 
 | Rank | Issue | Area | Severity | Status | Blocked By | Strategic Rationale |
 |:---:|:---|:---|:---:|:---:|:---:|:---|
-| **1** | #66 | Backend / Perf | MODERATE | 🟡 Next Up | None | Dedicated rate limiting and single-flight lock for live scraper extraction endpoint. |
-| **2** | #29 | Pipeline / Py | MODERATE | ⚪ Queued | None | Removes dead legacy code block in `fetch_market_data.py` (lines 140-182). |
-| **3** | #69 | Database / Perf | MODERATE | ⚪ Queued | None | Adds composite database indexes on guild_trader_listings for megaserver filtering. |
-| **4** | #71 | Frontend / Security | MODERATE | ⚪ Queued | None | Migrates frontend session token storage to HttpOnly SameSite cookies. |
-| **5** | #72 | Backend / Security | MODERATE | ⚪ Queued | None | Adds helmet middleware for HTTP security headers and CSP protection. |
-| **6** | #73 | Backend / API | MODERATE | ⚪ Queued | None | Adds batch size limits and numeric range validation on market and price uploads. |
-| **7** | #67 | Frontend / UX | MINOR | ⚪ Queued | None | Synchronizes Deals Only filter threshold with Deal badge calculation in Marketplace UI. |
-| **8** | #68 | Frontend / UX | MINOR | ⚪ Queued | None | Adds catch-all 404 route and themed NotFound page in React Router. |
-| **9** | #13 | Backend / Deps | MINOR | ⚪ Queued | None | Removes unused `body-parser` dependency from `backend/package.json`. |
+| **1** | #66 | Backend / Perf | MODERATE | 🟢 In Review (PR #94) | None | Dedicated rate limiting and single-flight lock for live scraper extraction endpoint. |
+| **2** | #29 | Pipeline / Py | MODERATE | 🟢 In Review (PR #94) | None | Removes dead legacy code block in `fetch_market_data.py` (lines 140-182). |
+| **3** | #69 | Database / Perf | MODERATE | 🟢 In Review (PR #94) | None | Adds composite database indexes on guild_trader_listings for megaserver filtering. |
+| **4** | #71 | Frontend / Security | MODERATE | 🟡 Next Up | None | Migrates frontend session token storage to HttpOnly SameSite cookies. |
+| **5** | #72 | Backend / Security | MODERATE | 🟢 In Review (PR #94) | None | Adds helmet middleware for HTTP security headers and CSP protection. |
+| **6** | #73 | Backend / API | MODERATE | 🟢 In Review (PR #94) | None | Adds batch size limits and numeric range validation on market and price uploads. |
+| **7** | #67 | Frontend / UX | MINOR | 🟢 In Review (PR #94) | None | Synchronizes Deals Only filter threshold with Deal badge calculation in Marketplace UI. |
+| **8** | #68 | Frontend / UX | MINOR | 🟢 In Review (PR #94) | None | Adds catch-all 404 route and themed NotFound page in React Router. |
+| **9** | #13 | Backend / Deps | MINOR | 🟢 In Review (PR #94) | None | Removes unused `body-parser` dependency from `backend/package.json`. |
 | **10** | #18 | Frontend / Auth | NITPICK | ⚪ Queued | None | Implements full `Login.jsx` UI and connects to the hardened auth endpoints. |
 | **11** | #17 | Frontend / UX | MINOR | ⚪ Queued | None | Improves WCAG text contrast ratios for dark theme legibility. |
 | **12** | #37 | Frontend / UI | MINOR | ⚪ Queued | None | Auto-fits dropdown menu width in `EsoSelect` to accommodate full alliance names without truncation. |
