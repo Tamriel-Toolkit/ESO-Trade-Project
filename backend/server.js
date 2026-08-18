@@ -5,6 +5,15 @@ const dotenv = require("dotenv");
 dotenv.config({ path: path.resolve(__dirname, ".env") });
 dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
+// Process-Level Exception & Rejection Handlers
+process.on("unhandledRejection", (reason, promise) => {
+    console.error("[FATAL] Unhandled Promise Rejection at:", promise, "reason:", reason);
+});
+
+process.on("uncaughtException", (err) => {
+    console.error("[FATAL] Uncaught Exception thrown:", err);
+});
+
 const express = require("express");
 const cors = require("cors");
 const crypto = require("crypto");
@@ -2267,6 +2276,38 @@ app.delete("/api/characters/:id", async (req, res) => {
     }
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
 });
+
+const gracefulShutdown = (signal) => {
+    console.log(`\n[API SERVER] Received ${signal}. Starting graceful shutdown...`);
+    server.close(() => {
+        console.log("[API SERVER] HTTP server closed.");
+        if (db) {
+            db.close((err) => {
+                if (err) {
+                    console.error("[DATABASE] Error closing SQLite connection:", err.message);
+                    process.exit(1);
+                } else {
+                    console.log("[DATABASE] SQLite database connection closed cleanly.");
+                    process.exit(0);
+                }
+            });
+        } else {
+            process.exit(0);
+        }
+    });
+
+    // Fallback if shutdown hangs after 5 seconds
+    setTimeout(() => {
+        console.error("[API SERVER] Graceful shutdown timed out. Terminating process immediately.");
+        process.exit(1);
+    }, 5000).unref();
+};
+
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+
+module.exports = { app, server, gracefulShutdown };
+
