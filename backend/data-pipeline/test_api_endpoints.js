@@ -1,14 +1,16 @@
+const fs = require('fs');
 const http = require('http');
 const { spawn } = require('child_process');
 const path = require('path');
 
 const PORT = 5002;
 const SERVER_PATH = path.join(__dirname, '..', 'server.js');
+const EPHEMERAL_DB = process.env.DB_PATH || path.join(__dirname, `scratch_test_${Date.now()}.db`);
 
-console.log("Starting temporary test server on port " + PORT + "...");
+console.log("Starting temporary test server on port " + PORT + " with sandbox DB: " + path.basename(EPHEMERAL_DB) + "...");
 
 const serverProcess = spawn('node', [SERVER_PATH], {
-    env: { ...process.env, PORT: PORT, NODE_ENV: process.env.NODE_ENV || 'test', ENABLE_DEV_ENDPOINTS: 'true' },
+    env: { ...process.env, PORT: PORT, DB_PATH: EPHEMERAL_DB, NODE_ENV: process.env.NODE_ENV || 'test', ENABLE_DEV_ENDPOINTS: 'true' },
     stdio: 'pipe'
 });
 
@@ -518,7 +520,15 @@ async function runTests() {
         process.exitCode = 1;
     } finally {
         serverProcess.kill();
-        process.exit(process.exitCode || 0);
+        // Give server process a brief moment to release file lock before unlinking test DB
+        setTimeout(() => {
+            try {
+                if (fs.existsSync(EPHEMERAL_DB) && !process.env.DB_PATH) {
+                    fs.unlinkSync(EPHEMERAL_DB);
+                }
+            } catch (e) {}
+            process.exit(process.exitCode || 0);
+        }, 300);
     }
 }
 
