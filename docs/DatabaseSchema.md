@@ -205,6 +205,6 @@ While `uuid` remains the Primary Key for internal database integrity, the `game_
 To prevent database bloating and ensure only active market listings and valid sessions are retained:
 - **SQLite Triggers**: `trg_purge_expired_listings_insert` and `trg_purge_expired_listings_update` automatically delete listings where `expires_at` is older than `datetime('now')` upon insertion or update.
 - **Background Cron / Scheduled Daemon**: Both the Node.js Express backend (`server.js`) and the Python file watcher daemon (`watcher.py`) run hourly periodic purges executing `DELETE FROM guild_trader_listings WHERE expires_at IS NOT NULL AND datetime(expires_at) < datetime('now');` and `DELETE FROM sessions WHERE datetime(expires_at) <= datetime('now');`.
-- **Indexes**: `idx_listings_expires_at` on `guild_trader_listings(expires_at)` and `idx_sessions_expires_at` on `sessions(expires_at)` provide high-performance TTL range queries and rapid purges.
+- **Indexes**: `idx_listings_expires_at` on `guild_trader_listings(expires_at)`, `idx_listings_server_item` on `guild_trader_listings(server, game_item_id)`, `idx_listings_server` on `guild_trader_listings(server)`, and `idx_sessions_expires_at` on `sessions(expires_at)` provide high-performance megaserver filtering, TTL range queries, and rapid purges.
 
 

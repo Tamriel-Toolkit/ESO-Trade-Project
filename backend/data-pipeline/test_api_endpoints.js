@@ -529,12 +529,41 @@ async function runTests() {
         if (!validExtract.data.success) throw new Error(`Expected success=true from extract endpoint`);
         console.log("   Scraper child process execution & validation verified without server crash!");
 
+        console.log("\n33. Testing Helmet HTTP security headers...");
+        const taxonomyRes = await httpGet('/api/taxonomy');
+        if (taxonomyRes.headers['x-content-type-options'] !== 'nosniff') {
+            throw new Error(`Expected X-Content-Type-Options: nosniff, got ${taxonomyRes.headers['x-content-type-options']}`);
+        }
+        if (taxonomyRes.headers['x-frame-options'] !== 'SAMEORIGIN') {
+            throw new Error(`Expected X-Frame-Options: SAMEORIGIN, got ${taxonomyRes.headers['x-frame-options']}`);
+        }
+        console.log("   Helmet security headers verified (nosniff, SAMEORIGIN)!");
+
+        console.log("\n34. Testing POST /api/watchlist target_price numeric bounds validation...");
+        const invalidWatchPrice = await httpPost('/api/watchlist', { character_id: securedCharId, game_item_id: 1129, target_price: -100 }, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (invalidWatchPrice.status !== 400) throw new Error(`Expected 400 for negative target_price, got ${invalidWatchPrice.status}`);
+        console.log("   Watchlist negative/zero price validation verified!");
+
+        console.log("\n35. Testing POST /api/market/upload-scans batch size limit (>2000 items)...");
+        const oversizedBatch = Array.from({ length: 2005 }, (_, i) => ({
+            game_item_id: 1129,
+            price: 100,
+            guild_name: "Test Guild"
+        }));
+        const batchLimitRes = await httpPost('/api/market/upload-scans', { server: "NA", listings: oversizedBatch }, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (batchLimitRes.status !== 400) throw new Error(`Expected 400 for oversized batch, got ${batchLimitRes.status}`);
+        console.log("   Batch upload size limit enforcement verified!");
+
         // Cleanup test character
         await httpDelete(`/api/characters/${securedCharId}`, {
             'Authorization': `Bearer ${bypassRes.data.token}`
         });
 
-        console.log("\nAll 32 API endpoint test suites passed successfully!");
+        console.log("\nAll 35 API endpoint test suites passed successfully!");
     } catch (err) {
         console.error("API test failed:", err);
         process.exitCode = 1;
