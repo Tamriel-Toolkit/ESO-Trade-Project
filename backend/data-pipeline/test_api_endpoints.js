@@ -152,6 +152,18 @@ async function runTests() {
         }
         createdUserId = regRes.data.user?.id;
 
+        console.log("\n6b. Testing POST /api/auth/register input validation & sanitization...");
+        const shortPwRes = await httpPost('/api/auth/register', { username: 'valid_user_1', email: 'valid@mail.com', password: '123' });
+        if (shortPwRes.status !== 400) throw new Error(`Expected 400 for short password, got ${shortPwRes.status}`);
+
+        const badEmailRes = await httpPost('/api/auth/register', { username: 'valid_user_2', email: 'not-an-email', password: 'ValidPassword123!' });
+        if (badEmailRes.status !== 400) throw new Error(`Expected 400 for bad email, got ${badEmailRes.status}`);
+
+        const badUserRes = await httpPost('/api/auth/register', { username: 'bad user!', email: 'valid2@mail.com', password: 'ValidPassword123!' });
+        if (badUserRes.status !== 400) throw new Error(`Expected 400 for invalid username characters, got ${badUserRes.status}`);
+
+        console.log("   Auth input validation (username, email, password length) verified!");
+
         console.log("\n7. Testing POST /api/auth/login with valid bcrypt credentials...");
         const loginRes = await httpPost('/api/auth/login', {
             usernameOrEmail: testUser.username,
