@@ -1624,6 +1624,7 @@ app.post("/api/market/listings/extract", async (req, res) => {
 
     const targetServer = server || "NA";
     const { spawn } = require("child_process");
+    let hasResponded = false;
 
     try {
         const pyScript = path.join(__dirname, "data-pipeline", "live_trader_extractor.py");
@@ -1631,24 +1632,38 @@ app.post("/api/market/listings/extract", async (req, res) => {
             env: process.env
         });
 
+        pyProcess.on("error", (err) => {
+            console.error(`[Scraper Error]: Failed to spawn child process: ${err.message}`);
+            if (!hasResponded) {
+                hasResponded = true;
+                res.status(500).json({
+                    error: `Failed to execute scraper process: ${err.message}`,
+                    success: false
+                });
+            }
+        });
+
         pyProcess.on("close", async (code) => {
+            if (hasResponded) return;
+            hasResponded = true;
+
             console.log(`Live extraction process finished with code ${code}`);
             try {
                 const query = `
                     SELECT 
                         gtl.id AS listing_id, gtl.game_item_id, gtl.server, gtl.price, gtl.quantity,
                         gtl.guild_name, gtl.location, gtl.expires_at, gtl.discovered_at,
-                        i.name AS item_name, i.icon_url AS item_icon, i.category AS item_category,
-                        i.subcategory AS item_subcategory, i.rarity AS item_rarity, i.metadata AS item_metadata,
+                        COALESCE(gtl.item_name, i.name) AS item_name, i.icon_url AS item_icon, i.category AS item_category,
+                        i.subcategory AS item_subcategory, COALESCE(gtl.quality, i.rarity, 1) AS item_rarity, i.metadata AS item_metadata,
                         ip.suggested_price, ip.avg_price,
                         CASE WHEN gtl.price > 0 THEN CAST(ip.suggested_price AS REAL) / gtl.price ELSE 0 END AS value_index
                     FROM guild_trader_listings gtl
                     JOIN items i ON gtl.game_item_id = i.game_item_id
                     LEFT JOIN item_prices ip ON gtl.game_item_id = ip.game_item_id AND gtl.server = ip.server
-                    WHERE gtl.server = ? AND i.name LIKE ?
+                    WHERE gtl.server = ? AND (i.name LIKE ? OR gtl.item_name LIKE ?)
                     ORDER BY value_index DESC, gtl.price ASC;
                 `;
-                const rows = await dbAll(query, [targetServer, `%${search}%`]);
+                const rows = await dbAll(query, [targetServer, `%${search}%`, `%${search}%`]);
                 const listings = rows.map(r => {
                     try { r.item_metadata = JSON.parse(r.item_metadata); } catch(e) { r.item_metadata = {}; }
                     return r;
@@ -1659,7 +1674,10 @@ app.post("/api/market/listings/extract", async (req, res) => {
             }
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        if (!hasResponded) {
+            hasResponded = true;
+            res.status(500).json({ error: err.message });
+        }
     }
 });
 

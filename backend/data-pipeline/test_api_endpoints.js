@@ -509,12 +509,20 @@ async function runTests() {
         if (authDelWatch.status !== 200) throw new Error(`Expected 200 for auth watchlist delete, got ${authDelWatch.status}`);
         console.log("   Watchlist delete auth & IDOR protection verified!");
 
+        console.log("\n32. Testing POST /api/market/listings/extract child process & input validation...");
+        const emptyExtract = await httpPost('/api/market/listings/extract', {});
+        if (emptyExtract.status !== 400) throw new Error(`Expected 400 for empty extract request, got ${emptyExtract.status}`);
+        const validExtract = await httpPost('/api/market/listings/extract', { search: "Mother's Sorrow", server: "NA" });
+        if (validExtract.status !== 200) throw new Error(`Expected 200 for valid extract request, got ${validExtract.status}`);
+        if (!validExtract.data.success) throw new Error(`Expected success=true from extract endpoint`);
+        console.log("   Scraper child process execution & validation verified without server crash!");
+
         // Cleanup test character
         await httpDelete(`/api/characters/${securedCharId}`, {
             'Authorization': `Bearer ${bypassRes.data.token}`
         });
 
-        console.log("\nAll 31 API endpoint test suites passed successfully!");
+        console.log("\nAll 32 API endpoint test suites passed successfully!");
     } catch (err) {
         console.error("API test failed:", err);
         process.exitCode = 1;
