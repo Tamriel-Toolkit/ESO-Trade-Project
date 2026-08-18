@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { fetchDevUsers, devUpdateUser, devDeleteUser, registerUser } from '../../api/api';
+import { fetchDevUsers, devUpdateUser, devDeleteUser, registerUser, clearAllListings } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 import { Shield, Zap, Edit2, Trash2, X, Plus, Key, Users } from 'lucide-react';
 
@@ -28,6 +28,17 @@ export default function DevAccountModal({ isOpen, onClose }) {
     }, [isOpen]);
 
     if (!isOpen || import.meta.env.PROD) return null;
+
+    const handleClearListings = async () => {
+        if (window.confirm("⚠️ [DEV ACTION]\nAre you sure you want to clear all market listings and price entries from the database?")) {
+            const res = await clearAllListings();
+            if (res && res.success) {
+                alert("✅ All market listings and price records have been cleared!");
+            } else {
+                alert("❌ Failed to clear listings: " + (res?.error || "Unknown error"));
+            }
+        }
+    };
 
     const handleBypass = async (userId) => {
         const res = await devBypass(userId);
@@ -104,18 +115,28 @@ export default function DevAccountModal({ isOpen, onClose }) {
                 </div>
 
                 {/* Toolbar */}
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
                     <div className="text-xs text-[#a89f91] flex items-center gap-2 font-mono">
                         <Users className="w-4 h-4 text-[#c5a059]" />
                         <span>Registered Accounts: <strong className="text-[#e0d8c3]">{users.length}</strong></span>
                     </div>
-                    <button
-                        onClick={() => setShowCreate(!showCreate)}
-                        className="px-3 py-1.5 rounded-none bg-[#c5a059]/20 hover:bg-[#c5a059]/30 border border-[#c5a059]/40 text-[#d4af37] text-xs font-cinzel font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
-                    >
-                        <Plus className="w-4 h-4" />
-                        {showCreate ? "Cancel New User" : "Create Test Account"}
-                    </button>
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={handleClearListings}
+                            className="px-3 py-1.5 rounded-none bg-red-950/30 hover:bg-red-900/50 border border-red-900/60 text-red-400 hover:text-red-300 text-xs font-cinzel font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
+                            title="Clear all active listings and price records from SQLite database"
+                        >
+                            <Trash2 className="w-3.5 h-3.5" />
+                            <span>Clear Market DB</span>
+                        </button>
+                        <button
+                            onClick={() => setShowCreate(!showCreate)}
+                            className="px-3 py-1.5 rounded-none bg-[#c5a059]/20 hover:bg-[#c5a059]/30 border border-[#c5a059]/40 text-[#d4af37] text-xs font-cinzel font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
+                        >
+                            <Plus className="w-4 h-4" />
+                            {showCreate ? "Cancel New User" : "Create Test Account"}
+                        </button>
+                    </div>
                 </div>
 
                 {/* Create Quick User Form */}
