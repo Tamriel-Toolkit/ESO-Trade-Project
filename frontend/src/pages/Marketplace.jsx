@@ -250,17 +250,19 @@ function Marketplace() {
 
         {/* Action Controls & Dev Tools */}
         <div className="flex flex-wrap items-center gap-3">
-          {/* Dev Clear Database Button */}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleClearListings}
-            className="rounded-none gap-1.5 font-bold text-xs border-red-900/60 bg-red-950/30 text-red-400 hover:bg-red-900/50 hover:text-red-300 hover:border-red-600 transition-all"
-            title="Development: Clear all active listings and price records from SQLite database"
-          >
-            <Trash2 className="size-3.5 text-red-400" />
-            <span>[DEV] Clear Listings</span>
-          </Button>
+          {/* Dev Clear Database Button (Development Only) */}
+          {import.meta.env.DEV && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleClearListings}
+              className="rounded-none gap-1.5 font-bold text-xs border-red-900/60 bg-red-950/30 text-red-400 hover:bg-red-900/50 hover:text-red-300 hover:border-red-600 transition-all"
+              title="Development: Clear all active listings and price records from SQLite database"
+            >
+              <Trash2 className="size-3.5 text-red-400" />
+              <span>[DEV] Clear Listings</span>
+            </Button>
+          )}
 
           {/* View Mode Toggle */}
           <div className="flex items-center gap-1 bg-[#121218] p-1 border border-[#2a2c33]">
