@@ -25,8 +25,8 @@ This living document provides the prioritized execution queue for both human mai
 
 | Rank | Issue | Area | Severity | Status | Blocked By | Strategic Rationale |
 |:---:|:---|:---|:---:|:---:|:---:|:---|
-| **1** | #63 | Backend / Security | MODERATE | 🟡 Next Up | None | Implements input validation and sanitization on authentication endpoints. |
-| **2** | #64 | Pipeline / Security | MODERATE | ⚪ Queued | None | Restores SSL certificate and hostname verification in live trader extractor. |
+| **1** | #63 | Backend / Security | MODERATE | 🟢 In Review (PR #91) | None | Implements input validation and sanitization on authentication endpoints. |
+| **2** | #64 | Pipeline / Security | MODERATE | 🟡 Next Up | None | Restores SSL certificate and hostname verification in live trader extractor. |
 | **3** | #65 | Backend / Stability | MODERATE | ⚪ Queued | None | Adds global unhandledRejection and graceful shutdown handlers in server.js. |
 | **4** | #66 | Backend / Perf | MODERATE | ⚪ Queued | None | Dedicated rate limiting and single-flight lock for live scraper extraction endpoint. |
 | **5** | #29 | Pipeline / Py | MODERATE | ⚪ Queued | None | Removes dead legacy code block in `fetch_market_data.py` (lines 140-182). |
