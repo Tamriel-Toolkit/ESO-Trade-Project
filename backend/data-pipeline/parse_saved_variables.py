@@ -124,7 +124,7 @@ def parse_ttc_saved_variables(file_path, db_conn, server="NA"):
             game_item_id = name_to_game_id.get(name.lower())
 
         if game_item_id:
-            listings.append((game_item_id, server, unit_price, amount, guild_name, location, exp_time))
+            listings.append((game_item_id, name, server, unit_price, amount, guild_name, location, exp_time))
 
     print(f"Extracted {len(listings)} authentic player-scanned listings from SavedVariables ({server}).")
 
@@ -133,8 +133,8 @@ def parse_ttc_saved_variables(file_path, db_conn, server="NA"):
 
     if listings:
         cursor.executemany("""
-            INSERT INTO guild_trader_listings (game_item_id, server, price, quantity, guild_name, location, expires_at, discovered_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
+            INSERT INTO guild_trader_listings (game_item_id, item_name, server, price, quantity, guild_name, location, expires_at, discovered_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP);
         """, listings)
         db_conn.commit()
         print(f"SUCCESS! Ingested {len(listings)} authentic player trader listings into database!")

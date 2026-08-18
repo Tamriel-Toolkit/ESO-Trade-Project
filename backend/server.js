@@ -255,6 +255,7 @@ function initializeDatabaseSchema() {
             CREATE TABLE IF NOT EXISTS guild_trader_listings (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 game_item_id INTEGER,
+                item_name TEXT,
                 server TEXT,
                 seller_name TEXT DEFAULT '@Unknown',
                 price INTEGER,
@@ -276,6 +277,9 @@ function initializeDatabaseSchema() {
                 console.log("'guild_trader_listings' table initialized successfully.");
             }
         });
+
+        // Ensure item_name column exists for dynamic in-game item naming
+        db.run(`ALTER TABLE guild_trader_listings ADD COLUMN item_name TEXT`, () => {});
 
         db.run(`
             CREATE TABLE IF NOT EXISTS user_inventory (
@@ -1493,8 +1497,8 @@ app.get("/api/market/listings", async (req, res) => {
     const params = [targetServer];
 
     if (search) {
-        conditions.push("i.name LIKE ?");
-        params.push(`%${search}%`);
+        conditions.push("(i.name LIKE ? OR gtl.item_name LIKE ?)");
+        params.push(`%${search}%`, `%${search}%`);
     }
     if (category) {
         conditions.push("i.category = ?");
@@ -1505,7 +1509,7 @@ app.get("/api/market/listings", async (req, res) => {
         params.push(subcategory);
     }
     if (rarity) {
-        conditions.push("i.rarity = ?");
+        conditions.push("COALESCE(gtl.quality, i.rarity) = ?");
         params.push(parseInt(rarity, 10));
     }
     if (location) {
@@ -1536,8 +1540,8 @@ app.get("/api/market/listings", async (req, res) => {
     const whereClause = " WHERE " + conditions.join(" AND ");
 
     let orderBy = "ORDER BY value_index DESC, gtl.price ASC";
-    if (sort === "rarity_desc") orderBy = "ORDER BY i.rarity DESC, value_index DESC";
-    if (sort === "rarity_asc") orderBy = "ORDER BY i.rarity ASC, value_index DESC";
+    if (sort === "rarity_desc") orderBy = "ORDER BY item_rarity DESC, value_index DESC";
+    if (sort === "rarity_asc") orderBy = "ORDER BY item_rarity ASC, value_index DESC";
     if (sort === "price_asc") orderBy = "ORDER BY gtl.price ASC";
     if (sort === "price_desc") orderBy = "ORDER BY gtl.price DESC";
     if (sort === "newest") orderBy = "ORDER BY gtl.discovered_at DESC";
@@ -1569,11 +1573,11 @@ app.get("/api/market/listings", async (req, res) => {
                 gtl.trait_id,
                 gtl.expires_at,
                 gtl.discovered_at,
-                i.name AS item_name,
+                COALESCE(gtl.item_name, i.name) AS item_name,
                 i.icon_url AS item_icon,
                 i.category AS item_category,
                 i.subcategory AS item_subcategory,
-                i.rarity AS item_rarity,
+                COALESCE(gtl.quality, i.rarity, 1) AS item_rarity,
                 i.metadata AS item_metadata,
                 ip.suggested_price,
                 ip.avg_price,
@@ -1701,7 +1705,8 @@ app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
         const batchStartTime = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
         for (const item of listings) {
-            const { game_item_id, price, quantity, active_stacks, seller_name, guild_name, location, level, quality, trait_id, expires_at } = item;
+            const { game_item_id, item_name, name, price, quantity, active_stacks, seller_name, guild_name, location, level, quality, trait_id, expires_at } = item;
+            const displayName = item_name || name || null;
             if (game_item_id && price && guild_name) {
                 const stackQty = Math.max(1, parseInt(quantity, 10) || 1);
                 const stacksCount = Math.max(1, parseInt(active_stacks, 10) || 1);
@@ -1710,14 +1715,15 @@ app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
 
                 await dbRun(`
                     INSERT INTO guild_trader_listings 
-                    (game_item_id, server, seller_name, price, quantity, active_stacks, guild_name, location, level, quality, trait_id, expires_at, discovered_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    (game_item_id, item_name, server, seller_name, price, quantity, active_stacks, guild_name, location, level, quality, trait_id, expires_at, discovered_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     ON CONFLICT(game_item_id, server, guild_name, seller_name, price, quantity, level, quality, trait_id) DO UPDATE SET
+                        item_name = COALESCE(excluded.item_name, item_name),
                         active_stacks = excluded.active_stacks,
                         discovered_at = CURRENT_TIMESTAMP,
                         location = CASE WHEN excluded.location != 'Tamriel Trader Kiosk' AND excluded.location != 'Guild Trader' THEN excluded.location ELSE location END,
                         expires_at = COALESCE(excluded.expires_at, expires_at);
-                `, [game_item_id, targetServer, sellerHandle, unitPrice, stackQty, stacksCount, guild_name, location || "Guild Trader", level || 1, quality || 1, trait_id || 0, expires_at || null]);
+                `, [game_item_id, displayName, targetServer, sellerHandle, unitPrice, stackQty, stacksCount, guild_name, location || "Guild Trader", level || 1, quality || 1, trait_id || 0, expires_at || null]);
                 insertedCount++;
                 affectedItemIds.add(game_item_id);
                 scannedGuilds.add(guild_name);

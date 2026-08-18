@@ -180,6 +180,7 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
         uid_m = re.search(r'\["UID"\]\s*=\s*"([^"]+)"', snippet)
         link_m = re.search(r'\|H\d+:item:(\d+):', snippet)
         item_id_m = re.search(r'\["ItemId"\]\s*=\s*(\d+)', snippet)
+        name_m = re.search(r'\["Name"\]\s*=\s*"([^"]+)"', snippet)
         price_m = re.search(r'\["Price"\]\s*=\s*(\d+)', snippet)
         qty_m = re.search(r'\["Qty"\]\s*=\s*(\d+)', snippet)
         guild_m = re.search(r'\["Guild"\]\s*=\s*"([^"]+)"', snippet)
@@ -202,6 +203,7 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
 
         raw_link_id = int(link_m.group(1)) if link_m else 0
         raw_table_id = int(item_id_m.group(1)) if item_id_m else 0
+        raw_name = name_m.group(1).strip() if name_m else ""
         
         item_id = raw_link_id if raw_link_id in valid_ids else (raw_table_id if raw_table_id in valid_ids else 0)
         total_price = int(price_m.group(1)) if price_m else None
@@ -228,6 +230,7 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
             raw_scans.append({
                 "uid": raw_uid,
                 "game_item_id": item_id,
+                "item_name": raw_name,
                 "price": unit_price,
                 "quantity": qty,
                 "seller_name": seller,
@@ -286,9 +289,12 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
 
         if group_key in grouped_listings:
             grouped_listings[group_key]["active_stacks"] += 1
+            if not grouped_listings[group_key].get("item_name") and item.get("item_name"):
+                grouped_listings[group_key]["item_name"] = item["item_name"]
         else:
             grouped_listings[group_key] = {
                 "game_item_id": item["game_item_id"],
+                "item_name": item.get("item_name", ""),
                 "price": item["price"],
                 "quantity": item["quantity"],
                 "active_stacks": 1,
@@ -312,14 +318,15 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
         for item in listings:
             cursor.execute("""
                 INSERT INTO guild_trader_listings 
-                (game_item_id, server, seller_name, price, quantity, active_stacks, guild_name, location, level, quality, trait_id, expires_at, discovered_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                (game_item_id, item_name, server, seller_name, price, quantity, active_stacks, guild_name, location, level, quality, trait_id, expires_at, discovered_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(game_item_id, server, guild_name, seller_name, price, quantity, level, quality, trait_id) DO UPDATE SET
+                    item_name = COALESCE(excluded.item_name, item_name),
                     active_stacks = excluded.active_stacks,
                     discovered_at = CURRENT_TIMESTAMP,
                     location = CASE WHEN excluded.location != 'Tamriel Trader Kiosk' AND excluded.location != 'Guild Trader' THEN excluded.location ELSE location END,
                     expires_at = COALESCE(excluded.expires_at, expires_at);
-            """, (item["game_item_id"], server, item.get("seller_name", "@Unknown"), item["price"], item["quantity"], item.get("active_stacks", 1), item["guild_name"], item["location"], item["level"], item["quality"], item["trait_id"], item["expires_at"]))
+            """, (item["game_item_id"], item.get("item_name"), server, item.get("seller_name", "@Unknown"), item["price"], item["quantity"], item.get("active_stacks", 1), item["guild_name"], item["location"], item["level"], item["quality"], item["trait_id"], item["expires_at"]))
             affected_ids.add(item["game_item_id"])
 
     # Always auto-discover playing character in local SQLite

@@ -616,7 +616,7 @@ function Marketplace() {
                   (item.listing_id && selectedItem.listing_id === item.listing_id) ||
                   (item.game_item_id && selectedItem.game_item_id === item.game_item_id && !item.listing_id)
                 );
-                const rarityInfo = RARITY_MAP[item.item_rarity] || RARITY_MAP[1];
+                const rarityInfo = RARITY_MAP[item.quality || item.item_rarity] || RARITY_MAP[1];
                 const cleanName = cleanEsoText(item.item_name);
 
                 return (
