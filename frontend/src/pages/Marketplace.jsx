@@ -50,6 +50,8 @@ import { useTheme } from "@/components/theme-provider";
 import { fetchTaxonomy, fetchMarketListings, fetchMarketPrices, extractLiveListings, clearAllListings } from "@/api/api";
 import { cleanEsoText, renderEsoFormattedText, getEsoIconUrl } from "@/lib/utils";
 
+const DEAL_THRESHOLD = 1.2;
+
 const RARITY_MAP = {
   1: { label: "Normal", color: "border-gray-600 text-gray-300 bg-gray-900/40" },
   2: { label: "Fine", color: "border-green-600 text-green-400 bg-green-950/40" },
@@ -154,7 +156,7 @@ function Marketplace() {
     };
 
     if (viewMode === "listings") {
-      if (dealsOnly) params.min_value_index = 1.2;
+      if (dealsOnly) params.min_value_index = DEAL_THRESHOLD;
       fetchMarketListings(params).then((res) => {
         setItemsData(res.listings || []);
         setTotalItems(res.total || 0);
@@ -661,7 +663,7 @@ function Marketplace() {
                         </div>
 
                         {/* Value Index Badge */}
-                        {item.value_index && item.value_index >= 1.1 && (
+                        {item.value_index && item.value_index >= DEAL_THRESHOLD && (
                           <span className="shrink-0 bg-emerald-950/60 border border-emerald-500/50 text-emerald-400 text-[11px] px-2 py-0.5 font-bold flex items-center gap-1">
                             <Zap className="size-3 fill-emerald-400" />
                             {item.value_index.toFixed(1)}x Deal

@@ -5,6 +5,7 @@ import Home from './pages/Home.jsx';
 import Login from './pages/Login.jsx';
 import Marketplace from './pages/Marketplace.jsx';
 import CharacterManager from './pages/CharacterManager.jsx';
+import NotFound from './pages/NotFound.jsx';
 import './App.css';
 
 function App() {
@@ -17,6 +18,7 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/marketplace" element={<Marketplace />} />
             <Route path="/characters" element={<CharacterManager />} />
+            <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

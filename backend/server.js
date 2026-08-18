@@ -15,6 +15,7 @@ process.on("uncaughtException", (err) => {
 });
 
 const express = require("express");
+const helmet = require("helmet");
 const cors = require("cors");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
@@ -25,6 +26,12 @@ const PORT = process.env.PORT || 5001;
 
 // Developer & Testing Environment Flag
 const isDevMode = (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test" || process.env.ENABLE_DEV_ENDPOINTS === "true") && process.env.NODE_ENV !== "production";
+
+// Security Headers Middleware
+app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false
+}));
 
 // Middleware
 const corsOptions = {
@@ -61,6 +68,17 @@ const batchUploadLimiter = rateLimit({
     skip: () => process.env.NODE_ENV === "test",
     message: { error: "Too many batch upload requests. Please slow down." }
 });
+
+const scraperLimiter = rateLimit({
+    windowMs: 5 * 60 * 1000, // 5 minutes
+    limit: 5, // 5 extraction requests per 5 minutes per IP
+    standardHeaders: true,
+    legacyHeaders: true,
+    skip: () => process.env.NODE_ENV === "test",
+    message: { error: "Scraper extraction rate limit exceeded. Please wait before triggering another live scan." }
+});
+
+let isScraperRunning = false;
 
 app.use("/api/", generalLimiter);
 app.use("/api/auth/", authLimiter);
@@ -357,6 +375,8 @@ function initializeDatabaseSchema() {
         `);
         db.run("CREATE INDEX IF NOT EXISTS idx_listings_game_item_id ON guild_trader_listings(game_item_id);");
         db.run("CREATE INDEX IF NOT EXISTS idx_listings_expires_at ON guild_trader_listings(expires_at);");
+        db.run("CREATE INDEX IF NOT EXISTS idx_listings_server_item ON guild_trader_listings(server, game_item_id);");
+        db.run("CREATE INDEX IF NOT EXISTS idx_listings_server ON guild_trader_listings(server);");
 
         // SQLite triggers for automated expired listing TTL purging on insert & update
         db.run(`
@@ -876,6 +896,9 @@ app.post("/api/prices/sync", async (req, res) => {
     if (!Array.isArray(prices)) {
         return res.status(400).json({ error: "Expected an array of price objects." });
     }
+    if (prices.length > 2000) {
+        return res.status(400).json({ error: "Batch size exceeds maximum limit of 2,000 price records per request." });
+    }
 
     try {
         await dbRun("BEGIN IMMEDIATE TRANSACTION");
@@ -1218,6 +1241,11 @@ app.post("/api/watchlist", async (req, res) => {
 
     if (!character_id || !game_item_id || target_price === undefined) {
         return res.status(400).json({ error: "character_id, game_item_id, and target_price are required." });
+    }
+
+    const parsedTargetPrice = parseInt(target_price, 10);
+    if (isNaN(parsedTargetPrice) || parsedTargetPrice <= 0) {
+        return res.status(400).json({ error: "Target price must be a positive number greater than zero." });
     }
 
     try {
@@ -1631,12 +1659,20 @@ app.get("/api/market/listings", async (req, res) => {
  * POST /api/market/listings/extract
  * Triggers live extraction for a requested item name from TTC web portal.
  */
-app.post("/api/market/listings/extract", async (req, res) => {
+app.post("/api/market/listings/extract", scraperLimiter, async (req, res) => {
     const { search, server } = req.body;
-    if (!search) {
+    if (!search || typeof search !== "string" || search.trim().length === 0) {
         return res.status(400).json({ error: "search parameter is required." });
     }
 
+    if (isScraperRunning) {
+        return res.status(409).json({
+            error: "A live market extraction job is already in progress. Please wait for it to complete.",
+            success: false
+        });
+    }
+
+    isScraperRunning = true;
     const targetServer = server || "NA";
     const { spawn } = require("child_process");
     let hasResponded = false;
@@ -1648,6 +1684,7 @@ app.post("/api/market/listings/extract", async (req, res) => {
         });
 
         pyProcess.on("error", (err) => {
+            isScraperRunning = false;
             console.error(`[Scraper Error]: Failed to spawn child process: ${err.message}`);
             if (!hasResponded) {
                 hasResponded = true;
@@ -1659,6 +1696,7 @@ app.post("/api/market/listings/extract", async (req, res) => {
         });
 
         pyProcess.on("close", async (code) => {
+            isScraperRunning = false;
             if (hasResponded) return;
             hasResponded = true;
 
@@ -1689,6 +1727,7 @@ app.post("/api/market/listings/extract", async (req, res) => {
             }
         });
     } catch (err) {
+        isScraperRunning = false;
         if (!hasResponded) {
             hasResponded = true;
             res.status(500).json({ error: err.message });
@@ -1713,6 +1752,10 @@ app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
 
     if (!Array.isArray(listings) || listings.length === 0) {
         return res.status(400).json({ error: "Invalid listings array." });
+    }
+
+    if (listings.length > 2000) {
+        return res.status(400).json({ error: "Batch size exceeds maximum limit of 2,000 listings per request." });
     }
 
     try {
