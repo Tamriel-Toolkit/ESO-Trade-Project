@@ -25,8 +25,8 @@ This living document provides the prioritized execution queue for both human mai
 
 | Rank | Issue | Area | Severity | Status | Blocked By | Strategic Rationale |
 |:---:|:---|:---|:---:|:---:|:---:|:---|
-| **1** | #64 | Pipeline / Security | MODERATE | 🟡 Next Up | None | Restores SSL certificate and hostname verification in live trader extractor. |
-| **2** | #65 | Backend / Stability | MODERATE | ⚪ Queued | None | Adds global unhandledRejection and graceful shutdown handlers in server.js. |
+| **1** | #64 | Pipeline / Security | MODERATE | 🟢 In Review (PR #92) | None | Restores SSL certificate and hostname verification in live trader extractor. |
+| **2** | #65 | Backend / Stability | MODERATE | 🟡 Next Up | None | Adds global unhandledRejection and graceful shutdown handlers in server.js. |
 | **3** | #66 | Backend / Perf | MODERATE | ⚪ Queued | None | Dedicated rate limiting and single-flight lock for live scraper extraction endpoint. |
 | **4** | #29 | Pipeline / Py | MODERATE | ⚪ Queued | None | Removes dead legacy code block in `fetch_market_data.py` (lines 140-182). |
 | **5** | #69 | Database / Perf | MODERATE | ⚪ Queued | None | Adds composite database indexes on guild_trader_listings for megaserver filtering. |
