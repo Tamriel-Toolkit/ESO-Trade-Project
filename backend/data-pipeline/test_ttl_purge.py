@@ -9,9 +9,46 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_PATH = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "exports", "eso_catalog.db"))
 
 def test_ttl_purge():
+    os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     print(f"Connecting to database at {DB_PATH}...")
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
+
+    # Step 0: Ensure schema exists
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS items (
+            game_item_id INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            category TEXT,
+            subcategory TEXT,
+            rarity INTEGER,
+            icon_url TEXT,
+            metadata TEXT
+        );
+    """)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS guild_trader_listings (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            game_item_id INTEGER,
+            item_name TEXT,
+            server TEXT,
+            seller_name TEXT DEFAULT '@Unknown',
+            price INTEGER,
+            quantity INTEGER,
+            active_stacks INTEGER DEFAULT 1,
+            guild_name TEXT,
+            location TEXT,
+            level INTEGER DEFAULT 1,
+            quality INTEGER DEFAULT 1,
+            trait_id INTEGER DEFAULT 0,
+            expires_at TEXT,
+            discovered_at TEXT DEFAULT CURRENT_TIMESTAMP
+        );
+    """)
+    cursor.execute("SELECT COUNT(*) FROM items")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("INSERT OR IGNORE INTO items (game_item_id, name, category, subcategory, rarity) VALUES (1129, 'Test Bow', 'Weapon', 'Bow', 5)")
+    conn.commit()
 
     # Step 1: Ensure triggers and indexes exist
     cursor.execute("CREATE INDEX IF NOT EXISTS idx_listings_expires_at ON guild_trader_listings(expires_at);")
