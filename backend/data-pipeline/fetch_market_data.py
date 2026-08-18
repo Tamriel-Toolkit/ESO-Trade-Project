@@ -72,6 +72,40 @@ def parse_ttc_lookup_table(lookup_content, db_conn):
     print(f"Mapped {len(ttc_id_to_game_id)} TTC internal IDs directly to master catalog game_item_ids.")
     return ttc_id_to_game_id
 
+def find_lookup_table_content():
+    """
+    Finds and reads ItemLookUpTable_EN.lua from cache zips, loose cache files, or addon directories.
+    """
+    # 1. Check inside PriceTableNA_real.zip or other cache zips
+    zip_paths = [
+        os.path.join(CACHE_DIR, "PriceTableNA_real.zip"),
+        os.path.join(CACHE_DIR, "PriceTable_NA.zip"),
+        os.path.join(CACHE_DIR, "PriceTable_NA_live.zip"),
+    ]
+    for zp in zip_paths:
+        if os.path.exists(zp):
+            try:
+                with zipfile.ZipFile(zp) as z:
+                    if "ItemLookUpTable_EN.lua" in z.namelist():
+                        print(f"Loaded ItemLookUpTable_EN.lua from zip archive: {os.path.basename(zp)}")
+                        return z.read("ItemLookUpTable_EN.lua").decode('utf-8', errors='ignore')
+            except Exception:
+                pass
+
+    # 2. Check loose file in cache or addon directories
+    loose_paths = [
+        os.path.join(CACHE_DIR, "ItemLookUpTable_EN.lua"),
+        os.path.expanduser("~/Documents/Elder Scrolls Online/live/AddOns/TamrielTradeCentre/ItemLookUpTable_EN.lua"),
+        os.path.expanduser("~/OneDrive/Documents/Elder Scrolls Online/live/AddOns/TamrielTradeCentre/ItemLookUpTable_EN.lua")
+    ]
+    for lp in loose_paths:
+        if os.path.exists(lp):
+            print(f"Loaded ItemLookUpTable_EN.lua from: {lp}")
+            with open(lp, "r", encoding="utf-8", errors="ignore") as f:
+                return f.read()
+
+    return None
+
 def parse_ttc_lua_content(content, server, lookup_mapping=None):
     """
     Parses TTC PriceTable Lua content and aggregates price metrics per game_item_id.
@@ -99,8 +133,13 @@ def parse_ttc_lua_content(content, server, lookup_mapping=None):
             continue
         processed_ttc_ids.add(ttc_item_id)
 
-        # Map TTC item ID to game_item_id using lookup_mapping if available
-        game_item_id = lookup_mapping.get(ttc_item_id, ttc_item_id) if lookup_mapping else ttc_item_id
+        # Map TTC item ID to authentic ZOS game_item_id using lookup_mapping
+        if lookup_mapping:
+            game_item_id = lookup_mapping.get(ttc_item_id)
+            if not game_item_id:
+                continue
+        else:
+            game_item_id = ttc_item_id
 
         start_pos = matches[i].end()
         end_pos = matches[i+1].start() if i + 1 < len(matches) else len(content)
@@ -132,50 +171,6 @@ def parse_ttc_lua_content(content, server, lookup_mapping=None):
                 'max_price': int(max_p or sug_p),
                 'suggested_price': int(sug_p)
             })
-
-    return parsed_records
-    
-    for i in range(len(matches)):
-        start_idx = matches[i].start()
-        end_idx = matches[i+1].start() if i + 1 < len(matches) else content.rfind('}')
-        
-        block = content[start_idx:end_idx]
-        game_item_id = int(matches[i].group(1))
-
-        # Find price sub-dictionaries inside block: ["A"]=..., ["N"]=..., ["X"]=..., ["SA"]=...
-        price_dicts = re.findall(r'\{[^{}]*?"A"=[^{}]*?\}', block)
-        if not price_dicts:
-            continue
-
-        a_vals, x_vals, n_vals, sa_vals = [], [], [], []
-
-        for pdict in price_dicts:
-            a = re.search(r'"A"=([\d\.]+)', pdict)
-            x = re.search(r'"X"=([\d\.]+)', pdict)
-            n = re.search(r'"N"=([\d\.]+)', pdict)
-            sa = re.search(r'"SA"=([\d\.]+)', pdict) or re.search(r'"S"=([\d\.]+)', pdict)
-
-            if a: a_vals.append(float(a.group(1)))
-            if x: x_vals.append(float(x.group(1)))
-            if n: n_vals.append(float(n.group(1)))
-            if sa: sa_vals.append(float(sa.group(1)))
-
-        if not a_vals and not n_vals:
-            continue
-
-        avg_price = int(sum(a_vals) / len(a_vals)) if a_vals else None
-        min_price = int(min(n_vals)) if n_vals else None
-        max_price = int(max(x_vals)) if x_vals else None
-        suggested_price = int(sum(sa_vals) / len(sa_vals)) if sa_vals else avg_price
-
-        parsed_records.append({
-            'game_item_id': game_item_id,
-            'server': server,
-            'avg_price': avg_price,
-            'min_price': min_price,
-            'max_price': max_price,
-            'suggested_price': suggested_price
-        })
 
     return parsed_records
 
@@ -285,6 +280,14 @@ def main():
 
     conn = sqlite3.connect(args.db_path)
 
+    # 1. Load Item Lookup Table mapping
+    lookup_content = find_lookup_table_content()
+    lookup_mapping = None
+    if lookup_content:
+        lookup_mapping = parse_ttc_lookup_table(lookup_content, conn)
+    else:
+        print("[Warning] ItemLookUpTable_EN.lua not found. Strict ID mapping unavailable.")
+
     servers = ["NA", "EU"] if args.server == "BOTH" else [args.server]
 
     for s in servers:
@@ -296,18 +299,31 @@ def main():
                 print(f"Reading specified local Lua file: {args.file}...")
                 with open(args.file, "r", encoding="utf-8", errors="ignore") as f:
                     content = f.read()
-                price_records = parse_ttc_lua_content(content, server=s)
+                price_records = parse_ttc_lua_content(content, server=s, lookup_mapping=lookup_mapping)
                 upsert_market_data(conn, price_records)
             else:
                 print(f"[Error] Specified file not found: {args.file}")
             continue
 
-        # 2. Check for auto-detected local PriceTable files in cache or SavedVariables
+        # 2. Check for zip archive with PriceTable in cache
+        zip_candidate = os.path.join(CACHE_DIR, f"PriceTable{s}_real.zip")
+        if os.path.exists(zip_candidate):
+            print(f"Reading from real cached zip archive: {zip_candidate}...")
+            with zipfile.ZipFile(zip_candidate) as z:
+                lua_name = f"PriceTable{s}.lua"
+                if lua_name in z.namelist():
+                    content = z.read(lua_name).decode('utf-8', errors='ignore')
+                    price_records = parse_ttc_lua_content(content, server=s, lookup_mapping=lookup_mapping)
+                    upsert_market_data(conn, price_records)
+                    continue
+
+        # 3. Check for auto-detected local PriceTable files in cache or SavedVariables
         auto_paths = [
             os.path.join(CACHE_DIR, f"PriceTable{s}.lua"),
             os.path.join(CACHE_DIR, f"PriceTable_{s}.lua"),
             os.path.expanduser(f"~/Documents/Elder Scrolls Online/live/SavedVariables/TamrielTradeCentre.lua"),
-            os.path.expanduser(f"~/Documents/Elder Scrolls Online/live/AddOns/TamrielTradeCentre/PriceTable{s}.lua")
+            os.path.expanduser(f"~/Documents/Elder Scrolls Online/live/AddOns/TamrielTradeCentre/PriceTable{s}.lua"),
+            os.path.expanduser(f"~/OneDrive/Documents/Elder Scrolls Online/live/AddOns/TamrielTradeCentre/PriceTable{s}.lua")
         ]
         
         local_found = None
@@ -320,18 +336,21 @@ def main():
             print(f"Auto-detected real market export file: {local_found}")
             with open(local_found, "r", encoding="utf-8", errors="ignore") as f:
                 content = f.read()
-            price_records = parse_ttc_lua_content(content, server=s)
+            price_records = parse_ttc_lua_content(content, server=s, lookup_mapping=lookup_mapping)
             upsert_market_data(conn, price_records)
             continue
 
-        # 3. Attempt network fetch
+        # 4. Attempt network fetch
         try:
             zip_bytes = get_zip_content(s, force_download=args.force_download)
             filename = f"PriceTable{s}.lua"
             with zipfile.ZipFile(io.BytesIO(zip_bytes)) as z:
+                if "ItemLookUpTable_EN.lua" in z.namelist() and not lookup_mapping:
+                    lk_text = z.read("ItemLookUpTable_EN.lua").decode('utf-8', errors='ignore')
+                    lookup_mapping = parse_ttc_lookup_table(lk_text, conn)
                 content = z.read(filename).decode('utf-8', errors='ignore')
             
-            price_records = parse_ttc_lua_content(content, server=s)
+            price_records = parse_ttc_lua_content(content, server=s, lookup_mapping=lookup_mapping)
             upsert_market_data(conn, price_records)
         except Exception as e:
             print(f"[Notice] Network fetch unavailable ({e}). Strict Real-Data Mode enabled: Zero synthetic fallback data generated.")
