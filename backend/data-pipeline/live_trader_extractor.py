@@ -41,11 +41,9 @@ DEFAULT_TRADE_ITEMS = [
 
 def get_ttc_item_id(item_name):
     """
-    Fetches TTC internal ItemID via AutoComplete API.
+    Fetches TTC internal ItemID via AutoComplete API with standard TLS certificate validation.
     """
     ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
 
     url = f"https://us.tamrieltradecentre.com/api/pc/Trade/GetItemAutoComplete?term={urllib.parse.quote(item_name)}"
     headers = {
