@@ -114,6 +114,44 @@ def find_esotrade_savedvars():
             return p
     return None
 
+def reset_esotrade_scans_on_disk(file_path):
+    """
+    Safely and cleanly resets ["Scans"] = {} inside ESOTrade.lua on disk
+    without corrupting character metadata or equipped gear loadouts.
+    """
+    if not file_path or not os.path.exists(file_path):
+        return False
+    try:
+        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            content = f.read()
+
+        scans_pos = content.find('["Scans"]')
+        if scans_pos == -1:
+            return False
+
+        brace_start = content.find('{', scans_pos)
+        if brace_start == -1:
+            return False
+
+        depth = 1
+        idx = brace_start + 1
+        while idx < len(content) and depth > 0:
+            if content[idx] == '{':
+                depth += 1
+            elif content[idx] == '}':
+                depth -= 1
+            idx += 1
+
+        if depth == 0:
+            new_content = content[:brace_start] + "{}" + content[idx:]
+            with open(file_path, "w", encoding="utf-8") as f:
+                f.write(new_content)
+            print(f"[ESOTrade Auto-Clear] Emptied Scans table in {os.path.basename(file_path)} on disk (ready for fresh scans).")
+            return True
+    except Exception as e:
+        print(f"[ESOTrade Auto-Clear Warning] Could not reset Scans in {os.path.basename(file_path)}: {e}")
+    return False
+
 def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
     sv_file = file_path or find_esotrade_savedvars()
     if not sv_file or not os.path.exists(sv_file):
@@ -590,18 +628,8 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
 
         print(f"SUCCESS! Ingested {len(listings)} custom ESOTrade listings into database!")
 
-        # Automated SavedVariables Disk Flush: Reset Scans = {} in ESOTrade.lua SavedVariables on disk
-        try:
-            # Cleanly strip all scanned items from ["Scans"] = { ... }
-            new_content = re.sub(r'\["Scans"\]\s*=\s*\{[^\}]*\}', '["Scans"] = {}', content, flags=re.DOTALL)
-            # Also strip any orphaned numerical array items left outside
-            new_content = re.sub(r'\n\s*\[\d+\]\s*=\s*\{[^\}]*\},?', '', new_content, flags=re.DOTALL)
-            if new_content != content:
-                with open(sv_file, 'w', encoding='utf-8') as f:
-                    f.write(new_content)
-                print(f"AUTOMATED FLUSH: Reset scanned items in {os.path.basename(sv_file)} on disk!")
-        except Exception as fe:
-            print("[Notice] SavedVariables disk flush notice:", fe)
+        # Automated SavedVariables Disk Flush: Cleanly reset Scans = {} in ESOTrade.lua on disk
+        reset_esotrade_scans_on_disk(sv_file)
 
     conn.close()
     return len(listings)
