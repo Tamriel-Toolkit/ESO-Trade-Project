@@ -1943,15 +1943,45 @@ async function getAuthUserId(req) {
  * POST /api/auth/register
  */
 app.post("/api/auth/register", async (req, res) => {
-    const { username, email, password, eso_handle } = req.body;
-    if (!username || !email || !password) {
+    let { username, email, password, eso_handle } = req.body;
+    if (!username || typeof username !== "string" || !email || typeof email !== "string" || !password || typeof password !== "string") {
         return res.status(400).json({ error: "Username, email, and password are required." });
+    }
+
+    username = username.trim();
+    email = email.trim().toLowerCase();
+
+    // Username validation: 3 to 32 alphanumeric characters, hyphens, and underscores
+    const usernameRegex = /^[a-zA-Z0-9_-]{3,32}$/;
+    if (!usernameRegex.test(username)) {
+        return res.status(400).json({ error: "Username must be between 3 and 32 alphanumeric characters (letters, numbers, hyphens, and underscores only)." });
+    }
+
+    // Email format validation (RFC-compliant regex)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email) || email.length > 255) {
+        return res.status(400).json({ error: "Please provide a valid email address." });
+    }
+
+    // Password validation: minimum 8 characters, maximum 128 characters
+    if (password.length < 8) {
+        return res.status(400).json({ error: "Password must be at least 8 characters long." });
+    }
+    if (password.length > 128) {
+        return res.status(400).json({ error: "Password cannot exceed 128 characters." });
     }
 
     try {
         const pwHash = hashPassword(password);
         const apiToken = `api_key_${crypto.randomBytes(16).toString("hex")}`;
-        const handle = eso_handle || `@${username}`;
+        let handle = `@${username}`;
+        if (eso_handle && typeof eso_handle === "string") {
+            const trimmedHandle = eso_handle.trim();
+            if (trimmedHandle.length > 0) {
+                handle = trimmedHandle.startsWith("@") ? trimmedHandle : `@${trimmedHandle}`;
+                if (handle.length > 64) handle = handle.substring(0, 64);
+            }
+        }
 
         const result = await dbRun(`
             INSERT INTO users (username, email, password_hash, eso_handle, api_token, role)
@@ -1971,9 +2001,17 @@ app.post("/api/auth/register", async (req, res) => {
  * POST /api/auth/login
  */
 app.post("/api/auth/login", async (req, res) => {
-    const { usernameOrEmail, password } = req.body;
-    if (!usernameOrEmail || !password) {
+    let { usernameOrEmail, password } = req.body;
+    if (!usernameOrEmail || typeof usernameOrEmail !== "string" || !password || typeof password !== "string") {
         return res.status(400).json({ error: "Username/email and password are required." });
+    }
+
+    usernameOrEmail = usernameOrEmail.trim();
+    if (usernameOrEmail.length === 0 || password.length === 0) {
+        return res.status(400).json({ error: "Username/email and password cannot be empty." });
+    }
+    if (password.length > 128) {
+        return res.status(400).json({ error: "Password cannot exceed 128 characters." });
     }
 
     try {
