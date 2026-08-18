@@ -25,8 +25,8 @@ This living document provides the prioritized execution queue for both human mai
 
 | Rank | Issue | Area | Severity | Status | Blocked By | Strategic Rationale |
 |:---:|:---|:---|:---:|:---:|:---:|:---|
-| **1** | #61 | Backend / Config | MODERATE | 🟡 Next Up | None | Adds dotenv dependency and loader to backend server initialization. |
-| **2** | #60 | Frontend / UI | MODERATE | ⚪ Queued | None | Gates DEV-Only Clear Listings button from production Marketplace UI. |
+| **1** | #61 | Backend / Config | MODERATE | 🟢 In Review (PR #89) | None | Adds dotenv dependency and loader to backend server initialization. |
+| **2** | #60 | Frontend / UI | MODERATE | 🟡 Next Up | None | Gates DEV-Only Clear Listings button from production Marketplace UI. |
 | **3** | #63 | Backend / Security | MODERATE | ⚪ Queued | None | Implements input validation and sanitization on authentication endpoints. |
 | **4** | #64 | Pipeline / Security | MODERATE | ⚪ Queued | None | Restores SSL certificate and hostname verification in live trader extractor. |
 | **5** | #65 | Backend / Stability | MODERATE | ⚪ Queued | None | Adds global unhandledRejection and graceful shutdown handlers in server.js. |
