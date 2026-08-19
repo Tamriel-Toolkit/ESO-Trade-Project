@@ -2530,9 +2530,13 @@ app.get("/api/builds/:id", async (req, res) => {
  * Creates a custom user build.
  */
 app.post("/api/builds", async (req, res) => {
-    const userId = await getAuthUserId(req);
+    let userId = await getAuthUserId(req);
     if (!userId) {
-        return res.status(401).json({ error: "Authentication required to create custom builds." });
+        if (isDevMode) {
+            userId = 1; // Seamless dev fallback for local testing
+        } else {
+            return res.status(401).json({ error: "Authentication required to create custom builds. Please log in or switch accounts in the top-right menu." });
+        }
     }
 
     const { title, description, class: buildClass, role, author, source_url, items = [] } = req.body;
@@ -2597,9 +2601,13 @@ app.post("/api/builds", async (req, res) => {
  * Deletes a user-owned build.
  */
 app.delete("/api/builds/:id", async (req, res) => {
-    const userId = await getAuthUserId(req);
+    let userId = await getAuthUserId(req);
     if (!userId) {
-        return res.status(401).json({ error: "Authentication required to delete builds." });
+        if (isDevMode) {
+            userId = 1;
+        } else {
+            return res.status(401).json({ error: "Authentication required to delete builds." });
+        }
     }
 
     const buildId = req.params.id;
@@ -2609,12 +2617,12 @@ app.delete("/api/builds/:id", async (req, res) => {
             return res.status(404).json({ error: "Build not found." });
         }
 
+        if (build.is_curated) {
+            return res.status(403).json({ error: "Curated meta presets cannot be deleted." });
+        }
+
         const user = await dbGet(`SELECT role FROM users WHERE id = ?;`, [userId]);
         const isAdmin = user && user.role === "admin";
-
-        if (build.is_curated && !isAdmin) {
-            return res.status(403).json({ error: "Forbidden: Curated meta presets cannot be deleted." });
-        }
 
         if (build.user_id !== userId && !isAdmin) {
             return res.status(403).json({ error: "Forbidden: You do not have permission to delete this build." });

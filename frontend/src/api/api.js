@@ -50,6 +50,31 @@ async function apiFetch(path, options = {}) {
     return response;
 }
 
+/**
+ * Safely parse JSON responses even when non-JSON error pages (like HTML 404/500) are returned
+ */
+async function safeJsonResponse(response, defaultError = 'Request failed') {
+    try {
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+            const data = await response.json();
+            if (!response.ok && !data.error) {
+                data.error = `Server error (HTTP ${response.status})`;
+            }
+            return data;
+        }
+        if (!response.ok) {
+            return { 
+                success: false, 
+                error: `HTTP ${response.status} ${response.statusText} — Please ensure the backend server has been restarted.` 
+            };
+        }
+        return { success: false, error: defaultError };
+    } catch (err) {
+        return { success: false, error: err.message || defaultError };
+    }
+}
+
 export async function fetchSystemStatus() {
     try {
         const response = await apiFetch('/api/status');
@@ -297,7 +322,7 @@ export async function fetchBuilds({ class: buildClass, role, is_curated, search,
         if (offset) params.append("offset", offset);
 
         const response = await apiFetch(`/api/builds?${params.toString()}`);
-        return await response.json();
+        return await safeJsonResponse(response, 'Failed to fetch builds');
     } catch (error) {
         return { success: false, builds: [], error: error.message };
     }
@@ -306,7 +331,7 @@ export async function fetchBuilds({ class: buildClass, role, is_curated, search,
 export async function fetchBuildById(id) {
     try {
         const response = await apiFetch(`/api/builds/${id}`);
-        return await response.json();
+        return await safeJsonResponse(response, 'Failed to fetch build details');
     } catch (error) {
         return { success: false, error: error.message };
     }
@@ -318,7 +343,7 @@ export async function createCustomBuild(buildPayload) {
             method: 'POST',
             body: JSON.stringify(buildPayload)
         });
-        return await response.json();
+        return await safeJsonResponse(response, 'Failed to create build');
     } catch (error) {
         return { success: false, error: error.message };
     }
@@ -329,7 +354,7 @@ export async function deleteCustomBuild(id) {
         const response = await apiFetch(`/api/builds/${id}`, {
             method: 'DELETE'
         });
-        return await response.json();
+        return await safeJsonResponse(response, 'Failed to delete build');
     } catch (error) {
         return { success: false, error: error.message };
     }
@@ -338,7 +363,7 @@ export async function deleteCustomBuild(id) {
 export async function fetchBuildGearDiff(buildId, characterId) {
     try {
         const response = await apiFetch(`/api/builds/${buildId}/diff/${characterId}`);
-        return await response.json();
+        return await safeJsonResponse(response, 'Failed to diff build gear');
     } catch (error) {
         return { success: false, error: error.message };
     }
@@ -351,7 +376,7 @@ export async function fetchBuildDeals(buildId, { server = "NA", characterId } = 
         if (characterId) params.append("character_id", characterId);
 
         const response = await apiFetch(`/api/builds/${buildId}/deals?${params.toString()}`);
-        return await response.json();
+        return await safeJsonResponse(response, 'Failed to fetch build deals');
     } catch (error) {
         return { success: false, deals_by_slot: [], error: error.message };
     }
