@@ -17,6 +17,7 @@ process.on("uncaughtException", (err) => {
 const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const { rateLimit } = require("express-rate-limit");
@@ -27,6 +28,15 @@ const PORT = process.env.PORT || 5001;
 // Developer & Testing Environment Flag
 const isDevMode = (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test" || process.env.ENABLE_DEV_ENDPOINTS === "true") && process.env.NODE_ENV !== "production";
 
+// Auth Cookie Settings
+const AUTH_COOKIE_NAME = "eso_trade_token";
+const getAuthCookieOptions = () => ({
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+});
+
 // Security Headers Middleware
 app.use(helmet({
     contentSecurityPolicy: false,
@@ -36,9 +46,11 @@ app.use(helmet({
 // Middleware
 const corsOptions = {
     origin: process.env.FRONTEND_URL || "http://localhost:5173",
+    credentials: true,
     optionsSuccessStatus: 200
 };
 app.use(cors(corsOptions));
+app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
 
 // Rate Limiting Middleware
@@ -1964,9 +1976,21 @@ setInterval(purgeExpiredSessions, 60 * 60 * 1000);
 setTimeout(purgeExpiredSessions, 3000);
 
 async function getAuthUserId(req) {
-    const authHeader = req.headers["authorization"] || req.headers["x-auth-token"];
-    if (!authHeader) return null;
-    const token = authHeader.replace("Bearer ", "").trim();
+    let token = null;
+
+    // 1. Check HttpOnly cookie first
+    if (req.cookies && req.cookies[AUTH_COOKIE_NAME]) {
+        token = req.cookies[AUTH_COOKIE_NAME];
+    }
+
+    // 2. Check Authorization / x-auth-token header fallback
+    if (!token) {
+        const authHeader = req.headers["authorization"] || req.headers["x-auth-token"];
+        if (authHeader) {
+            token = authHeader.replace("Bearer ", "").trim();
+        }
+    }
+
     if (!token) return null;
 
     try {
@@ -2043,6 +2067,7 @@ app.post("/api/auth/register", async (req, res) => {
         const user = await dbGet(`SELECT id, username, email, eso_handle, role, api_token, created_at FROM users WHERE id = ?;`, [result.lastID]);
         const session = await createSession(user.id);
 
+        res.cookie(AUTH_COOKIE_NAME, session.token, getAuthCookieOptions());
         res.json({ success: true, token: session.token, expires_at: session.expires_at, user });
     } catch (err) {
         res.status(400).json({ error: err.message.includes("UNIQUE") ? "Username or email already taken." : err.message });
@@ -2101,6 +2126,7 @@ app.post("/api/auth/login", async (req, res) => {
 
         const session = await createSession(userPayload.id);
 
+        res.cookie(AUTH_COOKIE_NAME, session.token, getAuthCookieOptions());
         res.json({ success: true, token: session.token, expires_at: session.expires_at, user: userPayload });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -2109,17 +2135,21 @@ app.post("/api/auth/login", async (req, res) => {
 
 /**
  * POST /api/auth/logout
- * Revokes the active session token from the SQLite store
+ * Revokes the active session token from the SQLite store and clears the HttpOnly cookie
  */
 app.post("/api/auth/logout", async (req, res) => {
     try {
-        const authHeader = req.headers["authorization"] || req.headers["x-auth-token"];
-        if (authHeader) {
-            const token = authHeader.replace("Bearer ", "").trim();
-            if (token) {
-                await deleteSession(token);
+        let token = req.cookies ? req.cookies[AUTH_COOKIE_NAME] : null;
+        if (!token) {
+            const authHeader = req.headers["authorization"] || req.headers["x-auth-token"];
+            if (authHeader) {
+                token = authHeader.replace("Bearer ", "").trim();
             }
         }
+        if (token) {
+            await deleteSession(token);
+        }
+        res.clearCookie(AUTH_COOKIE_NAME, getAuthCookieOptions());
         res.json({ success: true, message: "Logged out successfully." });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -2186,6 +2216,7 @@ if (isDevMode) {
 
             const session = await createSession(user.id);
 
+            res.cookie(AUTH_COOKIE_NAME, session.token, getAuthCookieOptions());
             res.json({
                 success: true,
                 message: `[DEV BYPASS] Successfully logged into account: @${user.username}`,

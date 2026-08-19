@@ -558,12 +558,27 @@ async function runTests() {
         if (batchLimitRes.status !== 400) throw new Error(`Expected 400 for oversized batch, got ${batchLimitRes.status}`);
         console.log("   Batch upload size limit enforcement verified!");
 
+        console.log("\n36. Testing HttpOnly SameSite cookie authentication flow...");
+        const cookieLogin = await httpPost('/api/dev/bypass-login', { user_id: 1 });
+        const setCookieHeader = cookieLogin.headers['set-cookie'];
+        if (!setCookieHeader || !setCookieHeader.some(c => c.includes('eso_trade_token=') && c.toLowerCase().includes('httponly'))) {
+            throw new Error(`Expected Set-Cookie header with eso_trade_token and HttpOnly, got ${JSON.stringify(setCookieHeader)}`);
+        }
+        const authCookie = setCookieHeader.find(c => c.includes('eso_trade_token=')).split(';')[0];
+        
+        // Query /api/auth/me using ONLY the cookie (no Authorization Bearer header)
+        const cookieMeRes = await httpGet('/api/auth/me', { 'Cookie': authCookie });
+        if (cookieMeRes.status !== 200 || !cookieMeRes.data.user || cookieMeRes.data.user.id !== 1) {
+            throw new Error(`Expected 200 and User 1 via Cookie auth, got status ${cookieMeRes.status}`);
+        }
+        console.log("   HttpOnly cookie authentication verified without Authorization header!");
+
         // Cleanup test character
         await httpDelete(`/api/characters/${securedCharId}`, {
             'Authorization': `Bearer ${bypassRes.data.token}`
         });
 
-        console.log("\nAll 35 API endpoint test suites passed successfully!");
+        console.log("\nAll 36 API endpoint test suites passed successfully!");
     } catch (err) {
         console.error("API test failed:", err);
         process.exitCode = 1;
