@@ -194,6 +194,7 @@ export default function CharacterManager() {
                                 onChange={(val) => setSelectedAllianceFilter(Number(val))}
                                 options={allianceOptions}
                                 placeholder="Select Alliance"
+                                aria-label="Filter character roster by Alliance"
                             />
 
                             {/* Class Filter Custom Dropdown */}
@@ -202,6 +203,7 @@ export default function CharacterManager() {
                                 onChange={(val) => setSelectedClassFilter(String(val))}
                                 options={classOptions}
                                 placeholder="Select Class"
+                                aria-label="Filter character roster by Class"
                             />
 
                             {/* Reset Filters Quick Button */}
