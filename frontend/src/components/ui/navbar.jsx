@@ -1,16 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Globe, Gamepad2, Monitor, Shield, Zap, User, Store, LogOut, Radio } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { ModeToggle } from "@/components/ui/mode-toggle";
-import { useTheme } from "@/components/theme-provider";
-import { useAuth } from "@/context/AuthContext";
 import { fetchSystemStatus } from "@/api/api";
+import SettingsMenu from "./SettingsMenu";
+import UserMenu from "./UserMenu";
 import DevAccountModal from "../dev/DevAccountModal";
 
 function Navbar() {
-  const { platform, togglePlatform, serverLocation, toggleServerLocation } = useTheme();
-  const { user, logout } = useAuth();
   const [isDevModalOpen, setIsDevModalOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState({ status: 'checking', latestScan: null });
   const location = useLocation();
@@ -30,218 +25,101 @@ function Navbar() {
     });
   }, []);
 
-  const getPlatformIcon = () => {
-    if (platform === "PC") return <Monitor className="size-4 text-[#c5a059]" />;
-    return <Gamepad2 className="size-4 text-[#c5a059]" />;
-  };
-
   const isActive = (path) => location.pathname === path;
 
   return (
     <>
-      <header className="w-full bg-[#121218] border-b border-[#2a2c33] text-[#e0d8c3] shadow-2xl rounded-none relative">
+      <header className="w-full bg-[#121218] border-b border-[#2a2c33] text-[#e0d8c3] shadow-2xl relative sticky top-0 z-50">
         {/* Ornate Top Border Highlight */}
         <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#c5a059] to-transparent"></div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
-          {/* Brand & Left Navigation Links */}
-          <div className="flex items-center gap-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between relative">
+          {/* 1. Left: Brand Identity */}
+          <div className="flex items-center">
             <Link 
               to="/" 
-              className="group flex items-center gap-2.5 font-cinzel text-lg md:text-xl font-bold tracking-wider text-[#c5a059] hover:text-[#d4af37] transition-colors"
+              className="group flex items-center gap-3 font-cinzel text-xl md:text-2xl font-extrabold tracking-wider text-[#d4af37] hover:text-[#e0d8c3] transition-colors"
             >
-              <div className="size-8 rounded-none bg-[#0a0a0d] border border-[#c5a059]/40 flex items-center justify-center text-xs font-bold font-mono text-[#c5a059] shadow-inner group-hover:border-[#c5a059]">
+              <div className="size-10 rounded-none bg-[#0a0a0d] border-2 border-[#c5a059]/60 flex items-center justify-center text-xs font-black font-mono text-[#d4af37] shadow-inner group-hover:border-[#c5a059] group-hover:shadow-[0_0_12px_rgba(197,160,89,0.4)] transition-all">
                 ESO
               </div>
-              <span className="flex items-center gap-1.5">
-                TAMRIEL <span className="text-[#e0d8c3] font-normal text-sm md:text-base">TRADE HUB</span>
+              <span className="flex items-center gap-2">
+                TAMRIEL <span className="text-[#e0d8c3] font-medium text-base md:text-lg">TRADE HUB</span>
               </span>
             </Link>
-
-            {/* Navigation Menu Links */}
-            <nav className="hidden md:flex items-center gap-1 border-l border-[#2a2c33] pl-6">
-              <Link
-                to="/"
-                className={`px-3 py-1.5 text-xs uppercase font-cinzel font-semibold tracking-widest transition-all border ${
-                  isActive('/') 
-                    ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' 
-                    : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
-                }`}
-              >
-                Home
-              </Link>
-              <Link
-                to="/marketplace"
-                className={`px-3 py-1.5 text-xs uppercase font-cinzel font-semibold tracking-widest transition-all border ${
-                  isActive('/marketplace') 
-                    ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' 
-                    : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
-                }`}
-              >
-                Marketplace
-              </Link>
-              <Link
-                to="/characters"
-                className={`px-3 py-1.5 text-xs uppercase font-cinzel font-semibold tracking-widest transition-all border ${
-                  isActive('/characters') 
-                    ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' 
-                    : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
-                }`}
-              >
-                Roster & Crafters
-              </Link>
-            </nav>
           </div>
 
-          {/* Right Tools & Verified Addon Sync Status */}
-          <div className="flex flex-wrap items-center gap-2">
-            {/* Live Addon Sync Status Indicator Verified via /api/status */}
-            <div
-              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 bg-[#0a0a0d] border border-[#2a2c33] text-[11px] font-mono text-[#a89f91]"
-              title={syncStatus.latestScan ? `Verified Backend Sync. Last Scan: ${syncStatus.latestScan}` : "Checking Watcher Sync Status..."}
+          {/* 2. Center: Absolute Geometric Center Primary Navigation */}
+          <nav className="hidden md:flex items-center gap-2 absolute left-1/2 -translate-x-1/2">
+            <Link
+              to="/"
+              className={`px-5 py-2 text-sm uppercase font-cinzel font-bold tracking-[0.15em] transition-all border-b-2 ${
+                isActive('/') 
+                  ? 'border-[#c5a059] text-[#d4af37] bg-[#c5a059]/10 shadow-[0_2px_12px_rgba(197,160,89,0.3)]' 
+                  : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
+              }`}
             >
-              {syncStatus.status === 'online' ? (
-                <>
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                  </span>
-                  <span className="text-[#d4af37] font-semibold">ESOTrade Addon:</span>
-                  <span className="text-emerald-400">Sync Active</span>
-                </>
-              ) : (
-                <>
-                  <span className="h-2 w-2 rounded-full bg-amber-500"></span>
-                  <span className="text-[#d4af37] font-semibold">ESOTrade Addon:</span>
-                  <span className="text-amber-400">Connecting...</span>
-                </>
-              )}
-            </div>
-
-            {/* Developer Bypass Button (Dev mode only) */}
-            {!import.meta.env.PROD && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setIsDevModalOpen(true)}
-                className="rounded-none gap-1.5 font-bold cursor-pointer bg-amber-950/30 hover:bg-amber-900/50 text-[#d4af37] border-[#c5a059]/40 hover:border-[#c5a059] shadow-sm transition-all text-xs"
-                title="Open Developer Account Switcher & Bypass Panel"
-              >
-                <Zap className="size-3.5 text-[#c5a059] fill-[#c5a059]" />
-                <span>[DEV] Accounts</span>
-              </Button>
-            )}
-
-            {/* Active Session Badge */}
-            {user ? (
-              <div className="flex items-center gap-2 pl-2 border-l border-[#2a2c33]">
-                <Link
-                  to="/characters"
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-none bg-[#161620] border border-[#c5a059]/30 text-[#e0d8c3] text-xs font-semibold hover:border-[#c5a059]/60 transition-colors"
-                >
-                  <User className="size-3.5 text-[#c5a059]" />
-                  <span className="font-mono text-[#d4af37]">@{user.username}</span>
-                </Link>
-                <button
-                  onClick={logout}
-                  className="text-xs text-[#a89f91] hover:text-red-400 transition-colors p-1"
-                  title="Log out session"
-                >
-                  <LogOut className="size-3.5" />
-                </button>
-              </div>
-            ) : (
-              <Link
-                to="/login"
-                className="text-xs font-cinzel font-bold text-[#c5a059] hover:text-[#d4af37] px-2 uppercase tracking-wider"
-              >
-                Login
-              </Link>
-            )}
-
-            {/* Platform Toggle */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={togglePlatform}
-              className="rounded-none gap-1.5 text-xs font-medium cursor-pointer border-[#2a2c33] bg-[#161620] text-[#e0d8c3] hover:border-[#c5a059]/40 hover:bg-[#1a1a26]"
+              Home
+            </Link>
+            <Link
+              to="/marketplace"
+              className={`px-5 py-2 text-sm uppercase font-cinzel font-bold tracking-[0.15em] transition-all border-b-2 ${
+                isActive('/marketplace') 
+                  ? 'border-[#c5a059] text-[#d4af37] bg-[#c5a059]/10 shadow-[0_2px_12px_rgba(197,160,89,0.3)]' 
+                  : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
+              }`}
             >
-              {getPlatformIcon()}
-              <span>{platform}</span>
-            </Button>
-
-            {/* Region Toggle */}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={toggleServerLocation}
-              className="rounded-none gap-1.5 text-xs font-medium cursor-pointer border-[#2a2c33] bg-[#161620] text-[#e0d8c3] hover:border-[#c5a059]/40 hover:bg-[#1a1a26]"
+              Marketplace
+            </Link>
+            <Link
+              to="/characters"
+              className={`px-5 py-2 text-sm uppercase font-cinzel font-bold tracking-[0.15em] transition-all border-b-2 ${
+                isActive('/characters') 
+                  ? 'border-[#c5a059] text-[#d4af37] bg-[#c5a059]/10 shadow-[0_2px_12px_rgba(197,160,89,0.3)]' 
+                  : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
+              }`}
             >
-              <Globe className="size-3.5 text-emerald-400" />
-              <span>{serverLocation}</span>
-            </Button>
+              Roster & Crafters
+            </Link>
+          </nav>
 
-            {/* Dark Mode Toggle */}
-            <ModeToggle />
+          {/* 3. Right: Minimalist Utility Controls (Settings Gear & Profile Menu) */}
+          <div className="flex items-center gap-3">
+            <SettingsMenu
+              syncStatus={syncStatus}
+              onOpenDevModal={() => setIsDevModalOpen(true)}
+            />
+            <UserMenu />
           </div>
         </div>
 
         {/* Mobile Navigation Links */}
         <div className="border-t border-[#2a2c33] bg-[#0a0a0d] md:hidden">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between">
-            <div className="flex items-center gap-1.5">
-              <Link
-                to="/"
-                className={`px-2 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
-                  isActive('/') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
-                }`}
-              >
-                Home
-              </Link>
-              <Link
-                to="/marketplace"
-                className={`px-2 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
-                  isActive('/marketplace') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
-                }`}
-              >
-                Market
-              </Link>
-              <Link
-                to="/characters"
-                className={`px-2 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
-                  isActive('/characters') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
-                }`}
-              >
-                Roster
-              </Link>
-            </div>
-
-            <div className="flex items-center gap-2">
-              {user ? (
-                <div className="flex items-center gap-1.5">
-                  <Link
-                    to="/characters"
-                    className="text-xs font-mono text-[#d4af37] px-2 py-0.5 bg-[#161620] border border-[#c5a059]/30"
-                  >
-                    @{user.username}
-                  </Link>
-                  <button
-                    onClick={logout}
-                    className="text-xs text-[#a89f91] hover:text-red-400 p-1 cursor-pointer"
-                    title="Log out"
-                  >
-                    <LogOut className="size-3.5" />
-                  </button>
-                </div>
-              ) : (
-                <Link
-                  to="/login"
-                  className="text-xs font-cinzel font-bold text-[#c5a059] hover:text-[#d4af37] px-2 uppercase tracking-wider"
-                >
-                  Login
-                </Link>
-              )}
-            </div>
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-around">
+            <Link
+              to="/"
+              className={`px-3 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
+                isActive('/') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
+              }`}
+            >
+              Home
+            </Link>
+            <Link
+              to="/marketplace"
+              className={`px-3 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
+                isActive('/marketplace') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
+              }`}
+            >
+              Marketplace
+            </Link>
+            <Link
+              to="/characters"
+              className={`px-3 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
+                isActive('/characters') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
+              }`}
+            >
+              Roster
+            </Link>
           </div>
         </div>
 
