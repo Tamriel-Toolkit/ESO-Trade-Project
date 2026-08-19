@@ -26,8 +26,17 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Tab state: 'login' or 'register'
-  const [tab, setTab] = useState('login');
+  // Tab state: 'login' or 'register' (honors location.state?.defaultTab or location.state?.tab)
+  const initialTab = location.state?.defaultTab || location.state?.tab || 'login';
+  const [tab, setTab] = useState(initialTab);
+
+  useEffect(() => {
+    if (location.state?.defaultTab) {
+      setTab(location.state.defaultTab);
+    } else if (location.state?.tab) {
+      setTab(location.state.tab);
+    }
+  }, [location.state]);
 
   // Form input states
   const [usernameOrEmail, setUsernameOrEmail] = useState('');
