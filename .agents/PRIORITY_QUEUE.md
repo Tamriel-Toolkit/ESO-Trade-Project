@@ -25,8 +25,8 @@ This living document provides the prioritized execution queue for both human mai
 
 | Rank | Issue | Area | Severity | Status | Blocked By | Strategic Rationale |
 |:---:|:---|:---|:---:|:---:|:---:|:---|
-| **1** | #71 | Frontend / Security | MODERATE | 🟡 Next Up | None | Migrates frontend session token storage to HttpOnly SameSite cookies. |
-| **2** | #18 | Frontend / Auth | NITPICK | ⚪ Queued | None | Implements full `Login.jsx` UI and connects to the hardened auth endpoints. |
+| **1** | #71 | Frontend / Security | MODERATE | 🟢 In Review (PR #95) | None | Migrates frontend session token storage to HttpOnly SameSite cookies. |
+| **2** | #18 | Frontend / Auth | NITPICK | 🟡 Next Up | None | Implements full `Login.jsx` UI and connects to the hardened auth endpoints. |
 | **3** | #17 | Frontend / UX | MINOR | ⚪ Queued | None | Improves WCAG text contrast ratios for dark theme legibility. |
 | **4** | #37 | Frontend / UI | MINOR | ⚪ Queued | None | Auto-fits dropdown menu width in `EsoSelect` to accommodate full alliance names without truncation. |
 | **5** | #8 | Core Milestone | FEATURE | ⚪ Queued | None | Milestone Epic: Smart Build Importer & Market Deal Recommendation Engine. |
