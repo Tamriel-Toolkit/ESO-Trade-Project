@@ -155,7 +155,7 @@ function Navbar() {
                 to="/login"
                 className="text-xs font-cinzel font-bold text-[#c5a059] hover:text-[#d4af37] px-2 uppercase tracking-wider"
               >
-                Guild Login
+                Login
               </Link>
             )}
 

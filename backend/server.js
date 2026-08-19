@@ -25,8 +25,9 @@ const sqlite3 = require("sqlite3").verbose();
 const app = express();
 const PORT = process.env.PORT || 5001;
 
-// Developer & Testing Environment Flag
-const isDevMode = (process.env.NODE_ENV === "development" || process.env.NODE_ENV === "test" || process.env.ENABLE_DEV_ENDPOINTS === "true") && process.env.NODE_ENV !== "production";
+// Developer & Testing Environment Flag (defaults to 'development' if NODE_ENV is unset)
+const nodeEnv = process.env.NODE_ENV || "development";
+const isDevMode = (nodeEnv === "development" || nodeEnv === "test" || process.env.ENABLE_DEV_ENDPOINTS === "true") && process.env.NODE_ENV !== "production";
 
 // Auth Cookie Settings
 const AUTH_COOKIE_NAME = "eso_trade_token";
