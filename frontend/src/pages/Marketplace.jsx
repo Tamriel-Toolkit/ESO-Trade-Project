@@ -45,8 +45,10 @@ import {
   CardFooter
 } from "@/components/ui/card";
 
+import { useNavigate } from "react-router-dom";
 import Navbar from "@/components/ui/navbar";
 import { useTheme } from "@/components/theme-provider";
+import { useAuth } from "@/context/AuthContext";
 import { fetchTaxonomy, fetchMarketListings, fetchMarketPrices, extractLiveListings, clearAllListings } from "@/api/api";
 import { cleanEsoText, renderEsoFormattedText, getEsoIconUrl } from "@/lib/utils";
 
@@ -106,6 +108,8 @@ const formatLastSeen = (timestamp) => {
 
 function Marketplace() {
   const { serverLocation, platform } = useTheme();
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
   // State Management
   const [viewMode, setViewMode] = useState("prices"); // Default to "prices"
@@ -234,76 +238,80 @@ function Marketplace() {
   };
 
   return (
-    <div className="body bg-[#0a0a0d] text-[#e0d8c3]">
+    <div className="min-h-screen bg-[#0a0a0d] text-[#e0d8c3] flex flex-col">
       <Navbar />
 
-      {/* Header Banner */}
-      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6 border-b border-[#2a2c33] pb-4">
-        <div>
-          <h1 className="font-cinzel text-2xl md:text-3xl font-extrabold tracking-wide text-[#e0d8c3] flex items-center gap-2 uppercase">
-            <Store className="size-7 text-[#c5a059]" />
-            <span>Live Market</span>
-          </h1>
-          <p className="text-[#a89f91] text-xs md:text-sm mt-1">
-            Real-time market analytics, active guild trader listings, and deal intelligence for{" "}
-            <span className="font-semibold text-[#d4af37] font-mono">{platform} - {serverLocation}</span>.
-          </p>
-        </div>
+      {/* Header Banner (Full-width edge-to-edge) */}
+      <header className="w-full border-b border-[#2a2c33] bg-[#121218] px-4 sm:px-6 lg:px-8 py-6 sm:py-8 shadow-xl">
+        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <h1 className="font-cinzel text-2xl md:text-3xl font-extrabold tracking-wide text-[#e0d8c3] flex items-center gap-2 uppercase">
+              <Store className="size-7 text-[#c5a059]" />
+              <span>Live Trading House & Price Index</span>
+            </h1>
+            <p className="text-[#a89f91] text-xs md:text-sm mt-1">
+              Real-time market analytics, active guild trader listings, and deal intelligence for{" "}
+              <span className="font-semibold text-[#d4af37] font-mono">{platform} - {serverLocation}</span>.
+            </p>
+          </div>
 
-        {/* Action Controls & Dev Tools */}
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Dev Clear Database Button (Development Only) */}
-          {import.meta.env.DEV && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleClearListings}
-              className="rounded-none gap-1.5 font-bold text-xs border-red-900/60 bg-red-950/30 text-red-400 hover:bg-red-900/50 hover:text-red-300 hover:border-red-600 transition-all"
-              title="Development: Clear all active listings and price records from SQLite database"
-            >
-              <Trash2 className="size-3.5 text-red-400" />
-              <span>[DEV] Clear Listings</span>
-            </Button>
-          )}
+          {/* Action Controls & Dev Tools */}
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Dev Clear Database Button (Development Only) */}
+            {import.meta.env.DEV && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleClearListings}
+                className="rounded-none gap-1.5 font-bold text-xs border-red-900/60 bg-red-950/30 text-red-400 hover:bg-red-900/50 hover:text-red-300 hover:border-red-600 transition-all cursor-pointer"
+                title="Development: Clear all active listings and price records from SQLite database"
+              >
+                <Trash2 className="size-3.5 text-red-400" />
+                <span>[DEV] Clear Listings</span>
+              </Button>
+            )}
 
-          {/* View Mode Toggle */}
-          <div className="flex items-center gap-1 bg-[#121218] p-1 border border-[#2a2c33]">
-            <Button
-              variant={viewMode === "listings" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => {
-                setViewMode("listings");
-                setSortOption("value_index");
-                setCurrentPage(1);
-              }}
-              className={`rounded-none gap-1.5 text-xs font-cinzel font-semibold uppercase ${
-                viewMode === "listings" ? "bg-[#c5a059] text-[#0a0a0d]" : "text-[#a89f91] hover:text-[#e0d8c3]"
-              }`}
-            >
-              <Tag className="size-3.5" />
-              <span>Active Listings {viewMode === "listings" ? `(${totalItems})` : ""}</span>
-            </Button>
-            <Button
-              variant={viewMode === "prices" ? "default" : "ghost"}
-              size="sm"
-              onClick={() => {
-                setViewMode("prices");
-                setSortOption("suggested_desc");
-                setCurrentPage(1);
-              }}
-              className={`rounded-none gap-1.5 text-xs font-cinzel font-semibold uppercase ${
-                viewMode === "prices" ? "bg-[#c5a059] text-[#0a0a0d]" : "text-[#a89f91] hover:text-[#e0d8c3]"
-              }`}
-            >
-              <TrendingUp className="size-3.5" />
-              <span>Catalog Price Index {viewMode === "prices" ? `(${totalItems})` : ""}</span>
-            </Button>
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-1 bg-[#0a0a0d] p-1 border border-[#2a2c33]">
+              <Button
+                variant={viewMode === "listings" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => {
+                  setViewMode("listings");
+                  setSortOption("value_index");
+                  setCurrentPage(1);
+                }}
+                className={`rounded-none gap-1.5 text-xs font-cinzel font-semibold uppercase cursor-pointer ${
+                  viewMode === "listings" ? "bg-[#c5a059] text-[#0a0a0d] hover:bg-[#d4af37]" : "text-[#a89f91] hover:text-[#e0d8c3]"
+                }`}
+              >
+                <Tag className="size-3.5" />
+                <span>Active Listings {viewMode === "listings" ? `(${totalItems})` : ""}</span>
+              </Button>
+              <Button
+                variant={viewMode === "prices" ? "default" : "ghost"}
+                size="sm"
+                onClick={() => {
+                  setViewMode("prices");
+                  setSortOption("suggested_desc");
+                  setCurrentPage(1);
+                }}
+                className={`rounded-none gap-1.5 text-xs font-cinzel font-semibold uppercase cursor-pointer ${
+                  viewMode === "prices" ? "bg-[#c5a059] text-[#0a0a0d] hover:bg-[#d4af37]" : "text-[#a89f91] hover:text-[#e0d8c3]"
+                }`}
+              >
+                <TrendingUp className="size-3.5" />
+                <span>Catalog Price Index {viewMode === "prices" ? `(${totalItems.toLocaleString()})` : ""}</span>
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Trade Hub Capital Zone Chips */}
-      <div className="mb-4 space-y-2">
+      {/* Main Content Body Container */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1 space-y-6">
+        {/* Trade Hub Capital Zone Chips */}
+        <div className="space-y-2">
         <div className="flex items-center justify-between text-xs text-[#a89f91] font-cinzel uppercase font-bold tracking-wider">
           <span className="flex items-center gap-1.5 text-[#c5a059]">
             <Compass className="size-3.5" /> Major Trading Hubs
@@ -945,7 +953,18 @@ function Marketplace() {
                   <span>{copiedLink ? "Copied In-Game Search Cmd!" : "Copy In-Game Search Command"}</span>
                 </Button>
 
-                <Button variant="default" size="sm" className="w-full rounded-none font-cinzel font-bold bg-[#c5a059] text-[#0a0a0d] hover:bg-[#d4af37] uppercase tracking-wider">
+                <Button
+                  variant="default"
+                  size="sm"
+                  onClick={() => {
+                    if (!user) {
+                      navigate('/login', { state: { from: { pathname: '/marketplace' } } });
+                    } else {
+                      navigate('/characters');
+                    }
+                  }}
+                  className="w-full rounded-none font-cinzel font-bold bg-[#c5a059] text-[#0a0a0d] hover:bg-[#d4af37] uppercase tracking-wider cursor-pointer"
+                >
                   Track in Watchlist
                 </Button>
               </CardFooter>
@@ -984,6 +1003,7 @@ function Marketplace() {
           </PaginationContent>
         </Pagination>
       </div>
+      </main>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import Navbar from '../components/ui/navbar';
 import { useAuth } from '../context/AuthContext';
 import { fetchCharacters, createCharacter, deleteCharacter } from '../api/api';
@@ -106,11 +107,11 @@ export default function CharacterManager() {
     ];
 
     return (
-        <div className="min-h-screen bg-[#0a0a0d] text-[#e0d8c3]">
+        <div className="min-h-screen bg-[#0a0a0d] text-[#e0d8c3] flex flex-col">
             <Navbar />
 
-            {/* Header Banner */}
-            <header className="border-b border-[#2a2c33] bg-[#121218] px-6 py-8 shadow-xl">
+            {/* Header Banner (Full-width edge-to-edge) */}
+            <header className="w-full border-b border-[#2a2c33] bg-[#121218] px-4 sm:px-6 lg:px-8 py-6 sm:py-8 shadow-xl">
                 <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-3">
@@ -129,7 +130,7 @@ export default function CharacterManager() {
 
                     <button
                         onClick={() => setShowAddModal(true)}
-                        className="px-4 py-2.5 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-[#0a0a0d] font-cinzel font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg transition-all"
+                        className="px-4 py-2.5 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-[#0a0a0d] font-cinzel font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg transition-all cursor-pointer"
                     >
                         <Plus className="w-4 h-4" />
                         Add Character
@@ -138,7 +139,7 @@ export default function CharacterManager() {
             </header>
 
             {/* Main Content Container */}
-            <main className="max-w-7xl mx-auto px-4 md:px-6 py-8 space-y-8">
+            <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1 space-y-8">
                 
                 {/* Roster Statistics Cards */}
                 {user && (
@@ -219,12 +220,22 @@ export default function CharacterManager() {
                     </div>
 
                     {!user ? (
-                        <div className="text-center py-12 eso-card rounded-none p-8 space-y-4 shadow-xl">
+                        <div className="text-center py-12 eso-card rounded-none p-8 space-y-4 shadow-xl border border-[#c5a059]/40">
                             <Shield className="w-12 h-12 text-[#c5a059] mx-auto" />
-                            <h3 className="font-cinzel text-lg font-bold text-[#e0d8c3]">Authentication Required</h3>
-                            <p className="text-[#a89f91] text-xs max-w-md mx-auto">
-                                Please log in or use the <strong className="text-[#d4af37] font-mono">[DEV] Accounts</strong> bypass button in the top header to view and manage your character roster.
+                            <h3 className="font-cinzel text-xl font-bold text-[#d4af37] tracking-wider uppercase">Authentication Required</h3>
+                            <p className="text-[#a89f91] text-xs max-w-md mx-auto leading-relaxed">
+                                Sign in with your Merchant Account to synchronize your in-game character roster, gear loadouts, and trait research from the ESOTrade addon.
                             </p>
+                            <div className="pt-2">
+                                <Link
+                                    to="/login"
+                                    state={{ from: { pathname: '/characters' } }}
+                                    className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#c5a059] hover:bg-[#d4af37] text-[#0a0a0d] font-cinzel font-bold text-xs uppercase tracking-wider shadow-lg transition-all cursor-pointer"
+                                >
+                                    <User className="size-4" />
+                                    <span>Sign In or Register</span>
+                                </Link>
+                            </div>
                         </div>
                     ) : loading ? (
                         <div className="text-center py-12 text-[#8a8275] font-cinzel text-xs uppercase tracking-wider">Loading character roster...</div>

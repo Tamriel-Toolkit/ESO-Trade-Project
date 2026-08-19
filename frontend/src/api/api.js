@@ -37,7 +37,17 @@ async function apiFetch(path, options = {}) {
         ...options,
         headers
     };
-    return fetch(url, config);
+    const response = await fetch(url, config);
+
+    // If session expired on protected routes (excluding login/register), broadcast auth:unauthorized
+    if (response.status === 401 && !path.startsWith('/api/auth/login') && !path.startsWith('/api/auth/register')) {
+        setAuthToken('');
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('auth:unauthorized'));
+        }
+    }
+
+    return response;
 }
 
 export async function fetchSystemStatus() {

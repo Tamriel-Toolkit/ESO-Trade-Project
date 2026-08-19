@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import Navbar from '../components/ui/navbar';
 import { useAuth } from '../context/AuthContext';
@@ -16,7 +16,9 @@ import {
   Sparkles,
   ArrowRight,
   Loader2,
-  AtSign
+  AtSign,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 
 export default function Login() {
@@ -35,10 +37,23 @@ export default function Login() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [esoHandle, setEsoHandle] = useState('');
 
+  // Password visibility states
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
   // UI state
   const [error, setError] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const primaryInputRef = useRef(null);
+
+  // Auto-focus primary input on load and tab change
+  useEffect(() => {
+    if (primaryInputRef.current) {
+      primaryInputRef.current.focus();
+    }
+  }, [tab]);
 
   // Redirect if already logged in
   useEffect(() => {
@@ -101,7 +116,7 @@ export default function Login() {
         const res = await login(usernameOrEmail.trim(), password);
         if (res.success) {
           setSuccessMsg('Welcome back to Tamriel!');
-          setTimeout(() => navigate('/marketplace'), 400);
+          setTimeout(() => navigate(location.state?.from?.pathname || '/marketplace'), 400);
         } else {
           setError(res.error || 'Authentication failed. Please check your credentials.');
         }
@@ -133,7 +148,7 @@ export default function Login() {
       const res = await devBypass(userId);
       if (res.success) {
         setSuccessMsg(res.message || 'Authenticated via Developer Bypass.');
-        setTimeout(() => navigate('/marketplace'), 400);
+        setTimeout(() => navigate(location.state?.from?.pathname || '/marketplace'), 400);
       } else {
         setError(res.error || 'Bypass failed.');
       }
@@ -178,7 +193,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => { setTab('login'); setError(''); setSuccessMsg(''); }}
-                  className={`py-2 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                  className={`py-2 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     tab === 'login'
                       ? 'bg-[#c5a059] text-[#0a0a0d] shadow'
                       : 'text-[#a89f91] hover:text-[#e0d8c3] hover:bg-[#161620]'
@@ -190,7 +205,7 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => { setTab('register'); setError(''); setSuccessMsg(''); }}
-                  className={`py-2 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 ${
+                  className={`py-2 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
                     tab === 'register'
                       ? 'bg-[#c5a059] text-[#0a0a0d] shadow'
                       : 'text-[#a89f91] hover:text-[#e0d8c3] hover:bg-[#161620]'
@@ -227,6 +242,7 @@ export default function Login() {
                         <span>Username or Email</span>
                       </label>
                       <input
+                        ref={primaryInputRef}
                         type="text"
                         value={usernameOrEmail}
                         onChange={(e) => setUsernameOrEmail(e.target.value)}
@@ -243,16 +259,26 @@ export default function Login() {
                         <Lock className="size-3.5 text-[#c5a059]" />
                         <span>Password</span>
                       </label>
-                      <input
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="••••••••"
-                        disabled={isSubmitting}
-                        className="w-full bg-[#0a0a0d] border border-[#2a2c33] focus:border-[#c5a059] focus:outline-none text-[#e0d8c3] text-sm px-3 py-2.5 transition-colors placeholder:text-[#555047]"
-                        autoComplete="current-password"
-                        required
-                      />
+                      <div className="relative">
+                        <input
+                          type={showPassword ? 'text' : 'password'}
+                          value={password}
+                          onChange={(e) => setPassword(e.target.value)}
+                          placeholder="••••••••"
+                          disabled={isSubmitting}
+                          className="w-full bg-[#0a0a0d] border border-[#2a2c33] focus:border-[#c5a059] focus:outline-none text-[#e0d8c3] text-sm px-3 py-2.5 pr-10 transition-colors placeholder:text-[#555047]"
+                          autoComplete="current-password"
+                          required
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8a8275] hover:text-[#d4af37] p-1 transition-colors cursor-pointer"
+                          aria-label={showPassword ? "Hide password" : "Show password"}
+                        >
+                          {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                        </button>
+                      </div>
                     </div>
                   </>
                 ) : (
@@ -263,6 +289,7 @@ export default function Login() {
                         <span>Username</span>
                       </label>
                       <input
+                        ref={primaryInputRef}
                         type="text"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
@@ -312,16 +339,26 @@ export default function Login() {
                           <Lock className="size-3.5 text-[#c5a059]" />
                           <span>Password</span>
                         </label>
-                        <input
-                          type="password"
-                          value={password}
-                          onChange={(e) => setPassword(e.target.value)}
-                          placeholder="Min 8 chars"
-                          disabled={isSubmitting}
-                          className="w-full bg-[#0a0a0d] border border-[#2a2c33] focus:border-[#c5a059] focus:outline-none text-[#e0d8c3] text-sm px-3 py-2.5 transition-colors placeholder:text-[#555047]"
-                          autoComplete="new-password"
-                          required
-                        />
+                        <div className="relative">
+                          <input
+                            type={showPassword ? 'text' : 'password'}
+                            value={password}
+                            onChange={(e) => setPassword(e.target.value)}
+                            placeholder="Min 8 chars"
+                            disabled={isSubmitting}
+                            className="w-full bg-[#0a0a0d] border border-[#2a2c33] focus:border-[#c5a059] focus:outline-none text-[#e0d8c3] text-sm px-3 py-2.5 pr-10 transition-colors placeholder:text-[#555047]"
+                            autoComplete="new-password"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8a8275] hover:text-[#d4af37] p-1 transition-colors cursor-pointer"
+                            aria-label={showPassword ? "Hide password" : "Show password"}
+                          >
+                            {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                          </button>
+                        </div>
                       </div>
 
                       <div className="space-y-1.5">
@@ -329,16 +366,26 @@ export default function Login() {
                           <ShieldCheck className="size-3.5 text-[#c5a059]" />
                           <span>Confirm</span>
                         </label>
-                        <input
-                          type="password"
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          placeholder="Repeat password"
-                          disabled={isSubmitting}
-                          className="w-full bg-[#0a0a0d] border border-[#2a2c33] focus:border-[#c5a059] focus:outline-none text-[#e0d8c3] text-sm px-3 py-2.5 transition-colors placeholder:text-[#555047]"
-                          autoComplete="new-password"
-                          required
-                        />
+                        <div className="relative">
+                          <input
+                            type={showConfirmPassword ? 'text' : 'password'}
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                            placeholder="Repeat password"
+                            disabled={isSubmitting}
+                            className="w-full bg-[#0a0a0d] border border-[#2a2c33] focus:border-[#c5a059] focus:outline-none text-[#e0d8c3] text-sm px-3 py-2.5 pr-10 transition-colors placeholder:text-[#555047]"
+                            autoComplete="new-password"
+                            required
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8a8275] hover:text-[#d4af37] p-1 transition-colors cursor-pointer"
+                            aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
+                          >
+                            {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </>
@@ -378,7 +425,7 @@ export default function Login() {
                       type="button"
                       onClick={() => handleDevQuickLogin(1)}
                       disabled={isSubmitting}
-                      className="text-left px-2.5 py-1.5 bg-[#0a0a0d] border border-[#2a2c33] hover:border-[#c5a059] text-[11px] text-[#e0d8c3] transition-colors"
+                      className="text-left px-2.5 py-1.5 bg-[#0a0a0d] border border-[#2a2c33] hover:border-[#c5a059] text-[11px] text-[#e0d8c3] transition-colors cursor-pointer"
                     >
                       <div className="font-bold text-[#d4af37]">@Blake (Admin)</div>
                       <div className="text-[10px] text-[#8a8275]">Root Developer Account</div>
@@ -387,7 +434,7 @@ export default function Login() {
                       type="button"
                       onClick={() => handleDevQuickLogin(2)}
                       disabled={isSubmitting}
-                      className="text-left px-2.5 py-1.5 bg-[#0a0a0d] border border-[#2a2c33] hover:border-[#c5a059] text-[11px] text-[#e0d8c3] transition-colors"
+                      className="text-left px-2.5 py-1.5 bg-[#0a0a0d] border border-[#2a2c33] hover:border-[#c5a059] text-[11px] text-[#e0d8c3] transition-colors cursor-pointer"
                     >
                       <div className="font-bold text-[#e0d8c3]">@TraderJoe</div>
                       <div className="text-[10px] text-[#8a8275]">Standard User Account</div>

@@ -39,11 +39,11 @@ function Navbar() {
 
   return (
     <>
-      <header className="w-full bg-[#121218] border-b border-[#c5a059]/30 text-[#e0d8c3] shadow-2xl rounded-none mb-6 relative">
+      <header className="w-full bg-[#121218] border-b border-[#2a2c33] text-[#e0d8c3] shadow-2xl rounded-none relative">
         {/* Ornate Top Border Highlight */}
         <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#c5a059] to-transparent"></div>
 
-        <div className="px-4 md:px-6 py-3 flex flex-wrap items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
           {/* Brand & Left Navigation Links */}
           <div className="flex items-center gap-6">
             <Link 
@@ -187,31 +187,62 @@ function Navbar() {
         </div>
 
         {/* Mobile Navigation Links */}
-        <div className="flex md:hidden border-t border-[#2a2c33] px-4 py-2 gap-2 bg-[#0a0a0d]">
-          <Link
-            to="/"
-            className={`px-2.5 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
-              isActive('/') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
-            }`}
-          >
-            Home
-          </Link>
-          <Link
-            to="/marketplace"
-            className={`px-2.5 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
-              isActive('/marketplace') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
-            }`}
-          >
-            Marketplace
-          </Link>
-          <Link
-            to="/characters"
-            className={`px-2.5 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
-              isActive('/characters') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
-            }`}
-          >
-            Roster
-          </Link>
+        <div className="border-t border-[#2a2c33] bg-[#0a0a0d] md:hidden">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-between">
+            <div className="flex items-center gap-1.5">
+              <Link
+                to="/"
+                className={`px-2 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
+                  isActive('/') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
+                }`}
+              >
+                Home
+              </Link>
+              <Link
+                to="/marketplace"
+                className={`px-2 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
+                  isActive('/marketplace') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
+                }`}
+              >
+                Market
+              </Link>
+              <Link
+                to="/characters"
+                className={`px-2 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
+                  isActive('/characters') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
+                }`}
+              >
+                Roster
+              </Link>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {user ? (
+                <div className="flex items-center gap-1.5">
+                  <Link
+                    to="/characters"
+                    className="text-xs font-mono text-[#d4af37] px-2 py-0.5 bg-[#161620] border border-[#c5a059]/30"
+                  >
+                    @{user.username}
+                  </Link>
+                  <button
+                    onClick={logout}
+                    className="text-xs text-[#a89f91] hover:text-red-400 p-1 cursor-pointer"
+                    title="Log out"
+                  >
+                    <LogOut className="size-3.5" />
+                  </button>
+                </div>
+              ) : (
+                <Link
+                  to="/login"
+                  className="text-xs font-cinzel font-bold text-[#c5a059] hover:text-[#d4af37] px-2 uppercase tracking-wider"
+                >
+                  Login
+                </Link>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Ornate Bottom Accent Line */}

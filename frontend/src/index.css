@@ -60,8 +60,6 @@ body {
 
 #root {
   width: 100%;
-  max-width: 1400px;
-  margin: 0 auto;
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -94,8 +92,9 @@ h1, h2, h3, h4, .font-cinzel {
 /* Ornate Framing & Dividers */
 .eso-divider {
   height: 1px;
+  width: 100%;
   background: linear-gradient(90deg, transparent 0%, rgba(197, 160, 89, 0.4) 50%, transparent 100%);
-  margin: 1rem 0;
+  margin: 0;
 }
 
 .eso-card {
@@ -114,12 +113,5 @@ h1, h2, h3, h4, .font-cinzel {
   flex: 1;
   width: 100%;
   min-height: 100vh;
-  padding: 1rem;
   box-sizing: border-box;
-}
-
-@media (min-width: 768px) {
-  .body {
-    padding: 1.5rem 2rem;
-  }
 }
