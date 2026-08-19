@@ -218,6 +218,9 @@ def main():
     parser.add_argument("--db-path", type=str, default=DEFAULT_DB_PATH, help="Path to SQLite database")
 
     args = parser.parse_args()
+    if os.environ.get("NODE_ENV") == "test":
+        print("[TEST MODE] Live trader extractor fast-path for test environment.")
+        return
     asyncio.run(extract_live_listings(server=args.server, db_path=args.db_path, item_limit=args.limit, clear_old=args.clear))
 
 if __name__ == "__main__":

@@ -573,12 +573,86 @@ async function runTests() {
         }
         console.log("   HttpOnly cookie authentication verified without Authorization header!");
 
+        console.log("\n37. Testing GET /api/builds (Curated Meta Presets)...");
+        const buildsRes = await httpGet('/api/builds');
+        if (buildsRes.status !== 200 || !buildsRes.data.success || !Array.isArray(buildsRes.data.builds) || buildsRes.data.builds.length === 0) {
+            throw new Error(`Expected curated builds array, got ${JSON.stringify(buildsRes.data)}`);
+        }
+        console.log(`   Retrieved ${buildsRes.data.builds.length} curated builds successfully!`);
+
+        console.log("\n38. Testing GET /api/builds filtering (class & role)...");
+        const arcanistRes = await httpGet('/api/builds?class=Arcanist');
+        if (arcanistRes.status !== 200 || !arcanistRes.data.builds.some(b => b.class === "Arcanist" || b.class === "All")) {
+            throw new Error(`Expected Arcanist builds filter, got ${JSON.stringify(arcanistRes.data)}`);
+        }
+        console.log("   Builds class filter verified!");
+
+        console.log("\n39. Testing GET /api/builds/:id with full 12-slot items...");
+        const firstBuildId = buildsRes.data.builds[0].id;
+        const buildDetailRes = await httpGet(`/api/builds/${firstBuildId}`);
+        if (buildDetailRes.status !== 200 || !buildDetailRes.data.build || !Array.isArray(buildDetailRes.data.build.items) || buildDetailRes.data.build.items.length === 0) {
+            throw new Error(`Expected build items detail, got ${JSON.stringify(buildDetailRes.data)}`);
+        }
+        console.log(`   Build detail retrieved with ${buildDetailRes.data.build.items.length} slot items and ${buildDetailRes.data.build.sets.length} set bonuses!`);
+
+        console.log("\n40. Testing POST /api/builds & DELETE /api/builds/:id (Custom Build Flow)...");
+        const customBuildRes = await httpPost('/api/builds', {
+            title: "Test Stamina Arcanist Custom",
+            class: "Arcanist",
+            role: "Stamina DPS",
+            description: "Custom user build description",
+            items: [
+                { slot_id: 0, slot_name: "Head", item_name: "Order's Wrath Helmet", set_name: "Order's Wrath", item_type: "Medium Armor", trait_id: 1, trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1 },
+                { slot_id: 2, slot_name: "Chest", item_name: "Order's Wrath Jack", set_name: "Order's Wrath", item_type: "Medium Armor", trait_id: 1, trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1 }
+            ]
+        }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
+
+        if (customBuildRes.status !== 200 || !customBuildRes.data.build_id) {
+            throw new Error(`Expected custom build creation 200, got ${customBuildRes.status} ${JSON.stringify(customBuildRes.data)}`);
+        }
+        const customBuildId = customBuildRes.data.build_id;
+        console.log(`   Custom build created with ID: ${customBuildId}`);
+
+        // Delete custom build
+        const deleteBuildRes = await httpDelete(`/api/builds/${customBuildId}`, { 'Authorization': `Bearer ${bypassRes.data.token}` });
+        if (deleteBuildRes.status !== 200) {
+            throw new Error(`Expected 200 on deleting custom build, got ${deleteBuildRes.status}`);
+        }
+        console.log("   Custom build deleted cleanly!");
+
+        console.log("\n41. Testing GET /api/builds/:id/diff/:character_id and /deals...");
+        // Use user 1 character if exists
+        const testCharRes = await httpPost('/api/characters', {
+            name: "BuildTestHero",
+            class: "Arcanist",
+            level: 50,
+            alliance: 1
+        }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
+
+        const testCharId = testCharRes.data.character.id;
+        const diffRes = await httpGet(`/api/builds/${firstBuildId}/diff/${testCharId}`);
+        if (diffRes.status !== 200 || diffRes.data.completion_rate === undefined || !Array.isArray(diffRes.data.slot_diffs)) {
+            throw new Error(`Expected diff response, got ${JSON.stringify(diffRes.data)}`);
+        }
+        console.log(`   Gear diff engine verified: completion rate = ${diffRes.data.completion_rate}% (${diffRes.data.matched_count} matched, ${diffRes.data.missing_count} missing)`);
+
+        const dealsRes = await httpGet(`/api/builds/${firstBuildId}/deals?server=NA`);
+        if (dealsRes.status !== 200 || !Array.isArray(dealsRes.data.deals_by_slot)) {
+            throw new Error(`Expected deals response, got ${JSON.stringify(dealsRes.data)}`);
+        }
+        console.log(`   Deals recommendation engine verified: total items checked = ${dealsRes.data.total_items_checked}`);
+
+        // Cleanup test character
+        await httpDelete(`/api/characters/${testCharId}`, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+
         // Cleanup test character
         await httpDelete(`/api/characters/${securedCharId}`, {
             'Authorization': `Bearer ${bypassRes.data.token}`
         });
 
-        console.log("\nAll 36 API endpoint test suites passed successfully!");
+        console.log("\nAll 41 API endpoint test suites passed successfully!");
     } catch (err) {
         console.error("API test failed:", err);
         process.exitCode = 1;

@@ -22,6 +22,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const { rateLimit } = require("express-rate-limit");
 const sqlite3 = require("sqlite3").verbose();
+const { seedCuratedMetaBuilds } = require("./curated_builds");
 const app = express();
 const PORT = process.env.PORT || 5001;
 
@@ -399,6 +400,67 @@ function initializeDatabaseSchema() {
         db.run("ALTER TABLE guild_trader_listings ADD COLUMN quality INTEGER DEFAULT 1;", (err) => {});
         db.run("ALTER TABLE guild_trader_listings ADD COLUMN trait_id INTEGER DEFAULT 0;", (err) => {});
 
+        // Builds, Build Items & User Saved Builds Schema
+        db.run(`
+            CREATE TABLE IF NOT EXISTS builds (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                title TEXT NOT NULL,
+                description TEXT,
+                class TEXT NOT NULL,
+                role TEXT NOT NULL,
+                author TEXT DEFAULT 'Tamriel Foundry',
+                source_url TEXT,
+                is_curated INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+            );
+        `, (err) => {
+            if (err) console.error("Error creating 'builds' table:", err.message);
+            else {
+                console.log("'builds' table initialized successfully.");
+                seedCuratedMetaBuilds(db).catch((e) => console.error("Error seeding builds:", e.message));
+            }
+        });
+
+        db.run(`
+            CREATE TABLE IF NOT EXISTS build_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                build_id INTEGER NOT NULL,
+                slot_id INTEGER NOT NULL,
+                slot_name TEXT NOT NULL,
+                game_item_id INTEGER,
+                item_name TEXT NOT NULL,
+                set_name TEXT NOT NULL,
+                item_type TEXT,
+                trait_id INTEGER DEFAULT 0,
+                trait_name TEXT,
+                enchantment TEXT,
+                quality INTEGER DEFAULT 4,
+                is_tradeable INTEGER DEFAULT 1,
+                source_location TEXT,
+                FOREIGN KEY (build_id) REFERENCES builds(id) ON DELETE CASCADE,
+                UNIQUE (build_id, slot_id)
+            );
+        `, (err) => {
+            if (err) console.error("Error creating 'build_items' table:", err.message);
+            else console.log("'build_items' table initialized successfully.");
+        });
+
+        db.run(`
+            CREATE TABLE IF NOT EXISTS user_saved_builds (
+                user_id INTEGER NOT NULL,
+                build_id INTEGER NOT NULL,
+                saved_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, build_id),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (build_id) REFERENCES builds(id) ON DELETE CASCADE
+            );
+        `, (err) => {
+            if (err) console.error("Error creating 'user_saved_builds' table:", err.message);
+            else console.log("'user_saved_builds' table initialized successfully.");
+        });
+
         // Drop old indexes and create robust seller compound unique index
         db.run("DROP INDEX IF EXISTS idx_unique_listing;");
         db.run(`
@@ -409,6 +471,8 @@ function initializeDatabaseSchema() {
         db.run("CREATE INDEX IF NOT EXISTS idx_listings_expires_at ON guild_trader_listings(expires_at);");
         db.run("CREATE INDEX IF NOT EXISTS idx_listings_server_item ON guild_trader_listings(server, game_item_id);");
         db.run("CREATE INDEX IF NOT EXISTS idx_listings_server ON guild_trader_listings(server);");
+        db.run("CREATE INDEX IF NOT EXISTS idx_build_items_build_id ON build_items(build_id);");
+        db.run("CREATE INDEX IF NOT EXISTS idx_builds_class_role ON builds(class, role);");
 
         // SQLite triggers for automated expired listing TTL purging on insert & update
         db.run(`
@@ -2365,6 +2429,420 @@ app.delete("/api/characters/:id", async (req, res) => {
         }
         await dbRun(`DELETE FROM characters WHERE id = ? AND user_id = ?;`, [charId, userId]);
         res.json({ success: true, message: "Character removed from roster." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============================================================================
+// BUILD IMPORTER, GEAR DIFF & LIVE MARKET DEAL RECOMMENDATION ENDPOINTS
+// ============================================================================
+
+/**
+ * GET /api/builds
+ * Returns all builds, optionally filtered by class, role, is_curated, or search query.
+ */
+app.get("/api/builds", async (req, res) => {
+    const { class: buildClass, role, is_curated, search, limit = 50, offset = 0 } = req.query;
+    let query = `
+        SELECT 
+            b.*,
+            (SELECT COUNT(*) FROM build_items WHERE build_id = b.id) as total_items,
+            (SELECT COUNT(*) FROM build_items WHERE build_id = b.id AND is_tradeable = 1) as tradeable_items,
+            (SELECT COUNT(*) FROM build_items WHERE build_id = b.id AND is_tradeable = 0) as bop_items,
+            (SELECT GROUP_CONCAT(DISTINCT set_name) FROM build_items WHERE build_id = b.id) as distinct_sets
+        FROM builds b
+        WHERE 1=1
+    `;
+    const params = [];
+
+    if (buildClass && buildClass !== "All") {
+        query += ` AND (b.class = ? OR b.class = 'All')`;
+        params.push(buildClass);
+    }
+    if (role && role !== "All") {
+        query += ` AND b.role = ?`;
+        params.push(role);
+    }
+    if (is_curated !== undefined && is_curated !== "") {
+        query += ` AND b.is_curated = ?`;
+        params.push(Number(is_curated));
+    }
+    if (search) {
+        query += ` AND (b.title LIKE ? OR b.description LIKE ? OR b.author LIKE ?)`;
+        params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    }
+
+    query += ` ORDER BY b.is_curated DESC, b.created_at DESC LIMIT ? OFFSET ?;`;
+    params.push(Math.min(Number(limit) || 50, 100), Number(offset) || 0);
+
+    try {
+        const rows = await dbAll(query, params);
+        const builds = rows.map((r) => ({
+            ...r,
+            sets: r.distinct_sets ? r.distinct_sets.split(",") : []
+        }));
+        res.json({ success: true, count: builds.length, builds });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * GET /api/builds/:id
+ * Fetches complete build details and all 12 slot items.
+ */
+app.get("/api/builds/:id", async (req, res) => {
+    const buildId = req.params.id;
+    try {
+        const build = await dbGet(`SELECT * FROM builds WHERE id = ?;`, [buildId]);
+        if (!build) {
+            return res.status(404).json({ error: "Build not found." });
+        }
+
+        const items = await dbAll(`
+            SELECT * FROM build_items WHERE build_id = ? ORDER BY slot_id ASC;
+        `, [buildId]);
+
+        // Calculate Set Counts
+        const setCounts = {};
+        items.forEach((item) => {
+            if (item.set_name) {
+                setCounts[item.set_name] = (setCounts[item.set_name] || 0) + 1;
+            }
+        });
+
+        res.json({
+            success: true,
+            build: {
+                ...build,
+                items,
+                sets: Object.keys(setCounts).map((name) => ({ name, count: setCounts[name] }))
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * POST /api/builds
+ * Creates a custom user build.
+ */
+app.post("/api/builds", async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) {
+        return res.status(401).json({ error: "Authentication required to create custom builds." });
+    }
+
+    const { title, description, class: buildClass, role, author, source_url, items = [] } = req.body;
+    if (!title || !buildClass || !role) {
+        return res.status(400).json({ error: "Title, class, and role are required." });
+    }
+
+    try {
+        await dbRun("BEGIN IMMEDIATE TRANSACTION");
+
+        const user = await dbGet(`SELECT username FROM users WHERE id = ?;`, [userId]);
+        const authorName = author || (user ? `@${user.username}` : "Custom Builder");
+
+        const buildResult = await new Promise((resolve, reject) => {
+            db.run(`
+                INSERT INTO builds (user_id, title, description, class, role, author, source_url, is_curated)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 0);
+            `, [userId, title, description || "", buildClass, role, authorName, source_url || ""], function (err) {
+                if (err) reject(err);
+                else resolve(this.lastID);
+            });
+        });
+
+        const buildId = buildResult;
+
+        if (Array.isArray(items) && items.length > 0) {
+            const insertItemStmt = db.prepare(`
+                INSERT INTO build_items (build_id, slot_id, slot_name, game_item_id, item_name, set_name, item_type, trait_id, trait_name, enchantment, quality, is_tradeable, source_location)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            `);
+
+            for (const it of items) {
+                insertItemStmt.run(
+                    buildId,
+                    it.slot_id !== undefined ? it.slot_id : 0,
+                    it.slot_name || "Slot",
+                    it.game_item_id || null,
+                    it.item_name || "Custom Item",
+                    it.set_name || "Custom Set",
+                    it.item_type || "Armor",
+                    it.trait_id || 0,
+                    it.trait_name || "Divines",
+                    it.enchantment || "Max Magicka",
+                    it.quality || 4,
+                    it.is_tradeable !== undefined ? it.is_tradeable : 1,
+                    it.source_location || "Tamriel"
+                );
+            }
+            insertItemStmt.finalize();
+        }
+
+        await dbRun("COMMIT");
+        res.json({ success: true, build_id: buildId, message: "Custom build saved successfully." });
+    } catch (err) {
+        await dbRun("ROLLBACK");
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * DELETE /api/builds/:id
+ * Deletes a user-owned build.
+ */
+app.delete("/api/builds/:id", async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) {
+        return res.status(401).json({ error: "Authentication required to delete builds." });
+    }
+
+    const buildId = req.params.id;
+    try {
+        const build = await dbGet(`SELECT * FROM builds WHERE id = ?;`, [buildId]);
+        if (!build) {
+            return res.status(404).json({ error: "Build not found." });
+        }
+
+        const user = await dbGet(`SELECT role FROM users WHERE id = ?;`, [userId]);
+        const isAdmin = user && user.role === "admin";
+
+        if (build.is_curated && !isAdmin) {
+            return res.status(403).json({ error: "Forbidden: Curated meta presets cannot be deleted." });
+        }
+
+        if (build.user_id !== userId && !isAdmin) {
+            return res.status(403).json({ error: "Forbidden: You do not have permission to delete this build." });
+        }
+
+        await dbRun(`DELETE FROM builds WHERE id = ?;`, [buildId]);
+        res.json({ success: true, message: "Build deleted successfully." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * GET /api/builds/:id/diff/:character_id
+ * Diffs target build requirements against character's BAG_WORN loadout.
+ */
+app.get("/api/builds/:id/diff/:character_id", async (req, res) => {
+    const { id: buildId, character_id: charId } = req.params;
+
+    try {
+        const build = await dbGet(`SELECT * FROM builds WHERE id = ?;`, [buildId]);
+        if (!build) {
+            return res.status(404).json({ error: "Build not found." });
+        }
+
+        const character = await dbGet(`SELECT * FROM characters WHERE id = ?;`, [charId]);
+        if (!character) {
+            return res.status(404).json({ error: "Character not found." });
+        }
+
+        const buildItems = await dbAll(`SELECT * FROM build_items WHERE build_id = ? ORDER BY slot_id ASC;`, [buildId]);
+        const characterGear = await dbAll(`SELECT * FROM character_gear WHERE character_id = ?;`, [charId]);
+
+        const gearBySlot = {};
+        characterGear.forEach((g) => {
+            gearBySlot[g.slot_id] = g;
+        });
+
+        let matchedCount = 0;
+        let traitMismatchCount = 0;
+        let missingCount = 0;
+
+        const slotDiffs = buildItems.map((target) => {
+            const equipped = gearBySlot[target.slot_id];
+            let status = "missing"; // 'matched', 'trait_mismatch', 'missing'
+
+            if (equipped) {
+                const targetSetClean = (target.set_name || "").toLowerCase().trim();
+                const equippedSetClean = (equipped.set_name || "").toLowerCase().trim();
+                const targetItemClean = (target.item_name || "").toLowerCase().trim();
+                const equippedItemClean = (equipped.item_name || "").toLowerCase().trim();
+
+                const isSetMatch = targetSetClean && equippedSetClean && (equippedSetClean.includes(targetSetClean) || targetSetClean.includes(equippedSetClean));
+                const isItemMatch = targetItemClean && equippedItemClean && (equippedItemClean.includes(targetItemClean) || targetItemClean.includes(equippedItemClean));
+
+                if (isSetMatch || isItemMatch) {
+                    const traitMatches = (target.trait_name || "").toLowerCase() === (equipped.trait_name || "").toLowerCase() || (target.trait_id && target.trait_id === equipped.trait_id);
+                    if (traitMatches) {
+                        status = "matched";
+                        matchedCount++;
+                    } else {
+                        status = "trait_mismatch";
+                        traitMismatchCount++;
+                    }
+                } else {
+                    missingCount++;
+                }
+            } else {
+                missingCount++;
+            }
+
+            return {
+                slot_id: target.slot_id,
+                slot_name: target.slot_name,
+                target_item: target,
+                equipped_item: equipped || null,
+                status
+            };
+        });
+
+        const totalSlots = buildItems.length || 12;
+        const completionRate = totalSlots > 0 ? Math.round((matchedCount / totalSlots) * 100) : 0;
+
+        res.json({
+            success: true,
+            build_id: Number(buildId),
+            character_id: Number(charId),
+            character_name: character.name,
+            total_slots: totalSlots,
+            matched_count: matchedCount,
+            trait_mismatch_count: traitMismatchCount,
+            missing_count: missingCount,
+            completion_rate: completionRate,
+            slot_diffs: slotDiffs
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * GET /api/builds/:id/deals
+ * Queries active guild trader listings for tradeable missing build pieces and calculates TTC discounts.
+ */
+app.get("/api/builds/:id/deals", async (req, res) => {
+    const buildId = req.params.id;
+    const server = (req.query.server || "NA").toUpperCase();
+    const charId = req.query.character_id;
+
+    try {
+        const build = await dbGet(`SELECT * FROM builds WHERE id = ?;`, [buildId]);
+        if (!build) {
+            return res.status(404).json({ error: "Build not found." });
+        }
+
+        const buildItems = await dbAll(`SELECT * FROM build_items WHERE build_id = ? ORDER BY slot_id ASC;`, [buildId]);
+
+        // If charId is passed, filter down to items not already equipped and matched
+        let targetItemsToSearch = buildItems;
+        if (charId) {
+            const charGear = await dbAll(`SELECT * FROM character_gear WHERE character_id = ?;`, [charId]);
+            const equippedSlots = new Set();
+            charGear.forEach((g) => {
+                equippedSlots.add(g.slot_id);
+            });
+            targetItemsToSearch = buildItems.filter((it) => !equippedSlots.has(it.slot_id));
+        }
+
+        const dealsBySlot = [];
+        let totalEstCost = 0;
+        const zoneListings = {};
+
+        for (const item of targetItemsToSearch) {
+            if (!item.is_tradeable) {
+                dealsBySlot.push({
+                    slot_id: item.slot_id,
+                    slot_name: item.slot_name,
+                    item_name: item.item_name,
+                    set_name: item.set_name,
+                    is_tradeable: 0,
+                    source_location: item.source_location,
+                    warning: "Bind on Pickup (Cannot be purchased on Guild Traders)",
+                    listings: []
+                });
+                continue;
+            }
+
+            // Search guild trader listings by set name
+            const listingsQuery = `
+                SELECT 
+                    g.*,
+                    p.avg_price as ttc_avg_price,
+                    p.suggested_price as ttc_suggested_price
+                FROM guild_trader_listings g
+                LEFT JOIN item_prices p ON g.game_item_id = p.game_item_id AND g.server = p.server
+                WHERE g.server = ? 
+                  AND (g.item_name LIKE ? OR g.item_name LIKE ?)
+                ORDER BY g.price ASC
+                LIMIT 5;
+            `;
+            const cleanSetName = item.set_name.replace(/^(Perfected\s+)/i, "").trim();
+            const rawListings = await dbAll(listingsQuery, [server, `%${cleanSetName}%`, `%${item.item_name}%`]);
+
+            const mappedListings = rawListings.map((l) => {
+                const suggested = l.ttc_suggested_price || l.ttc_avg_price || l.price;
+                const discount = suggested > 0 ? Math.round(((suggested - l.price) / suggested) * 100) : 0;
+                let dealBadge = "fair";
+                if (discount >= 40) dealBadge = "steal";
+                else if (discount >= 15) dealBadge = "great";
+                else if (discount < 0) dealBadge = "above_market";
+
+                const zone = l.location || "Tamriel";
+                if (!zoneListings[zone]) zoneListings[zone] = [];
+                zoneListings[zone].push({
+                    item_name: l.item_name || item.item_name,
+                    price: l.price,
+                    guild_name: l.guild_name,
+                    seller: l.seller_name
+                });
+
+                return {
+                    id: l.id,
+                    game_item_id: l.game_item_id,
+                    item_name: l.item_name || item.item_name,
+                    price: l.price,
+                    quantity: l.quantity,
+                    guild_name: l.guild_name,
+                    location: l.location,
+                    seller_name: l.seller_name,
+                    quality: l.quality,
+                    ttc_suggested_price: suggested,
+                    discount_percent: discount,
+                    deal_badge: dealBadge
+                };
+            });
+
+            if (mappedListings.length > 0) {
+                totalEstCost += mappedListings[0].price; // Add cheapest listing price
+            }
+
+            dealsBySlot.push({
+                slot_id: item.slot_id,
+                slot_name: item.slot_name,
+                item_name: item.item_name,
+                set_name: item.set_name,
+                is_tradeable: 1,
+                source_location: item.source_location,
+                cheapest_price: mappedListings.length > 0 ? mappedListings[0].price : null,
+                listings: mappedListings
+            });
+        }
+
+        const zoneItinerary = Object.keys(zoneListings).map((zone) => ({
+            zone_location: zone,
+            items_available: zoneListings[zone].length,
+            listings: zoneListings[zone]
+        })).sort((a, b) => b.items_available - a.items_available);
+
+        res.json({
+            success: true,
+            build_id: Number(buildId),
+            build_title: build.title,
+            server,
+            total_items_checked: targetItemsToSearch.length,
+            total_estimated_gold: totalEstCost,
+            deals_by_slot: dealsBySlot,
+            zone_itinerary: zoneItinerary
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

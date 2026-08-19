@@ -282,4 +282,79 @@ export async function fetchCharacterProfile(id) {
     }
 }
 
+// ============================================================================
+// BUILD IMPORTER, GEAR DIFF & DEALS API HELPERS
+// ============================================================================
+
+export async function fetchBuilds({ class: buildClass, role, is_curated, search, limit = 50, offset = 0 } = {}) {
+    try {
+        const params = new URLSearchParams();
+        if (buildClass && buildClass !== "All") params.append("class", buildClass);
+        if (role && role !== "All") params.append("role", role);
+        if (is_curated !== undefined && is_curated !== "") params.append("is_curated", is_curated);
+        if (search) params.append("search", search);
+        if (limit) params.append("limit", limit);
+        if (offset) params.append("offset", offset);
+
+        const response = await apiFetch(`/api/builds?${params.toString()}`);
+        return await response.json();
+    } catch (error) {
+        return { success: false, builds: [], error: error.message };
+    }
+}
+
+export async function fetchBuildById(id) {
+    try {
+        const response = await apiFetch(`/api/builds/${id}`);
+        return await response.json();
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function createCustomBuild(buildPayload) {
+    try {
+        const response = await apiFetch('/api/builds', {
+            method: 'POST',
+            body: JSON.stringify(buildPayload)
+        });
+        return await response.json();
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function deleteCustomBuild(id) {
+    try {
+        const response = await apiFetch(`/api/builds/${id}`, {
+            method: 'DELETE'
+        });
+        return await response.json();
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function fetchBuildGearDiff(buildId, characterId) {
+    try {
+        const response = await apiFetch(`/api/builds/${buildId}/diff/${characterId}`);
+        return await response.json();
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function fetchBuildDeals(buildId, { server = "NA", characterId } = {}) {
+    try {
+        const params = new URLSearchParams();
+        params.append("server", server);
+        if (characterId) params.append("character_id", characterId);
+
+        const response = await apiFetch(`/api/builds/${buildId}/deals?${params.toString()}`);
+        return await response.json();
+    } catch (error) {
+        return { success: false, deals_by_slot: [], error: error.message };
+    }
+}
+
 export default fetchTaxonomy;
