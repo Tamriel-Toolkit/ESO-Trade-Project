@@ -89,17 +89,35 @@ export function CharacterProfileModal({ character, onClose }) {
     return traits;
   }, [gearBySlot]);
 
+  // Escape key handler
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    }
+    if (character) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [character, onClose]);
+
   if (!character) return null;
 
   const allianceInfo = ALLIANCE_NAMES[character.alliance] || ALLIANCE_NAMES[1];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto">
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Character Equipment Profile for ${character.name}`}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto"
+    >
       <div className="w-full max-w-6xl rounded-none bg-[#121218] border-2 border-[#c5a059]/60 p-6 text-[#e0d8c3] shadow-2xl space-y-6 my-auto">
         {/* Header Bar */}
         <div className="flex items-center justify-between border-b border-[#2a2c33] pb-4">
           <div className="flex items-center gap-3">
-            <div className="size-12 rounded-none border-2 border-[#c5a059] bg-[#0a0a0d] flex items-center justify-center p-1">
+            <div className="size-12 rounded-none border-2 border-[#c5a059] bg-[#0a0a0d] flex items-center justify-center p-1" aria-hidden="true">
               {getAllianceIcon(character.alliance, "size-8")}
             </div>
             <div>
@@ -109,11 +127,11 @@ export function CharacterProfileModal({ character, onClose }) {
                 </h2>
                 {Boolean(character.master_crafter_unlocked) && (
                   <span className="px-2 py-0.5 bg-[#c5a059]/20 border border-[#c5a059] text-[#d4af37] text-[10px] font-cinzel font-bold uppercase flex items-center gap-1">
-                    <Award className="size-3 text-[#c5a059]" /> Master Crafter
+                    <Award className="size-3 text-[#c5a059]" aria-hidden="true" /> Master Crafter
                   </span>
                 )}
               </div>
-              <p className="text-xs text-[#8a8275] font-mono mt-0.5">
+              <p className="text-xs text-[#b0a696] font-mono mt-0.5">
                 Level {character.level || 50} • {character.class || "Dragonknight"} • {allianceInfo.name}
               </p>
             </div>
@@ -121,19 +139,21 @@ export function CharacterProfileModal({ character, onClose }) {
 
           <div className="flex items-center gap-3">
             {/* Active Bar Toggle */}
-            <div className="flex items-center gap-1 bg-[#0a0a0d] p-1 border border-[#2a2c33]">
+            <div className="flex items-center gap-1 bg-[#0a0a0d] p-1 border border-[#2a2c33]" role="group" aria-label="Weapon Bar Selection">
               <button
+                type="button"
                 onClick={() => setActiveWeaponBar("front")}
-                className={`px-3 py-1 text-xs font-cinzel font-bold uppercase border transition-all ${
-                  activeWeaponBar === "front" ? "bg-[#c5a059] text-[#0a0a0d] border-[#c5a059]" : "text-[#8a8275] border-transparent hover:text-[#e0d8c3]"
+                className={`px-3 py-1 text-xs font-cinzel font-bold uppercase border transition-all cursor-pointer ${
+                  activeWeaponBar === "front" ? "bg-[#c5a059] text-[#0a0a0d] border-[#c5a059]" : "text-[#b0a696] border-transparent hover:text-[#e0d8c3]"
                 }`}
               >
                 Front Bar
               </button>
               <button
+                type="button"
                 onClick={() => setActiveWeaponBar("back")}
-                className={`px-3 py-1 text-xs font-cinzel font-bold uppercase border transition-all ${
-                  activeWeaponBar === "back" ? "bg-[#c5a059] text-[#0a0a0d] border-[#c5a059]" : "text-[#8a8275] border-transparent hover:text-[#e0d8c3]"
+                className={`px-3 py-1 text-xs font-cinzel font-bold uppercase border transition-all cursor-pointer ${
+                  activeWeaponBar === "back" ? "bg-[#c5a059] text-[#0a0a0d] border-[#c5a059]" : "text-[#b0a696] border-transparent hover:text-[#e0d8c3]"
                 }`}
               >
                 Back Bar
@@ -141,10 +161,12 @@ export function CharacterProfileModal({ character, onClose }) {
             </div>
 
             <button
+              type="button"
               onClick={onClose}
-              className="p-1.5 rounded-none text-[#8a8275] hover:text-[#e0d8c3] hover:bg-[#161620]"
+              aria-label="Close character profile modal"
+              className="p-1.5 rounded-none text-[#b0a696] hover:text-[#e0d8c3] hover:bg-[#161620] cursor-pointer"
             >
-              <X className="size-5" />
+              <X className="size-5" aria-hidden="true" />
             </button>
           </div>
         </div>

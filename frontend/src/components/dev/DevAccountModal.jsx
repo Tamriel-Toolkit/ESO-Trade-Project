@@ -90,27 +90,50 @@ export default function DevAccountModal({ isOpen, onClose }) {
         }
     };
 
+    // Escape key handler
+    useEffect(() => {
+        function handleKeyDown(e) {
+            if (e.key === 'Escape') {
+                onClose();
+            }
+        }
+        if (isOpen) {
+            document.addEventListener('keydown', handleKeyDown);
+        }
+        return () => document.removeEventListener('keydown', handleKeyDown);
+    }, [isOpen, onClose]);
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4">
+        <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Developer Account Manager & Bypass Vault"
+            className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4"
+        >
             <div className="relative w-full max-w-4xl rounded-none bg-[#121218] border-2 border-[#c5a059]/60 p-6 text-[#e0d8c3] shadow-2xl max-h-[90vh] flex flex-col">
                 
                 {/* Modal Header */}
                 <div className="flex items-center justify-between border-b border-[#2a2c33] pb-4 mb-4">
                     <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-none bg-[#0a0a0d] border border-[#c5a059]/40 text-[#c5a059]">
+                        <div className="p-2 rounded-none bg-[#0a0a0d] border border-[#c5a059]/40 text-[#c5a059]" aria-hidden="true">
                             <Shield className="w-6 h-6" />
                         </div>
                         <div>
                             <h2 className="font-cinzel text-xl font-bold tracking-wide text-[#e0d8c3] flex items-center gap-2 uppercase">
                                 [DEV] Account Manager & Bypass Vault
                             </h2>
-                            <p className="text-xs text-[#d4af37]/80">
+                            <p className="text-xs text-[#d4af37]">
                                 1-Click developer account switching, editing, and instant session bypass.
                             </p>
                         </div>
                     </div>
-                    <button onClick={onClose} className="p-2 rounded-none bg-[#0a0a0d] border border-[#2a2c33] hover:border-[#c5a059]/40 text-[#a89f91] hover:text-[#e0d8c3] transition-colors">
-                        <X className="w-5 h-5" />
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        aria-label="Close Developer Account Manager modal"
+                        className="p-2 rounded-none bg-[#0a0a0d] border border-[#2a2c33] hover:border-[#c5a059]/40 text-[#b0a696] hover:text-[#e0d8c3] transition-colors cursor-pointer"
+                    >
+                        <X className="w-5 h-5" aria-hidden="true" />
                     </button>
                 </div>
 
