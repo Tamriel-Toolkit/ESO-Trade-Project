@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { 
     Shield, Sparkles, Sword, Search, Plus, ShoppingCart, Lock, RefreshCw, 
-    Layers, User, ArrowRight, CheckCircle2, ChevronRight, BookOpen, Trash2
+    Layers, User, BookOpen, Trash2
 } from "lucide-react";
-import { fetchBuilds, deleteCustomBuild, fetchCharacters } from "@/api/api";
+import { fetchBuilds, deleteCustomBuild } from "@/api/api";
 import Navbar from "@/components/ui/navbar";
 import { BuildDetailModal } from "@/components/builds/BuildDetailModal";
 import { BuildCreatorModal } from "@/components/builds/BuildCreatorModal";
@@ -73,33 +73,33 @@ export function BuildExplorer() {
     return (
         <div className="min-h-screen bg-[#0a0a0d] text-[#b8af9f] pb-24">
             <Navbar />
-            {/* Hero Header */}
-            <div className="relative border-b border-[#c5a059]/30 bg-gradient-to-b from-[#161622] via-[#101018] to-[#0a0a0d] py-10 px-4 sm:px-6 lg:px-8 overflow-hidden">
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-[#c5a059]/10 via-transparent to-transparent pointer-events-none" />
+            
+            {/* Header Banner */}
+            <header className="w-full border-b border-[#2a2c33] bg-[#121218] px-4 sm:px-6 lg:px-8 py-6 sm:py-8 shadow-xl relative overflow-hidden">
+                <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#c5a059] to-transparent pointer-events-none" />
                 
-                <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6 relative z-10">
+                <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
                     <div>
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-cinzel font-bold bg-[#c5a059]/15 text-[#e6c278] border border-[#c5a059]/40 mb-3 shadow-[0_0_12px_rgba(197,160,89,0.2)]">
-                            <Sparkles className="size-3.5" /> Meta Builds & Live Kiosk Optimizer
+                        <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-none bg-[#c5a059]/10 border border-[#c5a059]/40 mb-2 text-[#d4af37] text-xs font-cinzel tracking-widest uppercase">
+                            <Sparkles className="size-3.5 text-[#c5a059]" /> Meta Builds & Live Kiosk Optimizer
                         </div>
-                        <h1 className="text-3xl sm:text-4xl lg:text-5xl font-cinzel font-bold text-transparent bg-clip-text bg-gradient-to-r from-[#fce2a6] via-[#e6c278] to-[#c5a059] tracking-wide">
+                        <h1 className="font-cinzel text-2xl sm:text-4xl font-extrabold text-[#e0d8c3] tracking-wide uppercase flex items-center gap-3">
+                            <Shield className="size-8 text-[#c5a059]" />
                             Tamriel Build Arsenal
                         </h1>
-                        <p className="text-sm sm:text-base text-muted-foreground mt-2 max-w-2xl leading-relaxed">
+                        <p className="text-xs sm:text-sm text-[#a89f91] mt-1 max-w-2xl leading-relaxed">
                             Explore top meta theorycrafting builds, automatically diff required 12-slot gear against your active character loadout, and discover the cheapest Guild Trader kiosk deals across Tamriel.
                         </p>
                     </div>
 
-                    <div className="flex items-center gap-3 shrink-0">
-                        <button
-                            onClick={() => setIsCreatorOpen(true)}
-                            className="px-5 py-3 rounded-xl bg-gradient-to-r from-[#c5a059] to-[#e6c278] hover:from-[#d4af37] hover:to-[#fce2a6] text-black font-cinzel font-bold text-sm shadow-[0_0_20px_rgba(197,160,89,0.35)] transition-all flex items-center gap-2 transform hover:-translate-y-0.5 active:translate-y-0"
-                        >
-                            <Plus className="size-4" /> Forge Custom Build
-                        </button>
-                    </div>
+                    <button
+                        onClick={() => setIsCreatorOpen(true)}
+                        className="px-5 py-3 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-[#0a0a0d] font-cinzel font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg transition-all cursor-pointer shrink-0"
+                    >
+                        <Plus className="size-4" /> Forge Custom Build
+                    </button>
                 </div>
-            </div>
+            </header>
 
             {/* Filter Bar */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-4">
@@ -111,11 +111,11 @@ export function BuildExplorer() {
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
                         placeholder="Search builds, sets, or theorycrafter authors..."
-                        className="w-full pl-10 pr-24 py-2.5 rounded-xl bg-[#14141c] border border-[#c5a059]/30 text-sm text-[#fce2a6] placeholder:text-muted-foreground focus:outline-none focus:border-[#c5a059] transition-all"
+                        className="w-full pl-10 pr-24 py-2.5 rounded-none bg-[#14141c] border border-[#c5a059]/30 text-sm text-[#fce2a6] placeholder:text-muted-foreground focus:outline-none focus:border-[#c5a059] transition-all font-cinzel"
                     />
                     <button
                         type="submit"
-                        className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1 rounded-lg bg-[#c5a059]/20 hover:bg-[#c5a059]/30 text-[#e6c278] border border-[#c5a059]/40 text-xs font-cinzel font-bold transition-all"
+                        className="absolute right-1 top-1 bottom-1 px-4 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-[#0a0a0d] text-xs font-cinzel font-bold tracking-wider uppercase transition-all"
                     >
                         Search
                     </button>
@@ -123,17 +123,17 @@ export function BuildExplorer() {
 
                 {/* Class Filters */}
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-2 custom-scrollbar">
-                    <span className="text-xs font-cinzel font-bold text-muted-foreground shrink-0 mr-2">Class:</span>
+                    <span className="text-xs font-cinzel font-bold text-muted-foreground shrink-0 mr-2 uppercase tracking-wider">Class:</span>
                     {CLASSES.map((cls) => {
                         const active = selectedClass === cls;
                         return (
                             <button
                                 key={cls}
                                 onClick={() => setSelectedClass(cls)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-cinzel font-semibold whitespace-nowrap transition-all ${
+                                className={`px-3 py-1.5 rounded-none text-xs font-cinzel uppercase tracking-wider whitespace-nowrap transition-all ${
                                     active
-                                        ? "bg-[#c5a059] text-black shadow-[0_0_12px_rgba(197,160,89,0.3)] font-bold"
-                                        : "bg-[#14141c] text-muted-foreground hover:text-white border border-[#c5a059]/20 hover:border-[#c5a059]/40"
+                                        ? "bg-[#c5a059] text-black font-bold shadow-md"
+                                        : "bg-[#14141c] text-[#a89f91] hover:text-[#e0d8c3] border border-[#2a2c33] hover:border-[#c5a059]/50"
                                 }`}
                             >
                                 {cls}
@@ -144,17 +144,17 @@ export function BuildExplorer() {
 
                 {/* Role Filters */}
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-2 custom-scrollbar">
-                    <span className="text-xs font-cinzel font-bold text-muted-foreground shrink-0 mr-2">Role:</span>
+                    <span className="text-xs font-cinzel font-bold text-muted-foreground shrink-0 mr-2 uppercase tracking-wider">Role:</span>
                     {ROLES.map((r) => {
                         const active = selectedRole === r;
                         return (
                             <button
                                 key={r}
                                 onClick={() => setSelectedRole(r)}
-                                className={`px-3 py-1.5 rounded-lg text-xs font-cinzel font-semibold whitespace-nowrap transition-all ${
+                                className={`px-3 py-1.5 rounded-none text-xs font-cinzel uppercase tracking-wider whitespace-nowrap transition-all ${
                                     active
-                                        ? "bg-[#c5a059] text-black shadow-[0_0_12px_rgba(197,160,89,0.3)] font-bold"
-                                        : "bg-[#14141c] text-muted-foreground hover:text-white border border-[#c5a059]/20 hover:border-[#c5a059]/40"
+                                        ? "bg-[#c5a059] text-black font-bold shadow-md"
+                                        : "bg-[#14141c] text-[#a89f91] hover:text-[#e0d8c3] border border-[#2a2c33] hover:border-[#c5a059]/50"
                                 }`}
                             >
                                 {r}
@@ -172,15 +172,15 @@ export function BuildExplorer() {
                         <p className="font-cinzel text-sm">Querying Build Archives & Market Indices...</p>
                     </div>
                 ) : builds.length === 0 ? (
-                    <div className="py-20 text-center rounded-2xl bg-[#14141c]/50 border border-[#c5a059]/20 p-8 space-y-3">
+                    <div className="py-20 text-center rounded-none bg-[#14141c]/50 border border-[#c5a059]/20 p-8 space-y-3">
                         <BookOpen className="size-10 text-[#c5a059] mx-auto opacity-60" />
-                        <h3 className="font-cinzel font-bold text-lg text-[#fce2a6]">No Builds Matching Criteria</h3>
+                        <h3 className="font-cinzel font-bold text-lg text-[#fce2a6] uppercase tracking-wider">No Builds Matching Criteria</h3>
                         <p className="text-xs text-muted-foreground max-w-md mx-auto">
                             Try adjusting your class and role filters or search query to find meta presets.
                         </p>
                         <button
                             onClick={() => { setSelectedClass("All Classes"); setSelectedRole("All Roles"); setSearchQuery(""); }}
-                            className="px-4 py-2 rounded-lg bg-[#c5a059]/20 hover:bg-[#c5a059]/30 text-[#e6c278] border border-[#c5a059]/40 text-xs font-cinzel font-bold transition-all inline-block mt-2"
+                            className="px-4 py-2 rounded-none bg-[#c5a059]/20 hover:bg-[#c5a059]/30 text-[#e6c278] border border-[#c5a059]/40 text-xs font-cinzel font-bold transition-all inline-block mt-2 uppercase tracking-wider"
                         >
                             Reset Filters
                         </button>
@@ -191,42 +191,42 @@ export function BuildExplorer() {
                             <div
                                 key={build.id}
                                 onClick={() => openBuildModal(build.id, "gear")}
-                                className="group relative rounded-2xl bg-[#13131b] border-2 border-[#c5a059]/20 hover:border-[#c5a059]/60 transition-all duration-300 p-5 flex flex-col justify-between cursor-pointer shadow-lg hover:shadow-[0_8px_30px_rgba(0,0,0,0.8)] hover:-translate-y-1"
+                                className="group relative rounded-none bg-[#13131b] border-2 border-[#2a2c33] hover:border-[#c5a059]/80 transition-all duration-200 p-5 flex flex-col justify-between cursor-pointer shadow-xl hover:-translate-y-0.5"
                             >
                                 <div>
                                     {/* Card Header Badges */}
                                     <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                                         <div className="flex items-center gap-1.5">
                                             {build.is_curated ? (
-                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-cinzel font-bold bg-[#c5a059]/20 text-[#e6c278] border border-[#c5a059]/40">
-                                                    <Sparkles className="size-2.5" /> Curated
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-none text-[10px] font-cinzel font-bold bg-[#c5a059]/15 text-[#e6c278] border border-[#c5a059]/40 uppercase tracking-wider">
+                                                    <Sparkles className="size-2.5" /> Curated Meta
                                                 </span>
                                             ) : (
-                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-cinzel font-bold bg-purple-950/40 text-purple-300 border border-purple-500/40">
+                                                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-none text-[10px] font-cinzel font-bold bg-purple-950/40 text-purple-300 border border-purple-500/40 uppercase tracking-wider">
                                                     <User className="size-2.5" /> Custom
                                                 </span>
                                             )}
-                                            <span className={`px-2 py-0.5 rounded text-[10px] font-semibold border ${ROLE_STYLES[build.role] || "text-gray-300 border-gray-700 bg-gray-900/40"}`}>
+                                            <span className={`px-2 py-0.5 rounded-none text-[10px] font-semibold border uppercase tracking-wider ${ROLE_STYLES[build.role] || "text-gray-300 border-gray-700 bg-gray-900/40"}`}>
                                                 {build.role}
                                             </span>
                                         </div>
 
-                                        <span className="text-[11px] font-cinzel font-semibold text-[#c5a059]">
+                                        <span className="text-[11px] font-cinzel font-bold text-[#c5a059] uppercase tracking-wider">
                                             {build.class}
                                         </span>
                                     </div>
 
                                     {/* Title & Author */}
-                                    <h3 className="font-cinzel font-bold text-lg text-[#fce2a6] group-hover:text-white transition-colors mb-1">
+                                    <h3 className="font-cinzel font-bold text-lg text-[#e0d8c3] group-hover:text-[#d4af37] transition-colors mb-1">
                                         {build.title}
                                     </h3>
                                     <p className="text-xs text-muted-foreground mb-3">
-                                        By <span className="text-gray-300 font-medium">{build.author}</span>
+                                        By <span className="text-[#e0d8c3] font-medium">{build.author}</span>
                                     </p>
 
                                     {/* Description */}
                                     {build.description && (
-                                        <p className="text-xs text-[#9d9382] line-clamp-2 leading-relaxed mb-4">
+                                        <p className="text-xs text-[#a89f91] line-clamp-2 leading-relaxed mb-4">
                                             {build.description}
                                         </p>
                                     )}
@@ -241,7 +241,7 @@ export function BuildExplorer() {
                                                 {build.sets.map((s) => (
                                                     <span 
                                                         key={s} 
-                                                        className="px-2 py-0.5 rounded bg-[#181824] border border-[#c5a059]/20 text-[11px] text-[#e6c278] font-cinzel"
+                                                        className="px-2 py-0.5 rounded-none bg-[#0a0a0d] border border-[#2a2c33] text-[11px] text-[#e6c278] font-cinzel"
                                                     >
                                                         {s}
                                                     </span>
@@ -253,11 +253,11 @@ export function BuildExplorer() {
 
                                 <div>
                                     {/* Market Availability Bar */}
-                                    <div className="pt-3 border-t border-[#c5a059]/10 flex items-center justify-between text-xs text-muted-foreground mb-4">
-                                        <span className="text-emerald-400 flex items-center gap-1 font-medium">
+                                    <div className="pt-3 border-t border-[#2a2c33] flex items-center justify-between text-xs text-muted-foreground mb-4">
+                                        <span className="text-emerald-400 flex items-center gap-1 font-medium font-cinzel">
                                             <ShoppingCart className="size-3" /> {build.tradeable_items} Tradeable
                                         </span>
-                                        <span className="text-red-400 flex items-center gap-1 font-medium">
+                                        <span className="text-red-400 flex items-center gap-1 font-medium font-cinzel">
                                             <Lock className="size-3" /> {build.bop_items} Farmable BOP
                                         </span>
                                     </div>
@@ -266,13 +266,13 @@ export function BuildExplorer() {
                                     <div className="grid grid-cols-2 gap-2">
                                         <button
                                             onClick={(e) => { e.stopPropagation(); openBuildModal(build.id, "diff"); }}
-                                            className="py-2 px-3 rounded-lg bg-[#181824] hover:bg-[#c5a059]/20 text-[#e6c278] border border-[#c5a059]/30 text-xs font-cinzel font-bold transition-all flex items-center justify-center gap-1.5"
+                                            className="py-2 px-3 rounded-none bg-[#161620] hover:bg-[#c5a059]/20 text-[#e6c278] border border-[#c5a059]/30 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5"
                                         >
                                             <Sword className="size-3.5" /> Diff Loadout
                                         </button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); openBuildModal(build.id, "deals"); }}
-                                            className="py-2 px-3 rounded-lg bg-gradient-to-r from-[#c5a059]/20 to-[#e6c278]/20 hover:from-[#c5a059]/30 hover:to-[#e6c278]/30 text-[#fce2a6] border border-[#c5a059]/40 text-xs font-cinzel font-bold transition-all flex items-center justify-center gap-1.5"
+                                            className="py-2 px-3 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-black text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-md"
                                         >
                                             <ShoppingCart className="size-3.5" /> Kiosk Deals
                                         </button>
