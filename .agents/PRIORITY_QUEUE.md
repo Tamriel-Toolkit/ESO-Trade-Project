@@ -25,7 +25,6 @@ This living document provides the prioritized execution queue for both human mai
 
 | Rank | Issue | Area | Severity | Status | Blocked By | Strategic Rationale |
 |:---:|:---|:---|:---:|:---:|:---:|:---|
-| — | #18 | Frontend / Auth | NITPICK | 🟢 In Review (PR #96) | None | Implements full `Login.jsx` UI and connects to the hardened auth endpoints. |
 | **1** | #17 | Frontend / UX | MINOR | 🟡 Next Up | None | Improves WCAG text contrast ratios for dark theme legibility. |
 | **2** | #37 | Frontend / UI | MINOR | ⚪ Queued | None | Auto-fits dropdown menu width in `EsoSelect` to accommodate full alliance names without truncation. |
 | **3** | #8 | Core Milestone | FEATURE | ⚪ Queued | None | Milestone Epic: Smart Build Importer & Market Deal Recommendation Engine. |
@@ -51,6 +50,7 @@ This living document provides the prioritized execution queue for both human mai
 ---
 
 ## 🏆 Recently Completed / Merged
+- **`#18`** — `[NITPICK] Login.jsx is a 10-line stub — needs full implementation` (Closed/Merged)
 - **`#71`** — `[MODERATE] Migrate frontend session token storage to HttpOnly SameSite cookies` (Closed/Merged)
 - **`#13`** — `[MINOR] Remove unused body-parser dependency` (Closed/Merged)
 - **`#68`** — `[MINOR] Add catch-all 404 route and themed NotFound page in React Router` (Closed/Merged)
