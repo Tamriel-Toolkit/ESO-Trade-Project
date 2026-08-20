@@ -56,6 +56,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
         build.items.forEach((item) => {
             map[item.slot_id] = {
                 ...item,
+                item_icon: item.item_icon || item.icon_url,
                 item_name: item.item_name,
                 set_name: item.set_name,
                 quality: item.quality || 4,

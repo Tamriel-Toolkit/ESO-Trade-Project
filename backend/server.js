@@ -434,6 +434,7 @@ function initializeDatabaseSchema() {
                 item_name TEXT NOT NULL,
                 set_name TEXT NOT NULL,
                 item_type TEXT,
+                item_icon TEXT,
                 trait_id INTEGER DEFAULT 0,
                 trait_name TEXT,
                 enchantment TEXT,
@@ -445,7 +446,10 @@ function initializeDatabaseSchema() {
             );
         `, (err) => {
             if (err) console.error("Error creating 'build_items' table:", err.message);
-            else console.log("'build_items' table initialized successfully.");
+            else {
+                console.log("'build_items' table initialized successfully.");
+                db.run("ALTER TABLE build_items ADD COLUMN item_icon TEXT", () => {});
+            }
         });
 
         db.run(`
@@ -2552,7 +2556,13 @@ app.get("/api/builds/:id", async (req, res) => {
         }
 
         const items = await dbAll(`
-            SELECT * FROM build_items WHERE build_id = ? ORDER BY slot_id ASC;
+            SELECT 
+                bi.*,
+                REPLACE(COALESCE(bi.item_icon, i.icon_url), '.dds', '.png') as item_icon
+            FROM build_items bi
+            LEFT JOIN items i ON i.game_item_id = bi.game_item_id
+            WHERE bi.build_id = ? 
+            ORDER BY bi.slot_id ASC;
         `, [buildId]);
 
         // Calculate Set Counts
@@ -2615,8 +2625,8 @@ app.post("/api/builds", async (req, res) => {
 
         if (Array.isArray(items) && items.length > 0) {
             const insertItemStmt = db.prepare(`
-                INSERT INTO build_items (build_id, slot_id, slot_name, game_item_id, item_name, set_name, item_type, trait_id, trait_name, enchantment, quality, is_tradeable, source_location)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                INSERT INTO build_items (build_id, slot_id, slot_name, game_item_id, item_name, set_name, item_type, item_icon, trait_id, trait_name, enchantment, quality, is_tradeable, source_location)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             `);
 
             for (const it of items) {
@@ -2628,6 +2638,7 @@ app.post("/api/builds", async (req, res) => {
                     it.item_name || "Custom Item",
                     it.set_name || "Custom Set",
                     it.item_type || "Armor",
+                    it.item_icon || null,
                     it.trait_id || 0,
                     it.trait_name || "Divines",
                     it.enchantment || "Max Magicka",
