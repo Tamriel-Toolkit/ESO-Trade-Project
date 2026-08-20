@@ -100,14 +100,14 @@ export function BuildExplorer() {
                 <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative z-10">
                     <div>
                         <div className="inline-flex items-center gap-1.5 px-3 py-0.5 rounded-none bg-[#c5a059]/10 border border-[#c5a059]/40 mb-2 text-[#d4af37] text-xs font-cinzel tracking-widest uppercase">
-                            <Sparkles className="size-3.5 text-[#c5a059]" /> Meta Builds & Live Kiosk Optimizer
+                            <Sparkles className="size-3.5 text-[#c5a059]" /> Builds & Market Deals
                         </div>
                         <h1 className="font-cinzel text-2xl sm:text-4xl font-extrabold text-[#e0d8c3] tracking-wide uppercase flex items-center gap-3">
                             <Shield className="size-8 text-[#c5a059]" />
-                            Tamriel Build Arsenal
+                            Build Explorer
                         </h1>
                         <p className="text-xs sm:text-sm text-[#a89f91] mt-1 max-w-2xl leading-relaxed">
-                            Explore top meta theorycrafting builds, automatically diff required 12-slot gear against your active character loadout, and discover the cheapest Guild Trader kiosk deals across Tamriel.
+                            Explore meta builds, compare gear against your characters, and find the best trader deals.
                         </p>
                     </div>
 
@@ -115,7 +115,7 @@ export function BuildExplorer() {
                         onClick={() => setIsCreatorOpen(true)}
                         className="px-5 py-3 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-[#0a0a0d] font-cinzel font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg transition-all cursor-pointer shrink-0"
                     >
-                        <Plus className="size-4" /> Forge Custom Build
+                        <Plus className="size-4" /> Create Build
                     </button>
                 </div>
             </header>
@@ -130,7 +130,7 @@ export function BuildExplorer() {
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Search builds, sets, or theorycrafter authors..."
+                            placeholder="Search builds, sets, or authors..."
                             className="w-full pl-10 pr-24 py-2 bg-[#14141c] border border-[#2a2c33] hover:border-[#c5a059]/60 text-xs text-[#e0d8c3] placeholder:text-muted-foreground focus:outline-none focus:border-[#c5a059] transition-all font-cinzel rounded-none shadow-sm"
                         />
                         <button
@@ -179,14 +179,14 @@ export function BuildExplorer() {
                 {loading ? (
                     <div className="py-24 text-center text-muted-foreground">
                         <RefreshCw className="size-8 animate-spin text-[#c5a059] mx-auto mb-3" />
-                        <p className="font-cinzel text-sm">Querying Build Archives & Market Indices...</p>
+                        <p className="font-cinzel text-sm">Loading builds...</p>
                     </div>
                 ) : builds.length === 0 ? (
                     <div className="py-20 text-center rounded-none bg-[#14141c]/50 border border-[#c5a059]/20 p-8 space-y-3">
                         <BookOpen className="size-10 text-[#c5a059] mx-auto opacity-60" />
-                        <h3 className="font-cinzel font-bold text-lg text-[#fce2a6] uppercase tracking-wider">No Builds Matching Criteria</h3>
+                        <h3 className="font-cinzel font-bold text-lg text-[#fce2a6] uppercase tracking-wider">No Builds Found</h3>
                         <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                            Try adjusting your class and role dropdown filters or search query to find meta presets.
+                            Try adjusting your class, role, or search filters.
                         </p>
                         <button
                             onClick={() => { setSelectedClass("All Classes"); setSelectedRole("All Roles"); setSearchQuery(""); }}
@@ -209,7 +209,7 @@ export function BuildExplorer() {
                                         <div className="flex items-center gap-1.5">
                                             {build.is_curated ? (
                                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-none text-[10px] font-cinzel font-bold bg-[#c5a059]/15 text-[#e6c278] border border-[#c5a059]/40 uppercase tracking-wider">
-                                                    <Sparkles className="size-2.5" /> Curated Meta
+                                                    <Sparkles className="size-2.5" /> Curated
                                                 </span>
                                             ) : (
                                                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-none text-[10px] font-cinzel font-bold bg-purple-950/40 text-purple-300 border border-purple-500/40 uppercase tracking-wider">
@@ -268,7 +268,7 @@ export function BuildExplorer() {
                                             <ShoppingCart className="size-3" /> {build.tradeable_items} Tradeable
                                         </span>
                                         <span className="text-red-400 flex items-center gap-1 font-medium font-cinzel">
-                                            <Lock className="size-3" /> {build.bop_items} Farmable BOP
+                                            <Lock className="size-3" /> {build.bop_items} Bound
                                         </span>
                                     </div>
 
@@ -278,13 +278,13 @@ export function BuildExplorer() {
                                             onClick={(e) => { e.stopPropagation(); openBuildModal(build.id, "diff"); }}
                                             className="py-2 px-3 rounded-none bg-[#161620] hover:bg-[#c5a059]/20 text-[#e6c278] border border-[#c5a059]/30 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                                         >
-                                            <Sword className="size-3.5" /> Diff Loadout
+                                            <Sword className="size-3.5" /> Compare
                                         </button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); openBuildModal(build.id, "deals"); }}
                                             className="py-2 px-3 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-black text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
                                         >
-                                            <ShoppingCart className="size-3.5" /> Kiosk Deals
+                                            <ShoppingCart className="size-3.5" /> Deals
                                         </button>
                                     </div>
                                 </div>

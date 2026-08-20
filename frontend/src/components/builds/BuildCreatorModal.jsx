@@ -9,30 +9,30 @@ const ESO_CLASSES = ["Arcanist", "Dragonknight", "Necromancer", "Nightblade", "S
 const ESO_ROLES = ["Magicka DPS", "Stamina DPS", "Tank", "Healer", "Solo / Arena", "PvP"];
 
 const DEFAULT_SLOTS = [
-    { slot_id: 0, slot_name: "Head", item_name: "Monster Helm or Set Hat", set_name: "Stormfist", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 0, source_location: "Veteran Dungeon / Undaunted Pledges" },
-    { slot_id: 3, slot_name: "Shoulders", item_name: "Monster Shoulders", set_name: "Stormfist", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 0, source_location: "Veteran Dungeon / Undaunted Pledges" },
-    { slot_id: 2, slot_name: "Chest", item_name: "Order's Wrath Jerkin", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Craftable or Zone Kiosks" },
-    { slot_id: 16, slot_name: "Hands", item_name: "Order's Wrath Bracers", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Craftable or Zone Kiosks" },
-    { slot_id: 6, slot_name: "Waist", item_name: "Order's Wrath Belt", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Craftable or Zone Kiosks" },
-    { slot_id: 7, slot_name: "Legs", item_name: "Order's Wrath Guards", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Craftable or Zone Kiosks" },
-    { slot_id: 8, slot_name: "Feet", item_name: "Order's Wrath Boots", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Craftable or Zone Kiosks" },
-    { slot_id: 1, slot_name: "Neck", item_name: "Deadly Strike Necklace", set_name: "Deadly Strike", item_type: "Necklace", trait_name: "Bloodthirsty", enchantment: "Weapon Damage", quality: 4, is_tradeable: 1, source_location: "Craftable or Zone Kiosks" },
-    { slot_id: 9, slot_name: "Ring 1", item_name: "Deadly Strike Ring", set_name: "Deadly Strike", item_type: "Ring", trait_name: "Bloodthirsty", enchantment: "Weapon Damage", quality: 4, is_tradeable: 1, source_location: "Craftable or Zone Kiosks" },
-    { slot_id: 11, slot_name: "Ring 2", item_name: "Deadly Strike Ring", set_name: "Deadly Strike", item_type: "Ring", trait_name: "Bloodthirsty", enchantment: "Weapon Damage", quality: 4, is_tradeable: 1, source_location: "Craftable or Zone Kiosks" },
-    { slot_id: 4, slot_name: "Main Hand 1", item_name: "Deadly Strike Dagger", set_name: "Deadly Strike", item_type: "One-Handed Dagger", trait_name: "Nirnhoned", enchantment: "Flame Damage", quality: 5, is_tradeable: 1, source_location: "Craftable or Zone Kiosks" },
-    { slot_id: 5, slot_name: "Off Hand 1", item_name: "Deadly Strike Dagger", set_name: "Deadly Strike", item_type: "One-Handed Dagger", trait_name: "Charged", enchantment: "Poison Damage", quality: 5, is_tradeable: 1, source_location: "Craftable or Zone Kiosks" },
-    { slot_id: 12, slot_name: "Main Hand 2", item_name: "Maelstrom Greatsword", set_name: "Merciless Charge", item_type: "Two-Handed Greatsword", trait_name: "Infused", enchantment: "Weapon Damage", quality: 5, is_tradeable: 0, source_location: "Arena / Special Drop" }
+    { slot_id: 0, slot_name: "Head", item_name: "Monster Helm", set_name: "Stormfist", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 0, source_location: "Tempest Island" },
+    { slot_id: 3, slot_name: "Shoulders", item_name: "Monster Shoulders", set_name: "Stormfist", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 0, source_location: "Undaunted Pledge" },
+    { slot_id: 2, slot_name: "Chest", item_name: "Order's Wrath Jerkin", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Crafted - High Isle" },
+    { slot_id: 16, slot_name: "Hands", item_name: "Order's Wrath Bracers", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Crafted - High Isle" },
+    { slot_id: 6, slot_name: "Waist", item_name: "Order's Wrath Belt", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Crafted - High Isle" },
+    { slot_id: 7, slot_name: "Legs", item_name: "Order's Wrath Guards", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Crafted - High Isle" },
+    { slot_id: 8, slot_name: "Feet", item_name: "Order's Wrath Boots", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Crafted - High Isle" },
+    { slot_id: 1, slot_name: "Neck", item_name: "Deadly Strike Necklace", set_name: "Deadly Strike", item_type: "Necklace", trait_name: "Bloodthirsty", enchantment: "Weapon Damage", quality: 4, is_tradeable: 1, source_location: "Cyrodiil / Traders" },
+    { slot_id: 9, slot_name: "Ring 1", item_name: "Deadly Strike Ring", set_name: "Deadly Strike", item_type: "Ring", trait_name: "Bloodthirsty", enchantment: "Weapon Damage", quality: 4, is_tradeable: 1, source_location: "Cyrodiil / Traders" },
+    { slot_id: 11, slot_name: "Ring 2", item_name: "Deadly Strike Ring", set_name: "Deadly Strike", item_type: "Ring", trait_name: "Bloodthirsty", enchantment: "Weapon Damage", quality: 4, is_tradeable: 1, source_location: "Cyrodiil / Traders" },
+    { slot_id: 4, slot_name: "Main Hand 1", item_name: "Deadly Strike Dagger", set_name: "Deadly Strike", item_type: "One-Handed Dagger", trait_name: "Nirnhoned", enchantment: "Flame Damage", quality: 5, is_tradeable: 1, source_location: "Cyrodiil / Traders" },
+    { slot_id: 5, slot_name: "Off Hand 1", item_name: "Deadly Strike Dagger", set_name: "Deadly Strike", item_type: "One-Handed Dagger", trait_name: "Charged", enchantment: "Poison Damage", quality: 5, is_tradeable: 1, source_location: "Cyrodiil / Traders" },
+    { slot_id: 12, slot_name: "Main Hand 2", item_name: "Maelstrom Greatsword", set_name: "Merciless Charge", item_type: "Two-Handed Greatsword", trait_name: "Infused", enchantment: "Weapon Damage", quality: 5, is_tradeable: 0, source_location: "Maelstrom Arena" }
 ];
 
 const SET_CATEGORIES = [
     { label: "All Sets", value: "All" },
-    { label: "🛒 Tradeable", value: "Tradeable" },
-    { label: "🔒 Bind on Pickup", value: "BOP" },
+    { label: "Tradeable", value: "Tradeable" },
+    { label: "Bound", value: "BOP" },
     { label: "Crafted / Overland", value: "Crafted / Overland" },
     { label: "Dungeon / Trial", value: "Dungeon / Trial" },
     { label: "Monster (2pc)", value: "Monster" },
     { label: "Mythic (1pc)", value: "Mythic" },
-    { label: "Arena / Special", value: "Arena / Special" }
+    { label: "Arena", value: "Arena / Special" }
 ];
 
 const TRAITS_BY_SLOT = {
@@ -72,13 +72,7 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
     const handleOpenSlotPicker = (index) => {
         setEditingSlotIndex(index);
         setSearchTerm("");
-        // If Head or Shoulders, default to Monster or All
-        const slot = slots[index];
-        if (slot?.slot_id === 0 || slot?.slot_id === 3) {
-            setSelectedCategory("All");
-        } else {
-            setSelectedCategory("All");
-        }
+        setSelectedCategory("All");
     };
 
     const handleSelectSetForSlot = (setObj) => {
@@ -128,7 +122,7 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
             if (onBuildCreated) onBuildCreated(res.build_id);
             onClose();
         } else {
-            setError(res?.error || "Failed to save custom build.");
+            setError(res?.error || "Failed to save build.");
         }
     };
 
@@ -172,15 +166,15 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                     <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#c5a059] to-transparent pointer-events-none" />
                     <div>
                         <span className="text-[10px] font-cinzel font-bold uppercase tracking-wider text-[#c5a059]">
-                            Forge New Arsenal Loadout
+                            Custom Loadout
                         </span>
                         <h2 className="text-xl font-cinzel font-bold text-[#e0d8c3] tracking-wide">
-                            Create Custom Build & Kiosk Tracker
+                            Create Custom Build
                         </h2>
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-1.5 rounded-none text-muted-foreground hover:text-white hover:bg-white/5 transition-colors border border-transparent hover:border-[#c5a059]/30"
+                        className="p-1.5 rounded-none text-muted-foreground hover:text-white hover:bg-white/5 transition-colors border border-transparent hover:border-[#c5a059]/30 cursor-pointer"
                         aria-label="Close modal"
                     >
                         <X className="size-5" />
@@ -206,7 +200,7 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                                 type="text"
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
-                                placeholder="e.g. Stamina Arcanist Solo Arena Brawler"
+                                placeholder="e.g. Stamina Arcanist Solo Brawler"
                                 className="w-full px-3.5 py-2 rounded-none bg-[#14141c] border border-[#2a2c33] text-[#e0d8c3] placeholder:text-muted-foreground text-sm focus:outline-none focus:border-[#c5a059] font-cinzel"
                             />
                         </div>
@@ -243,26 +237,26 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
 
                         <div className="sm:col-span-2">
                             <label className="block text-xs font-cinzel font-bold text-[#fce2a6] uppercase tracking-wider mb-1">
-                                Description & Rotation Notes
+                                Notes & Rotation
                             </label>
                             <textarea
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
                                 rows={2}
-                                placeholder="Brief overview of playstyle, skill rotation highlights, and set interactions..."
+                                placeholder="Playstyle notes, skill highlights, and set interactions..."
                                 className="w-full px-3.5 py-2 rounded-none bg-[#14141c] border border-[#2a2c33] text-[#e0d8c3] placeholder:text-muted-foreground text-xs focus:outline-none focus:border-[#c5a059]"
                             />
                         </div>
                     </div>
 
-                    {/* 12 Individual Slot Configuration */}
+                    {/* Equipment Slots */}
                     <div>
                         <div className="flex items-center justify-between mb-3">
                             <h3 className="text-xs font-cinzel font-bold tracking-wider text-[#c5a059] uppercase flex items-center gap-1.5">
-                                <Shield className="size-3.5" /> 12 Equipment Slots Architecture
+                                <Shield className="size-3.5" /> Equipment Slots
                             </h3>
                             <span className="text-[11px] text-muted-foreground font-cinzel">
-                                Click any slot to choose from all 712 ESO sets.
+                                Choose from all 712 ESO sets.
                             </span>
                         </div>
 
@@ -291,7 +285,7 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                                             </div>
                                             <button
                                                 onClick={() => handleOpenSlotPicker(idx)}
-                                                className="px-2.5 py-1 rounded-none bg-[#1c1c28] hover:bg-[#c5a059]/20 text-[#e6c278] border border-[#c5a059]/30 text-xs font-cinzel uppercase tracking-wider transition-all"
+                                                className="px-2.5 py-1 rounded-none bg-[#1c1c28] hover:bg-[#c5a059]/20 text-[#e6c278] border border-[#c5a059]/30 text-xs font-cinzel uppercase tracking-wider transition-all cursor-pointer"
                                             >
                                                 Change Set
                                             </button>
@@ -325,11 +319,11 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                                         <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 font-cinzel">
                                             {slot.is_tradeable ? (
                                                 <span className="text-emerald-400 flex items-center gap-1">
-                                                    <ShoppingCart className="size-3" /> Tradeable on Guild Kiosks
+                                                    <ShoppingCart className="size-3" /> Tradeable
                                                 </span>
                                             ) : (
                                                 <span className="text-red-400 flex items-center gap-1">
-                                                    <Lock className="size-3" /> Bind on Pickup
+                                                    <Lock className="size-3" /> Bound
                                                 </span>
                                             )}
                                             <span className="italic truncate max-w-[140px]">
@@ -347,16 +341,16 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                 <div className="px-6 py-4 border-t border-[#2a2c33] bg-[#0e0e13] flex items-center justify-between">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 rounded-none text-xs font-cinzel font-semibold text-muted-foreground hover:text-white hover:bg-white/5 transition-all uppercase tracking-wider"
+                        className="px-4 py-2 rounded-none text-xs font-cinzel font-semibold text-muted-foreground hover:text-white hover:bg-white/5 transition-all uppercase tracking-wider cursor-pointer"
                     >
                         Cancel
                     </button>
                     <button
                         onClick={handleSaveBuild}
                         disabled={saving}
-                        className="px-6 py-2.5 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider shadow-lg transition-all flex items-center gap-2 disabled:opacity-50"
+                        className="px-6 py-2.5 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider shadow-lg transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
                     >
-                        <Save className="size-4" /> {saving ? "Saving Build..." : "Save Custom Build"}
+                        <Save className="size-4" /> {saving ? "Saving..." : "Save Build"}
                     </button>
                 </div>
             </div>
@@ -369,15 +363,15 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                         <div className="flex items-center justify-between border-b border-[#2a2c33] pb-3">
                             <div>
                                 <span className="text-[10px] font-cinzel font-bold uppercase tracking-wider text-[#c5a059]">
-                                    Tamriel Set Catalog ({allSets.length} Sets Total)
+                                    Set Catalog ({allSets.length} Sets)
                                 </span>
                                 <h3 className="font-cinzel font-bold text-[#e0d8c3] text-base uppercase tracking-wider">
-                                    Select Set for {slots[editingSlotIndex]?.slot_name}
+                                    Select Set ({slots[editingSlotIndex]?.slot_name})
                                 </h3>
                             </div>
                             <button
                                 onClick={() => setEditingSlotIndex(null)}
-                                className="p-1 rounded-none text-muted-foreground hover:text-white hover:bg-white/5"
+                                className="p-1 rounded-none text-muted-foreground hover:text-white hover:bg-white/5 cursor-pointer"
                             >
                                 <X className="size-5" />
                             </button>
@@ -390,7 +384,7 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                                 type="text"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                placeholder="Search all 712 sets by name, bonus, or drop location..."
+                                placeholder="Search 712 sets by name, bonus, or source..."
                                 autoFocus
                                 className="w-full pl-10 pr-4 py-2.5 rounded-none bg-[#0a0a0d] border border-[#c5a059]/40 text-xs text-[#e0d8c3] placeholder:text-muted-foreground focus:outline-none focus:border-[#c5a059] font-cinzel"
                             />
@@ -404,7 +398,7 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                                     <button
                                         key={cat.value}
                                         onClick={() => setSelectedCategory(cat.value)}
-                                        className={`px-2.5 py-1 rounded-none text-[11px] font-cinzel font-semibold whitespace-nowrap uppercase tracking-wider transition-all ${
+                                        className={`px-2.5 py-1 rounded-none text-[11px] font-cinzel font-semibold whitespace-nowrap uppercase tracking-wider transition-all cursor-pointer ${
                                             active
                                                 ? "bg-[#c5a059] text-black font-bold shadow-md"
                                                 : "bg-[#0a0a0d] text-[#a89f91] hover:text-[#e0d8c3] border border-[#2a2c33] hover:border-[#c5a059]/40"
@@ -421,18 +415,18 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                             {setsLoading ? (
                                 <div className="py-16 text-center text-muted-foreground font-cinzel text-xs">
                                     <RefreshCw className="size-6 animate-spin text-[#c5a059] mx-auto mb-2" />
-                                    Querying 712 Tamriel sets...
+                                    Loading sets...
                                 </div>
                             ) : filteredSets.length === 0 ? (
                                 <div className="py-12 text-center text-muted-foreground font-cinzel text-xs">
-                                    No sets matching "{searchTerm}".
+                                    No sets found for "{searchTerm}".
                                 </div>
                             ) : (
                                 filteredSets.map((setObj) => (
                                     <button
                                         key={setObj.name}
                                         onClick={() => handleSelectSetForSlot(setObj)}
-                                        className="w-full p-3 rounded-none bg-[#0a0a0d] hover:bg-[#181824] border border-[#2a2c33] hover:border-[#c5a059]/60 transition-all text-left flex flex-col gap-1.5 group"
+                                        className="w-full p-3 rounded-none bg-[#0a0a0d] hover:bg-[#181824] border border-[#2a2c33] hover:border-[#c5a059]/60 transition-all text-left flex flex-col gap-1.5 group cursor-pointer"
                                     >
                                         <div className="flex items-start justify-between gap-2">
                                             <div>
@@ -449,7 +443,7 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                                                 </span>
                                             ) : (
                                                 <span className="shrink-0 px-2 py-0.5 rounded-none text-[10px] font-bold bg-red-950/40 text-red-400 border border-red-500/30 font-cinzel uppercase tracking-wider">
-                                                    Bind on Pickup
+                                                    Bound
                                                 </span>
                                             )}
                                         </div>
@@ -468,7 +462,7 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                         {/* Set Count Status Footer */}
                         <div className="text-[11px] text-muted-foreground font-cinzel flex items-center justify-between pt-2 border-t border-[#2a2c33]">
                             <span>Showing {filteredSets.length} of {allSets.length} sets</span>
-                            <span className="text-[#c5a059]">Click any set to equip to slot</span>
+                            <span className="text-[#c5a059]">Click a set to equip</span>
                         </div>
                     </div>
                 </div>

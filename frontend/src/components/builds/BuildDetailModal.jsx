@@ -127,11 +127,11 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                         <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
                             {build?.is_curated ? (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-none text-xs font-cinzel font-bold bg-[#c5a059]/15 text-[#e6c278] border border-[#c5a059]/40 uppercase tracking-wider">
-                                    <Sparkles className="size-3 text-[#e6c278]" /> Curated Meta Preset
+                                    <Sparkles className="size-3 text-[#e6c278]" /> Curated
                                 </span>
                             ) : (
                                 <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-none text-xs font-cinzel font-bold bg-purple-950/40 text-purple-300 border border-purple-500/40 uppercase tracking-wider">
-                                    <User className="size-3" /> Community Custom
+                                    <User className="size-3" /> Custom
                                 </span>
                             )}
                             <span className={`px-2.5 py-0.5 rounded-none text-xs font-semibold border uppercase tracking-wider ${ROLE_COLORS[build?.role] || "text-gray-300 border-gray-700 bg-gray-900/40"}`}>
@@ -146,7 +146,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                         </h2>
                         {build?.author && (
                             <p className="text-xs text-muted-foreground mt-0.5 font-cinzel">
-                                Crafted by <span className="text-[#e6c278] font-medium">{build.author}</span>
+                                By <span className="text-[#e6c278] font-medium">{build.author}</span>
                                 {build.source_url && (
                                     <a 
                                         href={build.source_url} 
@@ -154,7 +154,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                         rel="noopener noreferrer"
                                         className="inline-flex items-center gap-1 ml-2 text-[#c5a059] hover:text-[#fce2a6] underline"
                                     >
-                                        Source Guide <ExternalLink className="size-3" />
+                                        Guide <ExternalLink className="size-3" />
                                     </a>
                                 )}
                             </p>
@@ -180,7 +180,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                     : "text-[#a89f91] hover:text-[#e0d8c3] hover:bg-[#161620] border border-transparent"
                             }`}
                         >
-                            <Shield className="size-3.5" /> 12-Slot Anatomical Diagram
+                            <Shield className="size-3.5" /> Equipment
                         </button>
                         <button
                             onClick={() => setActiveTab("diff")}
@@ -190,7 +190,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                     : "text-[#a89f91] hover:text-[#e0d8c3] hover:bg-[#161620] border border-transparent"
                             }`}
                         >
-                            <Sword className="size-3.5" /> Gear Diff vs Character
+                            <Sword className="size-3.5" /> Comparison
                         </button>
                         <button
                             onClick={() => setActiveTab("deals")}
@@ -200,7 +200,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                     : "text-[#a89f91] hover:text-[#e0d8c3] hover:bg-[#161620] border border-transparent"
                             }`}
                         >
-                            <ShoppingCart className="size-3.5" /> Live Kiosk Deals & Route
+                            <ShoppingCart className="size-3.5" /> Kiosk Deals
                         </button>
                     </div>
 
@@ -227,11 +227,11 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                     {loading ? (
                         <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
                             <RefreshCw className="size-8 animate-spin text-[#c5a059] mb-3" />
-                            <p className="font-cinzel text-sm">Consulting the Tamriel Archives...</p>
+                            <p className="font-cinzel text-sm">Loading build data...</p>
                         </div>
                     ) : (
                         <>
-                            {/* TAB 1: ANATOMICAL EQUIPMENT DIAGRAM & SET BONUSES */}
+                            {/* TAB 1: EQUIPMENT LOADOUT & SET BONUSES */}
                             {activeTab === "gear" && (
                                 <div className="space-y-5">
                                     {build?.description && (
@@ -246,7 +246,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                         <div className="lg:col-span-2 space-y-3">
                                             <div className="flex items-center justify-between bg-[#121218] px-3 py-2 border border-[#2a2c33]">
                                                 <span className="font-cinzel font-bold text-xs text-[#c5a059] uppercase tracking-wider flex items-center gap-1.5">
-                                                    <Shield className="size-3.5" /> Equipment Loadout
+                                                    <Shield className="size-3.5" /> Equipment
                                                 </span>
 
                                                 {/* Weapon Bar Toggle */}
@@ -280,7 +280,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                             {/* Active Set Bonus Counter */}
                                             <div className="p-4 bg-[#121218] border border-[#2a2c33] space-y-3">
                                                 <span className="font-cinzel font-bold text-xs text-[#c5a059] uppercase tracking-wider block flex items-center justify-between border-b border-[#2a2c33] pb-2">
-                                                    <span>Active Set Bonuses ({activeWeaponBar.toUpperCase()} BAR)</span>
+                                                    <span>Set Bonuses ({activeWeaponBar.toUpperCase()} BAR)</span>
                                                     <Layers className="size-4 text-[#c5a059]" />
                                                 </span>
 
@@ -288,8 +288,8 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                                     <div className="space-y-2.5">
                                                         {build.sets.map((s) => (
                                                             <div key={s.name} className="p-2.5 rounded-none bg-[#0a0a0d] border border-[#2a2c33] flex items-center justify-between">
-                                                                <div className="font-cinzel font-bold text-xs text-[#e0d8c3]">
-                                                                    {s.name}
+                                                                <div>
+                                                                    <div className="font-cinzel font-bold text-xs text-[#e0d8c3]">{s.name}</div>
                                                                 </div>
                                                                 <span className="px-2 py-0.5 rounded-none bg-[#c5a059]/20 text-[#e6c278] font-mono text-[10px] font-bold">
                                                                     {s.count} pcs
@@ -305,12 +305,12 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                             {/* Acquisition Summary */}
                                             <div className="p-4 bg-[#121218] border border-[#2a2c33] space-y-3">
                                                 <span className="font-cinzel font-bold text-xs text-[#c5a059] uppercase tracking-wider block border-b border-[#2a2c33] pb-2">
-                                                    Acquisition Overview
+                                                    Acquisition
                                                 </span>
                                                 <div className="space-y-2.5 text-[11px]">
                                                     <div className="flex items-center justify-between">
                                                         <span className="text-emerald-400 font-medium flex items-center gap-1 font-cinzel">
-                                                            <ShoppingCart className="size-3" /> Tradeable on Kiosks:
+                                                            <ShoppingCart className="size-3" /> Tradeable:
                                                         </span>
                                                         <span className="font-bold text-[#e0d8c3] font-mono">
                                                             {build?.items?.filter(i => i.is_tradeable).length || 0} slots
@@ -318,7 +318,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                                     </div>
                                                     <div className="flex items-center justify-between">
                                                         <span className="text-red-400 font-medium flex items-center gap-1 font-cinzel">
-                                                            <Lock className="size-3" /> Bind on Pickup:
+                                                            <Lock className="size-3" /> Bound:
                                                         </span>
                                                         <span className="font-bold text-[#e0d8c3] font-mono">
                                                             {build?.items?.filter(i => !i.is_tradeable).length || 0} slots
@@ -338,10 +338,10 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                     <div className="p-4 rounded-none bg-[#121218] border border-[#2a2c33] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                         <div>
                                             <h3 className="font-cinzel font-bold text-[#e0d8c3] text-sm uppercase tracking-wider">
-                                                Active Character Loadout Comparison
+                                                Character Comparison
                                             </h3>
                                             <p className="text-xs text-muted-foreground mt-0.5">
-                                                Select a character from your roster to diff against target build equipment.
+                                                Select a character to compare against build requirements.
                                             </p>
                                         </div>
                                         {characters.length > 0 ? (
@@ -362,7 +362,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                             </div>
                                         ) : (
                                             <div className="text-xs text-amber-400 font-cinzel">
-                                                No characters in roster. Add one in Roster Manager to use live diffing.
+                                                No characters found in roster.
                                             </div>
                                         )}
                                     </div>
@@ -375,7 +375,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                                     {diffData.completion_rate}%
                                                 </div>
                                                 <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-cinzel mt-0.5">
-                                                    Completion Rate
+                                                    Complete
                                                 </div>
                                             </div>
                                             <div className="p-3.5 rounded-none bg-[#13131b] border border-emerald-500/20 text-center">
@@ -383,7 +383,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                                     {diffData.matched_count} / {diffData.total_slots}
                                                 </div>
                                                 <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-cinzel mt-0.5">
-                                                    🟢 Equipped & Matched
+                                                    Equipped
                                                 </div>
                                             </div>
                                             <div className="p-3.5 rounded-none bg-[#13131b] border border-amber-500/20 text-center">
@@ -391,7 +391,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                                     {diffData.trait_mismatch_count}
                                                 </div>
                                                 <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-cinzel mt-0.5">
-                                                    🟡 Trait Mismatch
+                                                    Trait Mismatch
                                                 </div>
                                             </div>
                                             <div className="p-3.5 rounded-none bg-[#13131b] border border-red-500/20 text-center">
@@ -399,7 +399,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                                     {diffData.missing_count}
                                                 </div>
                                                 <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-cinzel mt-0.5">
-                                                    🔴 Missing Slots
+                                                    Missing
                                                 </div>
                                             </div>
                                         </div>
@@ -409,7 +409,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                     {diffLoading ? (
                                         <div className="py-12 text-center text-muted-foreground font-cinzel text-xs">
                                             <RefreshCw className="size-6 animate-spin text-[#c5a059] mx-auto mb-2" />
-                                            Diffing character equipment...
+                                            Comparing equipment...
                                         </div>
                                     ) : diffData?.slot_diffs ? (
                                         <div className="space-y-2.5">
@@ -445,7 +445,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                                         <div className="flex items-center gap-3 sm:text-right">
                                                             {status === "matched" && (
                                                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-none text-xs font-semibold bg-emerald-950/60 text-emerald-400 border border-emerald-500/40 uppercase tracking-wider font-cinzel">
-                                                                    <CheckCircle2 className="size-3.5" /> Equipped & Matched
+                                                                    <CheckCircle2 className="size-3.5" /> Equipped
                                                                 </span>
                                                             )}
                                                             {status === "trait_mismatch" && (
@@ -478,7 +478,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                     {dealsLoading ? (
                                         <div className="py-16 text-center text-muted-foreground font-cinzel text-xs">
                                             <RefreshCw className="size-6 animate-spin text-[#c5a059] mx-auto mb-2" />
-                                            Scanning Tamriel Guild Kiosks for optimal prices...
+                                            Scanning guild kiosks...
                                         </div>
                                     ) : dealsData ? (
                                         <>
@@ -486,18 +486,18 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                             <div className="p-4 rounded-none bg-[#121218] border border-[#2a2c33] flex flex-col sm:flex-row items-center justify-between gap-4">
                                                 <div>
                                                     <span className="text-[10px] font-cinzel font-bold uppercase tracking-wider text-[#c5a059]">
-                                                        Kiosk Market Evaluation • {dealsData.server}
+                                                        Market Pricing ({dealsData.server})
                                                     </span>
-                                                    <h3 className="font-cinzel font-bold text-lg text-[#e0d8c3] mt-0.5">
-                                                        Estimated Gold to Complete Tradeable Slots:
+                                                    <h3 className="font-cinzel font-bold text-base sm:text-lg text-[#e0d8c3] mt-0.5">
+                                                        Estimated Cost (Tradeable Items):
                                                     </h3>
                                                     <p className="text-xs text-muted-foreground">
-                                                        Based on cheapest verified active listings across all guild kiosks.
+                                                        Calculated from active trader kiosk listings.
                                                     </p>
                                                 </div>
                                                 <div className="text-right">
                                                     <div className="text-2xl sm:text-3xl font-cinzel font-bold text-[#d4af37]">
-                                                        {dealsData.total_estimated_gold > 0 ? `${dealsData.total_estimated_gold.toLocaleString()}g` : "0g (All Farmable/Owned)"}
+                                                        {dealsData.total_estimated_gold > 0 ? `${dealsData.total_estimated_gold.toLocaleString()}g` : "0g (All Bound or Owned)"}
                                                     </div>
                                                 </div>
                                             </div>
@@ -506,7 +506,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                             {dealsData.zone_itinerary && dealsData.zone_itinerary.length > 0 && (
                                                 <div>
                                                     <h3 className="text-xs font-cinzel font-bold tracking-wider text-[#c5a059] uppercase mb-3 flex items-center gap-1.5">
-                                                        <MapPin className="size-3.5" /> Recommended Kiosk Route by Zone
+                                                        <MapPin className="size-3.5" /> Trader Locations by Zone
                                                     </h3>
                                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                                         {dealsData.zone_itinerary.map((itinerary) => (
@@ -534,11 +534,11 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                                                 >
                                                                     {copiedZone === itinerary.zone_location ? (
                                                                         <>
-                                                                            <Check className="size-3.5 text-emerald-400" /> Copied In-Game Callout!
+                                                                            <Check className="size-3.5 text-emerald-400" /> Copied!
                                                                         </>
                                                                     ) : (
                                                                         <>
-                                                                            <Copy className="size-3.5" /> Copy In-Game Chat Route
+                                                                            <Copy className="size-3.5" /> Copy Route
                                                                         </>
                                                                     )}
                                                                 </button>
@@ -551,7 +551,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                             {/* Slot-by-Slot Listings Table */}
                                             <div>
                                                 <h3 className="text-xs font-cinzel font-bold tracking-wider text-[#c5a059] uppercase mb-3 flex items-center gap-1.5">
-                                                    <Tag className="size-3.5" /> Kiosk Listings by Slot
+                                                    <Tag className="size-3.5" /> Listings by Slot
                                                 </h3>
                                                 <div className="space-y-3">
                                                     {dealsData.deals_by_slot?.map((slotDeal) => (
@@ -571,7 +571,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
 
                                                                 {!slotDeal.is_tradeable ? (
                                                                     <span className="px-2.5 py-1 rounded-none text-xs font-semibold bg-red-950/40 text-red-300 border border-red-500/30 flex items-center gap-1 font-cinzel uppercase tracking-wider">
-                                                                        <Lock className="size-3" /> Bind on Pickup ({slotDeal.source_location || "Dungeon / Trial / Mythic"})
+                                                                        <Lock className="size-3" /> Bound ({slotDeal.source_location || "Dungeon / Trial / Mythic"})
                                                                     </span>
                                                                 ) : slotDeal.cheapest_price ? (
                                                                     <span className="px-2.5 py-1 rounded-none text-xs font-cinzel font-bold bg-emerald-950/40 text-emerald-400 border border-emerald-500/30">
@@ -579,7 +579,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                                                     </span>
                                                                 ) : (
                                                                     <span className="px-2.5 py-1 rounded-none text-xs text-muted-foreground bg-gray-900/40 border border-gray-800 font-cinzel">
-                                                                        No Active Listings on Kiosks
+                                                                        No Active Listings
                                                                     </span>
                                                                 )}
                                                             </div>
@@ -598,7 +598,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                                                                 </span>
                                                                                 {l.deal_badge === "steal" && (
                                                                                     <span className="px-2 py-0.5 rounded-none text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 font-cinzel">
-                                                                                        🔥 {l.discount_percent}% Under Macro Avg
+                                                                                        🔥 {l.discount_percent}% Under Avg
                                                                                     </span>
                                                                                 )}
                                                                                 {l.deal_badge === "great" && (
@@ -616,7 +616,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                                                 </div>
                                                             ) : slotDeal.is_tradeable ? (
                                                                 <p className="text-xs text-muted-foreground italic">
-                                                                    No live kiosk listings found on {dealsData.server} server. Try searching in-game or posting a WTB request.
+                                                                    No active listings on {dealsData.server}.
                                                                 </p>
                                                             ) : null}
                                                         </div>
