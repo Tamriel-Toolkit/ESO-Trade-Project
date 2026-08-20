@@ -1,15 +1,34 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
     Shield, Sparkles, Sword, Search, Plus, ShoppingCart, Lock, RefreshCw, 
-    Layers, User, BookOpen, Trash2
+    Layers, User, BookOpen, Trash2, Flame, Zap, Skull, Sun, Award, Crosshair
 } from "lucide-react";
 import { fetchBuilds, deleteCustomBuild } from "@/api/api";
 import Navbar from "@/components/ui/navbar";
+import { EsoSelect } from "@/components/ui/eso-select";
 import { BuildDetailModal } from "@/components/builds/BuildDetailModal";
 import { BuildCreatorModal } from "@/components/builds/BuildCreatorModal";
 
-const CLASSES = ["All Classes", "Arcanist", "Dragonknight", "Necromancer", "Nightblade", "Sorcerer", "Templar", "Warden"];
-const ROLES = ["All Roles", "Magicka DPS", "Stamina DPS", "Tank", "Healer", "Solo / Arena", "PvP"];
+const CLASS_OPTIONS = [
+    { value: "All Classes", label: "All Classes", icon: <User className="size-4 text-[#c5a059]" /> },
+    { value: "Arcanist", label: "Arcanist", icon: <BookOpen className="size-4 text-lime-400" /> },
+    { value: "Dragonknight", label: "Dragonknight", icon: <Flame className="size-4 text-orange-400" /> },
+    { value: "Necromancer", label: "Necromancer", icon: <Skull className="size-4 text-cyan-400" /> },
+    { value: "Nightblade", label: "Nightblade", icon: <Sword className="size-4 text-red-400" /> },
+    { value: "Sorcerer", label: "Sorcerer", icon: <Zap className="size-4 text-purple-400" /> },
+    { value: "Templar", label: "Templar", icon: <Sun className="size-4 text-[#d4af37]" /> },
+    { value: "Warden", label: "Warden", icon: <Sparkles className="size-4 text-emerald-400" /> }
+];
+
+const ROLE_OPTIONS = [
+    { value: "All Roles", label: "All Roles", icon: <Shield className="size-4 text-[#c5a059]" /> },
+    { value: "Magicka DPS", label: "Magicka DPS", icon: <Zap className="size-4 text-sky-400" /> },
+    { value: "Stamina DPS", label: "Stamina DPS", icon: <Sword className="size-4 text-emerald-400" /> },
+    { value: "Tank", label: "Tank", icon: <Shield className="size-4 text-amber-400" /> },
+    { value: "Healer", label: "Healer", icon: <Sun className="size-4 text-yellow-300" /> },
+    { value: "Solo / Arena", label: "Solo / Arena", icon: <Award className="size-4 text-purple-400" /> },
+    { value: "PvP", label: "PvP", icon: <Crosshair className="size-4 text-red-400" /> }
+];
 
 const ROLE_STYLES = {
     "Magicka DPS": "text-sky-400 border-sky-500/40 bg-sky-950/20",
@@ -103,64 +122,55 @@ export function BuildExplorer() {
 
             {/* Filter Bar */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 space-y-4">
-                {/* Search Bar */}
-                <form onSubmit={handleSearchSubmit} className="relative max-w-xl">
-                    <Search className="size-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
-                    <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Search builds, sets, or theorycrafter authors..."
-                        className="w-full pl-10 pr-24 py-2.5 rounded-none bg-[#14141c] border border-[#c5a059]/30 text-sm text-[#fce2a6] placeholder:text-muted-foreground focus:outline-none focus:border-[#c5a059] transition-all font-cinzel"
-                    />
-                    <button
-                        type="submit"
-                        className="absolute right-1 top-1 bottom-1 px-4 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-[#0a0a0d] text-xs font-cinzel font-bold tracking-wider uppercase transition-all"
-                    >
-                        Search
-                    </button>
-                </form>
+                <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4">
+                    {/* Search Bar */}
+                    <form onSubmit={handleSearchSubmit} className="relative flex-1 max-w-xl">
+                        <Search className="size-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <input
+                            type="text"
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Search builds, sets, or theorycrafter authors..."
+                            className="w-full pl-10 pr-24 py-2 bg-[#14141c] border border-[#2a2c33] hover:border-[#c5a059]/60 text-xs text-[#e0d8c3] placeholder:text-muted-foreground focus:outline-none focus:border-[#c5a059] transition-all font-cinzel rounded-none shadow-sm"
+                        />
+                        <button
+                            type="submit"
+                            className="absolute right-1 top-1 bottom-1 px-3.5 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-[#0a0a0d] text-xs font-cinzel font-bold tracking-wider uppercase transition-all cursor-pointer"
+                        >
+                            Search
+                        </button>
+                    </form>
 
-                {/* Class Filters */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-2 custom-scrollbar">
-                    <span className="text-xs font-cinzel font-bold text-muted-foreground shrink-0 mr-2 uppercase tracking-wider">Class:</span>
-                    {CLASSES.map((cls) => {
-                        const active = selectedClass === cls;
-                        return (
-                            <button
-                                key={cls}
-                                onClick={() => setSelectedClass(cls)}
-                                className={`px-3 py-1.5 rounded-none text-xs font-cinzel uppercase tracking-wider whitespace-nowrap transition-all ${
-                                    active
-                                        ? "bg-[#c5a059] text-black font-bold shadow-md"
-                                        : "bg-[#14141c] text-[#a89f91] hover:text-[#e0d8c3] border border-[#2a2c33] hover:border-[#c5a059]/50"
-                                }`}
-                            >
-                                {cls}
-                            </button>
-                        );
-                    })}
-                </div>
+                    {/* Class & Role EsoSelect Custom Dropdowns */}
+                    <div className="flex flex-wrap items-center gap-3">
+                        {/* Class Dropdown */}
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-cinzel font-bold text-[#c5a059] uppercase tracking-wider hidden sm:inline">
+                                Class:
+                            </span>
+                            <EsoSelect
+                                value={selectedClass}
+                                onChange={(val) => setSelectedClass(String(val))}
+                                options={CLASS_OPTIONS}
+                                placeholder="Select Class"
+                                aria-label="Filter builds by class"
+                            />
+                        </div>
 
-                {/* Role Filters */}
-                <div className="flex items-center gap-1.5 overflow-x-auto pb-2 custom-scrollbar">
-                    <span className="text-xs font-cinzel font-bold text-muted-foreground shrink-0 mr-2 uppercase tracking-wider">Role:</span>
-                    {ROLES.map((r) => {
-                        const active = selectedRole === r;
-                        return (
-                            <button
-                                key={r}
-                                onClick={() => setSelectedRole(r)}
-                                className={`px-3 py-1.5 rounded-none text-xs font-cinzel uppercase tracking-wider whitespace-nowrap transition-all ${
-                                    active
-                                        ? "bg-[#c5a059] text-black font-bold shadow-md"
-                                        : "bg-[#14141c] text-[#a89f91] hover:text-[#e0d8c3] border border-[#2a2c33] hover:border-[#c5a059]/50"
-                                }`}
-                            >
-                                {r}
-                            </button>
-                        );
-                    })}
+                        {/* Role Dropdown */}
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs font-cinzel font-bold text-[#c5a059] uppercase tracking-wider hidden sm:inline">
+                                Role:
+                            </span>
+                            <EsoSelect
+                                value={selectedRole}
+                                onChange={(val) => setSelectedRole(String(val))}
+                                options={ROLE_OPTIONS}
+                                placeholder="Select Role"
+                                aria-label="Filter builds by role"
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -176,11 +186,11 @@ export function BuildExplorer() {
                         <BookOpen className="size-10 text-[#c5a059] mx-auto opacity-60" />
                         <h3 className="font-cinzel font-bold text-lg text-[#fce2a6] uppercase tracking-wider">No Builds Matching Criteria</h3>
                         <p className="text-xs text-muted-foreground max-w-md mx-auto">
-                            Try adjusting your class and role filters or search query to find meta presets.
+                            Try adjusting your class and role dropdown filters or search query to find meta presets.
                         </p>
                         <button
                             onClick={() => { setSelectedClass("All Classes"); setSelectedRole("All Roles"); setSearchQuery(""); }}
-                            className="px-4 py-2 rounded-none bg-[#c5a059]/20 hover:bg-[#c5a059]/30 text-[#e6c278] border border-[#c5a059]/40 text-xs font-cinzel font-bold transition-all inline-block mt-2 uppercase tracking-wider"
+                            className="px-4 py-2 rounded-none bg-[#c5a059]/20 hover:bg-[#c5a059]/30 text-[#e6c278] border border-[#c5a059]/40 text-xs font-cinzel font-bold transition-all inline-block mt-2 uppercase tracking-wider cursor-pointer"
                         >
                             Reset Filters
                         </button>
@@ -266,13 +276,13 @@ export function BuildExplorer() {
                                     <div className="grid grid-cols-2 gap-2">
                                         <button
                                             onClick={(e) => { e.stopPropagation(); openBuildModal(build.id, "diff"); }}
-                                            className="py-2 px-3 rounded-none bg-[#161620] hover:bg-[#c5a059]/20 text-[#e6c278] border border-[#c5a059]/30 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5"
+                                            className="py-2 px-3 rounded-none bg-[#161620] hover:bg-[#c5a059]/20 text-[#e6c278] border border-[#c5a059]/30 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                                         >
                                             <Sword className="size-3.5" /> Diff Loadout
                                         </button>
                                         <button
                                             onClick={(e) => { e.stopPropagation(); openBuildModal(build.id, "deals"); }}
-                                            className="py-2 px-3 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-black text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-md"
+                                            className="py-2 px-3 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-black text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
                                         >
                                             <ShoppingCart className="size-3.5" /> Kiosk Deals
                                         </button>
