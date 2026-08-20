@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
     X, Shield, Award, Sparkles, Sword, CheckCircle2, Zap, Layers, RefreshCw, 
     ExternalLink, ShoppingCart, Lock, AlertTriangle, ChevronRight, Copy, Check,
     Store, MapPin, Tag, ArrowRight, User
 } from "lucide-react";
 import { fetchBuildById, fetchBuildGearDiff, fetchBuildDeals, fetchCharacters } from "@/api/api";
+import { AnatomicalEquipmentDiagram } from "@/components/character/AnatomicalEquipmentDiagram";
 
 const ROLE_COLORS = {
     "Magicka DPS": "text-sky-400 border-sky-500/40 bg-sky-950/20",
@@ -19,6 +20,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
     const [loading, setLoading] = useState(true);
     const [build, setBuild] = useState(null);
     const [activeTab, setActiveTab] = useState(initialTab); // "gear", "diff", "deals"
+    const [activeWeaponBar, setActiveWeaponBar] = useState("front"); // "front" or "back"
     const [characters, setCharacters] = useState([]);
     const [selectedCharId, setSelectedCharId] = useState("");
     const [diffData, setDiffData] = useState(null);
@@ -46,6 +48,26 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
             setLoading(false);
         }).catch(() => setLoading(false));
     }, [buildId]);
+
+    // Format build items into gearBySlot mapping for AnatomicalEquipmentDiagram
+    const gearBySlot = useMemo(() => {
+        if (!build?.items) return {};
+        const map = {};
+        build.items.forEach((item) => {
+            map[item.slot_id] = {
+                ...item,
+                item_name: item.item_name,
+                set_name: item.set_name,
+                quality: item.quality || 4,
+                trait_name: item.trait_name || "Divines",
+                trait_id: item.trait_id || 18,
+                enchantment: item.enchantment || "Max Stamina",
+                is_tradeable: item.is_tradeable,
+                source_location: item.source_location
+            };
+        });
+        return map;
+    }, [build]);
 
     // Fetch Diff when selected character changes
     useEffect(() => {
@@ -97,7 +119,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
             aria-modal="true"
             aria-label={build?.title ? `${build.title} Build Specifications` : "Build Details"}
         >
-            <div className="relative w-full max-w-5xl max-h-[92vh] flex flex-col bg-[#111116] border-2 border-[#c5a059]/50 rounded-none shadow-[0_10px_40px_rgba(0,0,0,0.9)] overflow-hidden">
+            <div className="relative w-full max-w-6xl max-h-[94vh] flex flex-col bg-[#111116] border-2 border-[#c5a059]/50 rounded-none shadow-[0_10px_40px_rgba(0,0,0,0.9)] overflow-hidden">
                 {/* Modal Header */}
                 <div className="px-6 py-5 border-b border-[#2a2c33] bg-[#161620] flex items-start justify-between relative">
                     <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#c5a059] to-transparent pointer-events-none" />
@@ -140,7 +162,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-1.5 rounded-none text-muted-foreground hover:text-white hover:bg-white/5 transition-colors border border-transparent hover:border-[#c5a059]/30"
+                        className="p-1.5 rounded-none text-muted-foreground hover:text-white hover:bg-white/5 transition-colors border border-transparent hover:border-[#c5a059]/30 cursor-pointer"
                         aria-label="Close build details modal"
                     >
                         <X className="size-5" />
@@ -152,17 +174,17 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                     <div className="flex items-center gap-2">
                         <button
                             onClick={() => setActiveTab("gear")}
-                            className={`px-4 py-2 rounded-none text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                            className={`px-4 py-2 rounded-none text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
                                 activeTab === "gear"
                                     ? "bg-[#c5a059] text-black shadow-md"
                                     : "text-[#a89f91] hover:text-[#e0d8c3] hover:bg-[#161620] border border-transparent"
                             }`}
                         >
-                            <Shield className="size-3.5" /> 12-Slot Loadout & Sets
+                            <Shield className="size-3.5" /> 12-Slot Anatomical Diagram
                         </button>
                         <button
                             onClick={() => setActiveTab("diff")}
-                            className={`px-4 py-2 rounded-none text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                            className={`px-4 py-2 rounded-none text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
                                 activeTab === "diff"
                                     ? "bg-[#c5a059] text-black shadow-md"
                                     : "text-[#a89f91] hover:text-[#e0d8c3] hover:bg-[#161620] border border-transparent"
@@ -172,7 +194,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                         </button>
                         <button
                             onClick={() => setActiveTab("deals")}
-                            className={`px-4 py-2 rounded-none text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 ${
+                            className={`px-4 py-2 rounded-none text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
                                 activeTab === "deals"
                                     ? "bg-[#c5a059] text-black shadow-md"
                                     : "text-[#a89f91] hover:text-[#e0d8c3] hover:bg-[#161620] border border-transparent"
@@ -189,7 +211,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                 <button
                                     key={srv}
                                     onClick={() => setServer(srv)}
-                                    className={`px-3 py-1 rounded-none text-xs font-cinzel font-bold uppercase tracking-wider transition-all ${
+                                    className={`px-3 py-1 rounded-none text-xs font-cinzel font-bold uppercase tracking-wider transition-all cursor-pointer ${
                                         server === srv ? "bg-[#c5a059] text-black" : "text-muted-foreground hover:text-white"
                                     }`}
                                 >
@@ -209,87 +231,101 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                         </div>
                     ) : (
                         <>
-                            {/* TAB 1: EQUIPMENT LOADOUT & SET BONUSES */}
+                            {/* TAB 1: ANATOMICAL EQUIPMENT DIAGRAM & SET BONUSES */}
                             {activeTab === "gear" && (
-                                <div className="space-y-6">
+                                <div className="space-y-5">
                                     {build?.description && (
-                                        <div className="p-4 rounded-none bg-[#121218] border border-[#2a2c33] text-sm text-[#b8af9f] leading-relaxed">
+                                        <div className="p-3.5 rounded-none bg-[#121218] border border-[#2a2c33] text-xs text-[#b8af9f] leading-relaxed">
                                             {build.description}
                                         </div>
                                     )}
 
-                                    {/* Set Summary Chips */}
-                                    {build?.sets && build.sets.length > 0 && (
-                                        <div>
-                                            <h3 className="text-xs font-cinzel font-bold tracking-wider text-[#c5a059] uppercase mb-2 flex items-center gap-1.5">
-                                                <Layers className="size-3.5" /> Set Bonuses Active
-                                            </h3>
-                                            <div className="flex flex-wrap gap-2">
-                                                {build.sets.map((s) => (
-                                                    <div 
-                                                        key={s.name} 
-                                                        className="px-3 py-1.5 rounded-none bg-[#14141c] border border-[#2a2c33] flex items-center gap-2 text-xs"
+                                    {/* Anatomical Diagram + Active Sets Sidebar Layout */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                        {/* Left 2 Cols: Full Anatomical Equipment Diagram with Bar Toggle */}
+                                        <div className="lg:col-span-2 space-y-3">
+                                            <div className="flex items-center justify-between bg-[#121218] px-3 py-2 border border-[#2a2c33]">
+                                                <span className="font-cinzel font-bold text-xs text-[#c5a059] uppercase tracking-wider flex items-center gap-1.5">
+                                                    <Shield className="size-3.5" /> Equipment Loadout
+                                                </span>
+
+                                                {/* Weapon Bar Toggle */}
+                                                <div className="flex items-center gap-1 bg-[#0a0a0d] p-0.5 border border-[#2a2c33]">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setActiveWeaponBar("front")}
+                                                        className={`px-3 py-1 text-xs font-cinzel font-bold uppercase border transition-all cursor-pointer ${
+                                                            activeWeaponBar === "front" ? "bg-[#c5a059] text-black border-[#c5a059]" : "text-[#b0a696] border-transparent hover:text-[#e0d8c3]"
+                                                        }`}
                                                     >
-                                                        <span className="font-cinzel font-bold text-[#e0d8c3]">{s.name}</span>
-                                                        <span className="px-1.5 py-0.2 rounded-none bg-[#c5a059]/20 text-[#e6c278] font-mono text-[10px] font-bold">
-                                                            {s.count} pcs
+                                                        Front Bar
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setActiveWeaponBar("back")}
+                                                        className={`px-3 py-1 text-xs font-cinzel font-bold uppercase border transition-all cursor-pointer ${
+                                                            activeWeaponBar === "back" ? "bg-[#c5a059] text-black border-[#c5a059]" : "text-[#b0a696] border-transparent hover:text-[#e0d8c3]"
+                                                        }`}
+                                                    >
+                                                        Back Bar
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <AnatomicalEquipmentDiagram gearBySlot={gearBySlot} activeBar={activeWeaponBar} />
+                                        </div>
+
+                                        {/* Right 1 Col: Active Set Bonuses Sidebar & Acquisition Summary */}
+                                        <div className="space-y-4 text-xs">
+                                            {/* Active Set Bonus Counter */}
+                                            <div className="p-4 bg-[#121218] border border-[#2a2c33] space-y-3">
+                                                <span className="font-cinzel font-bold text-xs text-[#c5a059] uppercase tracking-wider block flex items-center justify-between border-b border-[#2a2c33] pb-2">
+                                                    <span>Active Set Bonuses ({activeWeaponBar.toUpperCase()} BAR)</span>
+                                                    <Layers className="size-4 text-[#c5a059]" />
+                                                </span>
+
+                                                {build?.sets && build.sets.length > 0 ? (
+                                                    <div className="space-y-2.5">
+                                                        {build.sets.map((s) => (
+                                                            <div key={s.name} className="p-2.5 rounded-none bg-[#0a0a0d] border border-[#2a2c33] flex items-center justify-between">
+                                                                <div className="font-cinzel font-bold text-xs text-[#e0d8c3]">
+                                                                    {s.name}
+                                                                </div>
+                                                                <span className="px-2 py-0.5 rounded-none bg-[#c5a059]/20 text-[#e6c278] font-mono text-[10px] font-bold">
+                                                                    {s.count} pcs
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-[11px] text-[#8a8275] italic">No set bonuses logged.</p>
+                                                )}
+                                            </div>
+
+                                            {/* Acquisition Summary */}
+                                            <div className="p-4 bg-[#121218] border border-[#2a2c33] space-y-3">
+                                                <span className="font-cinzel font-bold text-xs text-[#c5a059] uppercase tracking-wider block border-b border-[#2a2c33] pb-2">
+                                                    Acquisition Overview
+                                                </span>
+                                                <div className="space-y-2.5 text-[11px]">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-emerald-400 font-medium flex items-center gap-1 font-cinzel">
+                                                            <ShoppingCart className="size-3" /> Tradeable on Kiosks:
+                                                        </span>
+                                                        <span className="font-bold text-[#e0d8c3] font-mono">
+                                                            {build?.items?.filter(i => i.is_tradeable).length || 0} slots
                                                         </span>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* 12 Slot Items Grid */}
-                                    <div>
-                                        <h3 className="text-xs font-cinzel font-bold tracking-wider text-[#c5a059] uppercase mb-3 flex items-center gap-1.5">
-                                            <Shield className="size-3.5" /> 12-Slot Gear Architecture
-                                        </h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                            {build?.items?.map((item) => (
-                                                <div 
-                                                    key={item.id || item.slot_id}
-                                                    className="p-3.5 rounded-none bg-[#13131b] border border-[#2a2c33] hover:border-[#c5a059]/50 transition-all flex flex-col justify-between"
-                                                >
-                                                    <div className="flex items-start justify-between gap-2 mb-2">
-                                                        <div>
-                                                            <span className="text-[10px] font-cinzel font-bold uppercase tracking-wider text-[#c5a059] bg-[#0a0a0d] px-2 py-0.5 rounded-none border border-[#2a2c33]">
-                                                                {item.slot_name}
-                                                            </span>
-                                                            <h4 className="font-cinzel font-bold text-sm text-[#e0d8c3] mt-1">
-                                                                {item.item_name}
-                                                            </h4>
-                                                            <p className="text-xs text-muted-foreground">
-                                                                Set: <span className="text-gray-300 font-medium">{item.set_name}</span> • {item.item_type}
-                                                            </p>
-                                                        </div>
-                                                        {item.is_tradeable ? (
-                                                            <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-none text-[10px] font-bold bg-emerald-950/40 text-emerald-400 border border-emerald-500/30 uppercase tracking-wider font-cinzel">
-                                                                <ShoppingCart className="size-3" /> Tradeable
-                                                            </span>
-                                                        ) : (
-                                                            <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-none text-[10px] font-bold bg-red-950/40 text-red-400 border border-red-500/30 uppercase tracking-wider font-cinzel">
-                                                                <Lock className="size-3" /> Bind on Pickup
-                                                            </span>
-                                                        )}
-                                                    </div>
-
-                                                    <div className="pt-2 border-t border-[#2a2c33] flex flex-wrap items-center justify-between text-xs text-muted-foreground gap-2">
-                                                        <div className="flex items-center gap-2">
-                                                            <span className="text-gray-300 font-cinzel">
-                                                                Trait: <span className="text-[#e6c278]">{item.trait_name || "Divines"}</span>
-                                                            </span>
-                                                            <span>•</span>
-                                                            <span className="text-gray-300 font-cinzel">
-                                                                Enchant: <span className="text-[#e6c278]">{item.enchantment || "Max Magicka"}</span>
-                                                            </span>
-                                                        </div>
-                                                        <span className="text-[11px] text-[#a89f91] italic">
-                                                            📍 {item.source_location || "Tamriel"}
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-red-400 font-medium flex items-center gap-1 font-cinzel">
+                                                            <Lock className="size-3" /> Bind on Pickup:
+                                                        </span>
+                                                        <span className="font-bold text-[#e0d8c3] font-mono">
+                                                            {build?.items?.filter(i => !i.is_tradeable).length || 0} slots
                                                         </span>
                                                     </div>
                                                 </div>
-                                            ))}
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -494,7 +530,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
 
                                                                 <button
                                                                     onClick={() => handleCopyZoneCommand(itinerary.zone_location, itinerary.listings)}
-                                                                    className="w-full py-2 px-3 rounded-none bg-[#161620] hover:bg-[#c5a059]/20 text-[#e6c278] border border-[#c5a059]/30 text-xs font-cinzel font-semibold transition-all flex items-center justify-center gap-1.5 uppercase tracking-wider"
+                                                                    className="w-full py-2 px-3 rounded-none bg-[#161620] hover:bg-[#c5a059]/20 text-[#e6c278] border border-[#c5a059]/30 text-xs font-cinzel font-semibold transition-all flex items-center justify-center gap-1.5 uppercase tracking-wider cursor-pointer"
                                                                 >
                                                                     {copiedZone === itinerary.zone_location ? (
                                                                         <>
