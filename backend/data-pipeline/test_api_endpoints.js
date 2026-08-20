@@ -647,12 +647,21 @@ async function runTests() {
             'Authorization': `Bearer ${bypassRes.data.token}`
         });
 
-        // Cleanup test character
-        await httpDelete(`/api/characters/${securedCharId}`, {
-            'Authorization': `Bearer ${bypassRes.data.token}`
-        });
+        console.log("\n42. Testing GET /api/sets (All 712 ESO Sets Catalog)...");
+        const setsRes = await httpGet('/api/sets');
+        if (setsRes.status !== 200 || !setsRes.data.success || !Array.isArray(setsRes.data.sets) || setsRes.data.total < 500) {
+            throw new Error(`Expected >500 sets catalog, got ${JSON.stringify(setsRes.data)}`);
+        }
+        console.log(`   Retrieved all ${setsRes.data.total} ESO sets catalog successfully!`);
 
-        console.log("\nAll 41 API endpoint test suites passed successfully!");
+        // Test sets search & filter
+        const searchSetsRes = await httpGet('/api/sets?search=Order%27s%20Wrath');
+        if (searchSetsRes.status !== 200 || searchSetsRes.data.sets.length === 0) {
+            throw new Error(`Expected set search match for Order's Wrath, got ${JSON.stringify(searchSetsRes.data)}`);
+        }
+        console.log(`   Verified set search for 'Order\'s Wrath': ${searchSetsRes.data.sets[0].name} (${searchSetsRes.data.sets[0].category})`);
+
+        console.log("\nAll 42 API endpoint test suites passed successfully!");
     } catch (err) {
         console.error("API test failed:", err);
         process.exitCode = 1;

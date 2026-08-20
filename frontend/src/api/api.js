@@ -311,6 +311,22 @@ export async function fetchCharacterProfile(id) {
 // BUILD IMPORTER, GEAR DIFF & DEALS API HELPERS
 // ============================================================================
 
+export async function fetchSets({ search, category, is_tradeable, limit = 1000, offset = 0 } = {}) {
+    try {
+        const params = new URLSearchParams();
+        if (search) params.append("search", search);
+        if (category && category !== "All") params.append("category", category);
+        if (is_tradeable !== undefined && is_tradeable !== "") params.append("is_tradeable", is_tradeable);
+        if (limit) params.append("limit", limit);
+        if (offset) params.append("offset", offset);
+
+        const response = await apiFetch(`/api/sets?${params.toString()}`);
+        return await safeJsonResponse(response, 'Failed to fetch sets');
+    } catch (error) {
+        return { success: false, sets: [], error: error.message };
+    }
+}
+
 export async function fetchBuilds({ class: buildClass, role, is_curated, search, limit = 50, offset = 0 } = {}) {
     try {
         const params = new URLSearchParams();

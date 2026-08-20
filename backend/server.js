@@ -1,3 +1,4 @@
+const fs = require("fs");
 const path = require("path");
 const dotenv = require("dotenv");
 
@@ -2434,9 +2435,59 @@ app.delete("/api/characters/:id", async (req, res) => {
     }
 });
 
-// ============================================================================
-// BUILD IMPORTER, GEAR DIFF & LIVE MARKET DEAL RECOMMENDATION ENDPOINTS
-// ============================================================================
+// Load Full ESO Sets Catalog (712 acquirable sets)
+let allEsoSets = [];
+try {
+    const setsFilePath = path.join(__dirname, "eso_sets.json");
+    if (fs.existsSync(setsFilePath)) {
+        allEsoSets = JSON.parse(fs.readFileSync(setsFilePath, "utf8"));
+    }
+} catch (e) {
+    console.warn("Could not load eso_sets.json:", e.message);
+}
+
+/**
+ * GET /api/sets
+ * Returns all 712 acquirable ESO sets with search, category, and tradeability filtering.
+ */
+app.get("/api/sets", (req, res) => {
+    const { search, category, is_tradeable, limit = 1000, offset = 0 } = req.query;
+    let filtered = allEsoSets;
+
+    if (search) {
+        const query = search.trim().toLowerCase();
+        filtered = filtered.filter(s => 
+            s.name.toLowerCase().includes(query) || 
+            (s.category && s.category.toLowerCase().includes(query)) ||
+            (s.source && s.source.toLowerCase().includes(query)) ||
+            (s.bonuses && s.bonuses.some(b => b.toLowerCase().includes(query)))
+        );
+    }
+
+    if (category && category !== "All") {
+        if (category === "Tradeable" || category === "tradeable") {
+            filtered = filtered.filter(s => s.is_tradeable === 1);
+        } else if (category === "BOP" || category === "bop" || category === "Bind on Pickup") {
+            filtered = filtered.filter(s => s.is_tradeable === 0);
+        } else {
+            filtered = filtered.filter(s => s.category && s.category.toLowerCase().includes(category.toLowerCase()));
+        }
+    }
+
+    if (is_tradeable !== undefined && is_tradeable !== "") {
+        filtered = filtered.filter(s => s.is_tradeable === Number(is_tradeable));
+    }
+
+    const total = filtered.length;
+    const paginated = filtered.slice(Number(offset), Number(offset) + Number(limit));
+
+    res.json({
+        success: true,
+        total,
+        count: paginated.length,
+        sets: paginated
+    });
+});
 
 /**
  * GET /api/builds

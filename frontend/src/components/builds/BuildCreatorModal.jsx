@@ -1,42 +1,38 @@
-import React, { useState } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { 
     X, Shield, Sparkles, Sword, Plus, Trash2, Check, Search, AlertTriangle, 
-    Lock, ShoppingCart, Info, Save
+    Lock, ShoppingCart, Info, Save, Layers, RefreshCw
 } from "lucide-react";
-import { createCustomBuild } from "@/api/api";
+import { createCustomBuild, fetchSets } from "@/api/api";
 
 const ESO_CLASSES = ["Arcanist", "Dragonknight", "Necromancer", "Nightblade", "Sorcerer", "Templar", "Warden", "All"];
 const ESO_ROLES = ["Magicka DPS", "Stamina DPS", "Tank", "Healer", "Solo / Arena", "PvP"];
 
 const DEFAULT_SLOTS = [
-    { slot_id: 0, slot_name: "Head", item_name: "Monster Helm or Set Hat", set_name: "Stormfist", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 0, source_location: "Dungeon - Tempest Island" },
-    { slot_id: 3, slot_name: "Shoulders", item_name: "Monster Shoulders", set_name: "Stormfist", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 0, source_location: "Undaunted Pledge Master" },
-    { slot_id: 2, slot_name: "Chest", item_name: "Order's Wrath Jerkin", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Crafted - High Isle" },
-    { slot_id: 16, slot_name: "Hands", item_name: "Order's Wrath Bracers", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Crafted - High Isle" },
-    { slot_id: 6, slot_name: "Waist", item_name: "Order's Wrath Belt", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Crafted - High Isle" },
-    { slot_id: 7, slot_name: "Legs", item_name: "Order's Wrath Guards", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Crafted - High Isle" },
-    { slot_id: 8, slot_name: "Feet", item_name: "Order's Wrath Boots", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Crafted - High Isle" },
-    { slot_id: 1, slot_name: "Neck", item_name: "Deadly Necklace", set_name: "Deadly Strike", item_type: "Necklace", trait_name: "Bloodthirsty", enchantment: "Weapon Damage", quality: 4, is_tradeable: 1, source_location: "Cyrodiil / Guild Traders" },
-    { slot_id: 9, slot_name: "Ring 1", item_name: "Deadly Ring", set_name: "Deadly Strike", item_type: "Ring", trait_name: "Bloodthirsty", enchantment: "Weapon Damage", quality: 4, is_tradeable: 1, source_location: "Cyrodiil / Guild Traders" },
-    { slot_id: 11, slot_name: "Ring 2", item_name: "Deadly Ring", set_name: "Deadly Strike", item_type: "Ring", trait_name: "Bloodthirsty", enchantment: "Weapon Damage", quality: 4, is_tradeable: 1, source_location: "Cyrodiil / Guild Traders" },
-    { slot_id: 4, slot_name: "Main Hand 1", item_name: "Deadly Dagger", set_name: "Deadly Strike", item_type: "One-Handed Dagger", trait_name: "Nirnhoned", enchantment: "Flame Damage", quality: 5, is_tradeable: 1, source_location: "Cyrodiil / Guild Traders" },
-    { slot_id: 5, slot_name: "Off Hand 1", item_name: "Deadly Dagger", set_name: "Deadly Strike", item_type: "One-Handed Dagger", trait_name: "Charged", enchantment: "Poison Damage", quality: 5, is_tradeable: 1, source_location: "Cyrodiil / Guild Traders" },
-    { slot_id: 12, slot_name: "Main Hand 2", item_name: "Maelstrom Greatsword", set_name: "Merciless Charge", item_type: "Two-Handed Greatsword", trait_name: "Infused", enchantment: "Weapon Damage", quality: 5, is_tradeable: 0, source_location: "Arena - Maelstrom Arena" }
+    { slot_id: 0, slot_name: "Head", item_name: "Monster Helm or Set Hat", set_name: "Stormfist", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 0, source_location: "Veteran Dungeon / Undaunted Pledges" },
+    { slot_id: 3, slot_name: "Shoulders", item_name: "Monster Shoulders", set_name: "Stormfist", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 0, source_location: "Veteran Dungeon / Undaunted Pledges" },
+    { slot_id: 2, slot_name: "Chest", item_name: "Order's Wrath Jerkin", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Craftable or Zone Kiosks" },
+    { slot_id: 16, slot_name: "Hands", item_name: "Order's Wrath Bracers", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Craftable or Zone Kiosks" },
+    { slot_id: 6, slot_name: "Waist", item_name: "Order's Wrath Belt", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Craftable or Zone Kiosks" },
+    { slot_id: 7, slot_name: "Legs", item_name: "Order's Wrath Guards", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Craftable or Zone Kiosks" },
+    { slot_id: 8, slot_name: "Feet", item_name: "Order's Wrath Boots", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Craftable or Zone Kiosks" },
+    { slot_id: 1, slot_name: "Neck", item_name: "Deadly Strike Necklace", set_name: "Deadly Strike", item_type: "Necklace", trait_name: "Bloodthirsty", enchantment: "Weapon Damage", quality: 4, is_tradeable: 1, source_location: "Craftable or Zone Kiosks" },
+    { slot_id: 9, slot_name: "Ring 1", item_name: "Deadly Strike Ring", set_name: "Deadly Strike", item_type: "Ring", trait_name: "Bloodthirsty", enchantment: "Weapon Damage", quality: 4, is_tradeable: 1, source_location: "Craftable or Zone Kiosks" },
+    { slot_id: 11, slot_name: "Ring 2", item_name: "Deadly Strike Ring", set_name: "Deadly Strike", item_type: "Ring", trait_name: "Bloodthirsty", enchantment: "Weapon Damage", quality: 4, is_tradeable: 1, source_location: "Craftable or Zone Kiosks" },
+    { slot_id: 4, slot_name: "Main Hand 1", item_name: "Deadly Strike Dagger", set_name: "Deadly Strike", item_type: "One-Handed Dagger", trait_name: "Nirnhoned", enchantment: "Flame Damage", quality: 5, is_tradeable: 1, source_location: "Craftable or Zone Kiosks" },
+    { slot_id: 5, slot_name: "Off Hand 1", item_name: "Deadly Strike Dagger", set_name: "Deadly Strike", item_type: "One-Handed Dagger", trait_name: "Charged", enchantment: "Poison Damage", quality: 5, is_tradeable: 1, source_location: "Craftable or Zone Kiosks" },
+    { slot_id: 12, slot_name: "Main Hand 2", item_name: "Maelstrom Greatsword", set_name: "Merciless Charge", item_type: "Two-Handed Greatsword", trait_name: "Infused", enchantment: "Weapon Damage", quality: 5, is_tradeable: 0, source_location: "Arena / Special Drop" }
 ];
 
-const POPULAR_SETS = [
-    { name: "Order's Wrath", type: "Crafted", is_tradeable: 1, source: "Crafted - High Isle" },
-    { name: "Deadly Strike", type: "Overland/PvP", is_tradeable: 1, source: "Cyrodiil / Guild Traders" },
-    { name: "Briarheart", type: "Overland", is_tradeable: 1, source: "Overland - Wrothgar" },
-    { name: "Frostbite", type: "Overland", is_tradeable: 1, source: "Overland - Blackwood" },
-    { name: "Rallying Cry", type: "PvP", is_tradeable: 1, source: "Cyrodiil / Guild Traders" },
-    { name: "Shattered Fate", type: "Crafted", is_tradeable: 1, source: "Crafted - Apocrypha" },
-    { name: "Pillar of Nirn", type: "Dungeon", is_tradeable: 0, source: "Dungeon - Falkreath Hold" },
-    { name: "Ansuul's Torment", type: "Trial", is_tradeable: 0, source: "Trial - Sanity's Edge" },
-    { name: "Velothi Ur-Mage's Amulet", type: "Mythic", is_tradeable: 0, source: "Mythic - Antiquities" },
-    { name: "Stormfist", type: "Monster", is_tradeable: 0, source: "Dungeon - Tempest Island" },
-    { name: "Turning Tide", type: "Dungeon", is_tradeable: 0, source: "Dungeon - Shipwright's Regret" },
-    { name: "Spell Power Cure", type: "Dungeon", is_tradeable: 0, source: "Dungeon - White-Gold Tower" }
+const SET_CATEGORIES = [
+    { label: "All Sets", value: "All" },
+    { label: "🛒 Tradeable", value: "Tradeable" },
+    { label: "🔒 Bind on Pickup", value: "BOP" },
+    { label: "Crafted / Overland", value: "Crafted / Overland" },
+    { label: "Dungeon / Trial", value: "Dungeon / Trial" },
+    { label: "Monster (2pc)", value: "Monster" },
+    { label: "Mythic (1pc)", value: "Mythic" },
+    { label: "Arena / Special", value: "Arena / Special" }
 ];
 
 const TRAITS_BY_SLOT = {
@@ -57,12 +53,32 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
 
-    // Slot Editor State
+    // All 712 ESO Sets State
+    const [allSets, setAllSets] = useState([]);
+    const [setsLoading, setSetsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
+    const [selectedCategory, setSelectedCategory] = useState("All");
+
+    useEffect(() => {
+        setSetsLoading(true);
+        fetchSets({ limit: 1000 }).then((res) => {
+            if (res && res.success && Array.isArray(res.sets)) {
+                setAllSets(res.sets);
+            }
+            setSetsLoading(false);
+        }).catch(() => setSetsLoading(false));
+    }, []);
 
     const handleOpenSlotPicker = (index) => {
         setEditingSlotIndex(index);
         setSearchTerm("");
+        // If Head or Shoulders, default to Monster or All
+        const slot = slots[index];
+        if (slot?.slot_id === 0 || slot?.slot_id === 3) {
+            setSelectedCategory("All");
+        } else {
+            setSelectedCategory("All");
+        }
     };
 
     const handleSelectSetForSlot = (setObj) => {
@@ -115,6 +131,33 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
             setError(res?.error || "Failed to save custom build.");
         }
     };
+
+    // Filter sets based on search and category
+    const filteredSets = useMemo(() => {
+        const q = searchTerm.trim().toLowerCase();
+        return allSets.filter((s) => {
+            // Category check
+            if (selectedCategory === "Tradeable" && s.is_tradeable !== 1) return false;
+            if (selectedCategory === "BOP" && s.is_tradeable !== 0) return false;
+            if (
+                selectedCategory !== "All" && 
+                selectedCategory !== "Tradeable" && 
+                selectedCategory !== "BOP" && 
+                s.category !== selectedCategory
+            ) {
+                return false;
+            }
+
+            // Search query check
+            if (!q) return true;
+            return (
+                s.name.toLowerCase().includes(q) ||
+                (s.category && s.category.toLowerCase().includes(q)) ||
+                (s.source && s.source.toLowerCase().includes(q)) ||
+                (s.bonuses && s.bonuses.some(b => b.toLowerCase().includes(q)))
+            );
+        });
+    }, [allSets, searchTerm, selectedCategory]);
 
     return (
         <div 
@@ -219,7 +262,7 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                                 <Shield className="size-3.5" /> 12 Equipment Slots Architecture
                             </h3>
                             <span className="text-[11px] text-muted-foreground font-cinzel">
-                                Click any slot to change set, trait, or tradeability.
+                                Click any slot to choose from all 712 ESO sets.
                             </span>
                         </div>
 
@@ -318,59 +361,114 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                 </div>
             </div>
 
-            {/* Nested Slot Set Picker Modal */}
+            {/* Nested Slot Set Picker Modal (All 712 ESO Sets) */}
             {editingSlotIndex !== null && (
-                <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                    <div className="w-full max-w-lg bg-[#14141c] border-2 border-[#c5a059]/40 rounded-none p-5 shadow-2xl space-y-4">
+                <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-150">
+                    <div className="w-full max-w-2xl max-h-[85vh] bg-[#14141c] border-2 border-[#c5a059]/50 rounded-none p-5 shadow-2xl space-y-3.5 flex flex-col">
+                        {/* Modal Header */}
                         <div className="flex items-center justify-between border-b border-[#2a2c33] pb-3">
-                            <h3 className="font-cinzel font-bold text-[#e0d8c3] text-sm uppercase tracking-wider">
-                                Select Set for {slots[editingSlotIndex]?.slot_name}
-                            </h3>
+                            <div>
+                                <span className="text-[10px] font-cinzel font-bold uppercase tracking-wider text-[#c5a059]">
+                                    Tamriel Set Catalog ({allSets.length} Sets Total)
+                                </span>
+                                <h3 className="font-cinzel font-bold text-[#e0d8c3] text-base uppercase tracking-wider">
+                                    Select Set for {slots[editingSlotIndex]?.slot_name}
+                                </h3>
+                            </div>
                             <button
                                 onClick={() => setEditingSlotIndex(null)}
-                                className="text-muted-foreground hover:text-white"
+                                className="p-1 rounded-none text-muted-foreground hover:text-white hover:bg-white/5"
                             >
-                                <X className="size-4" />
+                                <X className="size-5" />
                             </button>
                         </div>
 
+                        {/* Search Input */}
                         <div className="relative">
-                            <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                            <Search className="size-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                             <input
                                 type="text"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                placeholder="Search sets (e.g. Order's Wrath, Pillar of Nirn)..."
-                                className="w-full pl-9 pr-3 py-2 rounded-none bg-[#0a0a0d] border border-[#2a2c33] text-xs text-[#e0d8c3] placeholder:text-muted-foreground focus:outline-none focus:border-[#c5a059] font-cinzel"
+                                placeholder="Search all 712 sets by name, bonus, or drop location..."
+                                autoFocus
+                                className="w-full pl-10 pr-4 py-2.5 rounded-none bg-[#0a0a0d] border border-[#c5a059]/40 text-xs text-[#e0d8c3] placeholder:text-muted-foreground focus:outline-none focus:border-[#c5a059] font-cinzel"
                             />
                         </div>
 
-                        <div className="max-h-60 overflow-y-auto space-y-2 custom-scrollbar">
-                            {POPULAR_SETS.filter(s => s.name.toLowerCase().includes(searchTerm.toLowerCase())).map((setObj) => (
-                                <button
-                                    key={setObj.name}
-                                    onClick={() => handleSelectSetForSlot(setObj)}
-                                    className="w-full p-2.5 rounded-none bg-[#0a0a0d] hover:bg-[#c5a059]/10 border border-[#2a2c33] hover:border-[#c5a059]/40 transition-all text-left flex items-center justify-between group"
-                                >
-                                    <div>
-                                        <div className="font-cinzel font-bold text-xs text-[#e0d8c3] group-hover:text-[#d4af37]">
-                                            {setObj.name}
+                        {/* Category Filter Pills */}
+                        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
+                            {SET_CATEGORIES.map((cat) => {
+                                const active = selectedCategory === cat.value;
+                                return (
+                                    <button
+                                        key={cat.value}
+                                        onClick={() => setSelectedCategory(cat.value)}
+                                        className={`px-2.5 py-1 rounded-none text-[11px] font-cinzel font-semibold whitespace-nowrap uppercase tracking-wider transition-all ${
+                                            active
+                                                ? "bg-[#c5a059] text-black font-bold shadow-md"
+                                                : "bg-[#0a0a0d] text-[#a89f91] hover:text-[#e0d8c3] border border-[#2a2c33] hover:border-[#c5a059]/40"
+                                        }`}
+                                    >
+                                        {cat.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Sets List */}
+                        <div className="flex-1 max-h-96 overflow-y-auto space-y-2 custom-scrollbar pr-1">
+                            {setsLoading ? (
+                                <div className="py-16 text-center text-muted-foreground font-cinzel text-xs">
+                                    <RefreshCw className="size-6 animate-spin text-[#c5a059] mx-auto mb-2" />
+                                    Querying 712 Tamriel sets...
+                                </div>
+                            ) : filteredSets.length === 0 ? (
+                                <div className="py-12 text-center text-muted-foreground font-cinzel text-xs">
+                                    No sets matching "{searchTerm}".
+                                </div>
+                            ) : (
+                                filteredSets.map((setObj) => (
+                                    <button
+                                        key={setObj.name}
+                                        onClick={() => handleSelectSetForSlot(setObj)}
+                                        className="w-full p-3 rounded-none bg-[#0a0a0d] hover:bg-[#181824] border border-[#2a2c33] hover:border-[#c5a059]/60 transition-all text-left flex flex-col gap-1.5 group"
+                                    >
+                                        <div className="flex items-start justify-between gap-2">
+                                            <div>
+                                                <div className="font-cinzel font-bold text-sm text-[#e0d8c3] group-hover:text-[#d4af37] transition-colors">
+                                                    {setObj.name}
+                                                </div>
+                                                <div className="text-[11px] text-muted-foreground">
+                                                    {setObj.category} • <span className="text-gray-300">{setObj.source}</span>
+                                                </div>
+                                            </div>
+                                            {setObj.is_tradeable ? (
+                                                <span className="shrink-0 px-2 py-0.5 rounded-none text-[10px] font-bold bg-emerald-950/40 text-emerald-400 border border-emerald-500/30 font-cinzel uppercase tracking-wider">
+                                                    Tradeable
+                                                </span>
+                                            ) : (
+                                                <span className="shrink-0 px-2 py-0.5 rounded-none text-[10px] font-bold bg-red-950/40 text-red-400 border border-red-500/30 font-cinzel uppercase tracking-wider">
+                                                    Bind on Pickup
+                                                </span>
+                                            )}
                                         </div>
-                                        <div className="text-[10px] text-muted-foreground">
-                                            {setObj.source} • {setObj.type}
-                                        </div>
-                                    </div>
-                                    {setObj.is_tradeable ? (
-                                        <span className="px-2 py-0.5 rounded-none text-[10px] bg-emerald-950/40 text-emerald-400 border border-emerald-500/30 font-cinzel uppercase tracking-wider">
-                                            Tradeable
-                                        </span>
-                                    ) : (
-                                        <span className="px-2 py-0.5 rounded-none text-[10px] bg-red-950/40 text-red-400 border border-red-500/30 font-cinzel uppercase tracking-wider">
-                                            BOP
-                                        </span>
-                                    )}
-                                </button>
-                            ))}
+
+                                        {/* Set Bonuses Preview */}
+                                        {setObj.bonuses && setObj.bonuses.length > 0 && (
+                                            <div className="text-[11px] text-[#8e8576] line-clamp-2 leading-relaxed bg-[#111116] p-1.5 border border-white/5">
+                                                {setObj.bonuses.join(" • ")}
+                                            </div>
+                                        )}
+                                    </button>
+                                ))
+                            )}
+                        </div>
+
+                        {/* Set Count Status Footer */}
+                        <div className="text-[11px] text-muted-foreground font-cinzel flex items-center justify-between pt-2 border-t border-[#2a2c33]">
+                            <span>Showing {filteredSets.length} of {allSets.length} sets</span>
+                            <span className="text-[#c5a059]">Click any set to equip to slot</span>
                         </div>
                     </div>
                 </div>
