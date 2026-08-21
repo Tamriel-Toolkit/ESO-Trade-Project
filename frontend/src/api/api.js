@@ -365,7 +365,7 @@ export async function createCustomBuild(buildPayload) {
     }
 }
 
-export async function deleteCustomBuild(id) {
+export async function deleteBuild(id) {
     try {
         const response = await apiFetch(`/api/builds/${id}`, {
             method: 'DELETE'
@@ -375,6 +375,8 @@ export async function deleteCustomBuild(id) {
         return { success: false, error: error.message };
     }
 }
+
+export const deleteCustomBuild = deleteBuild;
 
 export async function fetchBuildGearDiff(buildId, characterId) {
     try {

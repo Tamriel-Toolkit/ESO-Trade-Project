@@ -4,6 +4,7 @@ import {
     Layers, User, BookOpen, Trash2, Flame, Zap, Skull, Sun, Award, Crosshair
 } from "lucide-react";
 import { fetchBuilds, deleteCustomBuild } from "@/api/api";
+import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/ui/navbar";
 import { EsoSelect } from "@/components/ui/eso-select";
 import { BuildDetailModal } from "@/components/builds/BuildDetailModal";
@@ -40,6 +41,7 @@ const ROLE_STYLES = {
 };
 
 export function BuildExplorer() {
+    const { user } = useAuth();
     const [builds, setBuilds] = useState([]);
     const [loading, setLoading] = useState(true);
     const [selectedClass, setSelectedClass] = useState("All Classes");
@@ -221,9 +223,21 @@ export function BuildExplorer() {
                                             </span>
                                         </div>
 
-                                        <span className="text-[11px] font-cinzel font-bold text-[#c5a059] uppercase tracking-wider">
-                                            {build.class}
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[11px] font-cinzel font-bold text-[#c5a059] uppercase tracking-wider">
+                                                {build.class}
+                                            </span>
+                                            {!build.is_curated && (
+                                                <button
+                                                    onClick={(e) => handleDeleteBuild(e, build.id)}
+                                                    className="p-1 text-muted-foreground hover:text-red-400 hover:bg-red-950/50 border border-transparent hover:border-red-500/30 transition-all rounded-none cursor-pointer"
+                                                    title={`Delete ${build.title}`}
+                                                    aria-label={`Delete ${build.title}`}
+                                                >
+                                                    <Trash2 className="size-3.5" />
+                                                </button>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* Title & Author */}
@@ -300,6 +314,10 @@ export function BuildExplorer() {
                     buildId={inspectBuildId}
                     initialTab={inspectInitialTab}
                     onClose={() => setInspectBuildId(null)}
+                    onBuildDeleted={() => {
+                        loadBuilds();
+                        setInspectBuildId(null);
+                    }}
                 />
             )}
 

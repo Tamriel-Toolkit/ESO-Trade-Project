@@ -3,9 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { 
     X, Shield, Award, Sparkles, Sword, CheckCircle2, Zap, Layers, RefreshCw, 
     ExternalLink, ShoppingCart, Lock, AlertTriangle, ChevronRight, Copy, Check,
-    Store, MapPin, Tag, ArrowRight, User, Search
+    Store, MapPin, Tag, ArrowRight, User, Search, Trash2
 } from "lucide-react";
-import { fetchBuildById, fetchBuildGearDiff, fetchBuildDeals, fetchCharacters } from "@/api/api";
+import { fetchBuildById, fetchBuildGearDiff, fetchBuildDeals, fetchCharacters, deleteBuild } from "@/api/api";
+import { useAuth } from "@/context/AuthContext";
 import { AnatomicalEquipmentDiagram } from "@/components/character/AnatomicalEquipmentDiagram";
 import { getEsoIconUrl } from "@/lib/utils";
 
@@ -18,10 +19,12 @@ const ROLE_COLORS = {
     "PvP": "text-red-400 border-red-500/40 bg-red-950/20"
 };
 
-export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
+export function BuildDetailModal({ buildId, initialTab = "gear", onClose, onBuildDeleted }) {
     const navigate = useNavigate();
+    const { user } = useAuth();
     const [loading, setLoading] = useState(true);
     const [build, setBuild] = useState(null);
+    const [deleting, setDeleting] = useState(false);
     const [activeTab, setActiveTab] = useState(initialTab === "deals" ? "diff" : initialTab); // "gear", "diff"
     const [activeWeaponBar, setActiveWeaponBar] = useState("front"); // "front" or "back"
     const [characters, setCharacters] = useState([]);
@@ -124,6 +127,19 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
         onClose();
     };
 
+    const handleDelete = async () => {
+        if (!window.confirm(`Are you sure you want to permanently delete "${build?.title || 'this custom build'}"?`)) return;
+        setDeleting(true);
+        const res = await deleteBuild(buildId);
+        if (res && res.success) {
+            if (onBuildDeleted) onBuildDeleted(buildId);
+            onClose();
+        } else {
+            alert(res?.error || "Failed to delete build.");
+            setDeleting(false);
+        }
+    };
+
     if (!buildId) return null;
 
     return (
@@ -135,7 +151,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
         >
             <div className="relative w-full max-w-6xl max-h-[94vh] flex flex-col bg-[#111116] border-2 border-[#c5a059]/50 rounded-none shadow-[0_10px_40px_rgba(0,0,0,0.9)] overflow-hidden">
                 {/* Modal Header */}
-                <div className="px-6 py-5 border-b border-[#2a2c33] bg-[#161620] flex items-start justify-between relative">
+                <div className="px-6 py-5 border-b border-[#2a2c33] bg-[#161620] flex items-start justify-between relative gap-4">
                     <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#c5a059] to-transparent pointer-events-none" />
                     <div>
                         <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
@@ -174,13 +190,28 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                             </p>
                         )}
                     </div>
-                    <button
-                        onClick={onClose}
-                        className="p-1.5 rounded-none text-muted-foreground hover:text-white hover:bg-white/5 transition-colors border border-transparent hover:border-[#c5a059]/30 cursor-pointer"
-                        aria-label="Close build details modal"
-                    >
-                        <X className="size-5" />
-                    </button>
+                    
+                    <div className="flex items-center gap-2 shrink-0">
+                        {build && !build.is_curated && (
+                            <button
+                                onClick={handleDelete}
+                                disabled={deleting}
+                                className="px-3 py-1.5 rounded-none bg-red-950/50 hover:bg-red-900/70 text-red-300 border border-red-500/40 text-xs font-cinzel font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                                title="Delete this custom build"
+                                aria-label="Delete build"
+                            >
+                                <Trash2 className="size-3.5" />
+                                {deleting ? "Deleting..." : "Delete Build"}
+                            </button>
+                        )}
+                        <button
+                            onClick={onClose}
+                            className="p-1.5 rounded-none text-muted-foreground hover:text-white hover:bg-white/5 transition-colors border border-transparent hover:border-[#c5a059]/30 cursor-pointer"
+                            aria-label="Close build details modal"
+                        >
+                            <X className="size-5" />
+                        </button>
+                    </div>
                 </div>
 
                 {/* Tab Navigation (Merged into Equipment & Comparison) */}
