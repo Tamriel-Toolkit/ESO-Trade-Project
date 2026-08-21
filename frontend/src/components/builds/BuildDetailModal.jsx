@@ -192,7 +192,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose, onBuil
                     </div>
                     
                     <div className="flex items-center gap-2 shrink-0">
-                        {build && !build.is_curated && (
+                        {Boolean(user && build && !build.is_curated && (build.user_id === user.id || user.role === "admin")) && (
                             <button
                                 onClick={handleDelete}
                                 disabled={deleting}

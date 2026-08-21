@@ -227,7 +227,7 @@ export function BuildExplorer() {
                                             <span className="text-[11px] font-cinzel font-bold text-[#c5a059] uppercase tracking-wider">
                                                 {build.class}
                                             </span>
-                                            {!build.is_curated && (
+                                            {Boolean(user && !build.is_curated && (build.user_id === user.id || user.role === "admin")) && (
                                                 <button
                                                     onClick={(e) => handleDeleteBuild(e, build.id)}
                                                     className="p-1 text-muted-foreground hover:text-red-400 hover:bg-red-950/50 border border-transparent hover:border-red-500/30 transition-all rounded-none cursor-pointer"

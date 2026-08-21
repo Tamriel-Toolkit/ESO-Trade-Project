@@ -2976,11 +2976,7 @@ app.post("/api/builds", async (req, res) => {
 app.delete("/api/builds/:id", async (req, res) => {
     let userId = await getAuthUserId(req);
     if (!userId) {
-        if (isDevMode) {
-            userId = 1;
-        } else {
-            return res.status(401).json({ error: "Authentication required to delete builds." });
-        }
+        return res.status(401).json({ error: "Authentication required to delete builds." });
     }
 
     const buildId = req.params.id;

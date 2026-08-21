@@ -613,12 +613,19 @@ async function runTests() {
         const customBuildId = customBuildRes.data.build_id;
         console.log(`   Custom build created with ID: ${customBuildId}`);
 
-        // Delete custom build
+        // Verify unauthenticated DELETE returns 401
+        const unauthDeleteRes = await httpDelete(`/api/builds/${customBuildId}`);
+        if (unauthDeleteRes.status !== 401) {
+            throw new Error(`Expected 401 on unauthenticated build deletion, got ${unauthDeleteRes.status}`);
+        }
+        console.log("   Unauthenticated build deletion correctly rejected (401)!");
+
+        // Delete custom build with authentication
         const deleteBuildRes = await httpDelete(`/api/builds/${customBuildId}`, { 'Authorization': `Bearer ${bypassRes.data.token}` });
         if (deleteBuildRes.status !== 200) {
             throw new Error(`Expected 200 on deleting custom build, got ${deleteBuildRes.status}`);
         }
-        console.log("   Custom build deleted cleanly!");
+        console.log("   Custom build deleted cleanly by owner!");
 
         console.log("\n41. Testing GET /api/builds/:id/diff/:character_id and /deals...");
         // Use user 1 character if exists
