@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { 
     Shield, Sparkles, Sword, Search, Plus, ShoppingCart, Lock, RefreshCw, 
     Layers, User, BookOpen, Trash2, Flame, Zap, Skull, Sun, Award, Crosshair
@@ -113,12 +114,21 @@ export function BuildExplorer() {
                         </p>
                     </div>
 
-                    <button
-                        onClick={() => setIsCreatorOpen(true)}
-                        className="px-5 py-3 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-[#0a0a0d] font-cinzel font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg transition-all cursor-pointer shrink-0"
-                    >
-                        <Plus className="size-4" /> Create Build
-                    </button>
+                    {user ? (
+                        <button
+                            onClick={() => setIsCreatorOpen(true)}
+                            className="px-5 py-3 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-[#0a0a0d] font-cinzel font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg transition-all cursor-pointer shrink-0"
+                        >
+                            <Plus className="size-4" /> Create Build
+                        </button>
+                    ) : (
+                        <Link
+                            to="/login"
+                            className="px-5 py-3 rounded-none bg-[#161620] hover:bg-[#1f1f2e] text-[#e0d8c3] border border-[#c5a059]/40 hover:border-[#c5a059] font-cinzel font-bold text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg transition-all cursor-pointer shrink-0"
+                        >
+                            <Lock className="size-4 text-[#c5a059]" /> Sign In to Create Build
+                        </Link>
+                    )}
                 </div>
             </header>
 

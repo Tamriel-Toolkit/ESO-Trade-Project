@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useMemo } from "react";
+import { Link } from "react-router-dom";
 import { 
     X, Shield, Sparkles, Sword, Plus, Trash2, Check, Search, AlertTriangle, 
     Lock, ShoppingCart, Info, Save, Layers, RefreshCw
 } from "lucide-react";
 import { createCustomBuild, fetchSets, resolveSetItem } from "@/api/api";
+import { useAuth } from "@/context/AuthContext";
 import { getEsoIconUrl, cleanEsoText } from "@/lib/utils";
 
 const ESO_CLASSES = ["Arcanist", "Dragonknight", "Necromancer", "Nightblade", "Sorcerer", "Templar", "Warden", "All"];
@@ -49,6 +51,7 @@ const WEAPON_OPTIONS = [
 ];
 
 export function BuildCreatorModal({ onClose, onBuildCreated }) {
+    const { user } = useAuth();
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
     const [buildClass, setBuildClass] = useState("Arcanist");
@@ -181,6 +184,11 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
     };
 
     const handleSaveBuild = async () => {
+        if (!user) {
+            setError("Authentication required: Please sign in or switch accounts in the top-right menu to create custom builds.");
+            return;
+        }
+
         if (!title.trim()) {
             setError("Please provide a build title.");
             return;
@@ -263,6 +271,21 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                 </div>
 
                 <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                    {!user && (
+                        <div className="p-3.5 bg-amber-950/40 border border-amber-500/40 text-amber-300 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 font-cinzel">
+                            <div className="flex items-center gap-2">
+                                <AlertTriangle className="size-4 text-amber-400 shrink-0" />
+                                <span>Authentication Required: Sign in to save custom builds to your account.</span>
+                            </div>
+                            <Link 
+                                to="/login" 
+                                className="px-3 py-1 bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all shrink-0"
+                            >
+                                Sign In
+                            </Link>
+                        </div>
+                    )}
+
                     {error && (
                         <div className="p-3 rounded-none bg-red-950/40 border border-red-500/50 text-red-300 text-xs flex items-center gap-2 font-cinzel">
                             <AlertTriangle className="size-4 shrink-0 text-red-400" />

@@ -596,6 +596,17 @@ async function runTests() {
         console.log(`   Build detail retrieved with ${buildDetailRes.data.build.items.length} slot items and ${buildDetailRes.data.build.sets.length} set bonuses!`);
 
         console.log("\n40. Testing POST /api/builds & DELETE /api/builds/:id (Custom Build Flow)...");
+        // Verify unauthenticated POST /api/builds returns 401
+        const unauthCreateRes = await httpPost('/api/builds', {
+            title: "Unauthenticated Build",
+            class: "Arcanist",
+            role: "Stamina DPS"
+        });
+        if (unauthCreateRes.status !== 401) {
+            throw new Error(`Expected 401 on unauthenticated build creation, got ${unauthCreateRes.status}`);
+        }
+        console.log("   Unauthenticated build creation correctly rejected (401)!");
+
         const customBuildRes = await httpPost('/api/builds', {
             title: "Test Stamina Arcanist Custom",
             class: "Arcanist",

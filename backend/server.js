@@ -2894,11 +2894,7 @@ app.get("/api/builds/:id", async (req, res) => {
 app.post("/api/builds", async (req, res) => {
     let userId = await getAuthUserId(req);
     if (!userId) {
-        if (isDevMode) {
-            userId = 1; // Seamless dev fallback for local testing
-        } else {
-            return res.status(401).json({ error: "Authentication required to create custom builds. Please log in or switch accounts in the top-right menu." });
-        }
+        return res.status(401).json({ error: "Authentication required to create custom builds. Please sign in or switch accounts in the top-right menu." });
     }
 
     const { title, description, class: buildClass, role, author, source_url, items = [] } = req.body;
