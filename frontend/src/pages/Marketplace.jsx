@@ -45,7 +45,7 @@ import {
   CardFooter
 } from "@/components/ui/card";
 
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/ui/navbar";
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/context/AuthContext";
