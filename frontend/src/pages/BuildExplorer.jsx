@@ -275,16 +275,16 @@ export function BuildExplorer() {
                                     {/* Action Buttons */}
                                     <div className="grid grid-cols-2 gap-2">
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); openBuildModal(build.id, "diff"); }}
+                                            onClick={(e) => { e.stopPropagation(); openBuildModal(build.id, "gear"); }}
                                             className="py-2 px-3 rounded-none bg-[#161620] hover:bg-[#c5a059]/20 text-[#e6c278] border border-[#c5a059]/30 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                                         >
-                                            <Sword className="size-3.5" /> Compare
+                                            <Shield className="size-3.5" /> Equipment
                                         </button>
                                         <button
-                                            onClick={(e) => { e.stopPropagation(); openBuildModal(build.id, "deals"); }}
+                                            onClick={(e) => { e.stopPropagation(); openBuildModal(build.id, "diff"); }}
                                             className="py-2 px-3 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-black text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
                                         >
-                                            <ShoppingCart className="size-3.5" /> Deals
+                                            <Sword className="size-3.5" /> Comparison
                                         </button>
                                     </div>
                                 </div>

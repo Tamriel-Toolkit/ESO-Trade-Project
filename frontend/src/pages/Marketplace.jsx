@@ -110,6 +110,7 @@ function Marketplace() {
   const { serverLocation, platform } = useTheme();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // State Management
   const [viewMode, setViewMode] = useState("prices"); // Default to "prices"
@@ -119,10 +120,19 @@ function Marketplace() {
   const [selectedRarity, setSelectedRarity] = useState("");
   const [selectedHubLocation, setSelectedHubLocation] = useState("");
   const [selectedMaxAge, setSelectedMaxAge] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const [sortOption, setSortOption] = useState("value_index");
   const [dealsOnly, setDealsOnly] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Sync searchQuery when URL search parameter changes
+  useEffect(() => {
+    const q = searchParams.get("search");
+    if (q !== null && q !== undefined) {
+      setSearchQuery(q);
+      setCurrentPage(1);
+    }
+  }, [searchParams]);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
