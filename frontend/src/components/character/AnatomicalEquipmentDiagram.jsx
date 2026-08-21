@@ -187,6 +187,10 @@ function SlotItemIcon({ icon, itemName, iconType = "armor", className = "size-fu
   const [imgFailed, setImgFailed] = useState(false);
   const normalizedUrl = getEsoIconUrl(icon);
 
+  useEffect(() => {
+    setImgFailed(false);
+  }, [icon]);
+
   if (normalizedUrl && !imgFailed) {
     return (
       <img
