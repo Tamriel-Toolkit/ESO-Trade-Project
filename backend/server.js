@@ -2543,6 +2543,110 @@ app.get("/api/builds", async (req, res) => {
     }
 });
 
+const SAFE_SLOT_DEFAULTS = {
+    0: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_hat_d.png",
+    1: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_neck_a.png",
+    2: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_light_shirt_d.png",
+    3: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_light_shoulders_a.png",
+    4: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_dagger_d.png",
+    5: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_dagger_d.png",
+    6: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_light_waist_a.png",
+    7: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_light_legs_a.png",
+    8: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_light_feet_a.png",
+    9: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_ring_a.png",
+    10: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_ring_a.png",
+    11: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_ring_a.png",
+    12: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_staff_d.png",
+    16: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_light_hands_a.png",
+    20: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_staff_d.png",
+    21: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_dagger_d.png"
+};
+
+const SLOT_KEYWORDS = {
+    0: ["helm", "hat", "mask", "cowl", "hood", "cap", "head", "visage", "gaze"],
+    1: ["necklace", "amulet", "pendant", "choker", "neck", "collar", "talisman", "chain", "beads"],
+    2: ["jerkin", "jack", "cuirass", "robe", "tunic", "vest", "chest", "shirt", "breastplate", "mail", "harness"],
+    3: ["shoulder", "arm cop", "epaulet", "pauldron", "spaulder", "mantle", "shawl"],
+    4: ["dagger", "sword", "axe", "mace", "staff", "bow", "greatsword", "battleaxe", "maul"],
+    5: ["dagger", "sword", "axe", "mace", "shield"],
+    6: ["belt", "girdle", "sash", "waist", "cincture", "strap", "cord"],
+    7: ["guard", "greave", "breeche", "legs", "pants", "poleyn", "chausse", "trousers", "skirt"],
+    8: ["boot", "shoe", "sabaton", "feet", "sandals"],
+    9: ["ring", "band", "loop", "signet"],
+    10: ["ring", "band", "loop", "signet"],
+    11: ["ring", "band", "loop", "signet"],
+    12: ["greatsword", "battleaxe", "maul", "staff", "bow", "fire staff", "inferno staff", "lightning staff", "ice staff", "restoration staff"],
+    16: ["bracer", "gauntlet", "glove", "hands", "mitts", "touch"],
+    20: ["greatsword", "battleaxe", "maul", "staff", "bow"],
+    21: ["dagger", "sword", "axe", "mace", "shield"]
+};
+
+async function resolveSetSlotItem(setName, slotId, slotName, providedItemName, providedIcon) {
+    const defaultIcon = SAFE_SLOT_DEFAULTS[slotId] || SAFE_SLOT_DEFAULTS[0];
+
+    if (providedIcon && typeof providedIcon === "string" && providedIcon.startsWith("http") && !providedIcon.includes("quest_container")) {
+        return {
+            itemName: providedItemName || `${setName || 'Custom'} ${slotName}`,
+            itemIcon: providedIcon.replace(".dds", ".png"),
+            gameItemId: null
+        };
+    }
+
+    if (!setName) {
+        return {
+            itemName: providedItemName || slotName,
+            itemIcon: defaultIcon,
+            gameItemId: null
+        };
+    }
+
+    const cleanSet = setName.toLowerCase().replace(/perfected /g, "").replace(/'s/g, "").replace(/'/g, "").trim();
+    const kws = SLOT_KEYWORDS[slotId] || [slotName.toLowerCase()];
+
+    try {
+        const rows = await dbAll(`
+            SELECT game_item_id, name, icon_url
+            FROM items
+            WHERE (LOWER(name) LIKE ? OR LOWER(metadata) LIKE ?)
+              AND icon_url IS NOT NULL
+              AND icon_url NOT LIKE '%quest_container%'
+              AND icon_url NOT LIKE '%crate%'
+              AND icon_url NOT LIKE '%quest_letter%'
+            LIMIT 60;
+        `, [`%${cleanSet}%`, `%${cleanSet}%`]);
+
+        for (const kw of kws) {
+            for (const r of rows) {
+                if (r.name.toLowerCase().includes(kw)) {
+                    const isGeneric = !providedItemName || / (Legs|Head|Chest|Shoulders|Waist|Feet|Hands|Ring 1|Ring 2|Necklace|Main Hand|Off Hand)$/i.test(providedItemName);
+                    return {
+                        itemName: isGeneric ? r.name : providedItemName,
+                        itemIcon: (r.icon_url || defaultIcon).replace(".dds", ".png"),
+                        gameItemId: r.game_item_id
+                    };
+                }
+            }
+        }
+
+        if (rows.length > 0) {
+            const isGeneric = !providedItemName || / (Legs|Head|Chest|Shoulders|Waist|Feet|Hands|Ring 1|Ring 2|Necklace|Main Hand|Off Hand)$/i.test(providedItemName);
+            return {
+                itemName: isGeneric ? rows[0].name : providedItemName,
+                itemIcon: (rows[0].icon_url || defaultIcon).replace(".dds", ".png"),
+                gameItemId: rows[0].game_item_id
+            };
+        }
+    } catch (e) {
+        console.error("Error resolving set slot item:", e.message);
+    }
+
+    return {
+        itemName: providedItemName || `${setName} ${slotName}`,
+        itemIcon: defaultIcon,
+        gameItemId: null
+    };
+}
+
 /**
  * GET /api/builds/:id
  * Fetches complete build details and all 12 slot items.
@@ -2555,7 +2659,7 @@ app.get("/api/builds/:id", async (req, res) => {
             return res.status(404).json({ error: "Build not found." });
         }
 
-        const items = await dbAll(`
+        const rawItems = await dbAll(`
             SELECT 
                 bi.*,
                 REPLACE(COALESCE(bi.item_icon, i.icon_url), '.dds', '.png') as item_icon
@@ -2564,6 +2668,19 @@ app.get("/api/builds/:id", async (req, res) => {
             WHERE bi.build_id = ? 
             ORDER BY bi.slot_id ASC;
         `, [buildId]);
+
+        // Ensure every item has a valid, non-null in-game icon and authentic name
+        const items = await Promise.all(rawItems.map(async (it) => {
+            if (!it.item_icon || it.item_icon === "" || it.item_icon.includes("quest_container")) {
+                const resolved = await resolveSetSlotItem(it.set_name, it.slot_id, it.slot_name, it.item_name, it.item_icon);
+                return {
+                    ...it,
+                    item_name: it.item_name || resolved.itemName,
+                    item_icon: resolved.itemIcon
+                };
+            }
+            return it;
+        }));
 
         // Calculate Set Counts
         const setCounts = {};
@@ -2588,7 +2705,7 @@ app.get("/api/builds/:id", async (req, res) => {
 
 /**
  * POST /api/builds
- * Creates a custom user build.
+ * Creates a custom user build with automatic in-game name & authentic icon resolution.
  */
 app.post("/api/builds", async (req, res) => {
     let userId = await getAuthUserId(req);
@@ -2630,15 +2747,21 @@ app.post("/api/builds", async (req, res) => {
             `);
 
             for (const it of items) {
+                const slotId = it.slot_id !== undefined ? it.slot_id : 0;
+                const slotName = it.slot_name || "Slot";
+                
+                // Intelligently resolve authentic name, game_item_id, and icon
+                const resolved = await resolveSetSlotItem(it.set_name, slotId, slotName, it.item_name, it.item_icon);
+
                 insertItemStmt.run(
                     buildId,
-                    it.slot_id !== undefined ? it.slot_id : 0,
-                    it.slot_name || "Slot",
-                    it.game_item_id || null,
-                    it.item_name || "Custom Item",
+                    slotId,
+                    slotName,
+                    it.game_item_id || resolved.gameItemId || null,
+                    resolved.itemName,
                     it.set_name || "Custom Set",
                     it.item_type || "Armor",
-                    it.item_icon || null,
+                    resolved.itemIcon,
                     it.trait_id || 0,
                     it.trait_name || "Divines",
                     it.enchantment || "Max Magicka",

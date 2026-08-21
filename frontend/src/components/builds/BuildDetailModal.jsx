@@ -115,8 +115,12 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
     };
 
     const handleSearchMarketplace = (itemName, setName) => {
-        const query = itemName || setName || "";
-        navigate(`/marketplace?search=${encodeURIComponent(query)}`);
+        const isGeneric = !itemName || 
+            / (Legs|Head|Chest|Shoulders|Waist|Feet|Hands|Ring 1|Ring 2|Necklace|Main Hand|Off Hand)$/i.test(itemName) ||
+            /^Monster (Helm|Shoulders)/i.test(itemName);
+
+        const query = (isGeneric && setName) ? setName : (itemName || setName || "");
+        navigate(`/marketplace?search=${encodeURIComponent(query.trim())}`);
         onClose();
     };
 
