@@ -331,7 +331,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                 </div>
                             )}
 
-                            {/* TAB 2: MERGED COMPARISON & KIOSK DEALS */}
+                            {/* TAB 2: MERGED COMPARISON & MARKET DEALS */}
                             {activeTab === "diff" && (
                                 <div className="space-y-6">
                                     {/* Character Selector & Server Banner */}
@@ -341,7 +341,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                                 Character Gear Comparison & Market Deals
                                             </h3>
                                             <p className="text-xs text-muted-foreground mt-0.5">
-                                                Comparing against character loadout and scanning {server} guild kiosks for tradeable pieces.
+                                                Comparing against character loadout and scanning {server} guild traders for tradeable pieces.
                                             </p>
                                         </div>
                                         {characters.length > 0 ? (
@@ -405,21 +405,31 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                         </div>
                                     )}
 
-                                    {/* Cost & Shopping Itinerary Summary Banner */}
+                                    {/* Market Cost Evaluation Banner */}
                                     {dealsData && (
                                         <div className="p-4 rounded-none bg-[#121218] border border-[#2a2c33] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                                             <div>
                                                 <span className="text-[10px] font-cinzel font-bold uppercase tracking-wider text-[#c5a059]">
                                                     Market Cost Evaluation ({server})
                                                 </span>
-                                                <div className="text-sm font-cinzel font-bold text-[#e0d8c3] mt-0.5">
-                                                    Estimated Gold for Missing Tradeable Pieces:{" "}
-                                                    <span className="text-[#d4af37] font-mono text-base ml-1">
-                                                        {dealsData.total_estimated_gold > 0 ? `${dealsData.total_estimated_gold.toLocaleString()}g` : "0g (All Bound or Owned)"}
-                                                    </span>
+                                                <div className="text-sm font-cinzel font-bold text-[#e0d8c3] mt-0.5 flex flex-wrap items-center gap-2">
+                                                    <span>Estimated Market Cost:</span>
+                                                    {dealsData.total_estimated_gold > 0 ? (
+                                                        <span className="text-[#d4af37] font-mono text-base">
+                                                            {dealsData.total_estimated_gold.toLocaleString()}g
+                                                        </span>
+                                                    ) : diffData?.missing_count > 0 && build?.items?.some(i => i.is_tradeable) ? (
+                                                        <span className="text-[#a89f91] text-xs font-sans font-normal italic">
+                                                            No active market listings currently recorded
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-emerald-400 text-xs font-cinzel font-bold">
+                                                            0g (All Tradeable Pieces Owned)
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                <p className="text-xs text-muted-foreground">
-                                                    Calculated from verified guild kiosk listings on {server}.
+                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                    Calculated from verified guild trader market listings on {server}.
                                                 </p>
                                             </div>
 
@@ -446,10 +456,10 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                     {diffLoading || dealsLoading ? (
                                         <div className="py-12 text-center text-muted-foreground font-cinzel text-xs">
                                             <RefreshCw className="size-6 animate-spin text-[#c5a059] mx-auto mb-2" />
-                                            Comparing equipment and querying guild kiosks...
+                                            Comparing equipment and querying guild traders...
                                         </div>
                                     ) : diffData?.slot_diffs ? (
-                                        <div className="space-y-3">
+                                        <div className="space-y-2.5">
                                             {diffData.slot_diffs.map((diff) => {
                                                 const status = diff.status; // "matched", "trait_mismatch", "missing"
                                                 const isTradeable = diff.target_item?.is_tradeable === 1;
@@ -459,35 +469,29 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                                 return (
                                                     <div 
                                                         key={diff.slot_id}
-                                                        className={`p-4 rounded-none border flex flex-col md:flex-row md:items-center justify-between gap-4 transition-all ${
-                                                            status === "matched"
-                                                                ? "bg-[#101914] border-emerald-500/30"
-                                                                : status === "trait_mismatch"
-                                                                ? "bg-[#1a1710] border-amber-500/30"
-                                                                : "bg-[#191114] border-red-500/30"
-                                                        }`}
+                                                        className="p-3.5 rounded-none bg-[#121218] hover:bg-[#15151f] border border-[#2a2c33] hover:border-[#c5a059]/40 flex flex-col md:flex-row md:items-center justify-between gap-3.5 transition-all"
                                                     >
-                                                        {/* Slot Info & Target Details */}
-                                                        <div className="flex items-start sm:items-center gap-3.5 min-w-0 flex-1">
-                                                            <div className="size-10 shrink-0 border border-[#2a2c33] bg-[#0a0a0d] p-1 flex items-center justify-center">
+                                                        {/* Column 1: Slot Icon & Target Specs */}
+                                                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                            <div className="size-9 shrink-0 border border-[#2a2c33] bg-[#0a0a0d] p-1 flex items-center justify-center">
                                                                 {targetIcon ? (
                                                                     <img src={getEsoIconUrl(targetIcon)} alt="" className="size-full object-contain" />
                                                                 ) : (
-                                                                    <Shield className="size-5 text-[#8a8275]" />
+                                                                    <Shield className="size-4 text-[#8a8275]" />
                                                                 )}
                                                             </div>
 
                                                             <div className="min-w-0 space-y-0.5">
-                                                                <div className="flex flex-wrap items-center gap-2">
-                                                                    <span className="text-[10px] font-cinzel font-bold uppercase tracking-wider text-[#c5a059] bg-[#0a0a0d] px-2 py-0.5 border border-[#2a2c33]">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[10px] font-cinzel font-bold uppercase tracking-wider text-[#c5a059]">
                                                                         {diff.slot_name}
                                                                     </span>
                                                                     {isTradeable ? (
-                                                                        <span className="text-[10px] font-cinzel font-bold uppercase tracking-wider px-2 py-0.5 rounded-none bg-emerald-950/40 text-emerald-400 border border-emerald-500/30">
+                                                                        <span className="text-[9px] font-cinzel font-bold uppercase tracking-wider px-1.5 py-0.2 rounded-none bg-emerald-950/40 text-emerald-400 border border-emerald-500/30">
                                                                             Tradeable
                                                                         </span>
                                                                     ) : (
-                                                                        <span className="text-[10px] font-cinzel font-bold uppercase tracking-wider px-2 py-0.5 rounded-none bg-red-950/40 text-red-400 border border-red-500/30">
+                                                                        <span className="text-[9px] font-cinzel font-bold uppercase tracking-wider px-1.5 py-0.2 rounded-none bg-[#1a1a24] text-[#8a8275] border border-[#2a2c33]">
                                                                             Bound
                                                                         </span>
                                                                     )}
@@ -497,7 +501,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                                                     {diff.target_item.item_name}
                                                                 </div>
 
-                                                                <div className="text-xs text-muted-foreground flex flex-wrap items-center gap-2">
+                                                                <div className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-1.5">
                                                                     <span>Set: <strong className="text-gray-300 font-medium">{diff.target_item.set_name}</strong></span>
                                                                     <span>•</span>
                                                                     <span>Trait: <strong className="text-gray-300 font-medium">{diff.target_item.trait_name}</strong></span>
@@ -511,39 +515,39 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                                             </div>
                                                         </div>
 
-                                                        {/* Status & Kiosk Price / Action */}
-                                                        <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-[#2a2c33]">
-                                                            {/* Comparison Status Badge */}
-                                                            <div>
+                                                        {/* Column 2 & 3: Fixed-width Status & Market Action */}
+                                                        <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-[#2a2c33]">
+                                                            {/* Status Column (Fixed width ~140px) */}
+                                                            <div className="w-36 flex justify-start md:justify-center">
                                                                 {status === "matched" && (
-                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-none text-xs font-semibold bg-emerald-950/60 text-emerald-400 border border-emerald-500/40 uppercase tracking-wider font-cinzel">
+                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-none text-xs font-semibold bg-emerald-950/50 text-emerald-400 border border-emerald-500/40 uppercase tracking-wider font-cinzel">
                                                                         <CheckCircle2 className="size-3.5" /> Equipped
                                                                     </span>
                                                                 )}
                                                                 {status === "trait_mismatch" && (
-                                                                    <div className="text-left sm:text-right">
-                                                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-none text-xs font-semibold bg-amber-950/60 text-amber-400 border border-amber-500/40 uppercase tracking-wider font-cinzel">
-                                                                            <AlertTriangle className="size-3.5" /> Trait Mismatch
+                                                                    <div className="text-left md:text-center">
+                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-none text-[11px] font-semibold bg-amber-950/50 text-amber-400 border border-amber-500/40 uppercase tracking-wider font-cinzel">
+                                                                            <AlertTriangle className="size-3" /> Trait Diff
                                                                         </span>
-                                                                        <p className="text-[10px] text-amber-300/80 mt-0.5">
+                                                                        <p className="text-[9px] text-amber-300/80 mt-0.5">
                                                                             Equipped: {diff.equipped_item?.trait_name || "Unknown"}
                                                                         </p>
                                                                     </div>
                                                                 )}
                                                                 {status === "missing" && (
-                                                                    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-none text-xs font-semibold bg-red-950/60 text-red-400 border border-red-500/40 uppercase tracking-wider font-cinzel">
+                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-none text-xs font-semibold bg-red-950/30 text-red-400 border border-red-500/30 uppercase tracking-wider font-cinzel">
                                                                         <X className="size-3.5" /> Missing
                                                                     </span>
                                                                 )}
                                                             </div>
 
-                                                            {/* Market Option for Tradeable / Farm info for Bound */}
-                                                            <div className="flex items-center gap-2">
+                                                            {/* Action / Source Column (Fixed width ~170px) */}
+                                                            <div className="w-44 flex items-center justify-end">
                                                                 {isTradeable ? (
-                                                                    <>
+                                                                    <div className="flex items-center gap-1.5">
                                                                         {slotDeal?.cheapest_price ? (
-                                                                            <span className="text-xs font-cinzel font-bold text-[#e6c278] bg-[#0a0a0d] px-2.5 py-1 border border-[#c5a059]/30">
-                                                                                Best: {slotDeal.cheapest_price.toLocaleString()}g
+                                                                            <span className="text-[11px] font-cinzel font-bold text-[#e6c278] bg-[#0a0a0d] px-2 py-1 border border-[#c5a059]/30">
+                                                                                {slotDeal.cheapest_price.toLocaleString()}g
                                                                             </span>
                                                                         ) : null}
                                                                         <button
@@ -553,9 +557,9 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose }) {
                                                                         >
                                                                             <Search className="size-3.5" /> Search Market
                                                                         </button>
-                                                                    </>
+                                                                    </div>
                                                                 ) : (
-                                                                    <span className="text-[11px] text-[#8a8275] italic font-cinzel max-w-[200px] truncate text-left sm:text-right">
+                                                                    <span className="text-[11px] text-[#8a8275] font-cinzel text-right truncate max-w-[170px]" title={diff.target_item.source_location}>
                                                                         {diff.target_item.source_location || "Dungeon / Trial"}
                                                                     </span>
                                                                 )}
