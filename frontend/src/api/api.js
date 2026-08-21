@@ -398,4 +398,20 @@ export async function fetchBuildDeals(buildId, { server = "NA", characterId } = 
     }
 }
 
+export async function resolveSetItem({ set, slot_id, slot_name, weight, weapon } = {}) {
+    try {
+        const params = new URLSearchParams();
+        if (set) params.append("set", set);
+        if (slot_id !== undefined) params.append("slot_id", slot_id);
+        if (slot_name) params.append("slot_name", slot_name);
+        if (weight) params.append("weight", weight);
+        if (weapon) params.append("weapon", weapon);
+
+        const response = await apiFetch(`/api/sets/resolve-item?${params.toString()}`);
+        return await safeJsonResponse(response, 'Failed to resolve set item');
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
 export default fetchTaxonomy;

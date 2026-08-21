@@ -3,25 +3,26 @@ import {
     X, Shield, Sparkles, Sword, Plus, Trash2, Check, Search, AlertTriangle, 
     Lock, ShoppingCart, Info, Save, Layers, RefreshCw
 } from "lucide-react";
-import { createCustomBuild, fetchSets } from "@/api/api";
+import { createCustomBuild, fetchSets, resolveSetItem } from "@/api/api";
+import { getEsoIconUrl, cleanEsoText } from "@/lib/utils";
 
 const ESO_CLASSES = ["Arcanist", "Dragonknight", "Necromancer", "Nightblade", "Sorcerer", "Templar", "Warden", "All"];
 const ESO_ROLES = ["Magicka DPS", "Stamina DPS", "Tank", "Healer", "Solo / Arena", "PvP"];
 
 const DEFAULT_SLOTS = [
-    { slot_id: 0, slot_name: "Head", item_name: "Monster Helm", set_name: "Stormfist", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 0, source_location: "Tempest Island" },
-    { slot_id: 3, slot_name: "Shoulders", item_name: "Monster Shoulders", set_name: "Stormfist", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 0, source_location: "Undaunted Pledge" },
-    { slot_id: 2, slot_name: "Chest", item_name: "Order's Wrath Jerkin", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Crafted - High Isle" },
-    { slot_id: 16, slot_name: "Hands", item_name: "Order's Wrath Bracers", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Crafted - High Isle" },
-    { slot_id: 6, slot_name: "Waist", item_name: "Order's Wrath Belt", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Crafted - High Isle" },
-    { slot_id: 7, slot_name: "Legs", item_name: "Order's Wrath Guards", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Crafted - High Isle" },
-    { slot_id: 8, slot_name: "Feet", item_name: "Order's Wrath Boots", set_name: "Order's Wrath", item_type: "Medium Armor", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Crafted - High Isle" },
-    { slot_id: 1, slot_name: "Neck", item_name: "Deadly Strike Necklace", set_name: "Deadly Strike", item_type: "Necklace", trait_name: "Bloodthirsty", enchantment: "Weapon Damage", quality: 4, is_tradeable: 1, source_location: "Cyrodiil / Traders" },
-    { slot_id: 9, slot_name: "Ring 1", item_name: "Deadly Strike Ring", set_name: "Deadly Strike", item_type: "Ring", trait_name: "Bloodthirsty", enchantment: "Weapon Damage", quality: 4, is_tradeable: 1, source_location: "Cyrodiil / Traders" },
-    { slot_id: 11, slot_name: "Ring 2", item_name: "Deadly Strike Ring", set_name: "Deadly Strike", item_type: "Ring", trait_name: "Bloodthirsty", enchantment: "Weapon Damage", quality: 4, is_tradeable: 1, source_location: "Cyrodiil / Traders" },
-    { slot_id: 4, slot_name: "Main Hand 1", item_name: "Deadly Strike Dagger", set_name: "Deadly Strike", item_type: "One-Handed Dagger", trait_name: "Nirnhoned", enchantment: "Flame Damage", quality: 5, is_tradeable: 1, source_location: "Cyrodiil / Traders" },
-    { slot_id: 5, slot_name: "Off Hand 1", item_name: "Deadly Strike Dagger", set_name: "Deadly Strike", item_type: "One-Handed Dagger", trait_name: "Charged", enchantment: "Poison Damage", quality: 5, is_tradeable: 1, source_location: "Cyrodiil / Traders" },
-    { slot_id: 12, slot_name: "Main Hand 2", item_name: "Maelstrom Greatsword", set_name: "Merciless Charge", item_type: "Two-Handed Greatsword", trait_name: "Infused", enchantment: "Weapon Damage", quality: 5, is_tradeable: 0, source_location: "Maelstrom Arena" }
+    { slot_id: 0, slot_name: "Head", item_name: "Stormfist Mask", set_name: "Stormfist", item_type: "Medium Armor", armor_weight: "Medium", item_icon: "https://esoicons.uesp.net/esoui/art/icons/gear_undauntedstormatronach_head_a.png", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 0, source_location: "Tempest Island" },
+    { slot_id: 3, slot_name: "Shoulders", item_name: "Stormfist Arm Cops", set_name: "Stormfist", item_type: "Medium Armor", armor_weight: "Medium", item_icon: "https://esoicons.uesp.net/esoui/art/icons/gear_undauntedstormatronach_shoulder_a.png", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 0, source_location: "Undaunted Pledge" },
+    { slot_id: 2, slot_name: "Chest", item_name: "Order's Wrath Jerkin", set_name: "Order's Wrath", item_type: "Light Armor", armor_weight: "Light", item_icon: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_light_shirt_d.png", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Crafted - High Isle" },
+    { slot_id: 16, slot_name: "Hands", item_name: "Order's Wrath Bracers", set_name: "Order's Wrath", item_type: "Medium Armor", armor_weight: "Medium", item_icon: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_medium_hands_d.png", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Crafted - High Isle" },
+    { slot_id: 6, slot_name: "Waist", item_name: "Order's Wrath Belt", set_name: "Order's Wrath", item_type: "Medium Armor", armor_weight: "Medium", item_icon: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_medium_waist_d.png", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Crafted - High Isle" },
+    { slot_id: 7, slot_name: "Legs", item_name: "Order's Wrath Guards", set_name: "Order's Wrath", item_type: "Medium Armor", armor_weight: "Medium", item_icon: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_medium_legs_d.png", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Crafted - High Isle" },
+    { slot_id: 8, slot_name: "Feet", item_name: "Order's Wrath Boots", set_name: "Order's Wrath", item_type: "Medium Armor", armor_weight: "Medium", item_icon: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_medium_feet_d.png", trait_name: "Divines", enchantment: "Max Stamina", quality: 4, is_tradeable: 1, source_location: "Crafted - High Isle" },
+    { slot_id: 1, slot_name: "Neck", item_name: "Deadly Necklace", set_name: "Deadly Strike", item_type: "Necklace", item_icon: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_neck_a.png", trait_name: "Bloodthirsty", enchantment: "Weapon Damage", quality: 4, is_tradeable: 1, source_location: "Cyrodiil / Traders" },
+    { slot_id: 9, slot_name: "Ring 1", item_name: "Deadly Ring", set_name: "Deadly Strike", item_type: "Ring", item_icon: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_ring_a.png", trait_name: "Bloodthirsty", enchantment: "Weapon Damage", quality: 4, is_tradeable: 1, source_location: "Cyrodiil / Traders" },
+    { slot_id: 11, slot_name: "Ring 2", item_name: "Deadly Ring", set_name: "Deadly Strike", item_type: "Ring", item_icon: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_ring_a.png", trait_name: "Bloodthirsty", enchantment: "Weapon Damage", quality: 4, is_tradeable: 1, source_location: "Cyrodiil / Traders" },
+    { slot_id: 4, slot_name: "Main Hand 1", item_name: "Deadly Dagger", set_name: "Deadly Strike", item_type: "One-Handed Dagger", weapon_type: "Dagger", item_icon: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_dagger_d.png", trait_name: "Nirnhoned", enchantment: "Flame Damage", quality: 5, is_tradeable: 1, source_location: "Cyrodiil / Traders" },
+    { slot_id: 5, slot_name: "Off Hand 1", item_name: "Deadly Dagger", set_name: "Deadly Strike", item_type: "One-Handed Dagger", weapon_type: "Dagger", item_icon: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_dagger_d.png", trait_name: "Charged", enchantment: "Poison Damage", quality: 5, is_tradeable: 1, source_location: "Cyrodiil / Traders" },
+    { slot_id: 12, slot_name: "Main Hand 2", item_name: "Maelstrom Greatsword", set_name: "Merciless Charge", item_type: "Two-Handed Greatsword", weapon_type: "Greatsword", item_icon: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_staff_d.png", trait_name: "Infused", enchantment: "Weapon Damage", quality: 5, is_tradeable: 0, source_location: "Maelstrom Arena" }
 ];
 
 const SET_CATEGORIES = [
@@ -41,6 +42,12 @@ const TRAITS_BY_SLOT = {
     Jewelry: ["Bloodthirsty", "Infused", "Arcane", "Robust", "Triune", "Harmony", "Swift", "Protective"]
 };
 
+const WEAPON_OPTIONS = [
+    "Dagger", "Sword", "Axe", "Mace", "Bow", 
+    "Inferno Staff", "Lightning Staff", "Ice Staff", "Restoration Staff", 
+    "Greatsword", "Battleaxe", "Maul", "Shield"
+];
+
 export function BuildCreatorModal({ onClose, onBuildCreated }) {
     const [title, setTitle] = useState("");
     const [description, setDescription] = useState("");
@@ -53,7 +60,6 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState(null);
 
-    // All 712 ESO Sets State
     const [allSets, setAllSets] = useState([]);
     const [setsLoading, setSetsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
@@ -75,10 +81,11 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
         setSelectedCategory("All");
     };
 
-    const handleSelectSetForSlot = (setObj) => {
+    const handleSelectSetForSlot = async (setObj) => {
         if (editingSlotIndex === null) return;
         const currentSlot = slots[editingSlotIndex];
         const newSlots = [...slots];
+        
         newSlots[editingSlotIndex] = {
             ...currentSlot,
             set_name: setObj.name,
@@ -88,6 +95,63 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
         };
         setSlots(newSlots);
         setEditingSlotIndex(null);
+
+        try {
+            const res = await resolveSetItem({
+                set: setObj.name,
+                slot_id: currentSlot.slot_id,
+                slot_name: currentSlot.slot_name,
+                weight: currentSlot.armor_weight || "Medium",
+                weapon: currentSlot.weapon_type || "Dagger"
+            });
+            if (res && res.success && res.item_name) {
+                setSlots((prev) => {
+                    const copy = [...prev];
+                    copy[editingSlotIndex] = {
+                        ...copy[editingSlotIndex],
+                        item_name: res.item_name,
+                        item_icon: res.item_icon,
+                        game_item_id: res.game_item_id
+                    };
+                    return copy;
+                });
+            }
+        } catch (e) {
+            console.error("Failed to resolve set item:", e);
+        }
+    };
+
+    const handleWeightOrWeaponChange = async (index, field, value) => {
+        const currentSlot = slots[index];
+        const newSlots = [...slots];
+        newSlots[index] = { ...currentSlot, [field]: value };
+        setSlots(newSlots);
+
+        if (currentSlot.set_name) {
+            try {
+                const res = await resolveSetItem({
+                    set: currentSlot.set_name,
+                    slot_id: currentSlot.slot_id,
+                    slot_name: currentSlot.slot_name,
+                    weight: field === "armor_weight" ? value : currentSlot.armor_weight || "Medium",
+                    weapon: field === "weapon_type" ? value : currentSlot.weapon_type || "Dagger"
+                });
+                if (res && res.success && res.item_name) {
+                    setSlots((prev) => {
+                        const copy = [...prev];
+                        copy[index] = {
+                            ...copy[index],
+                            item_name: res.item_name,
+                            item_icon: res.item_icon,
+                            game_item_id: res.game_item_id
+                        };
+                        return copy;
+                    });
+                }
+            } catch (e) {
+                console.error("Failed to re-resolve item on weight/weapon change:", e);
+            }
+        }
     };
 
     const handleUpdateSlotField = (index, field, value) => {
@@ -126,11 +190,9 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
         }
     };
 
-    // Filter sets based on search and category
     const filteredSets = useMemo(() => {
         const q = searchTerm.trim().toLowerCase();
         return allSets.filter((s) => {
-            // Category check
             if (selectedCategory === "Tradeable" && s.is_tradeable !== 1) return false;
             if (selectedCategory === "BOP" && s.is_tradeable !== 0) return false;
             if (
@@ -141,8 +203,6 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
             ) {
                 return false;
             }
-
-            // Search query check
             if (!q) return true;
             return (
                 s.name.toLowerCase().includes(q) ||
@@ -161,7 +221,6 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
             aria-label="Create Custom Build"
         >
             <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-[#111116] border-2 border-[#c5a059]/50 rounded-none shadow-[0_10px_40px_rgba(0,0,0,0.9)] overflow-hidden">
-                {/* Header */}
                 <div className="px-6 py-4 border-b border-[#2a2c33] bg-[#161620] flex items-center justify-between relative">
                     <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#c5a059] to-transparent pointer-events-none" />
                     <div>
@@ -181,16 +240,14 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                     </button>
                 </div>
 
-                {/* Body */}
-                <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-[#0a0a0d]">
+                <div className="flex-1 overflow-y-auto p-6 space-y-6">
                     {error && (
-                        <div className="p-3 rounded-none bg-red-950/40 border border-red-500/40 text-red-300 text-xs flex items-center gap-2">
+                        <div className="p-3 rounded-none bg-red-950/40 border border-red-500/50 text-red-300 text-xs flex items-center gap-2 font-cinzel">
                             <AlertTriangle className="size-4 shrink-0 text-red-400" />
-                            <span>{error}</span>
+                            {error}
                         </div>
                     )}
 
-                    {/* Metadata Section */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="sm:col-span-2">
                             <label className="block text-xs font-cinzel font-bold text-[#fce2a6] uppercase tracking-wider mb-1">
@@ -249,47 +306,103 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                         </div>
                     </div>
 
-                    {/* Equipment Slots */}
                     <div>
                         <div className="flex items-center justify-between mb-3">
                             <h3 className="text-xs font-cinzel font-bold tracking-wider text-[#c5a059] uppercase flex items-center gap-1.5">
                                 <Shield className="size-3.5" /> Equipment Slots
                             </h3>
                             <span className="text-[11px] text-muted-foreground font-cinzel">
-                                Choose from all 712 ESO sets.
+                                Choose from all 712 ESO sets with custom weights and weapon types.
                             </span>
                         </div>
 
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                             {slots.map((slot, idx) => {
-                                const slotCategory = slot.slot_id === 1 || slot.slot_id === 9 || slot.slot_id === 11 
-                                    ? "Jewelry" 
-                                    : slot.slot_id === 4 || slot.slot_id === 5 || slot.slot_id === 12 
-                                    ? "Weapon" 
-                                    : "Armor";
+                                const isJewelry = slot.slot_id === 1 || slot.slot_id === 9 || slot.slot_id === 11;
+                                const isWeapon = slot.slot_id === 4 || slot.slot_id === 5 || slot.slot_id === 12;
+                                const slotCategory = isJewelry ? "Jewelry" : isWeapon ? "Weapon" : "Armor";
                                 const traits = TRAITS_BY_SLOT[slotCategory] || TRAITS_BY_SLOT.Armor;
+                                const itemIconUrl = getEsoIconUrl(slot.item_icon);
 
                                 return (
                                     <div 
                                         key={slot.slot_id}
                                         className="p-3.5 rounded-none bg-[#13131b] border border-[#2a2c33] hover:border-[#c5a059]/50 transition-all space-y-2.5"
                                     >
-                                        <div className="flex items-start justify-between gap-2">
-                                            <div>
-                                                <span className="text-[10px] font-cinzel font-bold uppercase tracking-wider text-[#c5a059] bg-[#0a0a0d] px-2 py-0.5 rounded-none border border-[#2a2c33]">
-                                                    {slot.slot_name}
-                                                </span>
-                                                <h4 className="font-cinzel font-bold text-sm text-[#e0d8c3] mt-1">
-                                                    {slot.set_name} ({slot.slot_name})
-                                                </h4>
+                                        <div className="flex items-start justify-between gap-2.5">
+                                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                <div className="size-10 shrink-0 border border-[#2a2c33] bg-[#0a0a0d] p-1 flex items-center justify-center">
+                                                    {itemIconUrl ? (
+                                                        <img src={itemIconUrl} alt="" className="size-full object-contain" />
+                                                    ) : (
+                                                        <Shield className="size-4 text-[#8a8275]" />
+                                                    )}
+                                                </div>
+
+                                                <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <span className="text-[10px] font-cinzel font-bold uppercase tracking-wider text-[#c5a059] bg-[#0a0a0d] px-2 py-0.5 rounded-none border border-[#2a2c33]">
+                                                            {slot.slot_name}
+                                                        </span>
+                                                        {slot.armor_weight && !isWeapon && !isJewelry && (
+                                                            <span className="text-[9px] font-cinzel font-bold uppercase tracking-wider px-1.5 py-0.2 rounded-none bg-[#1a1a24] text-[#c5a059] border border-[#c5a059]/30">
+                                                                {slot.armor_weight}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <h4 className="font-cinzel font-bold text-sm text-[#e0d8c3] mt-0.5 truncate" title={slot.item_name}>
+                                                        {slot.item_name}
+                                                    </h4>
+                                                    <p className="text-[11px] text-muted-foreground truncate">
+                                                        Set: <span className="text-gray-300 font-medium">{slot.set_name}</span>
+                                                    </p>
+                                                </div>
                                             </div>
+
                                             <button
                                                 onClick={() => handleOpenSlotPicker(idx)}
-                                                className="px-2.5 py-1 rounded-none bg-[#1c1c28] hover:bg-[#c5a059]/20 text-[#e6c278] border border-[#c5a059]/30 text-xs font-cinzel uppercase tracking-wider transition-all cursor-pointer"
+                                                className="px-2.5 py-1 rounded-none bg-[#1c1c28] hover:bg-[#c5a059]/20 text-[#e6c278] border border-[#c5a059]/30 text-xs font-cinzel uppercase tracking-wider transition-all cursor-pointer shrink-0"
                                             >
                                                 Change Set
                                             </button>
                                         </div>
+
+                                        {!isJewelry && (
+                                            <div className="pt-1.5 border-t border-[#2a2c33]/60 flex items-center justify-between gap-2 text-xs">
+                                                <span className="text-[10px] font-cinzel uppercase tracking-wider text-muted-foreground">
+                                                    {isWeapon ? "Weapon Type:" : "Armor Weight:"}
+                                                </span>
+
+                                                {isWeapon ? (
+                                                    <select
+                                                        value={slot.weapon_type || "Dagger"}
+                                                        onChange={(e) => handleWeightOrWeaponChange(idx, "weapon_type", e.target.value)}
+                                                        className="px-2 py-0.5 rounded-none bg-[#0a0a0d] border border-[#2a2c33] text-[#e0d8c3] text-[11px] font-cinzel uppercase focus:border-[#c5a059]"
+                                                    >
+                                                        {WEAPON_OPTIONS.map((w) => (
+                                                            <option key={w} value={w}>{w}</option>
+                                                        ))}
+                                                    </select>
+                                                ) : (
+                                                    <div className="flex items-center gap-1 bg-[#0a0a0d] p-0.5 border border-[#2a2c33]">
+                                                        {["Light", "Medium", "Heavy"].map((w) => (
+                                                            <button
+                                                                key={w}
+                                                                type="button"
+                                                                onClick={() => handleWeightOrWeaponChange(idx, "armor_weight", w)}
+                                                                className={`px-2 py-0.5 text-[10px] font-cinzel font-bold uppercase transition-all cursor-pointer ${
+                                                                    (slot.armor_weight || "Medium") === w
+                                                                        ? "bg-[#c5a059] text-black shadow-sm"
+                                                                        : "text-muted-foreground hover:text-white"
+                                                                }`}
+                                                            >
+                                                                {w}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )}
 
                                         <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#2a2c33] text-xs">
                                             <div>

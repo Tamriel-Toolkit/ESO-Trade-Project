@@ -449,6 +449,8 @@ function initializeDatabaseSchema() {
             else {
                 console.log("'build_items' table initialized successfully.");
                 db.run("ALTER TABLE build_items ADD COLUMN item_icon TEXT", () => {});
+                db.run("ALTER TABLE build_items ADD COLUMN armor_weight TEXT", () => {});
+                db.run("ALTER TABLE build_items ADD COLUMN weapon_type TEXT", () => {});
             }
         });
 
@@ -2562,26 +2564,79 @@ const SAFE_SLOT_DEFAULTS = {
     21: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_dagger_d.png"
 };
 
-const SLOT_KEYWORDS = {
-    0: ["helm", "hat", "mask", "cowl", "hood", "cap", "head", "visage", "gaze"],
-    1: ["necklace", "amulet", "pendant", "choker", "neck", "collar", "talisman", "chain", "beads"],
-    2: ["jerkin", "jack", "cuirass", "robe", "tunic", "vest", "chest", "shirt", "breastplate", "mail", "harness"],
-    3: ["shoulder", "arm cop", "epaulet", "pauldron", "spaulder", "mantle", "shawl"],
-    4: ["dagger", "sword", "axe", "mace", "staff", "bow", "greatsword", "battleaxe", "maul"],
-    5: ["dagger", "sword", "axe", "mace", "shield"],
-    6: ["belt", "girdle", "sash", "waist", "cincture", "strap", "cord"],
-    7: ["guard", "greave", "breeche", "legs", "pants", "poleyn", "chausse", "trousers", "skirt"],
-    8: ["boot", "shoe", "sabaton", "feet", "sandals"],
-    9: ["ring", "band", "loop", "signet"],
-    10: ["ring", "band", "loop", "signet"],
-    11: ["ring", "band", "loop", "signet"],
-    12: ["greatsword", "battleaxe", "maul", "staff", "bow", "fire staff", "inferno staff", "lightning staff", "ice staff", "restoration staff"],
-    16: ["bracer", "gauntlet", "glove", "hands", "mitts", "touch"],
-    20: ["greatsword", "battleaxe", "maul", "staff", "bow"],
-    21: ["dagger", "sword", "axe", "mace", "shield"]
+const WEIGHT_SLOT_KEYWORDS = {
+    0: { // Head
+        Light: ["hat", "cap", "hood", "cowl"],
+        Medium: ["helmet", "mask", "visage", "gaze", "cowl", "head"],
+        Heavy: ["helm", "great helm"]
+    },
+    3: { // Shoulders
+        Light: ["epaulet", "mantle", "shawl"],
+        Medium: ["arm cop", "spaulder", "shoulder"],
+        Heavy: ["pauldron"]
+    },
+    2: { // Chest
+        Light: ["jerkin", "robe", "tunic", "vest", "shirt"],
+        Medium: ["jack", "harness", "chest"],
+        Heavy: ["cuirass", "breastplate", "mail"]
+    },
+    16: { // Hands
+        Light: ["glove", "mitts"],
+        Medium: ["bracer", "touch", "hands"],
+        Heavy: ["gauntlet"]
+    },
+    6: { // Waist
+        Light: ["sash", "cord"],
+        Medium: ["belt", "strap", "waist"],
+        Heavy: ["girdle", "cincture"]
+    },
+    7: { // Legs
+        Light: ["breeche", "pants", "trousers", "skirt"],
+        Medium: ["guard", "chausse", "legs"],
+        Heavy: ["greave", "poleyn"]
+    },
+    8: { // Feet
+        Light: ["shoe", "sandals"],
+        Medium: ["boot", "feet"],
+        Heavy: ["sabaton"]
+    }
 };
 
-async function resolveSetSlotItem(setName, slotId, slotName, providedItemName, providedIcon) {
+const WEAPON_KEYWORDS = {
+    "Dagger": ["dagger"],
+    "Sword": ["sword"],
+    "Axe": ["axe"],
+    "Mace": ["mace", "hammer"],
+    "Bow": ["bow"],
+    "Inferno Staff": ["inferno staff", "fire staff", "staff"],
+    "Lightning Staff": ["lightning staff", "shock staff", "staff"],
+    "Ice Staff": ["ice staff", "frost staff", "staff"],
+    "Restoration Staff": ["restoration staff", "healing staff", "staff"],
+    "Greatsword": ["greatsword", "2hsword"],
+    "Battleaxe": ["battle axe", "battleaxe", "2haxe"],
+    "Maul": ["maul", "2hhammer"],
+    "Shield": ["shield"]
+};
+
+function getSetSearchTokens(setName) {
+    if (!setName) return [];
+    const clean = setName.replace(/Perfected /gi, "").trim();
+    const tokens = [clean];
+    const suffixes = [/'s Art/gi, /'s Blessing/gi, / Strike/gi, /'s Wrath/gi, /'s Torment/gi, / Touch/gi, / Legacy/gi, /'s Sorrow/gi, / Set/gi];
+    for (const s of suffixes) {
+        const stripped = clean.replace(s, "").trim();
+        if (stripped && stripped !== clean) {
+            tokens.push(stripped);
+        }
+    }
+    for (const t of [...tokens]) {
+        const noQuote = t.replace(/['’]/g, "");
+        if (!tokens.includes(noQuote)) tokens.push(noQuote);
+    }
+    return tokens;
+}
+
+async function resolveSetSlotItem(setName, slotId, slotName, armorWeight = "Medium", weaponType = "Dagger", providedItemName, providedIcon) {
     const defaultIcon = SAFE_SLOT_DEFAULTS[slotId] || SAFE_SLOT_DEFAULTS[0];
 
     if (providedIcon && typeof providedIcon === "string" && providedIcon.startsWith("http") && !providedIcon.includes("quest_container")) {
@@ -2600,40 +2655,122 @@ async function resolveSetSlotItem(setName, slotId, slotName, providedItemName, p
         };
     }
 
-    const cleanSet = setName.toLowerCase().replace(/perfected /g, "").replace(/'s/g, "").replace(/'/g, "").trim();
-    const kws = SLOT_KEYWORDS[slotId] || [slotName.toLowerCase()];
+    const tokens = getSetSearchTokens(setName);
 
     try {
-        const rows = await dbAll(`
-            SELECT game_item_id, name, icon_url
-            FROM items
-            WHERE (LOWER(name) LIKE ? OR LOWER(metadata) LIKE ?)
-              AND icon_url IS NOT NULL
-              AND icon_url NOT LIKE '%quest_container%'
-              AND icon_url NOT LIKE '%crate%'
-              AND icon_url NOT LIKE '%quest_letter%'
-            LIMIT 60;
-        `, [`%${cleanSet}%`, `%${cleanSet}%`]);
+        let matchingItems = [];
+        for (const token of tokens) {
+            const rows = await dbAll(`
+                SELECT game_item_id, name, icon_url
+                FROM items
+                WHERE (LOWER(name) LIKE ? OR LOWER(metadata) LIKE ?)
+                  AND icon_url IS NOT NULL
+                  AND icon_url NOT LIKE '%quest_container%'
+                  AND icon_url NOT LIKE '%crate%'
+                  AND icon_url NOT LIKE '%quest_letter%'
+                  AND icon_url NOT LIKE '%station%'
+                LIMIT 60;
+            `, [`%${token.toLowerCase()}%`, `%${token.toLowerCase()}%`]);
 
-        for (const kw of kws) {
-            for (const r of rows) {
-                if (r.name.toLowerCase().includes(kw)) {
-                    const isGeneric = !providedItemName || / (Legs|Head|Chest|Shoulders|Waist|Feet|Hands|Ring 1|Ring 2|Necklace|Main Hand|Off Hand)$/i.test(providedItemName);
-                    return {
-                        itemName: isGeneric ? r.name : providedItemName,
-                        itemIcon: (r.icon_url || defaultIcon).replace(".dds", ".png"),
-                        gameItemId: r.game_item_id
-                    };
+            if (rows.length > 0) {
+                matchingItems = rows;
+                break;
+            }
+        }
+
+        // Armor slots with weight
+        if (WEIGHT_SLOT_KEYWORDS[slotId]) {
+            const weightKws = WEIGHT_SLOT_KEYWORDS[slotId][armorWeight] || WEIGHT_SLOT_KEYWORDS[slotId]["Medium"] || [];
+            for (const kw of weightKws) {
+                for (const it of matchingItems) {
+                    if (it.name.toLowerCase().includes(kw)) {
+                        return {
+                            itemName: it.name,
+                            itemIcon: (it.icon_url || defaultIcon).replace(".dds", ".png"),
+                            gameItemId: it.game_item_id
+                        };
+                    }
+                }
+            }
+            // General slot fallback
+            for (const w of Object.keys(WEIGHT_SLOT_KEYWORDS[slotId])) {
+                for (const kw of WEIGHT_SLOT_KEYWORDS[slotId][w]) {
+                    for (const it of matchingItems) {
+                        if (it.name.toLowerCase().includes(kw)) {
+                            return {
+                                itemName: it.name,
+                                itemIcon: (it.icon_url || defaultIcon).replace(".dds", ".png"),
+                                gameItemId: it.game_item_id
+                            };
+                        }
+                    }
                 }
             }
         }
 
-        if (rows.length > 0) {
-            const isGeneric = !providedItemName || / (Legs|Head|Chest|Shoulders|Waist|Feet|Hands|Ring 1|Ring 2|Necklace|Main Hand|Off Hand)$/i.test(providedItemName);
+        // Weapon slots with weaponType
+        if ([4, 5, 12, 20, 21].includes(slotId)) {
+            const wpnKws = WEAPON_KEYWORDS[weaponType] || WEAPON_KEYWORDS["Dagger"] || ["dagger"];
+            for (const kw of wpnKws) {
+                for (const it of matchingItems) {
+                    if (it.name.toLowerCase().includes(kw)) {
+                        return {
+                            itemName: it.name,
+                            itemIcon: (it.icon_url || defaultIcon).replace(".dds", ".png"),
+                            gameItemId: it.game_item_id
+                        };
+                    }
+                }
+            }
+            for (const wpn of Object.keys(WEAPON_KEYWORDS)) {
+                for (const kw of WEAPON_KEYWORDS[wpn]) {
+                    for (const it of matchingItems) {
+                        if (it.name.toLowerCase().includes(kw)) {
+                            return {
+                                itemName: it.name,
+                                itemIcon: (it.icon_url || defaultIcon).replace(".dds", ".png"),
+                                gameItemId: it.game_item_id
+                            };
+                        }
+                    }
+                }
+            }
+        }
+
+        // Jewelry slots
+        if (slotId === 1) {
+            const neckKws = ["necklace", "amulet", "pendant", "choker", "collar", "talisman", "chain", "beads"];
+            for (const kw of neckKws) {
+                for (const it of matchingItems) {
+                    if (it.name.toLowerCase().includes(kw)) {
+                        return {
+                            itemName: it.name,
+                            itemIcon: (it.icon_url || defaultIcon).replace(".dds", ".png"),
+                            gameItemId: it.game_item_id
+                        };
+                    }
+                }
+            }
+        } else if ([9, 10, 11].includes(slotId)) {
+            const ringKws = ["ring", "band", "loop", "signet"];
+            for (const kw of ringKws) {
+                for (const it of matchingItems) {
+                    if (it.name.toLowerCase().includes(kw)) {
+                        return {
+                            itemName: it.name,
+                            itemIcon: (it.icon_url || defaultIcon).replace(".dds", ".png"),
+                            gameItemId: it.game_item_id
+                        };
+                    }
+                }
+            }
+        }
+
+        if (matchingItems.length > 0) {
             return {
-                itemName: isGeneric ? rows[0].name : providedItemName,
-                itemIcon: (rows[0].icon_url || defaultIcon).replace(".dds", ".png"),
-                gameItemId: rows[0].game_item_id
+                itemName: matchingItems[0].name,
+                itemIcon: (matchingItems[0].icon_url || defaultIcon).replace(".dds", ".png"),
+                gameItemId: matchingItems[0].game_item_id
             };
         }
     } catch (e) {
@@ -2646,6 +2783,30 @@ async function resolveSetSlotItem(setName, slotId, slotName, providedItemName, p
         gameItemId: null
     };
 }
+
+/**
+ * GET /api/sets/resolve-item
+ * Dynamically resolves authentic item name, verified icon, and game ID given a set, slot, weight, and weapon type.
+ */
+app.get("/api/sets/resolve-item", async (req, res) => {
+    const { set, slot_id, slot_name, weight, weapon } = req.query;
+    if (!set) {
+        return res.status(400).json({ error: "Set name is required." });
+    }
+    try {
+        const resolved = await resolveSetSlotItem(set, Number(slot_id) || 0, slot_name || "Slot", weight || "Medium", weapon || "Dagger");
+        res.json({
+            success: true,
+            set_name: set,
+            slot_id: Number(slot_id) || 0,
+            item_name: resolved.itemName,
+            item_icon: resolved.itemIcon,
+            game_item_id: resolved.gameItemId
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
 
 /**
  * GET /api/builds/:id
@@ -2672,7 +2833,7 @@ app.get("/api/builds/:id", async (req, res) => {
         // Ensure every item has a valid, non-null in-game icon and authentic name
         const items = await Promise.all(rawItems.map(async (it) => {
             if (!it.item_icon || it.item_icon === "" || it.item_icon.includes("quest_container")) {
-                const resolved = await resolveSetSlotItem(it.set_name, it.slot_id, it.slot_name, it.item_name, it.item_icon);
+                const resolved = await resolveSetSlotItem(it.set_name, it.slot_id, it.slot_name, it.armor_weight || "Medium", it.weapon_type || "Dagger", it.item_name, it.item_icon);
                 return {
                     ...it,
                     item_name: it.item_name || resolved.itemName,
@@ -2742,16 +2903,18 @@ app.post("/api/builds", async (req, res) => {
 
         if (Array.isArray(items) && items.length > 0) {
             const insertItemStmt = db.prepare(`
-                INSERT INTO build_items (build_id, slot_id, slot_name, game_item_id, item_name, set_name, item_type, item_icon, trait_id, trait_name, enchantment, quality, is_tradeable, source_location)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                INSERT INTO build_items (build_id, slot_id, slot_name, game_item_id, item_name, set_name, item_type, item_icon, trait_id, trait_name, enchantment, quality, is_tradeable, source_location, armor_weight, weapon_type)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
             `);
 
             for (const it of items) {
                 const slotId = it.slot_id !== undefined ? it.slot_id : 0;
                 const slotName = it.slot_name || "Slot";
+                const armorWeight = it.armor_weight || "Medium";
+                const weaponType = it.weapon_type || "Dagger";
                 
                 // Intelligently resolve authentic name, game_item_id, and icon
-                const resolved = await resolveSetSlotItem(it.set_name, slotId, slotName, it.item_name, it.item_icon);
+                const resolved = await resolveSetSlotItem(it.set_name, slotId, slotName, armorWeight, weaponType, it.item_name, it.item_icon);
 
                 insertItemStmt.run(
                     buildId,
@@ -2767,7 +2930,9 @@ app.post("/api/builds", async (req, res) => {
                     it.enchantment || "Max Magicka",
                     it.quality || 4,
                     it.is_tradeable !== undefined ? it.is_tradeable : 1,
-                    it.source_location || "Tamriel"
+                    it.source_location || "Tamriel",
+                    armorWeight,
+                    weaponType
                 );
             }
             insertItemStmt.finalize();
