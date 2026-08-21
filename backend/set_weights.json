@@ -1,0 +1,2444 @@
+{
+  "Abyssal Brace": [
+    "Heavy"
+  ],
+  "Adamant Lurker": [
+    "Heavy"
+  ],
+  "Adept Rider": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Aegis Caller": [
+    "Medium"
+  ],
+  "Aegis of Galenwe": [
+    "Heavy"
+  ],
+  "Aerie's Cry": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Aetherial Ascension": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Aetheric Lancer": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Affliction": [
+    "Heavy"
+  ],
+  "Agility": [
+    "Light"
+  ],
+  "Akaviri Dragonguard": [
+    "Light"
+  ],
+  "Alessia's Bulwark": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Alessian Order": [
+    "Light"
+  ],
+  "Almalexia's Mercy": [
+    "Light"
+  ],
+  "Amber Plasm": [
+    "Light"
+  ],
+  "Ancient Dragonguard": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Ansuul's Torment": [
+    "Medium"
+  ],
+  "Anthelmir's Construct": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Apocryphal Inspiration": [
+    "Medium"
+  ],
+  "Archdruid Devyric": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Archer's Mind": [
+    "Medium"
+  ],
+  "Arkasis's Genius": [
+    "Heavy"
+  ],
+  "Arkay's Charity": [
+    "Light"
+  ],
+  "Armor Master": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Armor of Truth": [
+    "Light"
+  ],
+  "Armor of the Code": [
+    "Light"
+  ],
+  "Armor of the Seducer": [
+    "Light"
+  ],
+  "Armor of the Trainee": [
+    "Light"
+  ],
+  "Armor of the Veiled Heritance": [
+    "Light"
+  ],
+  "Arms of Infernace": [
+    "Medium"
+  ],
+  "Arms of Relequen": [
+    "Light"
+  ],
+  "Arms of the Ancestors": [
+    "Medium"
+  ],
+  "Ashen Grip": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Aspect of Mazzatun": [
+    "Light"
+  ],
+  "Assassin's Guile": [
+    "Light"
+  ],
+  "Auroran's Thunder": [
+    "Light"
+  ],
+  "Automated Defense": [
+    "Heavy"
+  ],
+  "Ayleid Refuge": [
+    "Heavy"
+  ],
+  "Azureblight Reaper": [
+    "Light"
+  ],
+  "Baan Dar's Blessing": [
+    "Heavy"
+  ],
+  "Back-Alley Gourmand": [
+    "Light"
+  ],
+  "Bahraha's Curse": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Bahsei's Mania": [
+    "Light"
+  ],
+  "Balorgh": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Bani's Torment": [
+    "Heavy"
+  ],
+  "Bar-Sakka": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Barkskin": [
+    "Medium"
+  ],
+  "Baron Thirsk": [
+    "Light",
+    "Medium"
+  ],
+  "Baron Zaudrus": [
+    "Light",
+    "Medium"
+  ],
+  "Basalt-Blooded Warrior": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Bastion of the Draoife": [
+    "Light"
+  ],
+  "Bastion of the Heartland": [
+    "Heavy"
+  ],
+  "Battalion Defender": [
+    "Heavy"
+  ],
+  "Battlefield Acrobat": [
+    "Medium"
+  ],
+  "Beacon of Oblivion": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Beckoning Steel": [
+    "Heavy"
+  ],
+  "Beekeeper's Gear": [
+    "Heavy"
+  ],
+  "Belharza's Band": [
+    "Medium"
+  ],
+  "Berserking Warrior": [
+    "Medium"
+  ],
+  "Black Foundry Steel": [
+    "Heavy"
+  ],
+  "Black Gem Monstrosity": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Black Rose": [
+    "Heavy"
+  ],
+  "Black-Glove Grounding": [
+    "Heavy"
+  ],
+  "Blackfeather Flight": [
+    "Heavy"
+  ],
+  "Blessing of High Isle": [
+    "Light"
+  ],
+  "Blessing of the Potentates": [
+    "Medium"
+  ],
+  "Blind Path Induction": [
+    "Light"
+  ],
+  "Blood Moon": [
+    "Medium"
+  ],
+  "Blooddrinker": [
+    "Medium"
+  ],
+  "Bloodlord's Embrace": [
+    "Medium"
+  ],
+  "Bloodspawn": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Bloodthorn's Touch": [
+    "Light"
+  ],
+  "Blunted Blades": [
+    "Medium"
+  ],
+  "Bog Raider": [
+    "Heavy"
+  ],
+  "Bone Pirate's Tatters": [
+    "Medium"
+  ],
+  "Brands of Imperium": [
+    "Heavy"
+  ],
+  "Briarheart": [
+    "Medium"
+  ],
+  "Bright-Throat's Boast": [
+    "Light"
+  ],
+  "Broken Soul": [
+    "Medium"
+  ],
+  "Buffer of the Swift": [
+    "Light"
+  ],
+  "Bulwark Ruination": [
+    "Light"
+  ],
+  "Burning Spellweave": [
+    "Light"
+  ],
+  "Call of the Undertaker": [
+    "Heavy"
+  ],
+  "Caluurion's Legacy": [
+    "Light"
+  ],
+  "Camonna Tong": [
+    "Medium"
+  ],
+  "Caustic Arrow": [
+    "Medium"
+  ],
+  "Champion of the Hist": [
+    "Heavy"
+  ],
+  "Chaotic Whirlwind": [
+    "Medium"
+  ],
+  "Chimera's Rebuke": [
+    "Light"
+  ],
+  "Chokethorn": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Cinders of Anthelmir": [
+    "Light"
+  ],
+  "Claw of Yolnahkriin": [
+    "Light"
+  ],
+  "Claw of the Forest Wraith": [
+    "Light"
+  ],
+  "Clever Alchemist": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Coldharbour's Favorite": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Colovian Highlands General": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Combat Physician": [
+    "Light"
+  ],
+  "Concentrated Force": [
+    "Medium"
+  ],
+  "Coral Riptide": [
+    "Medium"
+  ],
+  "Corpseburster": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Coup De Gr\u00e2ce": [
+    "Medium"
+  ],
+  "Coward's Gear": [
+    "Medium"
+  ],
+  "Crafty Alfiq": [
+    "Light"
+  ],
+  "Crest of Cyrodiil": [
+    "Heavy"
+  ],
+  "Crimson Oath's Rive": [
+    "Heavy"
+  ],
+  "Crimson Twilight": [
+    "Heavy"
+  ],
+  "Critical Riposte": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Cruel Flurry": [
+    "Medium"
+  ],
+  "Crusader": [
+    "Medium"
+  ],
+  "Crushing Wall": [
+    "Medium"
+  ],
+  "Cryptcanon Vestments": [
+    "Medium"
+  ],
+  "Curse Eater": [
+    "Light"
+  ],
+  "Curse of Doylemish": [
+    "Heavy"
+  ],
+  "Daedric Trickery": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Dagon's Dominion": [
+    "Light"
+  ],
+  "Daring Corsair": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Dark Convergence": [
+    "Light"
+  ],
+  "Darkstride": [
+    "Medium",
+    "Heavy"
+  ],
+  "Dauntless Combatant": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Dead-Water's Guile": [
+    "Medium"
+  ],
+  "Deadlands Assassin": [
+    "Medium"
+  ],
+  "Deadlands Demolisher": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Deadly Strike": [
+    "Medium"
+  ],
+  "Death Dealer's Fete": [
+    "Medium"
+  ],
+  "Death's Wind": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Death-Dancer": [
+    "Medium"
+  ],
+  "Deeproot Zeal": [
+    "Heavy"
+  ],
+  "Defending Warrior": [
+    "Heavy"
+  ],
+  "Defensive Position": [
+    "Medium"
+  ],
+  "Defiler": [
+    "Medium",
+    "Heavy"
+  ],
+  "Desert Rose": [
+    "Light"
+  ],
+  "Destructive Impact": [
+    "Medium"
+  ],
+  "Destructive Mage": [
+    "Light"
+  ],
+  "Diamond's Victory": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Disciplined Slash": [
+    "Medium"
+  ],
+  "Dolorous Arena": [
+    "Heavy"
+  ],
+  "Domihaus": [
+    "Light",
+    "Medium"
+  ],
+  "Dov-rha Sabatons": [
+    "Medium"
+  ],
+  "Dragon's Appetite": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Dragon's Defilement": [
+    "Light"
+  ],
+  "Dragonguard Elite": [
+    "Medium"
+  ],
+  "Drake's Rush": [
+    "Heavy"
+  ],
+  "Draugr Hulk": [
+    "Medium"
+  ],
+  "Draugr's Heritage": [
+    "Light"
+  ],
+  "Draugr's Rest": [
+    "Light"
+  ],
+  "Draugrkin's Grip": [
+    "Light"
+  ],
+  "Dreamer's Mantle": [
+    "Light"
+  ],
+  "Dreugh King Slayer": [
+    "Heavy"
+  ],
+  "Dro'Zakar's Claws": [
+    "Light"
+  ],
+  "Druid's Braid": [
+    "Light"
+  ],
+  "Duneripper's Scales": [
+    "Light"
+  ],
+  "Durok's Bane": [
+    "Heavy"
+  ],
+  "Eagle Eye": [
+    "Medium"
+  ],
+  "Earthgore": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Ebon Armory": [
+    "Heavy"
+  ],
+  "Elemental Catalyst": [
+    "Light"
+  ],
+  "Elemental Succession": [
+    "Light"
+  ],
+  "Elf Bane": [
+    "Heavy"
+  ],
+  "Embershield": [
+    "Heavy"
+  ],
+  "Encratis's Behemoth": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Endurance": [
+    "Heavy"
+  ],
+  "Enervating Aura": [
+    "Light"
+  ],
+  "Engine Guardian": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Esoteric Environment Greaves": [
+    "Medium"
+  ],
+  "Essence Thief": [
+    "Medium"
+  ],
+  "Eternal Hunt": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Eternal Vigor": [
+    "Heavy"
+  ],
+  "Eternal Warrior": [
+    "Heavy"
+  ],
+  "Euphotic Gatekeeper": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Executioner's Blade": [
+    "Medium"
+  ],
+  "Explosive Rebuke": [
+    "Heavy"
+  ],
+  "Eye of Nahviintaas": [
+    "Light"
+  ],
+  "Eye of the Grasp": [
+    "Light"
+  ],
+  "Eyes of Mara": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "False God's Devotion": [
+    "Light"
+  ],
+  "Farstrider": [
+    "Medium"
+  ],
+  "Fasalla's Guile": [
+    "Heavy"
+  ],
+  "Faun's Lark Cladding": [
+    "Medium"
+  ],
+  "Fellowship's Fortitude": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Fiord's Legacy": [
+    "Medium"
+  ],
+  "Flame Blossom": [
+    "Light"
+  ],
+  "Flanking Strategist": [
+    "Light"
+  ],
+  "Fledgling's Nest": [
+    "Light"
+  ],
+  "Foolkiller's Ward": [
+    "Light"
+  ],
+  "Footman's Fortune": [
+    "Heavy"
+  ],
+  "Force Overflow": [
+    "Medium"
+  ],
+  "Fortified Brass": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Frenzied Momentum": [
+    "Medium"
+  ],
+  "Frostbite": [
+    "Light"
+  ],
+  "Frozen Watcher": [
+    "Heavy"
+  ],
+  "Full Belly Barricade": [
+    "Medium"
+  ],
+  "Galerion's Revenge": [
+    "Light"
+  ],
+  "Gallant Charge": [
+    "Medium"
+  ],
+  "Gardener of Seasons": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Gaze of Sithis": [
+    "Heavy"
+  ],
+  "Giant Spider": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Glacial Guardian": [
+    "Heavy"
+  ],
+  "Glittering Goad": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Glorgoloch the Destroyer": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Glorious Defender": [
+    "Light"
+  ],
+  "Gorethief": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Gossamer": [
+    "Light"
+  ],
+  "Grace of Gloom": [
+    "Heavy"
+  ],
+  "Grace of the Ancients": [
+    "Light"
+  ],
+  "Grand Rejuvenation": [
+    "Medium"
+  ],
+  "Grave Guardian": [
+    "Heavy"
+  ],
+  "Grave Inevitability": [
+    "Light"
+  ],
+  "Grave-Stake Collector": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Green Pact": [
+    "Heavy"
+  ],
+  "Grisly Gourmet": [
+    "Medium"
+  ],
+  "Grothdarr": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Grundwulf": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Gryphon's Ferocity": [
+    "Light"
+  ],
+  "Gryphon's Reprisal": [
+    "Medium"
+  ],
+  "Hagraven's Garden": [
+    "Heavy"
+  ],
+  "Hand of Mephala": [
+    "Light"
+  ],
+  "Hanu's Compassion": [
+    "Light"
+  ],
+  "Harmony in Chaos": [
+    "Light"
+  ],
+  "Harpooner's Wading Kilt": [
+    "Medium"
+  ],
+  "Hatchling's Shell": [
+    "Medium",
+    "Heavy"
+  ],
+  "Haven of Ursus": [
+    "Heavy"
+  ],
+  "Hawk's Eye": [
+    "Medium"
+  ],
+  "Healer's Habit": [
+    "Light"
+  ],
+  "Healing Mage": [
+    "Light"
+  ],
+  "Heartland Conqueror": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Heem-Jas' Retribution": [
+    "Light"
+  ],
+  "Heroic Unity": [
+    "Heavy"
+  ],
+  "Hew and Sunder": [
+    "Medium"
+  ],
+  "Hex Siphon": [
+    "Light"
+  ],
+  "Hexos' Ward": [
+    "Medium"
+  ],
+  "Hide of Morihaus": [
+    "Light"
+  ],
+  "Hide of the Werewolf": [
+    "Light"
+  ],
+  "Highland Sentinel": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Hircine's Veneer": [
+    "Medium"
+  ],
+  "Hist Bark": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Hist Whisperer": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Hiti's Hearth": [
+    "Light"
+  ],
+  "Hollowfang Thirst": [
+    "Light"
+  ],
+  "Hrothgar's Chill": [
+    "Light"
+  ],
+  "Hunding's Rage": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Hunt Leader": [
+    "Light"
+  ],
+  "Huntsman's Warmask": [
+    "Medium"
+  ],
+  "Iceheart": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Icy Conjurer": [
+    "Light"
+  ],
+  "Ilambris": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Immolator Charr": [
+    "Light",
+    "Medium"
+  ],
+  "Immortal Warrior": [
+    "Heavy"
+  ],
+  "Imperial Physique": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Impregnable Armor": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Indomitable Fury": [
+    "Light"
+  ],
+  "Infallible Mage": [
+    "Light"
+  ],
+  "Infernal Guardian": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Innate Axiom": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Inventor's Guard": [
+    "Light"
+  ],
+  "Iron Flask": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Ironblood": [
+    "Heavy"
+  ],
+  "Jailbreaker": [
+    "Medium"
+  ],
+  "Jailer's Tenacity": [
+    "Heavy"
+  ],
+  "Jerall Mountains Warchief": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Jerensi's Bladestorm": [
+    "Light"
+  ],
+  "Jolting Arms": [
+    "Light"
+  ],
+  "Jorvuld's Guidance": [
+    "Light"
+  ],
+  "Judgment of Akatosh": [
+    "Light"
+  ],
+  "Kagrenac's Hope": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Kargaeda": [
+    "Light",
+    "Medium"
+  ],
+  "Kazpian's Cruel Signet": [
+    "Light"
+  ],
+  "Kinras's Wrath": [
+    "Medium"
+  ],
+  "Kjalnar's Nightmare": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Knight Slayer": [
+    "Light"
+  ],
+  "Knight-errant's Mail": [
+    "Light"
+  ],
+  "Knightmare": [
+    "Heavy"
+  ],
+  "Kra'gh": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Kraglen's Howl": [
+    "Light"
+  ],
+  "Kvatch Gladiator": [
+    "Light"
+  ],
+  "Kyne's Kiss": [
+    "Medium"
+  ],
+  "Kyne's Wind": [
+    "Light"
+  ],
+  "Kynmarcher's Cruelty": [
+    "Heavy"
+  ],
+  "Lady Malygda": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Lady Thorn": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Lamia's Song": [
+    "Light"
+  ],
+  "Lamp Knight's Art": [
+    "Medium"
+  ],
+  "Languor of Peryite": [
+    "Light"
+  ],
+  "Law of Julianos": [
+    "Light"
+  ],
+  "Leeching Plate": [
+    "Heavy"
+  ],
+  "Lefthander's Aegis Belt": [
+    "Medium"
+  ],
+  "Legacy of Karth": [
+    "Light"
+  ],
+  "Leki's Focus": [
+    "Light"
+  ],
+  "Leviathan": [
+    "Medium"
+  ],
+  "Light Speaker": [
+    "Light"
+  ],
+  "Light of Cyrodiil": [
+    "Light"
+  ],
+  "Livewire": [
+    "Heavy"
+  ],
+  "Lord Warden": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Lucent Echoes": [
+    "Heavy"
+  ],
+  "Lucilla's Windshield": [
+    "Medium"
+  ],
+  "Lunar Bastion": [
+    "Heavy"
+  ],
+  "Lustrous Soulwell": [
+    "Light"
+  ],
+  "Maarselok": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Macabre Vintage": [
+    "Medium"
+  ],
+  "Mad God's Dancing Shoes": [
+    "Medium"
+  ],
+  "Mad Tinkerer": [
+    "Light"
+  ],
+  "Magicka Furnace": [
+    "Light"
+  ],
+  "Magma Incarnate": [
+    "Light",
+    "Medium"
+  ],
+  "Magnus' Gift": [
+    "Light"
+  ],
+  "Malacath's Band of Brutality": [
+    "Medium"
+  ],
+  "Maligalig's Maelstrom": [
+    "Light"
+  ],
+  "Mantle of Siroria": [
+    "Light"
+  ],
+  "Mara's Balm": [
+    "Heavy"
+  ],
+  "Marauder's Haste": [
+    "Light"
+  ],
+  "Mark of the Pariah": [
+    "Light"
+  ],
+  "Marksman's Crest": [
+    "Light"
+  ],
+  "Markyn Ring of Majesty": [
+    "Medium"
+  ],
+  "Master Architect": [
+    "Light"
+  ],
+  "Maw of the Infernal": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Mechanical Acuity": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Medusa": [
+    "Heavy"
+  ],
+  "Mender's Ward": [
+    "Medium"
+  ],
+  "Merciless Charge": [
+    "Medium"
+  ],
+  "Meridia's Blessed Armor": [
+    "Medium"
+  ],
+  "Meritorious Service": [
+    "Light"
+  ],
+  "Might of the Lost Legion": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Mighty Chudan": [
+    "Light",
+    "Medium"
+  ],
+  "Mighty Glacier": [
+    "Heavy"
+  ],
+  "Molag Kena": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Monolith of Storms": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Monomyth Reforged": [
+    "Medium"
+  ],
+  "Moon Hunter": [
+    "Light"
+  ],
+  "Moondancer": [
+    "Light"
+  ],
+  "Mora Scribe's Thesis": [
+    "Light"
+  ],
+  "Mora's Whispers": [
+    "Medium"
+  ],
+  "Morkuldin": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Mother Ciannait": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Mother's Sorrow": [
+    "Light"
+  ],
+  "Naga Shaman": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Nazaray": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Necropotence": [
+    "Light"
+  ],
+  "Nerien'eth": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Netch Oil": [
+    "Heavy"
+  ],
+  "Netch's Touch": [
+    "Light"
+  ],
+  "New Moon Acolyte": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Nibenay Bay Battlereeve": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Night Mother's Embrace": [
+    "Light"
+  ],
+  "Night Mother's Gaze": [
+    "Light"
+  ],
+  "Night Terror": [
+    "Medium"
+  ],
+  "Night's Silence": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Nightflame": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Nikulas' Heavy Armor": [
+    "Heavy"
+  ],
+  "Nix-Hound's Howl": [
+    "Medium"
+  ],
+  "Nobility in Decay": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Noble Duelist's Silks": [
+    "Light"
+  ],
+  "Noble's Conquest": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Nocturnal's Favor": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Nocturnal's Ploy": [
+    "Medium"
+  ],
+  "Noxious Boulder": [
+    "Medium"
+  ],
+  "Nunatak": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Oakensoul Ring": [
+    "Medium"
+  ],
+  "Oakfather's Retribution": [
+    "Light"
+  ],
+  "Oblivion's Edge": [
+    "Light"
+  ],
+  "Oblivion's Foe": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Old Growth Brewer": [
+    "Light"
+  ],
+  "Order of Diagna": [
+    "Heavy"
+  ],
+  "Order's Wrath": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Orgnum's Scales": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Orpheon the Tactician": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Overwhelming Surge": [
+    "Light"
+  ],
+  "Ozezan the Inferno": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Pangrit Denmother": [
+    "Heavy"
+  ],
+  "Para Bellum": [
+    "Medium"
+  ],
+  "Peace and Serenity": [
+    "Light"
+  ],
+  "Pearlescent Ward": [
+    "Light"
+  ],
+  "Pearls of Ehlnofey": [
+    "Medium"
+  ],
+  "Pelinal's Wrath": [
+    "Light"
+  ],
+  "Perfected Aegis of Galenwe": [
+    "Heavy"
+  ],
+  "Perfected Ansuul's Torment": [
+    "Medium"
+  ],
+  "Perfected Arms of Relequen": [
+    "Light"
+  ],
+  "Perfected Bahsei's Mania": [
+    "Light"
+  ],
+  "Perfected Caustic Arrow": [
+    "Light"
+  ],
+  "Perfected Chaotic Whirlwind": [
+    "Light"
+  ],
+  "Perfected Claw of Yolnahkriin": [
+    "Light"
+  ],
+  "Perfected Concentrated Force": [
+    "Light"
+  ],
+  "Perfected Coral Riptide": [
+    "Medium"
+  ],
+  "Perfected Cruel Flurry": [
+    "Light"
+  ],
+  "Perfected Crushing Wall": [
+    "Medium"
+  ],
+  "Perfected Defensive Position": [
+    "Light"
+  ],
+  "Perfected Destructive Impact": [
+    "Light"
+  ],
+  "Perfected Disciplined Slash": [
+    "Medium"
+  ],
+  "Perfected Dolorous Arena": [
+    "Medium"
+  ],
+  "Perfected Executioner's Blade": [
+    "Medium"
+  ],
+  "Perfected Eye of Nahviintaas": [
+    "Light"
+  ],
+  "Perfected False God's Devotion": [
+    "Light"
+  ],
+  "Perfected Force Overflow": [
+    "Light"
+  ],
+  "Perfected Frenzied Momentum": [
+    "Light"
+  ],
+  "Perfected Gallant Charge": [
+    "Heavy"
+  ],
+  "Perfected Grand Rejuvenation": [
+    "Light"
+  ],
+  "Perfected Harmony in Chaos": [
+    "Light"
+  ],
+  "Perfected Kazpian's Cruel Signet": [
+    "Light"
+  ],
+  "Perfected Kyne's Wind": [
+    "Light"
+  ],
+  "Perfected Lucent Echoes": [
+    "Heavy"
+  ],
+  "Perfected Mantle of Siroria": [
+    "Light"
+  ],
+  "Perfected Mender's Ward": [
+    "Light"
+  ],
+  "Perfected Merciless Charge": [
+    "Light"
+  ],
+  "Perfected Mora Scribe's Thesis": [
+    "Light"
+  ],
+  "Perfected Peace and Serenity": [
+    "Light"
+  ],
+  "Perfected Pearlescent Ward": [
+    "Light"
+  ],
+  "Perfected Piercing Spray": [
+    "Heavy"
+  ],
+  "Perfected Pillager's Profit": [
+    "Light"
+  ],
+  "Perfected Point-Blank Snipe": [
+    "Light"
+  ],
+  "Perfected Precise Regeneration": [
+    "Light"
+  ],
+  "Perfected Puncturing Remedy": [
+    "Light"
+  ],
+  "Perfected Radial Uppercut": [
+    "Medium"
+  ],
+  "Perfected Rampaging Slash": [
+    "Light"
+  ],
+  "Perfected Recovery Convergence": [
+    "Light"
+  ],
+  "Perfected Roaring Opportunist": [
+    "Light"
+  ],
+  "Perfected Saxhleel Champion": [
+    "Heavy"
+  ],
+  "Perfected Slivers of the Null Arca": [
+    "Light"
+  ],
+  "Perfected Spectral Cloak": [
+    "Medium"
+  ],
+  "Perfected Stinging Slashes": [
+    "Light"
+  ],
+  "Perfected Stone-Talker's Oath": [
+    "Light"
+  ],
+  "Perfected Sul-Xan's Torment": [
+    "Medium"
+  ],
+  "Perfected Test of Resolve": [
+    "Heavy"
+  ],
+  "Perfected Thunderous Volley": [
+    "Medium"
+  ],
+  "Perfected Timeless Blessing": [
+    "Light"
+  ],
+  "Perfected Titanic Cleave": [
+    "Medium"
+  ],
+  "Perfected Tooth of Lokkestiiz": [
+    "Light"
+  ],
+  "Perfected Transformative Hope": [
+    "Light"
+  ],
+  "Perfected Vestment of Olorime": [
+    "Light"
+  ],
+  "Perfected Virulent Shot": [
+    "Medium"
+  ],
+  "Perfected Void Bash": [
+    "Heavy"
+  ],
+  "Perfected Vrol's Command": [
+    "Medium"
+  ],
+  "Perfected Whorl of the Depths": [
+    "Light"
+  ],
+  "Perfected Wild Impulse": [
+    "Light"
+  ],
+  "Perfected Wrath of Elements": [
+    "Light"
+  ],
+  "Perfected Xoryn's Masterpiece": [
+    "Light"
+  ],
+  "Perfected Yandir's Might": [
+    "Light"
+  ],
+  "Permafrost": [
+    "Heavy"
+  ],
+  "Pestilent Host": [
+    "Medium"
+  ],
+  "Phoenix": [
+    "Light",
+    "Medium"
+  ],
+  "Phoenix Moth Theurge": [
+    "Light"
+  ],
+  "Phylactery's Grasp": [
+    "Medium"
+  ],
+  "Piercing Spray": [
+    "Medium"
+  ],
+  "Pillager's Profit": [
+    "Light"
+  ],
+  "Pillar of Nirn": [
+    "Medium"
+  ],
+  "Pirate Skeleton": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Plague Doctor": [
+    "Heavy"
+  ],
+  "Plague Slinger": [
+    "Medium"
+  ],
+  "Plaguebreak": [
+    "Medium"
+  ],
+  "Point-Blank Snipe": [
+    "Medium"
+  ],
+  "Poisonous Serpent": [
+    "Light"
+  ],
+  "Powerful Assault": [
+    "Medium"
+  ],
+  "Prayer Shawl": [
+    "Light"
+  ],
+  "Precise Regeneration": [
+    "Medium"
+  ],
+  "Prior Thierric": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Prisoner's Rags": [
+    "Light"
+  ],
+  "Prophet's": [
+    "Medium"
+  ],
+  "Prowler's Talisman": [
+    "Medium"
+  ],
+  "Puncturing Remedy": [
+    "Medium"
+  ],
+  "Pyrebrand": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Queen's Elegance": [
+    "Light"
+  ],
+  "Quick Serpent": [
+    "Medium"
+  ],
+  "Radial Uppercut": [
+    "Medium"
+  ],
+  "Radiant Bastion": [
+    "Heavy"
+  ],
+  "Rage of the Ursauk": [
+    "Medium"
+  ],
+  "Rakkhat's Voidmantle": [
+    "Medium"
+  ],
+  "Rallying Cry": [
+    "Light"
+  ],
+  "Rampaging Slash": [
+    "Medium"
+  ],
+  "Ranger's Gait": [
+    "Medium"
+  ],
+  "Rattlecage": [
+    "Heavy"
+  ],
+  "Ravager": [
+    "Light"
+  ],
+  "Reactive Armor": [
+    "Medium"
+  ],
+  "Reawakened Hierophant": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Recovery Convergence": [
+    "Light"
+  ],
+  "Red Eagle's Fury": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Redistributor": [
+    "Light"
+  ],
+  "Reflected Fury": [
+    "Heavy"
+  ],
+  "Relics of the Physician, Ansur": [
+    "Light"
+  ],
+  "Relics of the Rebellion": [
+    "Heavy"
+  ],
+  "Renald's Resolve": [
+    "Light"
+  ],
+  "Ring of the Pale Order": [
+    "Medium"
+  ],
+  "Ring of the Wild Hunt": [
+    "Medium"
+  ],
+  "Ritemaster's Bond": [
+    "Light"
+  ],
+  "Roar of Alkosh": [
+    "Light"
+  ],
+  "Roaring Opportunist": [
+    "Light"
+  ],
+  "Robes of Alteration Mastery": [
+    "Light"
+  ],
+  "Robes of Destruction Mastery": [
+    "Light"
+  ],
+  "Robes of Transmutation": [
+    "Medium"
+  ],
+  "Robes of the Hist": [
+    "Light"
+  ],
+  "Robes of the Withered Hand": [
+    "Light"
+  ],
+  "Roksa the Warped": [
+    "Light",
+    "Medium"
+  ],
+  "Rourken Steamguards": [
+    "Medium"
+  ],
+  "Runecarver's Blaze": [
+    "Light"
+  ],
+  "Rush of Agony": [
+    "Light"
+  ],
+  "Salvation": [
+    "Medium"
+  ],
+  "Sanctuary": [
+    "Light"
+  ],
+  "Savage Werewolf": [
+    "Medium"
+  ],
+  "Saxhleel Champion": [
+    "Heavy"
+  ],
+  "Scathing Mage": [
+    "Light"
+  ],
+  "Scavenging Demise": [
+    "Medium"
+  ],
+  "Scorion's Feast": [
+    "Light"
+  ],
+  "Scourge Harvester": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Sea-Serpent's Coil": [
+    "Medium"
+  ],
+  "Seeker Synthesis": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Selene": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Sellistrix": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Senchal Defender": [
+    "Heavy"
+  ],
+  "Senche's Bite": [
+    "Medium"
+  ],
+  "Senche-raht's Grit": [
+    "Light"
+  ],
+  "Sentinel of Rkugamz": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Sentry": [
+    "Medium",
+    "Heavy"
+  ],
+  "Sergeant's Mail": [
+    "Light"
+  ],
+  "Serpent's Disdain": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Seventh Legion Brute": [
+    "Light"
+  ],
+  "Shacklebreaker": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Shadow Dancer's Raiment": [
+    "Light"
+  ],
+  "Shadow Walker": [
+    "Medium"
+  ],
+  "Shadow of the Red Mountain": [
+    "Light"
+  ],
+  "Shadowrend": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Shalidor's Curse": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Shalk Exoskeleton": [
+    "Light"
+  ],
+  "Shapeshifter's Chain": [
+    "Medium"
+  ],
+  "Shared Burden": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Shared Pain": [
+    "Medium"
+  ],
+  "Shattered Fate": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Shattered Paths Signet": [
+    "Medium"
+  ],
+  "Sheer Venom": [
+    "Medium"
+  ],
+  "Shell Splitter": [
+    "Medium"
+  ],
+  "Shield Breaker": [
+    "Medium"
+  ],
+  "Shield of the Valiant": [
+    "Heavy"
+  ],
+  "Shroud of the Lich": [
+    "Light"
+  ],
+  "Siegemaster's Focus": [
+    "Heavy"
+  ],
+  "Silks of the Sun": [
+    "Light"
+  ],
+  "Silver Rose Vigil": [
+    "Medium"
+  ],
+  "Sithis' Touch": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Skooma Smuggler": [
+    "Light"
+  ],
+  "Slimecraw": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Slivers of the Null Arca": [
+    "Light"
+  ],
+  "Sload's Semblance": [
+    "Light"
+  ],
+  "Sluthrug's Hunger": [
+    "Medium"
+  ],
+  "Snake in the Stars": [
+    "Light"
+  ],
+  "Snow Treaders": [
+    "Medium"
+  ],
+  "Soldier of Anguish": [
+    "Medium"
+  ],
+  "Song of Lamae": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Soulcleaver": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Soulshine": [
+    "Heavy"
+  ],
+  "Spattering Disjunction": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Spaulder of Ruin": [
+    "Medium"
+  ],
+  "Spawn of Mephala": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Spectral Cloak": [
+    "Medium"
+  ],
+  "Spectre's Eye": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Spell Parasite": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Spell Power Cure": [
+    "Light"
+  ],
+  "Spell Strategist": [
+    "Light"
+  ],
+  "Spellshredder": [
+    "Light"
+  ],
+  "Spelunker": [
+    "Medium"
+  ],
+  "Spider Cultist Cowl": [
+    "Light"
+  ],
+  "Spinner's Garments": [
+    "Light"
+  ],
+  "Spriggan's Thorns": [
+    "Light"
+  ],
+  "Spriggan's Vigor": [
+    "Medium"
+  ],
+  "Squall of Retribution": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Steadfast Hero": [
+    "Heavy"
+  ],
+  "Steadfast's Mettle": [
+    "Medium"
+  ],
+  "Stendarr's Embrace": [
+    "Light"
+  ],
+  "Stinging Slashes": [
+    "Medium"
+  ],
+  "Stone Husk": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Stone's Accord": [
+    "Light"
+  ],
+  "Stone-Talker's Oath": [
+    "Light"
+  ],
+  "Stonehulk Domination": [
+    "Heavy"
+  ],
+  "Stonekeeper": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Storm Knight's Plate": [
+    "Heavy"
+  ],
+  "Storm Master": [
+    "Medium"
+  ],
+  "Storm-Cursed's Revenge": [
+    "Light"
+  ],
+  "Stormfist": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Stormweaver's Cavort": [
+    "Light"
+  ],
+  "Strength of the Automaton": [
+    "Light"
+  ],
+  "Stuhn's Favor": [
+    "Light"
+  ],
+  "Stygian": [
+    "Medium"
+  ],
+  "Sul-Xan's Torment": [
+    "Medium"
+  ],
+  "Sunderflame": [
+    "Medium"
+  ],
+  "Swamp Raider": [
+    "Medium"
+  ],
+  "Swarm Mother": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Sword Dancer": [
+    "Medium"
+  ],
+  "Sword-Singer": [
+    "Medium"
+  ],
+  "Symmetry of the Weald": [
+    "Light"
+  ],
+  "Symphony of Blades": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Syrabane's Grip": [
+    "Light"
+  ],
+  "Syrabane's Ward": [
+    "Medium"
+  ],
+  "Systres' Scowl": [
+    "Medium"
+  ],
+  "Syvarra's Scales": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Talfyg's Treachery": [
+    "Light"
+  ],
+  "Tarnished Nightmare": [
+    "Medium"
+  ],
+  "Tava's Favor": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Telvanni Efficiency": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Telvanni Enforcer": [
+    "Heavy"
+  ],
+  "Test of Resolve": [
+    "Heavy"
+  ],
+  "Tharriker's Strike": [
+    "Light"
+  ],
+  "The Arch-Mage": [
+    "Light"
+  ],
+  "The Blind": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "The Destruction Suite": [
+    "Medium"
+  ],
+  "The Ice Furnace": [
+    "Light"
+  ],
+  "The Juggernaut": [
+    "Heavy"
+  ],
+  "The Morag Tong": [
+    "Medium"
+  ],
+  "The Ruckus": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "The Saint and the Seducer": [
+    "Medium"
+  ],
+  "The Shadow Queen's Cowl": [
+    "Medium"
+  ],
+  "The Troll King": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "The Worm's Raiment": [
+    "Light"
+  ],
+  "Thews of the Harbinger": [
+    "Medium"
+  ],
+  "Thousand Eyes": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Thrassian Stranglers": [
+    "Medium"
+  ],
+  "Threads of War": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Three Queens Wellspring": [
+    "Light"
+  ],
+  "Thunder Caller": [
+    "Light"
+  ],
+  "Thunderbug's Carapace": [
+    "Light"
+  ],
+  "Thunderous Volley": [
+    "Medium"
+  ],
+  "Thurvokun": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Tide-Born Wildstalker": [
+    "Light"
+  ],
+  "Timeless Blessing": [
+    "Medium"
+  ],
+  "Titanborn Strength": [
+    "Light"
+  ],
+  "Titanic Cleave": [
+    "Medium"
+  ],
+  "Tools of the Trapmaster": [
+    "Medium"
+  ],
+  "Tooth of Lokkestiiz": [
+    "Light"
+  ],
+  "Toothrow": [
+    "Medium"
+  ],
+  "Torc of Tonal Constancy": [
+    "Medium"
+  ],
+  "Torc of the Last Ayleid King": [
+    "Medium"
+  ],
+  "Tormentor": [
+    "Heavy"
+  ],
+  "Torug's Pact": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Tracker's Lash": [
+    "Light"
+  ],
+  "Transformative Hope": [
+    "Light"
+  ],
+  "Trappings of Invigoration": [
+    "Medium"
+  ],
+  "Treasure Hunter": [
+    "Light"
+  ],
+  "Treasures of the Earthforge": [
+    "Medium"
+  ],
+  "Tremorscale": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Trial by Fire": [
+    "Heavy"
+  ],
+  "Trinimac's Valor": [
+    "Light"
+  ],
+  "True-Sworn Fury": [
+    "Light"
+  ],
+  "Turning Tide": [
+    "Heavy"
+  ],
+  "Twice-Born Star": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Twice-Fanged Serpent": [
+    "Light"
+  ],
+  "Twilight Remedy": [
+    "Light"
+  ],
+  "Twilight's Embrace": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Twin Sisters": [
+    "Medium",
+    "Heavy"
+  ],
+  "Tzogvin's Warband": [
+    "Medium"
+  ],
+  "Ulfnor's Favor": [
+    "Heavy"
+  ],
+  "Umbral Edge": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Unchained Aggressor": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Undaunted Bastion": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Undaunted Infiltrator": [
+    "Medium"
+  ],
+  "Undaunted Unweaver": [
+    "Light"
+  ],
+  "Unfathomable Darkness": [
+    "Medium"
+  ],
+  "Unflinching Ultimate": [
+    "Heavy"
+  ],
+  "Unleashed Ritualist": [
+    "Light"
+  ],
+  "Unleashed Terror": [
+    "Light"
+  ],
+  "Valkyn Skoria": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Vampire Cloak": [
+    "Light"
+  ],
+  "Vampire Lord": [
+    "Light"
+  ],
+  "Vampire's Kiss": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Vandorallen's Resonance": [
+    "Light"
+  ],
+  "Vanguard's Challenge": [
+    "Heavy"
+  ],
+  "Varen's Legacy": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Vastarie's Tutelage": [
+    "Light"
+  ],
+  "Velidreth": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Velothi Ur-Mage's Amulet": [
+    "Medium"
+  ],
+  "Vengeance Leech": [
+    "Light"
+  ],
+  "Venomous Smite": [
+    "Light"
+  ],
+  "Vestment of Olorime": [
+    "Light"
+  ],
+  "Vestments of the Warlock": [
+    "Light"
+  ],
+  "Vesture of Darloc Brae": [
+    "Light"
+  ],
+  "Vicecanon of Venom": [
+    "Light"
+  ],
+  "Vicious Death": [
+    "Light"
+  ],
+  "Vicious Serpent": [
+    "Light"
+  ],
+  "Viper's Sting": [
+    "Light"
+  ],
+  "Virulent Shot": [
+    "Medium"
+  ],
+  "Vivec's Duality": [
+    "Light"
+  ],
+  "Void Bash": [
+    "Medium"
+  ],
+  "Voidcaller": [
+    "Light"
+  ],
+  "Vrol's Command": [
+    "Medium"
+  ],
+  "Vykand's Soulfury": [
+    "Medium"
+  ],
+  "Vykosa": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "War Machine": [
+    "Medium"
+  ],
+  "War Maiden": [
+    "Light"
+  ],
+  "Ward of Cyrodiil": [
+    "Light"
+  ],
+  "Warrior's Fury": [
+    "Light"
+  ],
+  "Warrior-Poet": [
+    "Heavy"
+  ],
+  "Way of Air": [
+    "Light"
+  ],
+  "Way of Fire": [
+    "Light"
+  ],
+  "Way of Martial Knowledge": [
+    "Light"
+  ],
+  "Way of the Arena": [
+    "Light"
+  ],
+  "Whitestrake's Retribution": [
+    "Heavy"
+  ],
+  "Whorl of the Depths": [
+    "Light"
+  ],
+  "Widowmaker": [
+    "Medium"
+  ],
+  "Wild Impulse": [
+    "Medium"
+  ],
+  "Wilderqueen's Arch": [
+    "Medium"
+  ],
+  "Willow's Path": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Willpower": [
+    "Light"
+  ],
+  "Winter's Respite": [
+    "Light"
+  ],
+  "Winterborn": [
+    "Light"
+  ],
+  "Wisdom of Vanus": [
+    "Light"
+  ],
+  "Wise Mage": [
+    "Light"
+  ],
+  "Witch-Knight's Defiance": [
+    "Light"
+  ],
+  "Witchman Armor": [
+    "Light"
+  ],
+  "Wizard's Riposte": [
+    "Light"
+  ],
+  "Wrath of Elements": [
+    "Medium"
+  ],
+  "Wrath of the Imperium": [
+    "Light"
+  ],
+  "Wrathsun": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Wretched Vitality": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Wyrd Tree's Blessing": [
+    "Heavy"
+  ],
+  "Xanmeer Genesis": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Xanmeer Spellweaver": [
+    "Light"
+  ],
+  "Xoryn's Masterpiece": [
+    "Light"
+  ],
+  "Yandir's Might": [
+    "Light"
+  ],
+  "Ysgramor's Birthright": [
+    "Light"
+  ],
+  "Z'en's Redress": [
+    "Light"
+  ],
+  "Zaan": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ],
+  "Zoal the Ever-Wakeful": [
+    "Light",
+    "Medium",
+    "Heavy"
+  ]
+}

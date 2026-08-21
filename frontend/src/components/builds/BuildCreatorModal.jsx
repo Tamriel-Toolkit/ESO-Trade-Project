@@ -81,14 +81,32 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
         setSelectedCategory("All");
     };
 
+    const getAllowedWeightsForSlot = (slot) => {
+        const matchedSet = allSets.find(s => s.name.toLowerCase() === (slot.set_name || "").toLowerCase());
+        if (matchedSet && Array.isArray(matchedSet.allowed_weights) && matchedSet.allowed_weights.length > 0) {
+            return matchedSet.allowed_weights;
+        }
+        if (Array.isArray(slot.allowed_weights) && slot.allowed_weights.length > 0) {
+            return slot.allowed_weights;
+        }
+        return ["Light", "Medium", "Heavy"];
+    };
+
     const handleSelectSetForSlot = async (setObj) => {
         if (editingSlotIndex === null) return;
         const currentSlot = slots[editingSlotIndex];
         const newSlots = [...slots];
         
+        const allowedWeights = setObj.allowed_weights || ["Medium"];
+        const newWeight = allowedWeights.includes(currentSlot.armor_weight) 
+            ? currentSlot.armor_weight 
+            : (allowedWeights[0] || "Medium");
+
         newSlots[editingSlotIndex] = {
             ...currentSlot,
             set_name: setObj.name,
+            armor_weight: newWeight,
+            allowed_weights: allowedWeights,
             item_name: `${setObj.name} ${currentSlot.slot_name}`,
             is_tradeable: setObj.is_tradeable,
             source_location: setObj.source
@@ -101,7 +119,7 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                 set: setObj.name,
                 slot_id: currentSlot.slot_id,
                 slot_name: currentSlot.slot_name,
-                weight: currentSlot.armor_weight || "Medium",
+                weight: newWeight,
                 weapon: currentSlot.weapon_type || "Dagger"
             });
             if (res && res.success && res.item_name) {
@@ -111,7 +129,8 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                         ...copy[editingSlotIndex],
                         item_name: res.item_name,
                         item_icon: res.item_icon,
-                        game_item_id: res.game_item_id
+                        game_item_id: res.game_item_id,
+                        armor_weight: res.effective_weight || newWeight
                     };
                     return copy;
                 });
@@ -143,7 +162,8 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                             ...copy[index],
                             item_name: res.item_name,
                             item_icon: res.item_icon,
-                            game_item_id: res.game_item_id
+                            game_item_id: res.game_item_id,
+                            armor_weight: res.effective_weight || (field === "armor_weight" ? value : copy[index].armor_weight)
                         };
                         return copy;
                     });
@@ -190,6 +210,7 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
         }
     };
 
+    // Filter sets based on search and category
     const filteredSets = useMemo(() => {
         const q = searchTerm.trim().toLowerCase();
         return allSets.filter((s) => {
@@ -203,6 +224,7 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
             ) {
                 return false;
             }
+
             if (!q) return true;
             return (
                 s.name.toLowerCase().includes(q) ||
@@ -323,6 +345,7 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                                 const slotCategory = isJewelry ? "Jewelry" : isWeapon ? "Weapon" : "Armor";
                                 const traits = TRAITS_BY_SLOT[slotCategory] || TRAITS_BY_SLOT.Armor;
                                 const itemIconUrl = getEsoIconUrl(slot.item_icon);
+                                const allowedWeights = getAllowedWeightsForSlot(slot);
 
                                 return (
                                     <div 
@@ -383,15 +406,15 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                                                             <option key={w} value={w}>{w}</option>
                                                         ))}
                                                     </select>
-                                                ) : (
+                                                ) : allowedWeights.length > 1 ? (
                                                     <div className="flex items-center gap-1 bg-[#0a0a0d] p-0.5 border border-[#2a2c33]">
-                                                        {["Light", "Medium", "Heavy"].map((w) => (
+                                                        {allowedWeights.map((w) => (
                                                             <button
                                                                 key={w}
                                                                 type="button"
                                                                 onClick={() => handleWeightOrWeaponChange(idx, "armor_weight", w)}
                                                                 className={`px-2 py-0.5 text-[10px] font-cinzel font-bold uppercase transition-all cursor-pointer ${
-                                                                    (slot.armor_weight || "Medium") === w
+                                                                    (slot.armor_weight || allowedWeights[0]) === w
                                                                         ? "bg-[#c5a059] text-black shadow-sm"
                                                                         : "text-muted-foreground hover:text-white"
                                                                 }`}
@@ -400,6 +423,10 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                                                             </button>
                                                         ))}
                                                     </div>
+                                                ) : (
+                                                    <span className="text-[10px] font-cinzel font-bold uppercase tracking-wider px-2 py-0.5 bg-[#0a0a0d] text-[#c5a059] border border-[#2a2c33]">
+                                                        {allowedWeights[0]} Only
+                                                    </span>
                                                 )}
                                             </div>
                                         )}
@@ -546,8 +573,18 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                                                 <div className="font-cinzel font-bold text-sm text-[#e0d8c3] group-hover:text-[#d4af37] transition-colors">
                                                     {setObj.name}
                                                 </div>
-                                                <div className="text-[11px] text-muted-foreground">
-                                                    {setObj.category} • <span className="text-gray-300">{setObj.source}</span>
+                                                <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                                                    <span>{setObj.category}</span>
+                                                    <span>•</span>
+                                                    <span className="text-gray-300">{setObj.source}</span>
+                                                    {setObj.allowed_weights && (
+                                                        <>
+                                                            <span>•</span>
+                                                            <span className="text-[#c5a059] font-cinzel font-semibold">
+                                                                {setObj.allowed_weights.length > 1 ? "Light / Med / Heavy" : `${setObj.allowed_weights[0]} Armor`}
+                                                            </span>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
                                             {setObj.is_tradeable ? (

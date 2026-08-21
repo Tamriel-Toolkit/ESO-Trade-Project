@@ -2441,15 +2441,20 @@ app.delete("/api/characters/:id", async (req, res) => {
     }
 });
 
-// Load Full ESO Sets Catalog (712 acquirable sets)
+// Load Full ESO Sets Catalog (712 acquirable sets) and weights mapping
 let allEsoSets = [];
+let setWeightsMap = {};
 try {
     const setsFilePath = path.join(__dirname, "eso_sets.json");
     if (fs.existsSync(setsFilePath)) {
         allEsoSets = JSON.parse(fs.readFileSync(setsFilePath, "utf8"));
     }
+    const weightsFilePath = path.join(__dirname, "set_weights.json");
+    if (fs.existsSync(weightsFilePath)) {
+        setWeightsMap = JSON.parse(fs.readFileSync(weightsFilePath, "utf8"));
+    }
 } catch (e) {
-    console.warn("Could not load eso_sets.json:", e.message);
+    console.warn("Could not load eso_sets.json / set_weights.json:", e.message);
 }
 
 /**
@@ -2485,7 +2490,10 @@ app.get("/api/sets", (req, res) => {
     }
 
     const total = filtered.length;
-    const paginated = filtered.slice(Number(offset), Number(offset) + Number(limit));
+    const paginated = filtered.slice(Number(offset), Number(offset) + Number(limit)).map(s => ({
+        ...s,
+        allowed_weights: setWeightsMap[s.name] || ["Medium"]
+    }));
 
     res.json({
         success: true,
@@ -2643,7 +2651,8 @@ async function resolveSetSlotItem(setName, slotId, slotName, armorWeight = "Medi
         return {
             itemName: providedItemName || `${setName || 'Custom'} ${slotName}`,
             itemIcon: providedIcon.replace(".dds", ".png"),
-            gameItemId: null
+            gameItemId: null,
+            effectiveWeight: armorWeight
         };
     }
 
@@ -2651,10 +2660,13 @@ async function resolveSetSlotItem(setName, slotId, slotName, armorWeight = "Medi
         return {
             itemName: providedItemName || slotName,
             itemIcon: defaultIcon,
-            gameItemId: null
+            gameItemId: null,
+            effectiveWeight: armorWeight
         };
     }
 
+    const allowedWeights = setWeightsMap[setName] || ["Light", "Medium", "Heavy"];
+    const effectiveWeight = allowedWeights.includes(armorWeight) ? armorWeight : (allowedWeights[0] || "Medium");
     const tokens = getSetSearchTokens(setName);
 
     try {
@@ -2680,14 +2692,15 @@ async function resolveSetSlotItem(setName, slotId, slotName, armorWeight = "Medi
 
         // Armor slots with weight
         if (WEIGHT_SLOT_KEYWORDS[slotId]) {
-            const weightKws = WEIGHT_SLOT_KEYWORDS[slotId][armorWeight] || WEIGHT_SLOT_KEYWORDS[slotId]["Medium"] || [];
+            const weightKws = WEIGHT_SLOT_KEYWORDS[slotId][effectiveWeight] || WEIGHT_SLOT_KEYWORDS[slotId]["Medium"] || [];
             for (const kw of weightKws) {
                 for (const it of matchingItems) {
                     if (it.name.toLowerCase().includes(kw)) {
                         return {
                             itemName: it.name,
                             itemIcon: (it.icon_url || defaultIcon).replace(".dds", ".png"),
-                            gameItemId: it.game_item_id
+                            gameItemId: it.game_item_id,
+                            effectiveWeight
                         };
                     }
                 }
@@ -2700,7 +2713,8 @@ async function resolveSetSlotItem(setName, slotId, slotName, armorWeight = "Medi
                             return {
                                 itemName: it.name,
                                 itemIcon: (it.icon_url || defaultIcon).replace(".dds", ".png"),
-                                gameItemId: it.game_item_id
+                                gameItemId: it.game_item_id,
+                                effectiveWeight
                             };
                         }
                     }
@@ -2717,7 +2731,8 @@ async function resolveSetSlotItem(setName, slotId, slotName, armorWeight = "Medi
                         return {
                             itemName: it.name,
                             itemIcon: (it.icon_url || defaultIcon).replace(".dds", ".png"),
-                            gameItemId: it.game_item_id
+                            gameItemId: it.game_item_id,
+                            effectiveWeight
                         };
                     }
                 }
@@ -2729,7 +2744,8 @@ async function resolveSetSlotItem(setName, slotId, slotName, armorWeight = "Medi
                             return {
                                 itemName: it.name,
                                 itemIcon: (it.icon_url || defaultIcon).replace(".dds", ".png"),
-                                gameItemId: it.game_item_id
+                                gameItemId: it.game_item_id,
+                                effectiveWeight
                             };
                         }
                     }
@@ -2746,7 +2762,8 @@ async function resolveSetSlotItem(setName, slotId, slotName, armorWeight = "Medi
                         return {
                             itemName: it.name,
                             itemIcon: (it.icon_url || defaultIcon).replace(".dds", ".png"),
-                            gameItemId: it.game_item_id
+                            gameItemId: it.game_item_id,
+                            effectiveWeight
                         };
                     }
                 }
@@ -2759,7 +2776,8 @@ async function resolveSetSlotItem(setName, slotId, slotName, armorWeight = "Medi
                         return {
                             itemName: it.name,
                             itemIcon: (it.icon_url || defaultIcon).replace(".dds", ".png"),
-                            gameItemId: it.game_item_id
+                            gameItemId: it.game_item_id,
+                            effectiveWeight
                         };
                     }
                 }
@@ -2770,7 +2788,8 @@ async function resolveSetSlotItem(setName, slotId, slotName, armorWeight = "Medi
             return {
                 itemName: matchingItems[0].name,
                 itemIcon: (matchingItems[0].icon_url || defaultIcon).replace(".dds", ".png"),
-                gameItemId: matchingItems[0].game_item_id
+                gameItemId: matchingItems[0].game_item_id,
+                effectiveWeight
             };
         }
     } catch (e) {
@@ -2780,7 +2799,8 @@ async function resolveSetSlotItem(setName, slotId, slotName, armorWeight = "Medi
     return {
         itemName: providedItemName || `${setName} ${slotName}`,
         itemIcon: defaultIcon,
-        gameItemId: null
+        gameItemId: null,
+        effectiveWeight
     };
 }
 
@@ -2795,13 +2815,16 @@ app.get("/api/sets/resolve-item", async (req, res) => {
     }
     try {
         const resolved = await resolveSetSlotItem(set, Number(slot_id) || 0, slot_name || "Slot", weight || "Medium", weapon || "Dagger");
+        const allowedWeights = setWeightsMap[set] || ["Light", "Medium", "Heavy"];
         res.json({
             success: true,
             set_name: set,
             slot_id: Number(slot_id) || 0,
             item_name: resolved.itemName,
             item_icon: resolved.itemIcon,
-            game_item_id: resolved.gameItemId
+            game_item_id: resolved.gameItemId,
+            effective_weight: resolved.effectiveWeight,
+            allowed_weights: allowedWeights
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
