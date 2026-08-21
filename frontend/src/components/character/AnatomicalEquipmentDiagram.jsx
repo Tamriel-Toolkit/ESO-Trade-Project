@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Shield, Sparkles, Zap, Award, Info, Sword } from "lucide-react";
 import { renderEsoFormattedText, cleanEsoText, getEsoIconUrl } from "@/lib/utils";
 
