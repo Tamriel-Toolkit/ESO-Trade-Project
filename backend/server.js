@@ -468,6 +468,27 @@ function initializeDatabaseSchema() {
             else console.log("'user_saved_builds' table initialized successfully.");
         });
 
+        // Character Trait Research Tracking Table
+        db.run(`
+            CREATE TABLE IF NOT EXISTS character_trait_research (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                character_id INTEGER NOT NULL,
+                crafting_type TEXT NOT NULL,
+                equipment_type TEXT NOT NULL,
+                trait_id INTEGER NOT NULL,
+                trait_name TEXT NOT NULL,
+                research_status TEXT NOT NULL DEFAULT 'UNKNOWN' CHECK(research_status IN ('UNKNOWN', 'RESEARCHING', 'COMPLETED')),
+                started_at TEXT,
+                completes_at TEXT,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
+                UNIQUE (character_id, equipment_type, trait_id)
+            );
+        `, (err) => {
+            if (err) console.error("Error creating 'character_trait_research' table:", err.message);
+            else console.log("'character_trait_research' table initialized successfully.");
+        });
+
         // Drop old indexes and create robust seller compound unique index
         db.run("DROP INDEX IF EXISTS idx_unique_listing;");
         db.run(`
@@ -480,6 +501,7 @@ function initializeDatabaseSchema() {
         db.run("CREATE INDEX IF NOT EXISTS idx_listings_server ON guild_trader_listings(server);");
         db.run("CREATE INDEX IF NOT EXISTS idx_build_items_build_id ON build_items(build_id);");
         db.run("CREATE INDEX IF NOT EXISTS idx_builds_class_role ON builds(class, role);");
+        db.run("CREATE INDEX IF NOT EXISTS idx_trait_research_lookup ON character_trait_research(character_id, research_status, equipment_type, trait_id);");
 
         // SQLite triggers for automated expired listing TTL purging on insert & update
         db.run(`
@@ -3215,6 +3237,362 @@ app.get("/api/builds/:id/deals", async (req, res) => {
             total_estimated_gold: totalEstCost,
             deals_by_slot: dealsBySlot,
             zone_itinerary: zoneItinerary
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ==========================================
+// TRAIT RESEARCH TRACKER & MARKET MATCHING ENGINE (ISSUE #10)
+// ==========================================
+
+const ESO_TRAIT_DEFINITIONS = {
+    Weapon: [
+        { id: 1, name: "Powered", description: "Increases healing done by item." },
+        { id: 2, name: "Charged", description: "Increases chance to apply status effects." },
+        { id: 3, name: "Precise", description: "Increases Critical Chance." },
+        { id: 4, name: "Infused", description: "Increases weapon enchantment effect and reduces cooldown." },
+        { id: 5, name: "Defending", description: "Increases total Armor." },
+        { id: 6, name: "Training", description: "Increases experience gained from kills." },
+        { id: 7, name: "Sharpened", description: "Increases Armor and Spell Penetration." },
+        { id: 8, name: "Decisive", description: "Chance to gain 1 additional Ultimate when gaining Ultimate." },
+        { id: 25, name: "Nirnhoned", description: "Increases Weapon and Spell Damage." }
+    ],
+    Armor: [
+        { id: 11, name: "Sturdy", description: "Reduces the cost of Block." },
+        { id: 12, name: "Impenetrable", description: "Increases Critical Resistance and reduces item durability loss." },
+        { id: 13, name: "Reinforced", description: "Increases this item's Armor value." },
+        { id: 14, name: "Well-Fitted", description: "Reduces the cost of Sprint and Roll Dodge." },
+        { id: 15, name: "Training", description: "Increases experience gained from kills." },
+        { id: 16, name: "Infused", description: "Increases armor enchantment effect." },
+        { id: 17, name: "Invigorating", description: "Increases Magicka, Stamina, and Health Recovery." },
+        { id: 18, name: "Divines", description: "Increases Mundus Stone effects." },
+        { id: 25, name: "Nirnhoned", description: "Increases total Armor rating." }
+    ],
+    Jewelry: [
+        { id: 22, name: "Arcane", description: "Increases Maximum Magicka." },
+        { id: 21, name: "Healthy", description: "Increases Maximum Health." },
+        { id: 23, name: "Robust", description: "Increases Maximum Stamina." },
+        { id: 30, name: "Triune", description: "Increases Maximum Health, Magicka, and Stamina." },
+        { id: 25, name: "Nirnhoned", description: "Increases Weapon and Spell Damage." },
+        { id: 31, name: "Bloodthirsty", description: "Increases damage against enemies under 25% Health." },
+        { id: 32, name: "Harmony", description: "Increases damage, healing, and resource restore from Synergies." },
+        { id: 29, name: "Swift", description: "Increases Movement Speed." },
+        { id: 35, name: "Infused", description: "Increases jewelry enchantment effect." }
+    ]
+};
+
+const ESO_RESEARCH_EQUIPMENT_LINES = [
+    // Blacksmithing Weapons (7)
+    { crafting_type: "Blacksmithing", equipment_type: "Axe", item_category: "Weapon", subcategory: "Axe" },
+    { crafting_type: "Blacksmithing", equipment_type: "Mace", item_category: "Weapon", subcategory: "Mace" },
+    { crafting_type: "Blacksmithing", equipment_type: "Sword", item_category: "Weapon", subcategory: "Sword" },
+    { crafting_type: "Blacksmithing", equipment_type: "Battleaxe", item_category: "Weapon", subcategory: "Two Handed Axe" },
+    { crafting_type: "Blacksmithing", equipment_type: "Greatsword", item_category: "Weapon", subcategory: "Two Handed Sword" },
+    { crafting_type: "Blacksmithing", equipment_type: "Maul", item_category: "Weapon", subcategory: "Two Handed Mace" },
+    { crafting_type: "Blacksmithing", equipment_type: "Dagger", item_category: "Weapon", subcategory: "Dagger" },
+
+    // Blacksmithing Heavy Armor (7)
+    { crafting_type: "Blacksmithing", equipment_type: "Cuirass", item_category: "Armor", subcategory: "Heavy Armor", slot_type: "Chest" },
+    { crafting_type: "Blacksmithing", equipment_type: "Sabatons", item_category: "Armor", subcategory: "Heavy Armor", slot_type: "Feet" },
+    { crafting_type: "Blacksmithing", equipment_type: "Gauntlets", item_category: "Armor", subcategory: "Heavy Armor", slot_type: "Hands" },
+    { crafting_type: "Blacksmithing", equipment_type: "Helm", item_category: "Armor", subcategory: "Heavy Armor", slot_type: "Head" },
+    { crafting_type: "Blacksmithing", equipment_type: "Greaves", item_category: "Armor", subcategory: "Heavy Armor", slot_type: "Legs" },
+    { crafting_type: "Blacksmithing", equipment_type: "Pauldrons", item_category: "Armor", subcategory: "Heavy Armor", slot_type: "Shoulders" },
+    { crafting_type: "Blacksmithing", equipment_type: "Girdle", item_category: "Armor", subcategory: "Heavy Armor", slot_type: "Waist" },
+
+    // Clothier Light Armor (7)
+    { crafting_type: "Clothier", equipment_type: "Robe", item_category: "Armor", subcategory: "Light Armor", slot_type: "Chest" },
+    { crafting_type: "Clothier", equipment_type: "Shoes", item_category: "Armor", subcategory: "Light Armor", slot_type: "Feet" },
+    { crafting_type: "Clothier", equipment_type: "Gloves", item_category: "Armor", subcategory: "Light Armor", slot_type: "Hands" },
+    { crafting_type: "Clothier", equipment_type: "Hat", item_category: "Armor", subcategory: "Light Armor", slot_type: "Head" },
+    { crafting_type: "Clothier", equipment_type: "Breeches", item_category: "Armor", subcategory: "Light Armor", slot_type: "Legs" },
+    { crafting_type: "Clothier", equipment_type: "Epaulets", item_category: "Armor", subcategory: "Light Armor", slot_type: "Shoulders" },
+    { crafting_type: "Clothier", equipment_type: "Sash", item_category: "Armor", subcategory: "Light Armor", slot_type: "Waist" },
+
+    // Clothier Medium Armor (7)
+    { crafting_type: "Clothier", equipment_type: "Jack", item_category: "Armor", subcategory: "Medium Armor", slot_type: "Chest" },
+    { crafting_type: "Clothier", equipment_type: "Boots", item_category: "Armor", subcategory: "Medium Armor", slot_type: "Feet" },
+    { crafting_type: "Clothier", equipment_type: "Bracers", item_category: "Armor", subcategory: "Medium Armor", slot_type: "Hands" },
+    { crafting_type: "Clothier", equipment_type: "Helmet", item_category: "Armor", subcategory: "Medium Armor", slot_type: "Head" },
+    { crafting_type: "Clothier", equipment_type: "Guards", item_category: "Armor", subcategory: "Medium Armor", slot_type: "Legs" },
+    { crafting_type: "Clothier", equipment_type: "Arm Cops", item_category: "Armor", subcategory: "Medium Armor", slot_type: "Shoulders" },
+    { crafting_type: "Clothier", equipment_type: "Belt", item_category: "Armor", subcategory: "Medium Armor", slot_type: "Waist" },
+
+    // Woodworking (6)
+    { crafting_type: "Woodworking", equipment_type: "Bow", item_category: "Weapon", subcategory: "Bow" },
+    { crafting_type: "Woodworking", equipment_type: "Inferno Staff", item_category: "Weapon", subcategory: "Destruction Staff" },
+    { crafting_type: "Woodworking", equipment_type: "Ice Staff", item_category: "Weapon", subcategory: "Destruction Staff" },
+    { crafting_type: "Woodworking", equipment_type: "Lightning Staff", item_category: "Weapon", subcategory: "Destruction Staff" },
+    { crafting_type: "Woodworking", equipment_type: "Restoration Staff", item_category: "Weapon", subcategory: "Restoration Staff" },
+    { crafting_type: "Woodworking", equipment_type: "Shield", item_category: "Armor", subcategory: "Shield", slot_type: "Shield" },
+
+    // Jewelry (2)
+    { crafting_type: "Jewelry", equipment_type: "Necklace", item_category: "Jewelry", subcategory: "Necklace", slot_type: "Necklace" },
+    { crafting_type: "Jewelry", equipment_type: "Ring", item_category: "Jewelry", subcategory: "Ring", slot_type: "Ring" }
+];
+
+/**
+ * Ensures a character's trait research table is populated with default UNKNOWN rows.
+ */
+async function ensureCharacterTraitsInitialized(characterId) {
+    const existing = await dbGet(`SELECT COUNT(*) as count FROM character_trait_research WHERE character_id = ?;`, [characterId]);
+    if (existing && existing.count > 0) return;
+
+    const insertStatements = [];
+    for (const eq of ESO_RESEARCH_EQUIPMENT_LINES) {
+        const traits = ESO_TRAIT_DEFINITIONS[eq.item_category] || ESO_TRAIT_DEFINITIONS.Armor;
+        for (const t of traits) {
+            insertStatements.push([characterId, eq.crafting_type, eq.equipment_type, t.id, t.name, 'UNKNOWN']);
+        }
+    }
+
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < insertStatements.length; i += BATCH_SIZE) {
+        const batch = insertStatements.slice(i, i + BATCH_SIZE);
+        const placeholders = batch.map(() => "(?, ?, ?, ?, ?, ?)").join(", ");
+        const values = batch.flat();
+        await dbRun(`
+            INSERT OR IGNORE INTO character_trait_research 
+            (character_id, crafting_type, equipment_type, trait_id, trait_name, research_status) 
+            VALUES ${placeholders};
+        `, values);
+    }
+}
+
+/**
+ * GET /api/characters/:id/traits
+ * Returns the complete 9-trait research matrix for a character.
+ */
+app.get("/api/characters/:id/traits", async (req, res) => {
+    const characterId = req.params.id;
+    try {
+        const character = await dbGet(`SELECT * FROM characters WHERE id = ?;`, [characterId]);
+        if (!character) {
+            return res.status(404).json({ error: "Character not found." });
+        }
+
+        await ensureCharacterTraitsInitialized(characterId);
+
+        const rows = await dbAll(`
+            SELECT * FROM character_trait_research 
+            WHERE character_id = ? 
+            ORDER BY id ASC;
+        `, [characterId]);
+
+        const totalResearched = rows.filter(r => r.research_status === "COMPLETED").length;
+        const totalResearching = rows.filter(r => r.research_status === "RESEARCHING").length;
+        const totalUnknown = rows.filter(r => r.research_status === "UNKNOWN").length;
+        const totalTraits = rows.length;
+        const completionRate = totalTraits > 0 ? Math.round((totalResearched / totalTraits) * 1000) / 10 : 0;
+
+        // Group into crafting disciplines
+        const disciplinesMap = {};
+        for (const r of rows) {
+            if (!disciplinesMap[r.crafting_type]) {
+                disciplinesMap[r.crafting_type] = {
+                    crafting_type: r.crafting_type,
+                    equipment_lines: {}
+                };
+            }
+            if (!disciplinesMap[r.crafting_type].equipment_lines[r.equipment_type]) {
+                disciplinesMap[r.crafting_type].equipment_lines[r.equipment_type] = {
+                    equipment_type: r.equipment_type,
+                    traits: []
+                };
+            }
+            disciplinesMap[r.crafting_type].equipment_lines[r.equipment_type].traits.push(r);
+        }
+
+        const disciplines = Object.values(disciplinesMap).map(d => ({
+            crafting_type: d.crafting_type,
+            lines: Object.values(d.equipment_lines)
+        }));
+
+        res.json({
+            success: true,
+            character: {
+                id: character.id,
+                name: character.name,
+                class: character.class,
+                level: character.level,
+                alliance: character.alliance
+            },
+            total_researched: totalResearched,
+            total_researching: totalResearching,
+            total_unknown: totalUnknown,
+            total_traits: totalTraits,
+            completion_percentage: completionRate,
+            disciplines,
+            traits: rows
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * POST /api/characters/:id/traits
+ * Updates or syncs research statuses for a character's traits.
+ */
+app.post("/api/characters/:id/traits", async (req, res) => {
+    let userId = await getAuthUserId(req);
+    if (!userId) {
+        return res.status(401).json({ error: "Authentication required to update trait research." });
+    }
+
+    const characterId = req.params.id;
+    try {
+        const character = await dbGet(`SELECT * FROM characters WHERE id = ?;`, [characterId]);
+        if (!character) {
+            return res.status(404).json({ error: "Character not found." });
+        }
+
+        const user = await dbGet(`SELECT role FROM users WHERE id = ?;`, [userId]);
+        const isAdmin = user && user.role === "admin";
+
+        if (character.user_id !== userId && !isAdmin) {
+            return res.status(403).json({ error: "Forbidden: You do not have permission to update this character's traits." });
+        }
+
+        await ensureCharacterTraitsInitialized(characterId);
+
+        const { updates = [], equipment_type, trait_id, research_status, started_at, completes_at } = req.body;
+        const traitUpdates = updates.length > 0 ? updates : (equipment_type && trait_id !== undefined && research_status ? [{ equipment_type, trait_id, research_status, started_at, completes_at }] : []);
+
+        if (traitUpdates.length === 0) {
+            return res.status(400).json({ error: "No trait updates provided." });
+        }
+
+        await dbRun("BEGIN IMMEDIATE TRANSACTION");
+
+        for (const u of traitUpdates) {
+            if (!u.equipment_type || u.trait_id === undefined || !u.research_status) continue;
+            const validStatus = ["UNKNOWN", "RESEARCHING", "COMPLETED"].includes(u.research_status) ? u.research_status : "UNKNOWN";
+            await dbRun(`
+                UPDATE character_trait_research 
+                SET research_status = ?,
+                    started_at = ?,
+                    completes_at = ?,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE character_id = ? AND equipment_type = ? AND trait_id = ?;
+            `, [validStatus, u.started_at || null, u.completes_at || null, characterId, u.equipment_type, u.trait_id]);
+        }
+
+        await dbRun("COMMIT");
+
+        res.json({
+            success: true,
+            updated_count: traitUpdates.length,
+            message: `Successfully updated ${traitUpdates.length} trait(s).`
+        });
+    } catch (err) {
+        await dbRun("ROLLBACK").catch(() => {});
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * GET /api/characters/:id/trait-matches
+ * High-performance market matching engine finding cheapest research fodder listings for missing traits.
+ */
+app.get("/api/characters/:id/trait-matches", async (req, res) => {
+    const characterId = req.params.id;
+    const server = req.query.server === "EU" ? "EU" : "NA";
+    const limitPerTrait = req.query.limit_per_trait ? parseInt(req.query.limit_per_trait, 10) : 3;
+
+    try {
+        const character = await dbGet(`SELECT * FROM characters WHERE id = ?;`, [characterId]);
+        if (!character) {
+            return res.status(404).json({ error: "Character not found." });
+        }
+
+        await ensureCharacterTraitsInitialized(characterId);
+
+        // Get missing unknown traits
+        const missingTraits = await dbAll(`
+            SELECT * FROM character_trait_research 
+            WHERE character_id = ? AND research_status = 'UNKNOWN'
+            ORDER BY crafting_type ASC, equipment_type ASC, trait_id ASC;
+        `, [characterId]);
+
+        const matchesByTrait = [];
+        let totalFodderFound = 0;
+        let estimatedCost = 0;
+
+        for (const mt of missingTraits) {
+            const searchKeyword = mt.equipment_type;
+
+            const listings = await dbAll(`
+                SELECT 
+                    gtl.id as listing_id,
+                    gtl.game_item_id,
+                    COALESCE(gtl.item_name, i.name) as item_name,
+                    REPLACE(COALESCE(i.icon_url, 'https://esoicons.uesp.net/esoui/art/icons/gear_generic.png'), '.dds', '.png') as icon_url,
+                    gtl.price,
+                    gtl.quantity,
+                    gtl.guild_name,
+                    gtl.location,
+                    gtl.seller_name,
+                    gtl.quality,
+                    gtl.server,
+                    ip.suggested_price,
+                    ip.avg_price
+                FROM guild_trader_listings gtl
+                JOIN items i ON i.game_item_id = gtl.game_item_id
+                LEFT JOIN item_prices ip ON ip.game_item_id = gtl.game_item_id AND ip.server = gtl.server
+                WHERE gtl.server = ?
+                  AND gtl.trait_id = ?
+                  AND (
+                      i.name LIKE ? 
+                      OR (gtl.item_name IS NOT NULL AND gtl.item_name LIKE ?)
+                      OR (i.subcategory IS NOT NULL AND i.subcategory LIKE ?)
+                  )
+                  AND gtl.price > 0
+                ORDER BY gtl.price ASC
+                LIMIT ?;
+            `, [server, mt.trait_id, `%${searchKeyword}%`, `%${searchKeyword}%`, `%${searchKeyword}%`, limitPerTrait]);
+
+            if (listings.length > 0) {
+                totalFodderFound += listings.length;
+                const cheapestListing = listings[0];
+                estimatedCost += cheapestListing.price;
+
+                matchesByTrait.push({
+                    crafting_type: mt.crafting_type,
+                    equipment_type: mt.equipment_type,
+                    trait_id: mt.trait_id,
+                    trait_name: mt.trait_name,
+                    cheapest_price: cheapestListing.price,
+                    cheapest_listing: cheapestListing,
+                    all_listings: listings
+                });
+            } else {
+                matchesByTrait.push({
+                    crafting_type: mt.crafting_type,
+                    equipment_type: mt.equipment_type,
+                    trait_id: mt.trait_id,
+                    trait_name: mt.trait_name,
+                    cheapest_price: null,
+                    cheapest_listing: null,
+                    all_listings: []
+                });
+            }
+        }
+
+        const availableMatches = matchesByTrait.filter(m => m.cheapest_price !== null);
+
+        res.json({
+            success: true,
+            character_id: Number(characterId),
+            character_name: character.name,
+            server,
+            missing_traits_count: missingTraits.length,
+            available_matches_count: availableMatches.length,
+            total_fodder_found: totalFodderFound,
+            estimated_total_cost: estimatedCost,
+            matches: matchesByTrait
         });
     } catch (err) {
         res.status(500).json({ error: err.message });

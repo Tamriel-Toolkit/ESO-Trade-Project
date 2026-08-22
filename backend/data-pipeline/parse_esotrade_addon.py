@@ -471,6 +471,30 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                 if synced_gear_count > 0:
                     print(f"Synced {synced_gear_count} equipped gear items to character '{player_name}' loadout!")
 
+            # Sync character trait research if present
+            traits_pos = content.find('["TraitResearch"]')
+            if traits_pos != -1:
+                traits_section = content[traits_pos:]
+                trait_blocks = list(re.finditer(r'\{[^{}]*?\["EquipmentType"\]\s*=\s*"([^"]+)"[^{}]*?\["TraitId"\]\s*=\s*(\d+)[^{}]*?\["Status"\]\s*=\s*"([^"]+)"[^{}]*?\}', traits_section, re.DOTALL))
+                synced_traits_count = 0
+                for tm in trait_blocks:
+                    eq_type = tm.group(1).strip()
+                    tr_id = int(tm.group(2))
+                    tr_status = tm.group(3).strip().upper()
+                    if tr_status in ("COMPLETED", "RESEARCHING", "UNKNOWN"):
+                        crafting_type = "Blacksmithing" if eq_type in ("Axe", "Mace", "Sword", "Battleaxe", "Greatsword", "Maul", "Dagger", "Cuirass", "Sabatons", "Gauntlets", "Helm", "Greaves", "Pauldrons", "Girdle") else ("Clothier" if eq_type in ("Robe", "Shoes", "Gloves", "Hat", "Breeches", "Epaulets", "Sash", "Jack", "Boots", "Bracers", "Helmet", "Guards", "Arm Cops", "Belt") else ("Woodworking" if eq_type in ("Bow", "Inferno Staff", "Ice Staff", "Lightning Staff", "Restoration Staff", "Shield") else "Jewelry"))
+                        tr_name = ESO_TRAIT_NAMES.get(tr_id, "Unknown")
+                        cursor.execute("""
+                            INSERT INTO character_trait_research (character_id, crafting_type, equipment_type, trait_id, trait_name, research_status, updated_at)
+                            VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                            ON CONFLICT(character_id, equipment_type, trait_id) DO UPDATE SET
+                                research_status = excluded.research_status,
+                                updated_at = CURRENT_TIMESTAMP;
+                        """, (char_id, crafting_type, eq_type, tr_id, tr_name, tr_status))
+                        synced_traits_count += 1
+                if synced_traits_count > 0:
+                    print(f"Synced {synced_traits_count} trait research records for '{player_name}'!")
+
         # Recalculate real-time market prices
         for item_id in affected_ids:
             cursor.execute("""

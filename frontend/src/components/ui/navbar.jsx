@@ -82,6 +82,16 @@ function Navbar() {
               Builds
             </Link>
             <Link
+              to="/traits"
+              className={`px-4 py-2 text-sm uppercase font-cinzel font-bold tracking-[0.15em] transition-all border-b-2 ${
+                isActive('/traits') 
+                  ? 'border-[#c5a059] text-[#d4af37] bg-[#c5a059]/10 shadow-[0_2px_12px_rgba(197,160,89,0.3)]' 
+                  : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
+              }`}
+            >
+              Traits
+            </Link>
+            <Link
               to="/characters"
               className={`px-4 py-2 text-sm uppercase font-cinzel font-bold tracking-[0.15em] transition-all border-b-2 ${
                 isActive('/characters') 
@@ -129,6 +139,14 @@ function Navbar() {
               }`}
             >
               Builds
+            </Link>
+            <Link
+              to="/traits"
+              className={`px-2.5 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
+                isActive('/traits') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
+              }`}
+            >
+              Traits
             </Link>
             <Link
               to="/characters"
