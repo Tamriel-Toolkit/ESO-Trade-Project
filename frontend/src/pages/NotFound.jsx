@@ -28,7 +28,7 @@ export default function NotFound() {
           </h2>
 
           <p className="text-[#a89f91] text-sm leading-relaxed mb-8">
-            The scrolls speak of no such destination in Tamriel. The merchant kiosk or path you seek has vanished into Oblivion.
+            The scrolls speak of no such destination in Tamriel. The marketplace or path you seek has vanished into Oblivion.
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">

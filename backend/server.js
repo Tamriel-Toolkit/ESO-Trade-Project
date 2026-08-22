@@ -1,3 +1,4 @@
+const fs = require("fs");
 const path = require("path");
 const dotenv = require("dotenv");
 
@@ -22,6 +23,7 @@ const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
 const { rateLimit } = require("express-rate-limit");
 const sqlite3 = require("sqlite3").verbose();
+const { seedCuratedMetaBuilds } = require("./curated_builds");
 const app = express();
 const PORT = process.env.PORT || 5001;
 
@@ -399,6 +401,73 @@ function initializeDatabaseSchema() {
         db.run("ALTER TABLE guild_trader_listings ADD COLUMN quality INTEGER DEFAULT 1;", (err) => {});
         db.run("ALTER TABLE guild_trader_listings ADD COLUMN trait_id INTEGER DEFAULT 0;", (err) => {});
 
+        // Builds, Build Items & User Saved Builds Schema
+        db.run(`
+            CREATE TABLE IF NOT EXISTS builds (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                title TEXT NOT NULL,
+                description TEXT,
+                class TEXT NOT NULL,
+                role TEXT NOT NULL,
+                author TEXT DEFAULT 'Tamriel Foundry',
+                source_url TEXT,
+                is_curated INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
+            );
+        `, (err) => {
+            if (err) console.error("Error creating 'builds' table:", err.message);
+            else {
+                console.log("'builds' table initialized successfully.");
+                seedCuratedMetaBuilds(db).catch((e) => console.error("Error seeding builds:", e.message));
+            }
+        });
+
+        db.run(`
+            CREATE TABLE IF NOT EXISTS build_items (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                build_id INTEGER NOT NULL,
+                slot_id INTEGER NOT NULL,
+                slot_name TEXT NOT NULL,
+                game_item_id INTEGER,
+                item_name TEXT NOT NULL,
+                set_name TEXT NOT NULL,
+                item_type TEXT,
+                item_icon TEXT,
+                trait_id INTEGER DEFAULT 0,
+                trait_name TEXT,
+                enchantment TEXT,
+                quality INTEGER DEFAULT 4,
+                is_tradeable INTEGER DEFAULT 1,
+                source_location TEXT,
+                FOREIGN KEY (build_id) REFERENCES builds(id) ON DELETE CASCADE,
+                UNIQUE (build_id, slot_id)
+            );
+        `, (err) => {
+            if (err) console.error("Error creating 'build_items' table:", err.message);
+            else {
+                console.log("'build_items' table initialized successfully.");
+                db.run("ALTER TABLE build_items ADD COLUMN item_icon TEXT", () => {});
+                db.run("ALTER TABLE build_items ADD COLUMN armor_weight TEXT", () => {});
+                db.run("ALTER TABLE build_items ADD COLUMN weapon_type TEXT", () => {});
+            }
+        });
+
+        db.run(`
+            CREATE TABLE IF NOT EXISTS user_saved_builds (
+                user_id INTEGER NOT NULL,
+                build_id INTEGER NOT NULL,
+                saved_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (user_id, build_id),
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+                FOREIGN KEY (build_id) REFERENCES builds(id) ON DELETE CASCADE
+            );
+        `, (err) => {
+            if (err) console.error("Error creating 'user_saved_builds' table:", err.message);
+            else console.log("'user_saved_builds' table initialized successfully.");
+        });
+
         // Drop old indexes and create robust seller compound unique index
         db.run("DROP INDEX IF EXISTS idx_unique_listing;");
         db.run(`
@@ -409,6 +478,8 @@ function initializeDatabaseSchema() {
         db.run("CREATE INDEX IF NOT EXISTS idx_listings_expires_at ON guild_trader_listings(expires_at);");
         db.run("CREATE INDEX IF NOT EXISTS idx_listings_server_item ON guild_trader_listings(server, game_item_id);");
         db.run("CREATE INDEX IF NOT EXISTS idx_listings_server ON guild_trader_listings(server);");
+        db.run("CREATE INDEX IF NOT EXISTS idx_build_items_build_id ON build_items(build_id);");
+        db.run("CREATE INDEX IF NOT EXISTS idx_builds_class_role ON builds(class, role);");
 
         // SQLite triggers for automated expired listing TTL purging on insert & update
         db.run(`
@@ -2365,6 +2436,786 @@ app.delete("/api/characters/:id", async (req, res) => {
         }
         await dbRun(`DELETE FROM characters WHERE id = ? AND user_id = ?;`, [charId, userId]);
         res.json({ success: true, message: "Character removed from roster." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Load Full ESO Sets Catalog (712 acquirable sets) and weights mapping
+let allEsoSets = [];
+let setWeightsMap = {};
+try {
+    const setsFilePath = path.join(__dirname, "eso_sets.json");
+    if (fs.existsSync(setsFilePath)) {
+        allEsoSets = JSON.parse(fs.readFileSync(setsFilePath, "utf8"));
+    }
+    const weightsFilePath = path.join(__dirname, "set_weights.json");
+    if (fs.existsSync(weightsFilePath)) {
+        setWeightsMap = JSON.parse(fs.readFileSync(weightsFilePath, "utf8"));
+    }
+} catch (e) {
+    console.warn("Could not load eso_sets.json / set_weights.json:", e.message);
+}
+
+/**
+ * GET /api/sets
+ * Returns all 712 acquirable ESO sets with search, category, and tradeability filtering.
+ */
+app.get("/api/sets", (req, res) => {
+    const { search, category, is_tradeable, limit = 1000, offset = 0 } = req.query;
+    let filtered = allEsoSets;
+
+    if (search) {
+        const query = search.trim().toLowerCase();
+        filtered = filtered.filter(s => 
+            s.name.toLowerCase().includes(query) || 
+            (s.category && s.category.toLowerCase().includes(query)) ||
+            (s.source && s.source.toLowerCase().includes(query)) ||
+            (s.bonuses && s.bonuses.some(b => b.toLowerCase().includes(query)))
+        );
+    }
+
+    if (category && category !== "All") {
+        if (category === "Tradeable" || category === "tradeable") {
+            filtered = filtered.filter(s => s.is_tradeable === 1);
+        } else if (category === "BOP" || category === "bop" || category === "Bind on Pickup") {
+            filtered = filtered.filter(s => s.is_tradeable === 0);
+        } else {
+            filtered = filtered.filter(s => s.category && s.category.toLowerCase().includes(category.toLowerCase()));
+        }
+    }
+
+    if (is_tradeable !== undefined && is_tradeable !== "") {
+        filtered = filtered.filter(s => s.is_tradeable === Number(is_tradeable));
+    }
+
+    const total = filtered.length;
+    const paginated = filtered.slice(Number(offset), Number(offset) + Number(limit)).map(s => ({
+        ...s,
+        allowed_weights: setWeightsMap[s.name] || ["Medium"]
+    }));
+
+    res.json({
+        success: true,
+        total,
+        count: paginated.length,
+        sets: paginated
+    });
+});
+
+/**
+ * GET /api/builds
+ * Returns all builds, optionally filtered by class, role, is_curated, or search query.
+ */
+app.get("/api/builds", async (req, res) => {
+    const { class: buildClass, role, is_curated, search, limit = 50, offset = 0 } = req.query;
+    let query = `
+        SELECT 
+            b.*,
+            (SELECT COUNT(*) FROM build_items WHERE build_id = b.id) as total_items,
+            (SELECT COUNT(*) FROM build_items WHERE build_id = b.id AND is_tradeable = 1) as tradeable_items,
+            (SELECT COUNT(*) FROM build_items WHERE build_id = b.id AND is_tradeable = 0) as bop_items,
+            (SELECT GROUP_CONCAT(DISTINCT set_name) FROM build_items WHERE build_id = b.id) as distinct_sets
+        FROM builds b
+        WHERE 1=1
+    `;
+    const params = [];
+
+    if (buildClass && buildClass !== "All") {
+        query += ` AND (b.class = ? OR b.class = 'All')`;
+        params.push(buildClass);
+    }
+    if (role && role !== "All") {
+        query += ` AND b.role = ?`;
+        params.push(role);
+    }
+    if (is_curated !== undefined && is_curated !== "") {
+        query += ` AND b.is_curated = ?`;
+        params.push(Number(is_curated));
+    }
+    if (search) {
+        query += ` AND (b.title LIKE ? OR b.description LIKE ? OR b.author LIKE ?)`;
+        params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    }
+
+    query += ` ORDER BY b.is_curated DESC, b.created_at DESC LIMIT ? OFFSET ?;`;
+    params.push(Math.min(Number(limit) || 50, 100), Number(offset) || 0);
+
+    try {
+        const rows = await dbAll(query, params);
+        const builds = rows.map((r) => ({
+            ...r,
+            sets: r.distinct_sets ? r.distinct_sets.split(",") : []
+        }));
+        res.json({ success: true, count: builds.length, builds });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+const SAFE_SLOT_DEFAULTS = {
+    0: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_hat_d.png",
+    1: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_neck_a.png",
+    2: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_light_shirt_d.png",
+    3: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_light_shoulders_a.png",
+    4: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_dagger_d.png",
+    5: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_dagger_d.png",
+    6: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_light_waist_a.png",
+    7: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_light_legs_a.png",
+    8: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_light_feet_a.png",
+    9: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_ring_a.png",
+    10: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_ring_a.png",
+    11: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_ring_a.png",
+    12: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_staff_d.png",
+    16: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_light_hands_a.png",
+    20: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_staff_d.png",
+    21: "https://esoicons.uesp.net/esoui/art/icons/gear_breton_dagger_d.png"
+};
+
+const WEIGHT_SLOT_KEYWORDS = {
+    0: { // Head
+        Light: ["hat", "cap", "hood", "cowl"],
+        Medium: ["helmet", "mask", "visage", "gaze", "cowl", "head"],
+        Heavy: ["helm", "great helm"]
+    },
+    3: { // Shoulders
+        Light: ["epaulet", "mantle", "shawl"],
+        Medium: ["arm cop", "spaulder", "shoulder"],
+        Heavy: ["pauldron"]
+    },
+    2: { // Chest
+        Light: ["jerkin", "robe", "tunic", "vest", "shirt"],
+        Medium: ["jack", "harness", "chest"],
+        Heavy: ["cuirass", "breastplate", "mail"]
+    },
+    16: { // Hands
+        Light: ["glove", "mitts"],
+        Medium: ["bracer", "touch", "hands"],
+        Heavy: ["gauntlet"]
+    },
+    6: { // Waist
+        Light: ["sash", "cord"],
+        Medium: ["belt", "strap", "waist"],
+        Heavy: ["girdle", "cincture"]
+    },
+    7: { // Legs
+        Light: ["breeche", "pants", "trousers", "skirt"],
+        Medium: ["guard", "chausse", "legs"],
+        Heavy: ["greave", "poleyn"]
+    },
+    8: { // Feet
+        Light: ["shoe", "sandals"],
+        Medium: ["boot", "feet"],
+        Heavy: ["sabaton"]
+    }
+};
+
+const WEAPON_KEYWORDS = {
+    "Dagger": ["dagger"],
+    "Sword": ["sword"],
+    "Axe": ["axe"],
+    "Mace": ["mace", "hammer"],
+    "Bow": ["bow"],
+    "Inferno Staff": ["inferno staff", "fire staff", "staff"],
+    "Lightning Staff": ["lightning staff", "shock staff", "staff"],
+    "Ice Staff": ["ice staff", "frost staff", "staff"],
+    "Restoration Staff": ["restoration staff", "healing staff", "staff"],
+    "Greatsword": ["greatsword", "2hsword"],
+    "Battleaxe": ["battle axe", "battleaxe", "2haxe"],
+    "Maul": ["maul", "2hhammer"],
+    "Shield": ["shield"]
+};
+
+function getSetSearchTokens(setName) {
+    if (!setName) return [];
+    const clean = setName.replace(/Perfected /gi, "").trim();
+    const tokens = [clean];
+    const suffixes = [/'s Art/gi, /'s Blessing/gi, / Strike/gi, /'s Wrath/gi, /'s Torment/gi, / Touch/gi, / Legacy/gi, /'s Sorrow/gi, / Set/gi];
+    for (const s of suffixes) {
+        const stripped = clean.replace(s, "").trim();
+        if (stripped && stripped !== clean) {
+            tokens.push(stripped);
+        }
+    }
+    for (const t of [...tokens]) {
+        const noQuote = t.replace(/['’]/g, "");
+        if (!tokens.includes(noQuote)) tokens.push(noQuote);
+    }
+    return tokens;
+}
+
+async function resolveSetSlotItem(setName, slotId, slotName, armorWeight = "Medium", weaponType = "Dagger", providedItemName, providedIcon) {
+    const defaultIcon = SAFE_SLOT_DEFAULTS[slotId] || SAFE_SLOT_DEFAULTS[0];
+
+    if (providedIcon && typeof providedIcon === "string" && providedIcon.startsWith("http") && !providedIcon.includes("quest_container")) {
+        return {
+            itemName: providedItemName || `${setName || 'Custom'} ${slotName}`,
+            itemIcon: providedIcon.replace(".dds", ".png"),
+            gameItemId: null,
+            effectiveWeight: armorWeight
+        };
+    }
+
+    if (!setName) {
+        return {
+            itemName: providedItemName || slotName,
+            itemIcon: defaultIcon,
+            gameItemId: null,
+            effectiveWeight: armorWeight
+        };
+    }
+
+    const allowedWeights = setWeightsMap[setName] || ["Light", "Medium", "Heavy"];
+    const effectiveWeight = allowedWeights.includes(armorWeight) ? armorWeight : (allowedWeights[0] || "Medium");
+    const tokens = getSetSearchTokens(setName);
+
+    try {
+        let matchingItems = [];
+        for (const token of tokens) {
+            const rows = await dbAll(`
+                SELECT game_item_id, name, icon_url
+                FROM items
+                WHERE (LOWER(name) LIKE ? OR LOWER(metadata) LIKE ?)
+                  AND icon_url IS NOT NULL
+                  AND icon_url NOT LIKE '%quest_container%'
+                  AND icon_url NOT LIKE '%crate%'
+                  AND icon_url NOT LIKE '%quest_letter%'
+                  AND icon_url NOT LIKE '%station%'
+                LIMIT 60;
+            `, [`%${token.toLowerCase()}%`, `%${token.toLowerCase()}%`]);
+
+            if (rows.length > 0) {
+                matchingItems = rows;
+                break;
+            }
+        }
+
+        // Armor slots with weight
+        if (WEIGHT_SLOT_KEYWORDS[slotId]) {
+            const weightKws = WEIGHT_SLOT_KEYWORDS[slotId][effectiveWeight] || WEIGHT_SLOT_KEYWORDS[slotId]["Medium"] || [];
+            for (const kw of weightKws) {
+                for (const it of matchingItems) {
+                    if (it.name.toLowerCase().includes(kw)) {
+                        return {
+                            itemName: it.name,
+                            itemIcon: (it.icon_url || defaultIcon).replace(".dds", ".png"),
+                            gameItemId: it.game_item_id,
+                            effectiveWeight
+                        };
+                    }
+                }
+            }
+            // General slot fallback
+            for (const w of Object.keys(WEIGHT_SLOT_KEYWORDS[slotId])) {
+                for (const kw of WEIGHT_SLOT_KEYWORDS[slotId][w]) {
+                    for (const it of matchingItems) {
+                        if (it.name.toLowerCase().includes(kw)) {
+                            return {
+                                itemName: it.name,
+                                itemIcon: (it.icon_url || defaultIcon).replace(".dds", ".png"),
+                                gameItemId: it.game_item_id,
+                                effectiveWeight
+                            };
+                        }
+                    }
+                }
+            }
+        }
+
+        // Weapon slots with weaponType
+        if ([4, 5, 12, 20, 21].includes(slotId)) {
+            const wpnKws = WEAPON_KEYWORDS[weaponType] || WEAPON_KEYWORDS["Dagger"] || ["dagger"];
+            for (const kw of wpnKws) {
+                for (const it of matchingItems) {
+                    if (it.name.toLowerCase().includes(kw)) {
+                        return {
+                            itemName: it.name,
+                            itemIcon: (it.icon_url || defaultIcon).replace(".dds", ".png"),
+                            gameItemId: it.game_item_id,
+                            effectiveWeight
+                        };
+                    }
+                }
+            }
+            for (const wpn of Object.keys(WEAPON_KEYWORDS)) {
+                for (const kw of WEAPON_KEYWORDS[wpn]) {
+                    for (const it of matchingItems) {
+                        if (it.name.toLowerCase().includes(kw)) {
+                            return {
+                                itemName: it.name,
+                                itemIcon: (it.icon_url || defaultIcon).replace(".dds", ".png"),
+                                gameItemId: it.game_item_id,
+                                effectiveWeight
+                            };
+                        }
+                    }
+                }
+            }
+        }
+
+        // Jewelry slots
+        if (slotId === 1) {
+            const neckKws = ["necklace", "amulet", "pendant", "choker", "collar", "talisman", "chain", "beads"];
+            for (const kw of neckKws) {
+                for (const it of matchingItems) {
+                    if (it.name.toLowerCase().includes(kw)) {
+                        return {
+                            itemName: it.name,
+                            itemIcon: (it.icon_url || defaultIcon).replace(".dds", ".png"),
+                            gameItemId: it.game_item_id,
+                            effectiveWeight
+                        };
+                    }
+                }
+            }
+        } else if ([9, 10, 11].includes(slotId)) {
+            const ringKws = ["ring", "band", "loop", "signet"];
+            for (const kw of ringKws) {
+                for (const it of matchingItems) {
+                    if (it.name.toLowerCase().includes(kw)) {
+                        return {
+                            itemName: it.name,
+                            itemIcon: (it.icon_url || defaultIcon).replace(".dds", ".png"),
+                            gameItemId: it.game_item_id,
+                            effectiveWeight
+                        };
+                    }
+                }
+            }
+        }
+
+        if (matchingItems.length > 0) {
+            return {
+                itemName: matchingItems[0].name,
+                itemIcon: (matchingItems[0].icon_url || defaultIcon).replace(".dds", ".png"),
+                gameItemId: matchingItems[0].game_item_id,
+                effectiveWeight
+            };
+        }
+    } catch (e) {
+        console.error("Error resolving set slot item:", e.message);
+    }
+
+    return {
+        itemName: providedItemName || `${setName} ${slotName}`,
+        itemIcon: defaultIcon,
+        gameItemId: null,
+        effectiveWeight
+    };
+}
+
+/**
+ * GET /api/sets/resolve-item
+ * Dynamically resolves authentic item name, verified icon, and game ID given a set, slot, weight, and weapon type.
+ */
+app.get("/api/sets/resolve-item", async (req, res) => {
+    const { set, slot_id, slot_name, weight, weapon } = req.query;
+    if (!set) {
+        return res.status(400).json({ error: "Set name is required." });
+    }
+    try {
+        const resolved = await resolveSetSlotItem(set, Number(slot_id) || 0, slot_name || "Slot", weight || "Medium", weapon || "Dagger");
+        const allowedWeights = setWeightsMap[set] || ["Light", "Medium", "Heavy"];
+        res.json({
+            success: true,
+            set_name: set,
+            slot_id: Number(slot_id) || 0,
+            item_name: resolved.itemName,
+            item_icon: resolved.itemIcon,
+            game_item_id: resolved.gameItemId,
+            effective_weight: resolved.effectiveWeight,
+            allowed_weights: allowedWeights
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * GET /api/builds/:id
+ * Fetches complete build details and all 12 slot items.
+ */
+app.get("/api/builds/:id", async (req, res) => {
+    const buildId = req.params.id;
+    try {
+        const build = await dbGet(`SELECT * FROM builds WHERE id = ?;`, [buildId]);
+        if (!build) {
+            return res.status(404).json({ error: "Build not found." });
+        }
+
+        const rawItems = await dbAll(`
+            SELECT 
+                bi.*,
+                REPLACE(COALESCE(bi.item_icon, i.icon_url), '.dds', '.png') as item_icon
+            FROM build_items bi
+            LEFT JOIN items i ON i.game_item_id = bi.game_item_id
+            WHERE bi.build_id = ? 
+            ORDER BY bi.slot_id ASC;
+        `, [buildId]);
+
+        // Ensure every item has a valid, non-null in-game icon and authentic name
+        const items = await Promise.all(rawItems.map(async (it) => {
+            if (!it.item_icon || it.item_icon === "" || it.item_icon.includes("quest_container")) {
+                const resolved = await resolveSetSlotItem(it.set_name, it.slot_id, it.slot_name, it.armor_weight || "Medium", it.weapon_type || "Dagger", it.item_name, it.item_icon);
+                return {
+                    ...it,
+                    item_name: it.item_name || resolved.itemName,
+                    item_icon: resolved.itemIcon
+                };
+            }
+            return it;
+        }));
+
+        // Calculate Set Counts
+        const setCounts = {};
+        items.forEach((item) => {
+            if (item.set_name) {
+                setCounts[item.set_name] = (setCounts[item.set_name] || 0) + 1;
+            }
+        });
+
+        res.json({
+            success: true,
+            build: {
+                ...build,
+                items,
+                sets: Object.keys(setCounts).map((name) => ({ name, count: setCounts[name] }))
+            }
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * POST /api/builds
+ * Creates a custom user build with automatic in-game name & authentic icon resolution.
+ */
+app.post("/api/builds", async (req, res) => {
+    let userId = await getAuthUserId(req);
+    if (!userId) {
+        return res.status(401).json({ error: "Authentication required to create custom builds. Please sign in or switch accounts in the top-right menu." });
+    }
+
+    const { title, description, class: buildClass, role, author, source_url, items = [] } = req.body;
+    if (!title || !buildClass || !role) {
+        return res.status(400).json({ error: "Title, class, and role are required." });
+    }
+
+    try {
+        await dbRun("BEGIN IMMEDIATE TRANSACTION");
+
+        const user = await dbGet(`SELECT username FROM users WHERE id = ?;`, [userId]);
+        const authorName = author || (user ? `@${user.username}` : "Custom Builder");
+
+        const buildResult = await new Promise((resolve, reject) => {
+            db.run(`
+                INSERT INTO builds (user_id, title, description, class, role, author, source_url, is_curated)
+                VALUES (?, ?, ?, ?, ?, ?, ?, 0);
+            `, [userId, title, description || "", buildClass, role, authorName, source_url || ""], function (err) {
+                if (err) reject(err);
+                else resolve(this.lastID);
+            });
+        });
+
+        const buildId = buildResult;
+
+        if (Array.isArray(items) && items.length > 0) {
+            const insertItemStmt = db.prepare(`
+                INSERT INTO build_items (build_id, slot_id, slot_name, game_item_id, item_name, set_name, item_type, item_icon, trait_id, trait_name, enchantment, quality, is_tradeable, source_location, armor_weight, weapon_type)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+            `);
+
+            for (const it of items) {
+                const slotId = it.slot_id !== undefined ? it.slot_id : 0;
+                const slotName = it.slot_name || "Slot";
+                const armorWeight = it.armor_weight || "Medium";
+                const weaponType = it.weapon_type || "Dagger";
+                
+                // Intelligently resolve authentic name, game_item_id, and icon
+                const resolved = await resolveSetSlotItem(it.set_name, slotId, slotName, armorWeight, weaponType, it.item_name, it.item_icon);
+
+                insertItemStmt.run(
+                    buildId,
+                    slotId,
+                    slotName,
+                    it.game_item_id || resolved.gameItemId || null,
+                    resolved.itemName,
+                    it.set_name || "Custom Set",
+                    it.item_type || "Armor",
+                    resolved.itemIcon,
+                    it.trait_id || 0,
+                    it.trait_name || "Divines",
+                    it.enchantment || "Max Magicka",
+                    it.quality || 4,
+                    it.is_tradeable !== undefined ? it.is_tradeable : 1,
+                    it.source_location || "Tamriel",
+                    armorWeight,
+                    weaponType
+                );
+            }
+            insertItemStmt.finalize();
+        }
+
+        await dbRun("COMMIT");
+        res.json({ success: true, build_id: buildId, message: "Custom build saved successfully." });
+    } catch (err) {
+        await dbRun("ROLLBACK");
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * DELETE /api/builds/:id
+ * Deletes a user-owned build.
+ */
+app.delete("/api/builds/:id", async (req, res) => {
+    let userId = await getAuthUserId(req);
+    if (!userId) {
+        return res.status(401).json({ error: "Authentication required to delete builds." });
+    }
+
+    const buildId = req.params.id;
+    try {
+        const build = await dbGet(`SELECT * FROM builds WHERE id = ?;`, [buildId]);
+        if (!build) {
+            return res.status(404).json({ error: "Build not found." });
+        }
+
+        if (build.is_curated) {
+            return res.status(403).json({ error: "Curated meta presets cannot be deleted." });
+        }
+
+        const user = await dbGet(`SELECT role FROM users WHERE id = ?;`, [userId]);
+        const isAdmin = user && user.role === "admin";
+
+        if (build.user_id !== userId && !isAdmin) {
+            return res.status(403).json({ error: "Forbidden: You do not have permission to delete this build." });
+        }
+
+        await dbRun(`DELETE FROM builds WHERE id = ?;`, [buildId]);
+        res.json({ success: true, message: "Build deleted successfully." });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * GET /api/builds/:id/diff/:character_id
+ * Diffs target build requirements against character's BAG_WORN loadout.
+ */
+app.get("/api/builds/:id/diff/:character_id", async (req, res) => {
+    const { id: buildId, character_id: charId } = req.params;
+
+    try {
+        const build = await dbGet(`SELECT * FROM builds WHERE id = ?;`, [buildId]);
+        if (!build) {
+            return res.status(404).json({ error: "Build not found." });
+        }
+
+        const character = await dbGet(`SELECT * FROM characters WHERE id = ?;`, [charId]);
+        if (!character) {
+            return res.status(404).json({ error: "Character not found." });
+        }
+
+        const buildItems = await dbAll(`SELECT * FROM build_items WHERE build_id = ? ORDER BY slot_id ASC;`, [buildId]);
+        const characterGear = await dbAll(`SELECT * FROM character_gear WHERE character_id = ?;`, [charId]);
+
+        const gearBySlot = {};
+        characterGear.forEach((g) => {
+            gearBySlot[g.slot_id] = g;
+        });
+
+        let matchedCount = 0;
+        let traitMismatchCount = 0;
+        let missingCount = 0;
+
+        const slotDiffs = buildItems.map((target) => {
+            const equipped = gearBySlot[target.slot_id];
+            let status = "missing"; // 'matched', 'trait_mismatch', 'missing'
+
+            if (equipped) {
+                const targetSetClean = (target.set_name || "").toLowerCase().trim();
+                const equippedSetClean = (equipped.set_name || "").toLowerCase().trim();
+                const targetItemClean = (target.item_name || "").toLowerCase().trim();
+                const equippedItemClean = (equipped.item_name || "").toLowerCase().trim();
+
+                const isSetMatch = targetSetClean && equippedSetClean && (equippedSetClean.includes(targetSetClean) || targetSetClean.includes(equippedSetClean));
+                const isItemMatch = targetItemClean && equippedItemClean && (equippedItemClean.includes(targetItemClean) || targetItemClean.includes(equippedItemClean));
+
+                if (isSetMatch || isItemMatch) {
+                    const traitMatches = (target.trait_name || "").toLowerCase() === (equipped.trait_name || "").toLowerCase() || (target.trait_id && target.trait_id === equipped.trait_id);
+                    if (traitMatches) {
+                        status = "matched";
+                        matchedCount++;
+                    } else {
+                        status = "trait_mismatch";
+                        traitMismatchCount++;
+                    }
+                } else {
+                    missingCount++;
+                }
+            } else {
+                missingCount++;
+            }
+
+            return {
+                slot_id: target.slot_id,
+                slot_name: target.slot_name,
+                target_item: target,
+                equipped_item: equipped || null,
+                status
+            };
+        });
+
+        const totalSlots = buildItems.length || 12;
+        const completionRate = totalSlots > 0 ? Math.round((matchedCount / totalSlots) * 100) : 0;
+
+        res.json({
+            success: true,
+            build_id: Number(buildId),
+            character_id: Number(charId),
+            character_name: character.name,
+            total_slots: totalSlots,
+            matched_count: matchedCount,
+            trait_mismatch_count: traitMismatchCount,
+            missing_count: missingCount,
+            completion_rate: completionRate,
+            slot_diffs: slotDiffs
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * GET /api/builds/:id/deals
+ * Queries active guild trader listings for tradeable missing build pieces and calculates TTC discounts.
+ */
+app.get("/api/builds/:id/deals", async (req, res) => {
+    const buildId = req.params.id;
+    const server = (req.query.server || "NA").toUpperCase();
+    const charId = req.query.character_id;
+
+    try {
+        const build = await dbGet(`SELECT * FROM builds WHERE id = ?;`, [buildId]);
+        if (!build) {
+            return res.status(404).json({ error: "Build not found." });
+        }
+
+        const buildItems = await dbAll(`SELECT * FROM build_items WHERE build_id = ? ORDER BY slot_id ASC;`, [buildId]);
+
+        // If charId is passed, filter down to items not already equipped and matched
+        let targetItemsToSearch = buildItems;
+        if (charId) {
+            const charGear = await dbAll(`SELECT * FROM character_gear WHERE character_id = ?;`, [charId]);
+            const equippedSlots = new Set();
+            charGear.forEach((g) => {
+                equippedSlots.add(g.slot_id);
+            });
+            targetItemsToSearch = buildItems.filter((it) => !equippedSlots.has(it.slot_id));
+        }
+
+        const dealsBySlot = [];
+        let totalEstCost = 0;
+        const zoneListings = {};
+
+        for (const item of targetItemsToSearch) {
+            if (!item.is_tradeable) {
+                dealsBySlot.push({
+                    slot_id: item.slot_id,
+                    slot_name: item.slot_name,
+                    item_name: item.item_name,
+                    set_name: item.set_name,
+                    is_tradeable: 0,
+                    source_location: item.source_location,
+                    warning: "Bind on Pickup (Cannot be purchased on Guild Traders)",
+                    listings: []
+                });
+                continue;
+            }
+
+            // Search guild trader listings by set name
+            const listingsQuery = `
+                SELECT 
+                    g.*,
+                    p.avg_price as ttc_avg_price,
+                    p.suggested_price as ttc_suggested_price
+                FROM guild_trader_listings g
+                LEFT JOIN item_prices p ON g.game_item_id = p.game_item_id AND g.server = p.server
+                WHERE g.server = ? 
+                  AND (g.item_name LIKE ? OR g.item_name LIKE ?)
+                ORDER BY g.price ASC
+                LIMIT 5;
+            `;
+            const cleanSetName = item.set_name.replace(/^(Perfected\s+)/i, "").trim();
+            const rawListings = await dbAll(listingsQuery, [server, `%${cleanSetName}%`, `%${item.item_name}%`]);
+
+            const mappedListings = rawListings.map((l) => {
+                const suggested = l.ttc_suggested_price || l.ttc_avg_price || l.price;
+                const discount = suggested > 0 ? Math.round(((suggested - l.price) / suggested) * 100) : 0;
+                let dealBadge = "fair";
+                if (discount >= 40) dealBadge = "steal";
+                else if (discount >= 15) dealBadge = "great";
+                else if (discount < 0) dealBadge = "above_market";
+
+                const zone = l.location || "Tamriel";
+                if (!zoneListings[zone]) zoneListings[zone] = [];
+                zoneListings[zone].push({
+                    item_name: l.item_name || item.item_name,
+                    price: l.price,
+                    guild_name: l.guild_name,
+                    seller: l.seller_name
+                });
+
+                return {
+                    id: l.id,
+                    game_item_id: l.game_item_id,
+                    item_name: l.item_name || item.item_name,
+                    price: l.price,
+                    quantity: l.quantity,
+                    guild_name: l.guild_name,
+                    location: l.location,
+                    seller_name: l.seller_name,
+                    quality: l.quality,
+                    ttc_suggested_price: suggested,
+                    discount_percent: discount,
+                    deal_badge: dealBadge
+                };
+            });
+
+            if (mappedListings.length > 0) {
+                totalEstCost += mappedListings[0].price; // Add cheapest listing price
+            }
+
+            dealsBySlot.push({
+                slot_id: item.slot_id,
+                slot_name: item.slot_name,
+                item_name: item.item_name,
+                set_name: item.set_name,
+                is_tradeable: 1,
+                source_location: item.source_location,
+                cheapest_price: mappedListings.length > 0 ? mappedListings[0].price : null,
+                listings: mappedListings
+            });
+        }
+
+        const zoneItinerary = Object.keys(zoneListings).map((zone) => ({
+            zone_location: zone,
+            items_available: zoneListings[zone].length,
+            listings: zoneListings[zone]
+        })).sort((a, b) => b.items_available - a.items_available);
+
+        res.json({
+            success: true,
+            build_id: Number(buildId),
+            build_title: build.title,
+            server,
+            total_items_checked: targetItemsToSearch.length,
+            total_estimated_gold: totalEstCost,
+            deals_by_slot: dealsBySlot,
+            zone_itinerary: zoneItinerary
+        });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

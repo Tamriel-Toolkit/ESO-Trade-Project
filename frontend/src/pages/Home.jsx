@@ -78,7 +78,7 @@ function Home() {
             <div className="eso-divider max-w-md mx-auto my-3"></div>
 
             <p className="text-sm md:text-base text-[#a89f91] max-w-2xl mx-auto leading-relaxed">
-              Real-time market analytics, active guild trader kiosk scans, and 155,476 authentic price index records direct from Tamriel's trading guilds.
+              Real-time market analytics, active guild trader market scans, and 155,476 authentic price index records direct from Tamriel's trading guilds.
             </p>
 
             {/* Quick Action Navigation */}
@@ -110,7 +110,7 @@ function Home() {
 
           <div className="eso-card p-5 text-center space-y-1 border-b-2 border-b-[#c5a059]">
             <Zap className="size-6 text-[#c5a059] mx-auto mb-2" />
-            <h3 className="font-cinzel text-lg font-bold text-[#e0d8c3]">Live Kiosk Scans</h3>
+            <h3 className="font-cinzel text-lg font-bold text-[#e0d8c3]">Live Market Scans</h3>
             <p className="text-xs text-[#a89f91]">Native in-game ESOTrade addon sync & automated Desktop watcher pipeline.</p>
           </div>
 

@@ -1,0 +1,617 @@
+import React, { useState, useEffect, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { 
+    X, Shield, Award, Sparkles, Sword, CheckCircle2, Zap, Layers, RefreshCw, 
+    ExternalLink, ShoppingCart, Lock, AlertTriangle, ChevronRight, Copy, Check,
+    Store, MapPin, Tag, ArrowRight, User, Search, Trash2
+} from "lucide-react";
+import { fetchBuildById, fetchBuildGearDiff, fetchBuildDeals, fetchCharacters, deleteBuild } from "@/api/api";
+import { useAuth } from "@/context/AuthContext";
+import { AnatomicalEquipmentDiagram } from "@/components/character/AnatomicalEquipmentDiagram";
+import { getEsoIconUrl } from "@/lib/utils";
+
+const ROLE_COLORS = {
+    "Magicka DPS": "text-sky-400 border-sky-500/40 bg-sky-950/20",
+    "Stamina DPS": "text-emerald-400 border-emerald-500/40 bg-emerald-950/20",
+    "Tank": "text-amber-400 border-amber-500/40 bg-amber-950/20",
+    "Healer": "text-yellow-300 border-yellow-500/40 bg-yellow-950/20",
+    "Solo / Arena": "text-purple-400 border-purple-500/40 bg-purple-950/20",
+    "PvP": "text-red-400 border-red-500/40 bg-red-950/20"
+};
+
+export function BuildDetailModal({ buildId, initialTab = "gear", onClose, onBuildDeleted }) {
+    const navigate = useNavigate();
+    const { user } = useAuth();
+    const [loading, setLoading] = useState(true);
+    const [build, setBuild] = useState(null);
+    const [deleting, setDeleting] = useState(false);
+    const [activeTab, setActiveTab] = useState(initialTab === "deals" ? "diff" : initialTab); // "gear", "diff"
+    const [activeWeaponBar, setActiveWeaponBar] = useState("front"); // "front" or "back"
+    const [characters, setCharacters] = useState([]);
+    const [selectedCharId, setSelectedCharId] = useState("");
+    const [diffData, setDiffData] = useState(null);
+    const [diffLoading, setDiffLoading] = useState(false);
+    const [dealsData, setDealsData] = useState(null);
+    const [dealsLoading, setDealsLoading] = useState(false);
+    const [server, setServer] = useState("NA");
+    const [copiedZone, setCopiedZone] = useState(null);
+
+    // Initial Load
+    useEffect(() => {
+        if (!buildId) return;
+        setLoading(true);
+        Promise.all([
+            fetchBuildById(buildId),
+            fetchCharacters()
+        ]).then(([buildRes, charRes]) => {
+            if (buildRes && buildRes.success) {
+                setBuild(buildRes.build);
+            }
+            if (charRes && charRes.characters && charRes.characters.length > 0) {
+                setCharacters(charRes.characters);
+                setSelectedCharId(charRes.characters[0].id);
+            }
+            setLoading(false);
+        }).catch(() => setLoading(false));
+    }, [buildId]);
+
+    // Format build items into gearBySlot mapping for AnatomicalEquipmentDiagram
+    const gearBySlot = useMemo(() => {
+        if (!build?.items) return {};
+        const map = {};
+        build.items.forEach((item) => {
+            map[item.slot_id] = {
+                ...item,
+                item_icon: item.item_icon || item.icon_url,
+                item_name: item.item_name,
+                set_name: item.set_name,
+                quality: item.quality || 4,
+                trait_name: item.trait_name || "Divines",
+                trait_id: item.trait_id || 18,
+                enchantment: item.enchantment || "Max Stamina",
+                is_tradeable: item.is_tradeable,
+                source_location: item.source_location
+            };
+        });
+        return map;
+    }, [build]);
+
+    // Fetch Diff and Deals together when on comparison tab or character changes
+    useEffect(() => {
+        if (!buildId || !selectedCharId || activeTab !== "diff") return;
+        setDiffLoading(true);
+        setDealsLoading(true);
+
+        Promise.all([
+            fetchBuildGearDiff(buildId, selectedCharId),
+            fetchBuildDeals(buildId, { server, characterId: selectedCharId || undefined })
+        ]).then(([diffRes, dealsRes]) => {
+            if (diffRes && diffRes.success) {
+                setDiffData(diffRes);
+            }
+            if (dealsRes && dealsRes.success) {
+                setDealsData(dealsRes);
+            }
+            setDiffLoading(false);
+            setDealsLoading(false);
+        }).catch(() => {
+            setDiffLoading(false);
+            setDealsLoading(false);
+        });
+    }, [buildId, selectedCharId, activeTab, server]);
+
+    // Escape Key Listener
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [onClose]);
+
+    const handleCopyZoneCommand = (zone, listings) => {
+        const itemNames = listings.map(l => l.item_name).slice(0, 3).join(", ");
+        const text = `/say [Tamriel Trade Hub] Shopping at ${zone}: Looking for ${itemNames}`;
+        navigator.clipboard.writeText(text);
+        setCopiedZone(zone);
+        setTimeout(() => setCopiedZone(null), 2500);
+    };
+
+    const handleSearchMarketplace = (itemName, setName) => {
+        const isGeneric = !itemName || 
+            / (Legs|Head|Chest|Shoulders|Waist|Feet|Hands|Ring 1|Ring 2|Necklace|Main Hand|Off Hand)$/i.test(itemName) ||
+            /^Monster (Helm|Shoulders)/i.test(itemName);
+
+        const query = (isGeneric && setName) ? setName : (itemName || setName || "");
+        navigate(`/marketplace?search=${encodeURIComponent(query.trim())}`);
+        onClose();
+    };
+
+    const handleDelete = async () => {
+        if (!window.confirm(`Are you sure you want to permanently delete "${build?.title || 'this custom build'}"?`)) return;
+        setDeleting(true);
+        const res = await deleteBuild(buildId);
+        if (res && res.success) {
+            if (onBuildDeleted) onBuildDeleted(buildId);
+            onClose();
+        } else {
+            alert(res?.error || "Failed to delete build.");
+            setDeleting(false);
+        }
+    };
+
+    if (!buildId) return null;
+
+    return (
+        <div 
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
+            role="dialog"
+            aria-modal="true"
+            aria-label={build?.title ? `${build.title} Build Specifications` : "Build Details"}
+        >
+            <div className="relative w-full max-w-6xl max-h-[94vh] flex flex-col bg-[#111116] border-2 border-[#c5a059]/50 rounded-none shadow-[0_10px_40px_rgba(0,0,0,0.9)] overflow-hidden">
+                {/* Modal Header */}
+                <div className="px-6 py-5 border-b border-[#2a2c33] bg-[#161620] flex items-start justify-between relative gap-4">
+                    <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#c5a059] to-transparent pointer-events-none" />
+                    <div>
+                        <div className="flex flex-wrap items-center gap-2.5 mb-1.5">
+                            {build?.is_curated ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-none text-xs font-cinzel font-bold bg-[#c5a059]/15 text-[#e6c278] border border-[#c5a059]/40 uppercase tracking-wider">
+                                    <Sparkles className="size-3 text-[#e6c278]" /> Curated
+                                </span>
+                            ) : (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-none text-xs font-cinzel font-bold bg-purple-950/40 text-purple-300 border border-purple-500/40 uppercase tracking-wider">
+                                    <User className="size-3" /> Custom
+                                </span>
+                            )}
+                            <span className={`px-2.5 py-0.5 rounded-none text-xs font-semibold border uppercase tracking-wider ${ROLE_COLORS[build?.role] || "text-gray-300 border-gray-700 bg-gray-900/40"}`}>
+                                {build?.role}
+                            </span>
+                            <span className="px-2.5 py-0.5 rounded-none text-xs font-semibold text-[#c5a059] border border-[#c5a059]/30 bg-[#0a0a0d] font-cinzel uppercase tracking-wider">
+                                {build?.class}
+                            </span>
+                        </div>
+                        <h2 className="text-xl sm:text-2xl font-cinzel font-bold text-[#e0d8c3] tracking-wide">
+                            {build ? build.title : "Loading Build..."}
+                        </h2>
+                        {build?.author && (
+                            <p className="text-xs text-muted-foreground mt-0.5 font-cinzel">
+                                By <span className="text-[#e6c278] font-medium">{build.author}</span>
+                                {build.source_url && (
+                                    <a 
+                                        href={build.source_url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="inline-flex items-center gap-1 ml-2 text-[#c5a059] hover:text-[#fce2a6] underline"
+                                    >
+                                        Guide <ExternalLink className="size-3" />
+                                    </a>
+                                )}
+                            </p>
+                        )}
+                    </div>
+                    
+                    <div className="flex items-center gap-2 shrink-0">
+                        {Boolean(user && build && !build.is_curated && (build.user_id === user.id || user.role === "admin")) && (
+                            <button
+                                onClick={handleDelete}
+                                disabled={deleting}
+                                className="px-3 py-1.5 rounded-none bg-red-950/50 hover:bg-red-900/70 text-red-300 border border-red-500/40 text-xs font-cinzel font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                                title="Delete this custom build"
+                                aria-label="Delete build"
+                            >
+                                <Trash2 className="size-3.5" />
+                                {deleting ? "Deleting..." : "Delete Build"}
+                            </button>
+                        )}
+                        <button
+                            onClick={onClose}
+                            className="p-1.5 rounded-none text-muted-foreground hover:text-white hover:bg-white/5 transition-colors border border-transparent hover:border-[#c5a059]/30 cursor-pointer"
+                            aria-label="Close build details modal"
+                        >
+                            <X className="size-5" />
+                        </button>
+                    </div>
+                </div>
+
+                {/* Tab Navigation (Merged into Equipment & Comparison) */}
+                <div className="px-6 py-2.5 bg-[#0e0e13] border-b border-[#2a2c33] flex items-center justify-between overflow-x-auto gap-3">
+                    <div className="flex items-center gap-2">
+                        <button
+                            onClick={() => setActiveTab("gear")}
+                            className={`px-4 py-2 rounded-none text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                                activeTab === "gear"
+                                    ? "bg-[#c5a059] text-black shadow-md"
+                                    : "text-[#a89f91] hover:text-[#e0d8c3] hover:bg-[#161620] border border-transparent"
+                            }`}
+                        >
+                            <Shield className="size-3.5" /> Equipment
+                        </button>
+                        <button
+                            onClick={() => setActiveTab("diff")}
+                            className={`px-4 py-2 rounded-none text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer ${
+                                activeTab === "diff"
+                                    ? "bg-[#c5a059] text-black shadow-md"
+                                    : "text-[#a89f91] hover:text-[#e0d8c3] hover:bg-[#161620] border border-transparent"
+                            }`}
+                        >
+                            <Sword className="size-3.5" /> Comparison
+                        </button>
+                    </div>
+
+                    {/* Server toggle for live market pricing */}
+                    {activeTab === "diff" && (
+                        <div className="flex items-center gap-1 bg-[#161620] p-0.5 rounded-none border border-[#2a2c33]">
+                            {["NA", "EU"].map((srv) => (
+                                <button
+                                    key={srv}
+                                    onClick={() => setServer(srv)}
+                                    className={`px-3 py-1 rounded-none text-xs font-cinzel font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                                        server === srv ? "bg-[#c5a059] text-black" : "text-muted-foreground hover:text-white"
+                                    }`}
+                                >
+                                    {srv}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* Modal Body */}
+                <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-[#0a0a0d]">
+                    {loading ? (
+                        <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                            <RefreshCw className="size-8 animate-spin text-[#c5a059] mb-3" />
+                            <p className="font-cinzel text-sm">Loading build data...</p>
+                        </div>
+                    ) : (
+                        <>
+                            {/* TAB 1: EQUIPMENT LOADOUT & SET BONUSES */}
+                            {activeTab === "gear" && (
+                                <div className="space-y-5">
+                                    {build?.description && (
+                                        <div className="p-3.5 rounded-none bg-[#121218] border border-[#2a2c33] text-xs text-[#b8af9f] leading-relaxed">
+                                            {build.description}
+                                        </div>
+                                    )}
+
+                                    {/* Anatomical Diagram + Active Sets Sidebar Layout */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                        {/* Left 2 Cols: Full Anatomical Equipment Diagram with Bar Toggle */}
+                                        <div className="lg:col-span-2 space-y-3">
+                                            <div className="flex items-center justify-between bg-[#121218] px-3 py-2 border border-[#2a2c33]">
+                                                <span className="font-cinzel font-bold text-xs text-[#c5a059] uppercase tracking-wider flex items-center gap-1.5">
+                                                    <Shield className="size-3.5" /> Equipment
+                                                </span>
+
+                                                {/* Weapon Bar Toggle */}
+                                                <div className="flex items-center gap-1 bg-[#0a0a0d] p-0.5 border border-[#2a2c33]">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setActiveWeaponBar("front")}
+                                                        className={`px-3 py-1 text-xs font-cinzel font-bold uppercase border transition-all cursor-pointer ${
+                                                            activeWeaponBar === "front" ? "bg-[#c5a059] text-black border-[#c5a059]" : "text-[#b0a696] border-transparent hover:text-[#e0d8c3]"
+                                                        }`}
+                                                    >
+                                                        Front Bar
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setActiveWeaponBar("back")}
+                                                        className={`px-3 py-1 text-xs font-cinzel font-bold uppercase border transition-all cursor-pointer ${
+                                                            activeWeaponBar === "back" ? "bg-[#c5a059] text-black border-[#c5a059]" : "text-[#b0a696] border-transparent hover:text-[#e0d8c3]"
+                                                        }`}
+                                                    >
+                                                        Back Bar
+                                                    </button>
+                                                </div>
+                                            </div>
+
+                                            <AnatomicalEquipmentDiagram gearBySlot={gearBySlot} activeBar={activeWeaponBar} />
+                                        </div>
+
+                                        {/* Right 1 Col: Active Set Bonuses Sidebar & Acquisition Summary */}
+                                        <div className="space-y-4 text-xs">
+                                            {/* Active Set Bonus Counter */}
+                                            <div className="p-4 bg-[#121218] border border-[#2a2c33] space-y-3">
+                                                <span className="font-cinzel font-bold text-xs text-[#c5a059] uppercase tracking-wider block flex items-center justify-between border-b border-[#2a2c33] pb-2">
+                                                    <span>Set Bonuses ({activeWeaponBar.toUpperCase()} BAR)</span>
+                                                    <Layers className="size-4 text-[#c5a059]" />
+                                                </span>
+
+                                                {build?.sets && build.sets.length > 0 ? (
+                                                    <div className="space-y-2.5">
+                                                        {build.sets.map((s) => (
+                                                            <div key={s.name} className="p-2.5 rounded-none bg-[#0a0a0d] border border-[#2a2c33] flex items-center justify-between">
+                                                                <div>
+                                                                    <div className="font-cinzel font-bold text-xs text-[#e0d8c3]">{s.name}</div>
+                                                                </div>
+                                                                <span className="px-2 py-0.5 rounded-none bg-[#c5a059]/20 text-[#e6c278] font-mono text-[10px] font-bold">
+                                                                    {s.count} pcs
+                                                                </span>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-[11px] text-[#8a8275] italic">No set bonuses logged.</p>
+                                                )}
+                                            </div>
+
+                                            {/* Acquisition Summary */}
+                                            <div className="p-4 bg-[#121218] border border-[#2a2c33] space-y-3">
+                                                <span className="font-cinzel font-bold text-xs text-[#c5a059] uppercase tracking-wider block border-b border-[#2a2c33] pb-2">
+                                                    Acquisition
+                                                </span>
+                                                <div className="space-y-2.5 text-[11px]">
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-emerald-400 font-medium flex items-center gap-1 font-cinzel">
+                                                            <ShoppingCart className="size-3" /> Tradeable:
+                                                        </span>
+                                                        <span className="font-bold text-[#e0d8c3] font-mono">
+                                                            {build?.items?.filter(i => i.is_tradeable).length || 0} slots
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center justify-between">
+                                                        <span className="text-red-400 font-medium flex items-center gap-1 font-cinzel">
+                                                            <Lock className="size-3" /> Bound:
+                                                        </span>
+                                                        <span className="font-bold text-[#e0d8c3] font-mono">
+                                                            {build?.items?.filter(i => !i.is_tradeable).length || 0} slots
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* TAB 2: MERGED COMPARISON & MARKET DEALS */}
+                            {activeTab === "diff" && (
+                                <div className="space-y-6">
+                                    {/* Character Selector & Server Banner */}
+                                    <div className="p-4 rounded-none bg-[#121218] border border-[#2a2c33] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                        <div>
+                                            <h3 className="font-cinzel font-bold text-[#e0d8c3] text-sm uppercase tracking-wider">
+                                                Character Gear Comparison & Market Deals
+                                            </h3>
+                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                                Comparing against character loadout and scanning {server} guild traders for tradeable pieces.
+                                            </p>
+                                        </div>
+                                        {characters.length > 0 ? (
+                                            <div className="flex items-center gap-2">
+                                                <label htmlFor="char-select" className="text-xs text-muted-foreground font-cinzel uppercase tracking-wider">Character:</label>
+                                                <select
+                                                    id="char-select"
+                                                    value={selectedCharId}
+                                                    onChange={(e) => setSelectedCharId(e.target.value)}
+                                                    className="px-3 py-1.5 rounded-none bg-[#0a0a0d] border border-[#c5a059]/40 text-[#fce2a6] text-xs font-semibold focus:outline-none focus:border-[#c5a059]"
+                                                >
+                                                    {characters.map((c) => (
+                                                        <option key={c.id} value={c.id}>
+                                                            {c.name} (Lv {c.level} {c.class})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                        ) : (
+                                            <div className="text-xs text-amber-400 font-cinzel">
+                                                No characters found in roster.
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Diff Metrics Header */}
+                                    {diffData && (
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                            <div className="p-3.5 rounded-none bg-[#13131b] border border-[#2a2c33] text-center">
+                                                <div className="text-2xl font-bold font-cinzel text-emerald-400">
+                                                    {diffData.completion_rate}%
+                                                </div>
+                                                <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-cinzel mt-0.5">
+                                                    Complete
+                                                </div>
+                                            </div>
+                                            <div className="p-3.5 rounded-none bg-[#13131b] border border-emerald-500/20 text-center">
+                                                <div className="text-2xl font-bold font-cinzel text-emerald-400">
+                                                    {diffData.matched_count} / {diffData.total_slots}
+                                                </div>
+                                                <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-cinzel mt-0.5">
+                                                    Equipped
+                                                </div>
+                                            </div>
+                                            <div className="p-3.5 rounded-none bg-[#13131b] border border-amber-500/20 text-center">
+                                                <div className="text-2xl font-bold font-cinzel text-amber-400">
+                                                    {diffData.trait_mismatch_count}
+                                                </div>
+                                                <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-cinzel mt-0.5">
+                                                    Trait Mismatch
+                                                </div>
+                                            </div>
+                                            <div className="p-3.5 rounded-none bg-[#13131b] border border-red-500/20 text-center">
+                                                <div className="text-2xl font-bold font-cinzel text-red-400">
+                                                    {diffData.missing_count}
+                                                </div>
+                                                <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-cinzel mt-0.5">
+                                                    Missing
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Market Cost Evaluation Banner */}
+                                    {dealsData && (
+                                        <div className="p-4 rounded-none bg-[#121218] border border-[#2a2c33] flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                                            <div>
+                                                <span className="text-[10px] font-cinzel font-bold uppercase tracking-wider text-[#c5a059]">
+                                                    Market Cost Evaluation ({server})
+                                                </span>
+                                                <div className="text-sm font-cinzel font-bold text-[#e0d8c3] mt-0.5 flex flex-wrap items-center gap-2">
+                                                    <span>Estimated Market Cost:</span>
+                                                    {dealsData.total_estimated_gold > 0 ? (
+                                                        <span className="text-[#d4af37] font-mono text-base">
+                                                            {dealsData.total_estimated_gold.toLocaleString()}g
+                                                        </span>
+                                                    ) : diffData?.missing_count > 0 && build?.items?.some(i => i.is_tradeable) ? (
+                                                        <span className="text-[#a89f91] text-xs font-sans font-normal italic">
+                                                            No active market listings currently recorded
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-emerald-400 text-xs font-cinzel font-bold">
+                                                            0g (All Tradeable Pieces Owned)
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs text-muted-foreground mt-0.5">
+                                                    Calculated from verified guild trader market listings on {server}.
+                                                </p>
+                                            </div>
+
+                                            {dealsData.zone_itinerary && dealsData.zone_itinerary.length > 0 && (
+                                                <button
+                                                    onClick={() => handleCopyZoneCommand(dealsData.zone_itinerary[0].zone_location, dealsData.zone_itinerary[0].listings)}
+                                                    className="px-4 py-2 rounded-none bg-[#161620] hover:bg-[#c5a059]/20 text-[#e6c278] border border-[#c5a059]/30 text-xs font-cinzel font-semibold transition-all flex items-center gap-1.5 uppercase tracking-wider cursor-pointer shrink-0"
+                                                >
+                                                    {copiedZone ? (
+                                                        <>
+                                                            <Check className="size-3.5 text-emerald-400" /> Route Copied!
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Copy className="size-3.5" /> Copy Trader Route
+                                                        </>
+                                                    )}
+                                                </button>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Slot by Slot Diff & Market Search Rows */}
+                                    {diffLoading || dealsLoading ? (
+                                        <div className="py-12 text-center text-muted-foreground font-cinzel text-xs">
+                                            <RefreshCw className="size-6 animate-spin text-[#c5a059] mx-auto mb-2" />
+                                            Comparing equipment and querying guild traders...
+                                        </div>
+                                    ) : diffData?.slot_diffs ? (
+                                        <div className="space-y-2.5">
+                                            {diffData.slot_diffs.map((diff) => {
+                                                const status = diff.status; // "matched", "trait_mismatch", "missing"
+                                                const isTradeable = diff.target_item?.is_tradeable === 1;
+                                                const slotDeal = dealsData?.deals_by_slot?.find(d => d.slot_id === diff.slot_id);
+                                                const targetIcon = diff.target_item?.item_icon || getEsoIconUrl(diff.target_item?.icon_url);
+
+                                                return (
+                                                    <div 
+                                                        key={diff.slot_id}
+                                                        className="p-3.5 rounded-none bg-[#121218] hover:bg-[#15151f] border border-[#2a2c33] hover:border-[#c5a059]/40 flex flex-col md:flex-row md:items-center justify-between gap-3.5 transition-all"
+                                                    >
+                                                        {/* Column 1: Slot Icon & Target Specs */}
+                                                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                                                            <div className="size-9 shrink-0 border border-[#2a2c33] bg-[#0a0a0d] p-1 flex items-center justify-center">
+                                                                {targetIcon ? (
+                                                                    <img src={getEsoIconUrl(targetIcon)} alt="" className="size-full object-contain" />
+                                                                ) : (
+                                                                    <Shield className="size-4 text-[#8a8275]" />
+                                                                )}
+                                                            </div>
+
+                                                            <div className="min-w-0 space-y-0.5">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-[10px] font-cinzel font-bold uppercase tracking-wider text-[#c5a059]">
+                                                                        {diff.slot_name}
+                                                                    </span>
+                                                                    {isTradeable ? (
+                                                                        <span className="text-[9px] font-cinzel font-bold uppercase tracking-wider px-1.5 py-0.2 rounded-none bg-emerald-950/40 text-emerald-400 border border-emerald-500/30">
+                                                                            Tradeable
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="text-[9px] font-cinzel font-bold uppercase tracking-wider px-1.5 py-0.2 rounded-none bg-[#1a1a24] text-[#8a8275] border border-[#2a2c33]">
+                                                                            Bound
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+
+                                                                <div className="font-cinzel font-bold text-sm text-[#e0d8c3] truncate">
+                                                                    {diff.target_item.item_name}
+                                                                </div>
+
+                                                                <div className="text-[11px] text-muted-foreground flex flex-wrap items-center gap-1.5">
+                                                                    <span>Set: <strong className="text-gray-300 font-medium">{diff.target_item.set_name}</strong></span>
+                                                                    <span>•</span>
+                                                                    <span>Trait: <strong className="text-gray-300 font-medium">{diff.target_item.trait_name}</strong></span>
+                                                                    {diff.target_item.enchantment && (
+                                                                        <>
+                                                                            <span>•</span>
+                                                                            <span>Enchant: <strong className="text-gray-300 font-medium">{diff.target_item.enchantment}</strong></span>
+                                                                        </>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Column 2 & 3: Fixed-width Status & Market Action */}
+                                                        <div className="flex items-center justify-between md:justify-end gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-[#2a2c33]">
+                                                            {/* Status Column (Fixed width ~140px) */}
+                                                            <div className="w-36 flex justify-start md:justify-center">
+                                                                {status === "matched" && (
+                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-none text-xs font-semibold bg-emerald-950/50 text-emerald-400 border border-emerald-500/40 uppercase tracking-wider font-cinzel">
+                                                                        <CheckCircle2 className="size-3.5" /> Equipped
+                                                                    </span>
+                                                                )}
+                                                                {status === "trait_mismatch" && (
+                                                                    <div className="text-left md:text-center">
+                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-none text-[11px] font-semibold bg-amber-950/50 text-amber-400 border border-amber-500/40 uppercase tracking-wider font-cinzel">
+                                                                            <AlertTriangle className="size-3" /> Trait Diff
+                                                                        </span>
+                                                                        <p className="text-[9px] text-amber-300/80 mt-0.5">
+                                                                            Equipped: {diff.equipped_item?.trait_name || "Unknown"}
+                                                                        </p>
+                                                                    </div>
+                                                                )}
+                                                                {status === "missing" && (
+                                                                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-none text-xs font-semibold bg-red-950/30 text-red-400 border border-red-500/30 uppercase tracking-wider font-cinzel">
+                                                                        <X className="size-3.5" /> Missing
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Action / Source Column (Fixed width ~170px) */}
+                                                            <div className="w-44 flex items-center justify-end">
+                                                                {isTradeable ? (
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        {slotDeal?.cheapest_price ? (
+                                                                            <span className="text-[11px] font-cinzel font-bold text-[#e6c278] bg-[#0a0a0d] px-2 py-1 border border-[#c5a059]/30">
+                                                                                {slotDeal.cheapest_price.toLocaleString()}g
+                                                                            </span>
+                                                                        ) : null}
+                                                                        <button
+                                                                            onClick={() => handleSearchMarketplace(diff.target_item.item_name, diff.target_item.set_name)}
+                                                                            className="px-3 py-1.5 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-md cursor-pointer shrink-0"
+                                                                            title={`Search marketplace for ${diff.target_item.item_name}`}
+                                                                        >
+                                                                            <Search className="size-3.5" /> Search Market
+                                                                        </button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-[11px] text-[#8a8275] font-cinzel text-right truncate max-w-[170px]" title={diff.target_item.source_location}>
+                                                                        {diff.target_item.source_location || "Dungeon / Trial"}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : null}
+                                </div>
+                            )}
+                        </>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+export default BuildDetailModal;

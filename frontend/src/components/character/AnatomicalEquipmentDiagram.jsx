@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Shield, Sparkles, Zap, Award, Info, Sword } from "lucide-react";
 import { renderEsoFormattedText, cleanEsoText, getEsoIconUrl } from "@/lib/utils";
 
@@ -186,6 +186,10 @@ const getItemLevelDisplay = (item) => {
 function SlotItemIcon({ icon, itemName, iconType = "armor", className = "size-full object-contain" }) {
   const [imgFailed, setImgFailed] = useState(false);
   const normalizedUrl = getEsoIconUrl(icon);
+
+  useEffect(() => {
+    setImgFailed(false);
+  }, [icon]);
 
   if (normalizedUrl && !imgFailed) {
     return (

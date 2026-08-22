@@ -53,7 +53,7 @@ function Navbar() {
           <nav className="hidden md:flex items-center gap-2 absolute left-1/2 -translate-x-1/2">
             <Link
               to="/"
-              className={`px-5 py-2 text-sm uppercase font-cinzel font-bold tracking-[0.15em] transition-all border-b-2 ${
+              className={`px-4 py-2 text-sm uppercase font-cinzel font-bold tracking-[0.15em] transition-all border-b-2 ${
                 isActive('/') 
                   ? 'border-[#c5a059] text-[#d4af37] bg-[#c5a059]/10 shadow-[0_2px_12px_rgba(197,160,89,0.3)]' 
                   : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
@@ -63,7 +63,7 @@ function Navbar() {
             </Link>
             <Link
               to="/marketplace"
-              className={`px-5 py-2 text-sm uppercase font-cinzel font-bold tracking-[0.15em] transition-all border-b-2 ${
+              className={`px-4 py-2 text-sm uppercase font-cinzel font-bold tracking-[0.15em] transition-all border-b-2 ${
                 isActive('/marketplace') 
                   ? 'border-[#c5a059] text-[#d4af37] bg-[#c5a059]/10 shadow-[0_2px_12px_rgba(197,160,89,0.3)]' 
                   : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
@@ -72,8 +72,18 @@ function Navbar() {
               Marketplace
             </Link>
             <Link
+              to="/builds"
+              className={`px-4 py-2 text-sm uppercase font-cinzel font-bold tracking-[0.15em] transition-all border-b-2 ${
+                isActive('/builds') 
+                  ? 'border-[#c5a059] text-[#d4af37] bg-[#c5a059]/10 shadow-[0_2px_12px_rgba(197,160,89,0.3)]' 
+                  : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
+              }`}
+            >
+              Builds
+            </Link>
+            <Link
               to="/characters"
-              className={`px-5 py-2 text-sm uppercase font-cinzel font-bold tracking-[0.15em] transition-all border-b-2 ${
+              className={`px-4 py-2 text-sm uppercase font-cinzel font-bold tracking-[0.15em] transition-all border-b-2 ${
                 isActive('/characters') 
                   ? 'border-[#c5a059] text-[#d4af37] bg-[#c5a059]/10 shadow-[0_2px_12px_rgba(197,160,89,0.3)]' 
                   : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
@@ -98,7 +108,7 @@ function Navbar() {
           <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-around">
             <Link
               to="/"
-              className={`px-3 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
+              className={`px-2.5 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
                 isActive('/') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
               }`}
             >
@@ -106,15 +116,23 @@ function Navbar() {
             </Link>
             <Link
               to="/marketplace"
-              className={`px-3 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
+              className={`px-2.5 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
                 isActive('/marketplace') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
               }`}
             >
-              Marketplace
+              Market
+            </Link>
+            <Link
+              to="/builds"
+              className={`px-2.5 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
+                isActive('/builds') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
+              }`}
+            >
+              Builds
             </Link>
             <Link
               to="/characters"
-              className={`px-3 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
+              className={`px-2.5 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
                 isActive('/characters') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
               }`}
             >

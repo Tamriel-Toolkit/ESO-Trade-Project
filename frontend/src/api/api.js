@@ -50,6 +50,31 @@ async function apiFetch(path, options = {}) {
     return response;
 }
 
+/**
+ * Safely parse JSON responses even when non-JSON error pages (like HTML 404/500) are returned
+ */
+async function safeJsonResponse(response, defaultError = 'Request failed') {
+    try {
+        const contentType = response.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+            const data = await response.json();
+            if (!response.ok && !data.error) {
+                data.error = `Server error (HTTP ${response.status})`;
+            }
+            return data;
+        }
+        if (!response.ok) {
+            return { 
+                success: false, 
+                error: `HTTP ${response.status} ${response.statusText} — Please ensure the backend server has been restarted.` 
+            };
+        }
+        return { success: false, error: defaultError };
+    } catch (err) {
+        return { success: false, error: err.message || defaultError };
+    }
+}
+
 export async function fetchSystemStatus() {
     try {
         const response = await apiFetch('/api/status');
@@ -277,6 +302,115 @@ export async function fetchCharacterProfile(id) {
     try {
         const response = await apiFetch(`/api/characters/${id}/profile`);
         return await response.json();
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+// ============================================================================
+// BUILD IMPORTER, GEAR DIFF & DEALS API HELPERS
+// ============================================================================
+
+export async function fetchSets({ search, category, is_tradeable, limit = 1000, offset = 0 } = {}) {
+    try {
+        const params = new URLSearchParams();
+        if (search) params.append("search", search);
+        if (category && category !== "All") params.append("category", category);
+        if (is_tradeable !== undefined && is_tradeable !== "") params.append("is_tradeable", is_tradeable);
+        if (limit) params.append("limit", limit);
+        if (offset) params.append("offset", offset);
+
+        const response = await apiFetch(`/api/sets?${params.toString()}`);
+        return await safeJsonResponse(response, 'Failed to fetch sets');
+    } catch (error) {
+        return { success: false, sets: [], error: error.message };
+    }
+}
+
+export async function fetchBuilds({ class: buildClass, role, is_curated, search, limit = 50, offset = 0 } = {}) {
+    try {
+        const params = new URLSearchParams();
+        if (buildClass && buildClass !== "All") params.append("class", buildClass);
+        if (role && role !== "All") params.append("role", role);
+        if (is_curated !== undefined && is_curated !== "") params.append("is_curated", is_curated);
+        if (search) params.append("search", search);
+        if (limit) params.append("limit", limit);
+        if (offset) params.append("offset", offset);
+
+        const response = await apiFetch(`/api/builds?${params.toString()}`);
+        return await safeJsonResponse(response, 'Failed to fetch builds');
+    } catch (error) {
+        return { success: false, builds: [], error: error.message };
+    }
+}
+
+export async function fetchBuildById(id) {
+    try {
+        const response = await apiFetch(`/api/builds/${id}`);
+        return await safeJsonResponse(response, 'Failed to fetch build details');
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function createCustomBuild(buildPayload) {
+    try {
+        const response = await apiFetch('/api/builds', {
+            method: 'POST',
+            body: JSON.stringify(buildPayload)
+        });
+        return await safeJsonResponse(response, 'Failed to create build');
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function deleteBuild(id) {
+    try {
+        const response = await apiFetch(`/api/builds/${id}`, {
+            method: 'DELETE'
+        });
+        return await safeJsonResponse(response, 'Failed to delete build');
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+export const deleteCustomBuild = deleteBuild;
+
+export async function fetchBuildGearDiff(buildId, characterId) {
+    try {
+        const response = await apiFetch(`/api/builds/${buildId}/diff/${characterId}`);
+        return await safeJsonResponse(response, 'Failed to diff build gear');
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function fetchBuildDeals(buildId, { server = "NA", characterId } = {}) {
+    try {
+        const params = new URLSearchParams();
+        params.append("server", server);
+        if (characterId) params.append("character_id", characterId);
+
+        const response = await apiFetch(`/api/builds/${buildId}/deals?${params.toString()}`);
+        return await safeJsonResponse(response, 'Failed to fetch build deals');
+    } catch (error) {
+        return { success: false, deals_by_slot: [], error: error.message };
+    }
+}
+
+export async function resolveSetItem({ set, slot_id, slot_name, weight, weapon } = {}) {
+    try {
+        const params = new URLSearchParams();
+        if (set) params.append("set", set);
+        if (slot_id !== undefined) params.append("slot_id", slot_id);
+        if (slot_name) params.append("slot_name", slot_name);
+        if (weight) params.append("weight", weight);
+        if (weapon) params.append("weapon", weapon);
+
+        const response = await apiFetch(`/api/sets/resolve-item?${params.toString()}`);
+        return await safeJsonResponse(response, 'Failed to resolve set item');
     } catch (error) {
         return { success: false, error: error.message };
     }

@@ -45,7 +45,7 @@ import {
   CardFooter
 } from "@/components/ui/card";
 
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/ui/navbar";
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/context/AuthContext";
@@ -110,6 +110,7 @@ function Marketplace() {
   const { serverLocation, platform } = useTheme();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   // State Management
   const [viewMode, setViewMode] = useState("prices"); // Default to "prices"
@@ -119,10 +120,19 @@ function Marketplace() {
   const [selectedRarity, setSelectedRarity] = useState("");
   const [selectedHubLocation, setSelectedHubLocation] = useState("");
   const [selectedMaxAge, setSelectedMaxAge] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
+  const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
   const [sortOption, setSortOption] = useState("value_index");
   const [dealsOnly, setDealsOnly] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+
+  // Sync searchQuery when URL search parameter changes
+  useEffect(() => {
+    const q = searchParams.get("search");
+    if (q !== null && q !== undefined) {
+      setSearchQuery(q);
+      setCurrentPage(1);
+    }
+  }, [searchParams]);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -567,7 +577,7 @@ function Marketplace() {
                   </h3>
                   <p className="text-xs text-[#a89f91] max-w-lg mb-4 leading-relaxed">
                     {searchQuery
-                      ? `Click below to trigger a live search scan across ESO guild trader kiosks for "${searchQuery}".`
+                      ? `Click below to trigger a live search scan across ESO guild traders for "${searchQuery}".`
                       : "Synthetic listings have been purged. You can view all 155,476 authentic market price statistics in the Catalog Price Index, or run python data-pipeline/parse_saved_variables.py to load your in-game TTC addon scans."}
                   </p>
                   <div className="flex flex-wrap items-center justify-center gap-3">
@@ -586,7 +596,7 @@ function Marketplace() {
                         className="rounded-none gap-2 font-cinzel font-bold bg-[#c5a059] text-[#0a0a0d] hover:bg-[#d4af37]"
                       >
                         <Zap className="size-4" />
-                        <span>Fetch Live Kiosk Scans for "{searchQuery}"</span>
+                        <span>Fetch Live Market Scans for "{searchQuery}"</span>
                       </Button>
                     )}
                     <Button
@@ -740,15 +750,15 @@ function Marketplace() {
                         </div>
                       )}
 
-                      {/* Prominent Guild Trader Name, Kiosk Location, & Last Seen Marker */}
+                      {/* Prominent Guild Trader Name, Location, & Last Seen Marker */}
                       <div className="flex items-center justify-between text-[11px] text-[#8a8275] pt-2 mt-2 border-t border-[#2a2c33]/40 gap-1">
                         <span className="flex items-center gap-1.5 truncate max-w-[120px]" title={item.guild_name || "Active Guild Trader"}>
                           <Store className="size-3.5 text-[#c5a059] shrink-0" />
                           <span className="truncate font-semibold text-[#e0d8c3]">{item.guild_name || "Guild Trader"}</span>
                         </span>
-                        <span className="flex items-center gap-1.5 truncate max-w-[110px]" title={item.location || "Tamriel Kiosk"}>
+                        <span className="flex items-center gap-1.5 truncate max-w-[110px]" title={item.location || "Tamriel Guild Trader"}>
                           <MapPin className="size-3.5 text-[#d4af37] shrink-0" />
-                          <span className="truncate font-semibold text-[#d4af37]">{item.location || "Tamriel Kiosk"}</span>
+                          <span className="truncate font-semibold text-[#d4af37]">{item.location || "Tamriel Guild Trader"}</span>
                         </span>
                         {(() => {
                           const scanDate = item.discovered_at || item.updated_at;
@@ -883,7 +893,7 @@ function Marketplace() {
                 {/* Always Render Trader Name, Location & Last Seen Scan Marker */}
                 <div className="space-y-2 p-3 bg-[#0a0a0d] border border-[#2a2c33]">
                   <span className="font-cinzel font-bold uppercase tracking-wider text-[10px] text-[#c5a059] block flex items-center justify-between">
-                    <span>Guild Trader Kiosk Details</span>
+                    <span>Guild Trader Details</span>
                     <Store className="size-3.5 text-[#c5a059]" />
                   </span>
                   <div className="flex items-center gap-2">
@@ -892,7 +902,7 @@ function Marketplace() {
                   </div>
                   <div className="flex items-center gap-2 text-[#d4af37] font-semibold">
                     <MapPin className="size-4 shrink-0" />
-                    <span>{selectedItem.location || "Tamriel Trade Kiosk"}</span>
+                    <span>{selectedItem.location || "Tamriel Guild Trader"}</span>
                   </div>
                   {(() => {
                     const scanDate = selectedItem.discovered_at || selectedItem.updated_at;
