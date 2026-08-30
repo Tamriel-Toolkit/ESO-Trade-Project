@@ -174,12 +174,20 @@ export function MyOrders() {
     }
   };
 
-  // Compute User-Specific Global Stats across all user orders
-  const activeOrdersCount = allOrders.filter(
-    r => r.status === "OPEN" || r.status === "IN_PROGRESS" || r.status === "COMPLETED"
+  // Compute User-Specific Global Stats across all user orders (Active / Non-completed)
+  const activePostedCount = allOrders.filter(
+    r => r.user_id === user?.id && (r.status === "OPEN" || r.status === "IN_PROGRESS" || r.status === "COMPLETED")
   ).length;
-  const postedCount = allOrders.filter(r => r.user_id === user?.id).length;
-  const claimedCount = allOrders.filter(r => r.claimed_by_user_id === user?.id).length;
+
+  const activeClaimedCount = allOrders.filter(
+    r => r.claimed_by_user_id === user?.id && (r.status === "IN_PROGRESS" || r.status === "COMPLETED")
+  ).length;
+
+  const activeOrdersCount = allOrders.filter(
+    r => (r.user_id === user?.id || r.claimed_by_user_id === user?.id) && 
+         (r.status === "OPEN" || r.status === "IN_PROGRESS" || r.status === "COMPLETED")
+  ).length;
+
   const fulfilledCount = allOrders.filter(r => r.status === "FULFILLED").length;
   const totalGold = allOrders.reduce((acc, r) => acc + ((r.offered_gold_price || 0) * (r.quantity || 1)), 0);
 
@@ -190,9 +198,11 @@ export function MyOrders() {
       // Only show active requests and actively claimed orders
       list = list.filter(r => r.status === "OPEN" || r.status === "IN_PROGRESS" || r.status === "COMPLETED");
     } else if (subTab === "POSTED") {
-      list = list.filter(r => r.user_id === user?.id);
+      // Only show active / non-completed requests posted by user
+      list = list.filter(r => r.user_id === user?.id && (r.status === "OPEN" || r.status === "IN_PROGRESS" || r.status === "COMPLETED"));
     } else if (subTab === "CLAIMED") {
-      list = list.filter(r => r.claimed_by_user_id === user?.id);
+      // Only show active / non-completed orders claimed by user
+      list = list.filter(r => r.claimed_by_user_id === user?.id && (r.status === "IN_PROGRESS" || r.status === "COMPLETED"));
     } else if (subTab === "FULFILLED") {
       list = list.filter(r => r.status === "FULFILLED");
     }
@@ -298,7 +308,7 @@ export function MyOrders() {
                     Requests I Posted
                   </span>
                   <span className="font-mono text-xl font-bold text-white">
-                    {loading ? "..." : (postedCount || 0)}
+                    {loading ? "..." : (activePostedCount || 0)}
                   </span>
                 </div>
               </div>
@@ -312,7 +322,7 @@ export function MyOrders() {
                     Bounties I Claimed
                   </span>
                   <span className="font-mono text-xl font-bold text-white">
-                    {loading ? "..." : (claimedCount || 0)}
+                    {loading ? "..." : (activeClaimedCount || 0)}
                   </span>
                 </div>
               </div>
@@ -369,7 +379,7 @@ export function MyOrders() {
                   }`}
                 >
                   <ShoppingCart className="size-3.5" />
-                  My Posted Requests ({postedCount})
+                  My Posted Requests ({activePostedCount})
                 </button>
 
                 <button
@@ -381,7 +391,7 @@ export function MyOrders() {
                   }`}
                 >
                   <Hammer className="size-3.5" />
-                  My Claimed Orders ({claimedCount})
+                  My Claimed Orders ({activeClaimedCount})
                 </button>
 
                 <button
