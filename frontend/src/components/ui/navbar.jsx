@@ -20,8 +20,9 @@ function Navbar() {
   const [isDevModalOpen, setIsDevModalOpen] = useState(false);
   const [syncStatus, setSyncStatus] = useState({ status: 'checking', latestScan: null });
   
-  // Navigation Dropdown States
+  // Navigation Dropdown States with Graceful Hover Intent Timeout
   const [openDropdown, setOpenDropdown] = useState(null); // 'requests' | 'characters' | null
+  const closeTimeoutRef = useRef(null);
   const requestsMenuRef = useRef(null);
   const charactersMenuRef = useRef(null);
 
@@ -42,6 +43,23 @@ function Navbar() {
     });
   }, []);
 
+  const handleMouseEnter = (menu) => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+      closeTimeoutRef.current = null;
+    }
+    setOpenDropdown(menu);
+  };
+
+  const handleMouseLeave = () => {
+    if (closeTimeoutRef.current) {
+      clearTimeout(closeTimeoutRef.current);
+    }
+    closeTimeoutRef.current = setTimeout(() => {
+      setOpenDropdown(null);
+    }, 280); // 280ms grace period so mouse movement to options is effortless
+  };
+
   // Close dropdown on outside click
   useEffect(() => {
     function handleClickOutside(event) {
@@ -49,6 +67,7 @@ function Navbar() {
         requestsMenuRef.current && !requestsMenuRef.current.contains(event.target) &&
         charactersMenuRef.current && !charactersMenuRef.current.contains(event.target)
       ) {
+        if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
         setOpenDropdown(null);
       }
     }
@@ -60,6 +79,7 @@ function Navbar() {
 
   // Close dropdown on route change
   useEffect(() => {
+    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
     setOpenDropdown(null);
   }, [location.pathname]);
 
@@ -89,7 +109,7 @@ function Navbar() {
             </Link>
           </div>
 
-          {/* 2. Center: Responsive Desktop Primary Navigation with Dropdowns */}
+          {/* 2. Center: Responsive Desktop Primary Navigation with Smooth Dropdowns */}
           <nav className="hidden lg:flex items-center justify-center gap-1 xl:gap-2 flex-1 min-w-0 px-2">
             <Link
               to="/"
@@ -117,12 +137,15 @@ function Navbar() {
             <div 
               className="relative shrink-0" 
               ref={requestsMenuRef}
-              onMouseEnter={() => setOpenDropdown('requests')}
-              onMouseLeave={() => setOpenDropdown(null)}
+              onMouseEnter={() => handleMouseEnter('requests')}
+              onMouseLeave={handleMouseLeave}
             >
               <button
                 type="button"
-                onClick={() => setOpenDropdown(openDropdown === 'requests' ? null : 'requests')}
+                onClick={() => {
+                  if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+                  setOpenDropdown(openDropdown === 'requests' ? null : 'requests');
+                }}
                 className={`px-3 xl:px-4 py-2 text-xs xl:text-sm uppercase font-cinzel font-bold tracking-wider xl:tracking-[0.15em] transition-all border-b-2 whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
                   isRequestsActive || openDropdown === 'requests'
                     ? 'border-[#c5a059] text-[#d4af37] bg-[#c5a059]/10 shadow-[0_2px_12px_rgba(197,160,89,0.3)]' 
@@ -133,45 +156,51 @@ function Navbar() {
                 <ChevronDown className={`size-3.5 transition-transform duration-200 ${openDropdown === 'requests' ? 'rotate-180 text-[#d4af37]' : ''}`} />
               </button>
 
-              {/* Requests Popover Dropdown */}
+              {/* Requests Popover Dropdown with Invisible Bridge Padding */}
               {openDropdown === 'requests' && (
-                <div className="absolute left-0 top-full mt-1 w-64 bg-[#121218] border border-[#2a2c33] shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                  <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#c5a059] to-transparent"></div>
-                  
-                  <div className="p-1.5 space-y-1">
-                    <Link
-                      to="/requests"
-                      className={`flex items-start gap-3 p-2.5 transition-colors group ${
-                        isActive('/requests') ? 'bg-[#c5a059]/15 border-l-2 border-[#c5a059]' : 'hover:bg-[#1a1a24]'
-                      }`}
-                    >
-                      <ShoppingCart className="size-4.5 text-[#c5a059] shrink-0 mt-0.5" />
-                      <div>
-                        <div className="text-xs font-cinzel font-bold text-[#e0d8c3] group-hover:text-[#d4af37] uppercase">
-                          Item Requests
+                <div 
+                  className="absolute left-0 top-full pt-1.5 w-64 z-50 animate-in fade-in duration-150"
+                  onMouseEnter={() => handleMouseEnter('requests')}
+                  onMouseLeave={handleMouseLeave}
+                >
+                  <div className="bg-[#121218] border border-[#2a2c33] shadow-2xl overflow-hidden">
+                    <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#c5a059] to-transparent"></div>
+                    
+                    <div className="p-1.5 space-y-1">
+                      <Link
+                        to="/requests"
+                        className={`flex items-start gap-3 p-2.5 transition-colors group ${
+                          isActive('/requests') ? 'bg-[#c5a059]/15 border-l-2 border-[#c5a059]' : 'hover:bg-[#1a1a24]'
+                        }`}
+                      >
+                        <ShoppingCart className="size-4.5 text-[#c5a059] shrink-0 mt-0.5" />
+                        <div>
+                          <div className="text-xs font-cinzel font-bold text-[#e0d8c3] group-hover:text-[#d4af37] uppercase">
+                            Item Requests
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                            Browse public WTB & crafting bounties
+                          </p>
                         </div>
-                        <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-                          Browse public WTB & crafting bounties
-                        </p>
-                      </div>
-                    </Link>
+                      </Link>
 
-                    <Link
-                      to="/my-orders"
-                      className={`flex items-start gap-3 p-2.5 transition-colors group ${
-                        isActive('/my-orders') ? 'bg-[#c5a059]/15 border-l-2 border-[#c5a059]' : 'hover:bg-[#1a1a24]'
-                      }`}
-                    >
-                      <Package className="size-4.5 text-[#c5a059] shrink-0 mt-0.5" />
-                      <div>
-                        <div className="text-xs font-cinzel font-bold text-[#e0d8c3] group-hover:text-[#d4af37] uppercase">
-                          My Orders
+                      <Link
+                        to="/my-orders"
+                        className={`flex items-start gap-3 p-2.5 transition-colors group ${
+                          isActive('/my-orders') ? 'bg-[#c5a059]/15 border-l-2 border-[#c5a059]' : 'hover:bg-[#1a1a24]'
+                        }`}
+                      >
+                        <Package className="size-4.5 text-[#c5a059] shrink-0 mt-0.5" />
+                        <div>
+                          <div className="text-xs font-cinzel font-bold text-[#e0d8c3] group-hover:text-[#d4af37] uppercase">
+                            My Orders
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                            Manage your posted & claimed bounties
+                          </p>
                         </div>
-                        <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-                          Manage your posted & claimed bounties
-                        </p>
-                      </div>
-                    </Link>
+                      </Link>
+                    </div>
                   </div>
                 </div>
               )}
@@ -192,12 +221,15 @@ function Navbar() {
             <div 
               className="relative shrink-0" 
               ref={charactersMenuRef}
-              onMouseEnter={() => setOpenDropdown('characters')}
-              onMouseLeave={() => setOpenDropdown(null)}
+              onMouseEnter={() => handleMouseEnter('characters')}
+              onMouseLeave={handleMouseLeave}
             >
               <button
                 type="button"
-                onClick={() => setOpenDropdown(openDropdown === 'characters' ? null : 'characters')}
+                onClick={() => {
+                  if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+                  setOpenDropdown(openDropdown === 'characters' ? null : 'characters');
+                }}
                 className={`px-3 xl:px-4 py-2 text-xs xl:text-sm uppercase font-cinzel font-bold tracking-wider xl:tracking-[0.15em] transition-all border-b-2 whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
                   isCharactersActive || openDropdown === 'characters'
                     ? 'border-[#c5a059] text-[#d4af37] bg-[#c5a059]/10 shadow-[0_2px_12px_rgba(197,160,89,0.3)]' 
@@ -208,45 +240,51 @@ function Navbar() {
                 <ChevronDown className={`size-3.5 transition-transform duration-200 ${openDropdown === 'characters' ? 'rotate-180 text-[#d4af37]' : ''}`} />
               </button>
 
-              {/* Characters Popover Dropdown */}
+              {/* Characters Popover Dropdown with Invisible Bridge Padding */}
               {openDropdown === 'characters' && (
-                <div className="absolute left-0 top-full mt-1 w-64 bg-[#121218] border border-[#2a2c33] shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
-                  <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#c5a059] to-transparent"></div>
-                  
-                  <div className="p-1.5 space-y-1">
-                    <Link
-                      to="/characters"
-                      className={`flex items-start gap-3 p-2.5 transition-colors group ${
-                        isActive('/characters') ? 'bg-[#c5a059]/15 border-l-2 border-[#c5a059]' : 'hover:bg-[#1a1a24]'
-                      }`}
-                    >
-                      <Users className="size-4.5 text-[#c5a059] shrink-0 mt-0.5" />
-                      <div>
-                        <div className="text-xs font-cinzel font-bold text-[#e0d8c3] group-hover:text-[#d4af37] uppercase">
-                          Roster & Crafters
+                <div 
+                  className="absolute left-0 top-full pt-1.5 w-64 z-50 animate-in fade-in duration-150"
+                  onMouseEnter={() => handleMouseEnter('characters')}
+                  onMouseLeave={handleMouseLeave}
+                >
+                  <div className="bg-[#121218] border border-[#2a2c33] shadow-2xl overflow-hidden">
+                    <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#c5a059] to-transparent"></div>
+                    
+                    <div className="p-1.5 space-y-1">
+                      <Link
+                        to="/characters"
+                        className={`flex items-start gap-3 p-2.5 transition-colors group ${
+                          isActive('/characters') ? 'bg-[#c5a059]/15 border-l-2 border-[#c5a059]' : 'hover:bg-[#1a1a24]'
+                        }`}
+                      >
+                        <Users className="size-4.5 text-[#c5a059] shrink-0 mt-0.5" />
+                        <div>
+                          <div className="text-xs font-cinzel font-bold text-[#e0d8c3] group-hover:text-[#d4af37] uppercase">
+                            Roster & Crafters
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                            Character profiles, stats & equipment
+                          </p>
                         </div>
-                        <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-                          Character profiles, stats & equipment
-                        </p>
-                      </div>
-                    </Link>
+                      </Link>
 
-                    <Link
-                      to="/traits"
-                      className={`flex items-start gap-3 p-2.5 transition-colors group ${
-                        isActive('/traits') ? 'bg-[#c5a059]/15 border-l-2 border-[#c5a059]' : 'hover:bg-[#1a1a24]'
-                      }`}
-                    >
-                      <Sparkles className="size-4.5 text-[#c5a059] shrink-0 mt-0.5" />
-                      <div>
-                        <div className="text-xs font-cinzel font-bold text-[#e0d8c3] group-hover:text-[#d4af37] uppercase">
-                          Trait Tracker
+                      <Link
+                        to="/traits"
+                        className={`flex items-start gap-3 p-2.5 transition-colors group ${
+                          isActive('/traits') ? 'bg-[#c5a059]/15 border-l-2 border-[#c5a059]' : 'hover:bg-[#1a1a24]'
+                        }`}
+                      >
+                        <Sparkles className="size-4.5 text-[#c5a059] shrink-0 mt-0.5" />
+                        <div>
+                          <div className="text-xs font-cinzel font-bold text-[#e0d8c3] group-hover:text-[#d4af37] uppercase">
+                            Trait Tracker
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                            Research matrix & market fodder matching
+                          </p>
                         </div>
-                        <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-                          Research matrix & market fodder matching
-                        </p>
-                      </div>
-                    </Link>
+                      </Link>
+                    </div>
                   </div>
                 </div>
               )}
