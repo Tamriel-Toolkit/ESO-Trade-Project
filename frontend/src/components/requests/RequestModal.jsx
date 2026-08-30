@@ -14,6 +14,25 @@ import {
 } from "lucide-react";
 import { createTradeRequest, fetchCraftableSets, apiFetch } from "../../api/api";
 import { useAuth } from "../../context/AuthContext";
+import { useTheme } from "@/components/theme-provider";
+
+function getItemSetName(item, setsList = []) {
+  if (!item) return null;
+  if (item.set_name) return item.set_name;
+  if (item.metadata?.set?.name) return item.metadata.set.name;
+  if (item.metadata?.setName) return item.metadata.setName;
+  if (item.metadata?.set_name) return item.metadata.set_name;
+
+  const itemName = item.name || "";
+  if (itemName.includes(" of ")) {
+    const suffix = itemName.split(" of ").pop().trim();
+    const match = setsList.find(s => s.name.toLowerCase() === suffix.toLowerCase());
+    if (match) return match.name;
+  }
+  const exactSet = setsList.find(s => itemName.toLowerCase().includes(s.name.toLowerCase()));
+  if (exactSet) return exactSet.name;
+  return null;
+}
 
 const TRAITS = [
   "None",
@@ -79,10 +98,12 @@ const QUALITIES = [
   { value: 5, label: "Legendary (Gold)", color: "text-[#e6c278]" }
 ];
 
-export function RequestModal({ isOpen, onClose, defaultServer = "NA", onRequestCreated }) {
+export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated }) {
   const { user } = useAuth();
+  const { serverLocation } = useTheme();
 
-  const [server, setServer] = useState(defaultServer);
+  // Assume the megaserver is the one selected in user settings
+  const server = defaultServer || serverLocation || "NA";
   
   // Item search & selection from catalog
   const [searchQuery, setSearchQuery] = useState("");
@@ -188,6 +209,13 @@ export function RequestModal({ isOpen, onClose, defaultServer = "NA", onRequestC
     setSearchQuery("");
     setSearchResults([]);
 
+    const inherentSet = getItemSetName(item, craftableSets);
+    if (inherentSet) {
+      setSelectedSet(inherentSet);
+    } else {
+      setSelectedSet("");
+    }
+
     const isGear = ["Weapons", "Apparel", "Jewelry", "Weapon", "Armor"].includes(item.category) ||
       item.category?.toLowerCase().includes("weapon") ||
       item.category?.toLowerCase().includes("armor") ||
@@ -278,7 +306,7 @@ export function RequestModal({ isOpen, onClose, defaultServer = "NA", onRequestC
             <ShoppingCart className="size-6 text-[#c5a059]" />
             <div>
               <h3 className="font-cinzel font-bold text-lg text-[#e0d8c3]">
-                Post Want-To-Buy (WTB) / Crafting Bounty
+                Post Item Request
               </h3>
               <p className="text-xs text-muted-foreground">
                 Search an item below to dynamically configure custom crafted gear or bulk material requests.
@@ -400,37 +428,6 @@ export function RequestModal({ isOpen, onClose, defaultServer = "NA", onRequestC
             )}
           </div>
 
-          {/* Megaserver Selector */}
-          <div>
-            <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1.5 font-bold">
-              Megaserver
-            </label>
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => setServer("NA")}
-                className={`py-2 px-3 text-xs font-cinzel font-bold transition-all cursor-pointer border ${
-                  server === "NA"
-                    ? "bg-[#c5a059] text-black border-[#c5a059] shadow font-extrabold"
-                    : "bg-[#0e0e13] border-[#2a2c33] text-muted-foreground hover:text-white"
-                }`}
-              >
-                North America (NA)
-              </button>
-              <button
-                type="button"
-                onClick={() => setServer("EU")}
-                className={`py-2 px-3 text-xs font-cinzel font-bold transition-all cursor-pointer border ${
-                  server === "EU"
-                    ? "bg-[#c5a059] text-black border-[#c5a059] shadow font-extrabold"
-                    : "bg-[#0e0e13] border-[#2a2c33] text-muted-foreground hover:text-white"
-                }`}
-              >
-                Europe (EU)
-              </button>
-            </div>
-          </div>
-
           {/* 2. DYNAMIC ATTRIBUTE CONTROLS: Automatically Adapts to Selected Item */}
           {selectedItem && (
             isGearItem ? (
@@ -439,29 +436,43 @@ export function RequestModal({ isOpen, onClose, defaultServer = "NA", onRequestC
                 <div className="flex items-center gap-2 pb-2 border-b border-[#2a2c33]">
                   <Hammer className="size-4 text-[#c5a059]" />
                   <span className="text-xs font-cinzel font-bold uppercase tracking-wider text-[#e6c278]">
-                    Crafted Gear Attributes
+                    Gear & Crafting Attributes
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Craftable Set Selector */}
-                  <div className="sm:col-span-2">
-                    <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
-                      Craftable Set Name (Optional)
-                    </label>
-                    <select
-                      value={selectedSet}
-                      onChange={(e) => setSelectedSet(e.target.value)}
-                      className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
-                    >
-                      <option value="">No Set (Standard Item)</option>
-                      {craftableSets.map((s) => (
-                        <option key={s.name} value={s.name}>
-                          {s.name} ({s.category || "Crafted"})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  {/* If item is already part of a set, show badge and omit selector; otherwise show craftable set dropdown */}
+                  {getItemSetName(selectedItem, craftableSets) ? (
+                    <div className="sm:col-span-2 p-2.5 bg-[#121218] border border-[#c5a059]/40 flex items-center justify-between shadow-inner">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="size-4 text-[#c5a059]" />
+                        <span className="text-xs font-cinzel text-[#e0d8c3]">
+                          Set Piece: <strong className="text-[#e6c278]">{getItemSetName(selectedItem, craftableSets)}</strong>
+                        </span>
+                      </div>
+                      <span className="text-[10px] font-cinzel uppercase text-emerald-400 bg-emerald-950/40 px-2 py-0.5 border border-emerald-800/40 font-bold">
+                        Inherent Set Item
+                      </span>
+                    </div>
+                  ) : (
+                    <div className="sm:col-span-2">
+                      <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
+                        Craftable Set Name (Optional)
+                      </label>
+                      <select
+                        value={selectedSet}
+                        onChange={(e) => setSelectedSet(e.target.value)}
+                        className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+                      >
+                        <option value="">No Set (Standard Crafted Base Item)</option>
+                        {craftableSets.map((s) => (
+                          <option key={s.name} value={s.name}>
+                            {s.name} ({s.category || "Crafted"})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   {/* Trait Selector */}
                   <div>
