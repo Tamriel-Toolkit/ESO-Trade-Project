@@ -45,6 +45,7 @@ export function RequestCard({
   currentUser,
   onClaim,
   onUnclaim,
+  onComplete,
   onFulfill,
   onCancel,
   isClaiming = false,
@@ -162,6 +163,12 @@ export function RequestCard({
             <span className="px-2 py-0.5 bg-amber-950/40 border border-amber-500/40 text-amber-300 text-[10px] font-cinzel font-bold uppercase tracking-wider flex items-center gap-1">
               <Clock className="size-3" />
               In Progress
+            </span>
+          )}
+          {request.status === "COMPLETED" && (
+            <span className="px-2 py-0.5 bg-blue-950/40 border border-blue-500/40 text-blue-300 text-[10px] font-cinzel font-bold uppercase tracking-wider flex items-center gap-1">
+              <Check className="size-3 text-blue-400" />
+              Completed / Sent
             </span>
           )}
           {request.status === "FULFILLED" && (
@@ -376,13 +383,23 @@ export function RequestCard({
 
           {request.status === "IN_PROGRESS" && (
             <div className="flex items-center gap-1.5">
-              {(isOwner || isClaimedByMe) && (
+              {isClaimedByMe && (
+                <button
+                  onClick={() => (onComplete ? onComplete(request.id) : onFulfill(request.id))}
+                  className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 text-white font-cinzel font-bold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow"
+                >
+                  <Check className="size-3.5" />
+                  <span>Mark Completed</span>
+                </button>
+              )}
+
+              {isOwner && !isClaimedByMe && (
                 <button
                   onClick={() => onFulfill(request.id)}
                   className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow"
                 >
                   <Check className="size-3.5" />
-                  <span>Mark Fulfilled</span>
+                  <span>Confirm & Close</span>
                 </button>
               )}
 
@@ -393,6 +410,38 @@ export function RequestCard({
                 >
                   Release Claim
                 </button>
+              )}
+            </div>
+          )}
+
+          {request.status === "COMPLETED" && (
+            <div className="flex items-center gap-1.5">
+              {isOwner ? (
+                <button
+                  onClick={() => onFulfill(request.id)}
+                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow"
+                >
+                  <Check className="size-3.5" />
+                  <span>Confirm Delivery & Close Order</span>
+                </button>
+              ) : isClaimedByMe ? (
+                <>
+                  <div className="flex-1 py-2 bg-blue-950/30 border border-blue-500/30 text-blue-300 font-cinzel font-bold text-xs uppercase tracking-wider text-center flex items-center justify-center gap-1.5">
+                    <Clock className="size-3.5 text-blue-400" />
+                    <span>Awaiting Buyer Close</span>
+                  </div>
+                  <button
+                    onClick={() => onUnclaim(request.id)}
+                    className="py-2 px-3 bg-[#161620] hover:bg-red-950/30 border border-[#2a2c33] hover:border-red-500/40 text-red-300 font-cinzel text-xs uppercase transition-all cursor-pointer"
+                  >
+                    Release
+                  </button>
+                </>
+              ) : (
+                <div className="w-full py-2 bg-blue-950/30 border border-blue-500/30 text-blue-300 font-cinzel font-bold text-xs uppercase tracking-wider text-center flex items-center justify-center gap-1.5">
+                  <Check className="size-4 text-blue-400" />
+                  <span>Completed by Crafter</span>
+                </div>
               )}
             </div>
           )}

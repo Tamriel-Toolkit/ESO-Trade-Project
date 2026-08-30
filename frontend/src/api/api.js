@@ -524,6 +524,17 @@ export async function unclaimTradeRequest(requestId) {
     }
 }
 
+export async function completeTradeRequest(requestId) {
+    try {
+        const response = await apiFetch(`/api/requests/${requestId}/complete`, {
+            method: 'PATCH'
+        });
+        return await safeJsonResponse(response, 'Failed to mark order as completed');
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
 export async function fulfillTradeRequest(requestId) {
     try {
         const response = await apiFetch(`/api/requests/${requestId}/fulfill`, {

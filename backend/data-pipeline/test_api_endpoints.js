@@ -866,14 +866,31 @@ async function runTests() {
         }
         console.log("   Order claim state machine verified (Status: IN_PROGRESS, 24h timer set)!");
 
-        console.log("\n52. Testing PATCH /api/requests/:id/fulfill...");
+        console.log("\n52. Testing PATCH /api/requests/:id/complete & buyer-only /fulfill...");
+        // User 2 (claiming crafter) marks completed/sent
+        const crafterCompleteRes = await httpPatch(`/api/requests/${testRequestId}/complete`, {}, {
+            'Authorization': `Bearer ${user2BypassRes.data.token}`
+        });
+        if (crafterCompleteRes.status !== 200 || !crafterCompleteRes.data.success) {
+            throw new Error(`Expected 200 on crafter complete, got ${JSON.stringify(crafterCompleteRes.data)}`);
+        }
+
+        // User 2 (crafter) tries to directly close/fulfill (expect 403)
+        const crafterFulfillRes = await httpPatch(`/api/requests/${testRequestId}/fulfill`, {}, {
+            'Authorization': `Bearer ${user2BypassRes.data.token}`
+        });
+        if (crafterFulfillRes.status !== 403) {
+            throw new Error(`Expected 403 when crafter tries to close order, got ${crafterFulfillRes.status}`);
+        }
+
+        // User 1 (buyer who posted) closes/fulfills
         const fulfillRes = await httpPatch(`/api/requests/${testRequestId}/fulfill`, {}, {
             'Authorization': `Bearer ${bypassRes.data.token}`
         });
         if (fulfillRes.status !== 200 || !fulfillRes.data.success) {
-            throw new Error(`Expected 200 on request fulfillment, got ${JSON.stringify(fulfillRes.data)}`);
+            throw new Error(`Expected 200 on buyer request fulfillment, got ${JSON.stringify(fulfillRes.data)}`);
         }
-        console.log("   Order fulfillment confirmed (Status: FULFILLED)!");
+        console.log("   2-step order lifecycle verified (Crafter Complete -> Buyer Fulfill & Close)!");
 
         console.log("\n53. Testing DELETE /api/requests/:id authorization & cancellation...");
         // Create second request to test deletion

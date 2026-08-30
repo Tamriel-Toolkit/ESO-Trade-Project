@@ -514,7 +514,7 @@ function initializeDatabaseSchema() {
                 offered_gold_price INTEGER NOT NULL CHECK(offered_gold_price > 0),
                 suggested_price INTEGER DEFAULT 0,
                 delivery_notes TEXT,
-                status TEXT NOT NULL DEFAULT 'OPEN' CHECK(status IN ('OPEN', 'IN_PROGRESS', 'FULFILLED', 'CANCELLED', 'EXPIRED')),
+                status TEXT NOT NULL DEFAULT 'OPEN' CHECK(status IN ('OPEN', 'IN_PROGRESS', 'COMPLETED', 'FULFILLED', 'CANCELLED', 'EXPIRED')),
                 claimed_by_user_id INTEGER,
                 claimed_by_handle TEXT,
                 claimed_at TEXT,
@@ -3945,9 +3945,9 @@ app.get("/api/requests/stats", (req, res) => {
     const query = `
         SELECT 
             COUNT(CASE WHEN status = 'OPEN' THEN 1 END) as total_open,
-            COUNT(CASE WHEN status = 'IN_PROGRESS' THEN 1 END) as total_in_progress,
+            COUNT(CASE WHEN status IN ('IN_PROGRESS', 'COMPLETED') THEN 1 END) as total_in_progress,
             COUNT(CASE WHEN status = 'FULFILLED' THEN 1 END) as total_fulfilled,
-            COALESCE(SUM(CASE WHEN status IN ('OPEN', 'IN_PROGRESS') THEN (offered_gold_price * quantity) ELSE 0 END), 0) as total_gold_offered
+            COALESCE(SUM(CASE WHEN status IN ('OPEN', 'IN_PROGRESS', 'COMPLETED') THEN (offered_gold_price * quantity) ELSE 0 END), 0) as total_gold_offered
         FROM trade_requests
         ${serverClause}
     `;
@@ -4012,8 +4012,8 @@ app.get("/api/requests", (req, res) => {
             params.push(status.toUpperCase());
         }
     } else {
-        // Default to active open/in-progress requests
-        conditions.push("tr.status IN ('OPEN', 'IN_PROGRESS')");
+        // Default to active open/in-progress/completed requests
+        conditions.push("tr.status IN ('OPEN', 'IN_PROGRESS', 'COMPLETED')");
     }
     if (category) {
         buildCategoryCondition("tr", category, conditions, params);
@@ -4265,8 +4265,39 @@ app.patch("/api/requests/:id/unclaim", async (req, res) => {
 });
 
 /**
+ * PATCH /api/requests/:id/complete
+ * Claiming crafter marks that they have crafted/sent the items via C.O.D. in-game mail.
+ */
+app.patch("/api/requests/:id/complete", async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) return res.status(401).json({ error: "Authentication required." });
+    const requestId = parseInt(req.params.id, 10);
+    if (isNaN(requestId)) return res.status(400).json({ error: "Invalid request ID." });
+
+    db.get("SELECT * FROM trade_requests WHERE id = ?", [requestId], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: "Trade request not found." });
+        if (row.status !== 'IN_PROGRESS') {
+            return res.status(400).json({ error: `Cannot mark as completed. Current status is ${row.status}.` });
+        }
+        if (row.claimed_by_user_id !== userId) {
+            return res.status(403).json({ error: "Only the crafter who claimed this order can mark it as completed." });
+        }
+
+        db.run(`
+            UPDATE trade_requests 
+            SET status = 'COMPLETED'
+            WHERE id = ?
+        `, [requestId], function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, message: "Order marked as completed! Awaiting buyer confirmation." });
+        });
+    });
+});
+
+/**
  * PATCH /api/requests/:id/fulfill
- * Confirms delivery and marks the order as FULFILLED.
+ * Strictly restricted to the buyer who created the request to confirm delivery and close the order.
  */
 app.patch("/api/requests/:id/fulfill", async (req, res) => {
     const userId = await getAuthUserId(req);
@@ -4280,8 +4311,8 @@ app.patch("/api/requests/:id/fulfill", async (req, res) => {
         if (row.status === 'FULFILLED') {
             return res.status(400).json({ error: "Request is already marked as fulfilled." });
         }
-        if (row.user_id !== userId && row.claimed_by_user_id !== userId) {
-            return res.status(403).json({ error: "Only the buyer or claiming crafter can confirm fulfillment." });
+        if (row.user_id !== userId) {
+            return res.status(403).json({ error: "Only the buyer who posted this request can confirm delivery and close it." });
         }
 
         db.run(`
@@ -4290,7 +4321,7 @@ app.patch("/api/requests/:id/fulfill", async (req, res) => {
             WHERE id = ?
         `, [requestId], function(err) {
             if (err) return res.status(500).json({ error: err.message });
-            res.json({ success: true, message: "Order marked as fulfilled! Thank you for trading." });
+            res.json({ success: true, message: "Order confirmed and closed! Thank you for trading." });
         });
     });
 });

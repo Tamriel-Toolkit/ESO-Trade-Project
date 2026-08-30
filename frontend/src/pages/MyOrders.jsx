@@ -21,6 +21,7 @@ import {
   fetchTradeRequests, 
   claimTradeRequest, 
   unclaimTradeRequest, 
+  completeTradeRequest,
   fulfillTradeRequest, 
   cancelTradeRequest 
 } from "../api/api";
@@ -127,6 +128,22 @@ export function MyOrders() {
       }
     } catch (e) {
       alert("Error releasing claim: " + e.message);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleComplete = async (id) => {
+    setActionLoadingId(id);
+    try {
+      const res = await completeTradeRequest(id);
+      if (res && res.success) {
+        loadRequests();
+      } else {
+        alert(res?.error || "Failed to mark order as completed.");
+      }
+    } catch (e) {
+      alert("Error completing order: " + e.message);
     } finally {
       setActionLoadingId(null);
     }
@@ -449,6 +466,7 @@ export function MyOrders() {
                     currentUser={user}
                     onClaim={handleClaim}
                     onUnclaim={handleUnclaim}
+                    onComplete={handleComplete}
                     onFulfill={handleFulfill}
                     onCancel={handleCancel}
                     isClaiming={actionLoadingId === req.id}

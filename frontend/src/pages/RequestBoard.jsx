@@ -24,6 +24,7 @@ import {
   fetchTradeRequestStats, 
   claimTradeRequest, 
   unclaimTradeRequest, 
+  completeTradeRequest,
   fulfillTradeRequest, 
   cancelTradeRequest 
 } from "../api/api";
@@ -187,6 +188,23 @@ export function RequestBoard() {
     }
   };
 
+  const handleComplete = async (id) => {
+    setActionLoadingId(id);
+    try {
+      const res = await completeTradeRequest(id);
+      if (res && res.success) {
+        loadRequests();
+        loadStats();
+      } else {
+        alert(res?.error || "Failed to mark order as completed.");
+      }
+    } catch (e) {
+      alert("Error completing order: " + e.message);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
   const handleFulfill = async (id) => {
     setActionLoadingId(id);
     try {
@@ -282,7 +300,7 @@ export function RequestBoard() {
               className="px-4 py-2 bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg flex items-center gap-1.5"
             >
               <Plus className="size-4" />
-              <span>Post WTB / Craft Request</span>
+              <span>Post Item Request</span>
             </button>
           </div>
         </div>
@@ -490,6 +508,7 @@ export function RequestBoard() {
                 currentUser={user}
                 onClaim={handleClaim}
                 onUnclaim={handleUnclaim}
+                onComplete={handleComplete}
                 onFulfill={handleFulfill}
                 onCancel={handleCancel}
                 isClaiming={actionLoadingId === req.id}
