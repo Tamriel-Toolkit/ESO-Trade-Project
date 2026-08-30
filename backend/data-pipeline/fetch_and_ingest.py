@@ -50,38 +50,144 @@ def get_item_type(type_id):
     }
     return mapping.get(type_id, "Unknown")
 
-def get_category_subcategory(raw_type, raw_equip, raw_weapon, raw_armor, raw_craft):
-    category = "Other"
-    subcategory = "Unknown"
+def get_category_subcategory(name, raw_type, raw_equip, raw_weapon, raw_armor, raw_craft):
+    name_lower = (name or "").lower()
 
+    # 1. Companion Equipment
+    if raw_type in (70, 71, 72) and ("companion" in name_lower or "breeches" in name_lower or "breastplate" in name_lower):
+        if "ring" in name_lower or "necklace" in name_lower:
+            return "Companion Equipment", "Companion Jewelry"
+        elif "heavy" in name_lower or "breastplate" in name_lower or "cuirass" in name_lower or raw_armor == 3:
+            return "Companion Equipment", "Companion Heavy Armor"
+        elif "medium" in name_lower or "jack" in name_lower or raw_armor == 2:
+            return "Companion Equipment", "Companion Medium Armor"
+        elif "light" in name_lower or "robe" in name_lower or raw_armor == 1:
+            return "Companion Equipment", "Companion Light Armor"
+        elif raw_weapon > 0 or "bow" in name_lower or "staff" in name_lower or "sword" in name_lower:
+            return "Companion Equipment", "Companion Weapon"
+        return "Companion Equipment", "Companion Equipment"
+
+    # 2. Weapons
     if raw_type == 1:
-        category = "Weapon"
-        w_map = {1:"Axe", 2:"Mace", 3:"Sword", 4:"Two Handed Sword", 5:"Two Handed Axe", 6:"Two Handed Mace", 8:"Bow", 9:"Destruction Staff", 11:"Dagger", 12:"Restoration Staff"}
-        subcategory = w_map.get(raw_weapon, "Weapon")
-    elif raw_type == 2:
-        category = "Armor"
-        if raw_armor == 1: subcategory = "Light Armor"
-        elif raw_armor == 2: subcategory = "Medium Armor"
-        elif raw_armor == 3: subcategory = "Heavy Armor"
-    elif raw_type in [4, 7, 12, 31]:
-        category = "Consumable"
-        if raw_type == 4: subcategory = "Food"
-        elif raw_type == 12: subcategory = "Drink"
-        elif raw_type == 7: subcategory = "Potion"
-        elif raw_type == 31: subcategory = "Poison"
-    elif raw_type == 29:
-        category = "Furnishing"
-    elif raw_type == 30:
-        category = "Recipe"
-        if raw_craft == 1: subcategory = "Blacksmithing"
-        elif raw_craft == 2: subcategory = "Clothier"
-        elif raw_craft == 3: subcategory = "Enchanting"
-        elif raw_craft == 4: subcategory = "Alchemy"
-        elif raw_craft == 5: subcategory = "Provisioning"
-        elif raw_craft == 6: subcategory = "Woodworking"
-        elif raw_craft == 7: subcategory = "Jewelry Crafting"
+        if raw_weapon == 1 or ("axe" in name_lower and "two" not in name_lower and "battle" not in name_lower):
+            return "Weapons", "One-Handed Axe"
+        elif raw_weapon == 2 or ("mace" in name_lower and "two" not in name_lower and "maul" not in name_lower):
+            return "Weapons", "One-Handed Mace"
+        elif raw_weapon == 3 or ("sword" in name_lower and "two" not in name_lower and "great" not in name_lower):
+            return "Weapons", "One-Handed Sword"
+        elif raw_weapon == 11 or "dagger" in name_lower:
+            return "Weapons", "Dagger"
+        elif raw_weapon == 5 or "battle axe" in name_lower or "battleaxe" in name_lower:
+            return "Weapons", "Two-Handed Axe"
+        elif raw_weapon == 6 or "maul" in name_lower or "two handed mace" in name_lower:
+            return "Weapons", "Two-Handed Mace"
+        elif raw_weapon == 4 or "greatsword" in name_lower or "two handed sword" in name_lower:
+            return "Weapons", "Two-Handed Sword"
+        elif raw_weapon == 8 or "bow" in name_lower:
+            return "Weapons", "Bow"
+        elif raw_weapon in (12, 13, 15) or any(w in name_lower for w in ["destruction", "inferno", "fire staff", "lightning", "frost", "ice staff", "shock staff"]):
+            return "Weapons", "Destruction Staff"
+        elif raw_weapon == 9 or any(w in name_lower for w in ["restoration", "healing staff", "resto"]):
+            return "Weapons", "Restoration Staff"
+        return "Weapons", "One-Handed"
 
-    return category, subcategory
+    # 3. Jewelry (Rings & Necklaces)
+    if raw_equip in (2, 12) or any(w in name_lower for w in ["ring of", "band of", "necklace", "pendant", "amulet", "choker", "talisman"]):
+        if raw_equip == 2 or any(w in name_lower for w in ["necklace", "pendant", "amulet", "choker", "talisman"]):
+            return "Jewelry", "Necklace"
+        return "Jewelry", "Ring"
+
+    # 4. Apparel (Armor & Shields)
+    if raw_type == 2 or raw_equip == 7 or "shield" in name_lower:
+        if raw_equip == 7 or "shield" in name_lower or "buckler" in name_lower or "targe" in name_lower:
+            return "Apparel", "Shield"
+        elif raw_armor == 3 or any(w in name_lower for w in ["cuirass", "sabatons", "gauntlets", "greaves", "pauldrons", "girdle", "great helm"]):
+            return "Apparel", "Heavy Armor"
+        elif raw_armor == 2 or any(w in name_lower for w in ["jack", "boots", "bracers", "guards", "arm cops", "belt", "helmet", "mask"]):
+            return "Apparel", "Medium Armor"
+        elif raw_armor == 1 or any(w in name_lower for w in ["robe", "jerkin", "shoes", "gloves", "hat", "breeches", "epaulets", "sash", "cap", "hood", "cowl"]):
+            return "Apparel", "Light Armor"
+        return "Apparel", "Apparel"
+
+    # 5. Glyphs
+    if raw_type in (20, 21, 26, 3) or "glyph of" in name_lower:
+        if raw_type == 20 or "weapon" in name_lower or any(w in name_lower for w in ["flame", "frost", "poison", "shock", "hardening", "crushing", "weakening", "foulness", "absorb"]):
+            return "Glyphs", "Weapon Glyph"
+        elif raw_type == 21 or "armor" in name_lower or any(w in name_lower for w in ["health", "magicka", "stamina", "prismatic defense"]):
+            return "Glyphs", "Armor Glyph"
+        elif raw_type in (26, 3) or "jewelry" in name_lower or any(w in name_lower for w in ["recovery", "resist", "decrease", "potion"]):
+            return "Glyphs", "Jewelry Glyph"
+        return "Glyphs", "Glyphs"
+
+    # 6. Furnishings
+    if raw_type == 61 or "formula:" in name_lower or "praxis:" in name_lower or "diagram:" in name_lower or "pattern:" in name_lower or "blueprint:" in name_lower:
+        if any(w in name_lower for w in ["recipe", "blueprint", "praxis", "diagram", "pattern", "formula", "design"]):
+            return "Consumables", "Recipe / Plan"
+        return "Furnishings", "Furnishings"
+
+    # 7. Materials
+    if raw_type in (41, 42, 43, 65, 67) or any(w in name_lower for w in ["tempering alloy", "dreugh wax", "rosin", "kuta", "chromium plating", "zircon plating", "iridium plating", "terne plating", "grain solvent", "elegant lining", "mastic", "honing stone", "hemming", "pitch"]):
+        return "Materials", "Upgrade Temper"
+    if raw_type in (35, 36) or "ore" in name_lower or "ingot" in name_lower:
+        return "Materials", "Blacksmithing"
+    if raw_type in (37, 38) or "rough " in name_lower or "sanded " in name_lower:
+        return "Materials", "Woodworking"
+    if raw_type in (39, 40) or any(w in name_lower for w in ["rawhide", "jute", "flax", "spidersilk", "leather", "hide", "silk", "rubedo"]):
+        return "Materials", "Clothier"
+    if raw_type in (63, 64) or any(w in name_lower for w in ["pewter dust", "copper dust", "silver dust", "electrum dust", "platinum dust", "pewter ounce", "copper ounce", "silver ounce", "electrum ounce", "platinum ounce"]):
+        return "Materials", "Jewelry Crafting"
+    if raw_type == 44 or "style material" in name_lower or any(w in name_lower for w in ["flint", "bone", "molybdenum", "adamantite", "obsidian", "corundum", "manganese"]):
+        return "Materials", "Style Material"
+    if raw_type in (45, 46, 66, 68) or any(w in name_lower for w in ["emerald", "quartz", "garnet", "sapphire", "diamond", "ruby", "citrine", "nirncrux", "titanium", "dawn-prism"]):
+        return "Materials", "Trait Material"
+    if raw_type in (31, 33) or any(w in name_lower for w in ["water", "entoloma", "coprinus", "russula", "columbine", "bugloss", "namira", "nirnroot", "blessed thistle", "mountain flower"]):
+        return "Materials", "Alchemy"
+    if raw_type in (47, 48, 49, 51, 52, 53) or any(w in name_lower for w in ["potency rune", "essence rune", "aspect rune", "kuta", "rekuta", "jejota", "denata", "oko", "makko", "deni"]):
+        return "Materials", "Enchanting"
+    if raw_type in (10, 34, 54) or any(w in name_lower for w in ["perfect roe", "frost mirriam", "bervez juice", "garlic", "flour", "salt", "pepper", "game", "poultry", "fish", "meat"]):
+        return "Materials", "Provisioning"
+    if raw_type == 62 or any(w in name_lower for w in ["regulus", "bast", "clean pelt", "mundane rune", "alchemical resin", "heartwood", "decorative wax", "ochre"]):
+        return "Materials", "Furnishing Material"
+
+    # 8. Consumables
+    if raw_type == 4 or "food" in name_lower:
+        return "Consumables", "Food"
+    if raw_type == 12 or "drink" in name_lower:
+        return "Consumables", "Drink"
+    if raw_type == 7 or any(w in name_lower for w in ["potion", "sip of", "dram of", "panacea"]):
+        return "Consumables", "Potion"
+    if raw_type == 30 or "poison" in name_lower:
+        return "Consumables", "Poison"
+    if raw_type == 29 or "recipe:" in name_lower:
+        return "Consumables", "Recipe / Plan"
+    if raw_type == 8 or "motif" in name_lower or "style chapter" in name_lower:
+        return "Consumables", "Motif"
+    if raw_type in (60, 75) or "master writ" in name_lower or "sealed writ" in name_lower:
+        return "Consumables", "Master Writ"
+    if raw_type in (72, 73, 74, 76) or any(w in name_lower for w in ["grimoire:", "script:", "luminous ink"]):
+        return "Consumables", "Scribing / Script"
+    if raw_type in (18, 70) or any(w in name_lower for w in ["satchel", "crate", "chest", "box", "sack", "coffer", "bundle", "geode"]):
+        return "Consumables", "Container"
+    if raw_type in (56, 57, 59) or "scroll" in name_lower or "trophy" in name_lower:
+        return "Consumables", "Trophy & Scroll"
+
+    # 9. Miscellaneous
+    if raw_type in (6, 47) or any(w in name_lower for w in ["siege", "trebuchet", "catapult", "ballista", "battering ram", "repair kit"]):
+        return "Miscellaneous", "Siege & Repair"
+    if raw_type == 16 or any(w in name_lower for w in ["bait", "worms", "crawlers", "guts", "insect parts"]):
+        return "Miscellaneous", "Bait"
+    if raw_type == 22 or "lockpick" in name_lower:
+        return "Miscellaneous", "Lockpick"
+    if raw_type == 19 or "soul gem" in name_lower:
+        return "Miscellaneous", "Soul Gem"
+    if "treasure map" in name_lower or "survey:" in name_lower:
+        return "Miscellaneous", "Treasure Map & Survey"
+    if raw_type in (9, 55, 71) or "repair kit" in name_lower:
+        return "Miscellaneous", "Repair Kit"
+    if raw_type == 14 or any(w in name_lower for w in ["disguise", "costume", "tabard"]):
+        return "Miscellaneous", "Disguise & Tabard"
+
+    return "Miscellaneous", "General"
 
 def parse_quality(quality_str):
     if not quality_str:
@@ -139,7 +245,7 @@ def normalize_item(row):
     rarity, quality_range = parse_quality(quality_str)
 
     item_type = get_item_type(raw_type)
-    category, subcategory = get_category_subcategory(raw_type, raw_equip, raw_weapon, raw_armor, raw_craft)
+    category, subcategory = get_category_subcategory(name, raw_type, raw_equip, raw_weapon, raw_armor, raw_craft)
 
     icon = row.get("icon", "")
     if icon.startswith('/'):

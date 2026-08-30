@@ -522,10 +522,68 @@ function initializeDatabaseSchema() {
         `);
     });
 }
+
+/**
+ * Standard TTC Category order & query builders for backwards/forwards compatibility.
+ */
+const TTC_CATEGORY_ORDER = [
+    "Weapons",
+    "Apparel",
+    "Jewelry",
+    "Consumables",
+    "Materials",
+    "Glyphs",
+    "Furnishings",
+    "Companion Equipment",
+    "Miscellaneous"
+];
+
+function buildCategoryCondition(prefix, category, conditions, params) {
+    const col = prefix ? `${prefix}.category` : "category";
+    const catLower = category.toString().trim().toLowerCase();
+    if (catLower === "weapon" || catLower === "weapons") {
+        conditions.push(`(${col} = 'Weapons' OR ${col} = 'Weapon')`);
+    } else if (catLower === "armor" || catLower === "apparel") {
+        conditions.push(`(${col} = 'Apparel' OR ${col} = 'Armor')`);
+    } else if (catLower === "consumable" || catLower === "consumables") {
+        conditions.push(`(${col} = 'Consumables' OR ${col} = 'Consumable')`);
+    } else if (catLower === "furnishing" || catLower === "furnishings") {
+        conditions.push(`(${col} = 'Furnishings' OR ${col} = 'Furnishing')`);
+    } else if (catLower === "material" || catLower === "materials") {
+        conditions.push(`(${col} = 'Materials' OR ${col} = 'Material')`);
+    } else if (catLower === "glyph" || catLower === "glyphs") {
+        conditions.push(`(${col} = 'Glyphs' OR ${col} = 'Glyph')`);
+    } else {
+        conditions.push(`${col} = ?`);
+        params.push(category);
+    }
+}
+
+function buildSubcategoryCondition(prefix, subcategory, conditions, params) {
+    const col = prefix ? `${prefix}.subcategory` : "subcategory";
+    const subLower = subcategory.toString().trim().toLowerCase();
+    if (subLower === "axe" || subLower === "one-handed axe" || subLower === "one handed axe") {
+        conditions.push(`(${col} = 'One-Handed Axe' OR ${col} = 'Axe')`);
+    } else if (subLower === "mace" || subLower === "one-handed mace" || subLower === "one handed mace") {
+        conditions.push(`(${col} = 'One-Handed Mace' OR ${col} = 'Mace')`);
+    } else if (subLower === "sword" || subLower === "one-handed sword" || subLower === "one handed sword") {
+        conditions.push(`(${col} = 'One-Handed Sword' OR ${col} = 'Sword')`);
+    } else if (subLower === "two handed axe" || subLower === "two-handed axe") {
+        conditions.push(`(${col} = 'Two-Handed Axe' OR ${col} = 'Two Handed Axe')`);
+    } else if (subLower === "two handed mace" || subLower === "two-handed mace") {
+        conditions.push(`(${col} = 'Two-Handed Mace' OR ${col} = 'Two Handed Mace')`);
+    } else if (subLower === "two handed sword" || subLower === "two-handed sword") {
+        conditions.push(`(${col} = 'Two-Handed Sword' OR ${col} = 'Two Handed Sword')`);
+    } else {
+        conditions.push(`${col} = ?`);
+        params.push(subcategory);
+    }
+}
+
 /**
  * GET /api/taxonomy
  * Returns all unique categories and subcategories currently in the database
- * to build dynamic filters in the frontend.
+ * matching the official Tamriel Trade Centre (TTC) standard categorization.
  */
 app.get("/api/taxonomy", (req, res) => {
     const query = "SELECT DISTINCT category, subcategory FROM items WHERE category IS NOT NULL ORDER BY category, subcategory;";
@@ -535,6 +593,11 @@ app.get("/api/taxonomy", (req, res) => {
         }
 
         const taxonomy = {};
+        // Seed categories in standard TTC ordering
+        TTC_CATEGORY_ORDER.forEach(cat => {
+            taxonomy[cat] = [];
+        });
+
         rows.forEach(row => {
             if (!taxonomy[row.category]) {
                 taxonomy[row.category] = [];
@@ -543,6 +606,13 @@ app.get("/api/taxonomy", (req, res) => {
                 taxonomy[row.category].push(row.subcategory);
             }
         });
+
+        // Clean up any empty seeded categories if database has no items in them
+        for (const cat of Object.keys(taxonomy)) {
+            if (taxonomy[cat].length === 0 && !rows.some(r => r.category === cat)) {
+                delete taxonomy[cat];
+            }
+        }
 
         res.json(taxonomy);
     });
@@ -566,12 +636,10 @@ app.get("/api/items", (req, res) => {
         params.push(`%${search}%`);
     }
     if (category) {
-        conditions.push("category = ?");
-        params.push(category);
+        buildCategoryCondition("", category, conditions, params);
     }
     if (subcategory) {
-        conditions.push("subcategory = ?");
-        params.push(subcategory);
+        buildSubcategoryCondition("", subcategory, conditions, params);
     }
     if (rarity) {
         conditions.push("rarity = ?");
@@ -1697,12 +1765,10 @@ app.get("/api/market/prices", async (req, res) => {
         params.push(`%${search}%`);
     }
     if (category) {
-        conditions.push("i.category = ?");
-        params.push(category);
+        buildCategoryCondition("i", category, conditions, params);
     }
     if (subcategory) {
-        conditions.push("i.subcategory = ?");
-        params.push(subcategory);
+        buildSubcategoryCondition("i", subcategory, conditions, params);
     }
     if (rarity) {
         conditions.push("i.rarity = ?");
@@ -1824,12 +1890,10 @@ app.get("/api/market/listings", async (req, res) => {
         params.push(`%${search}%`, `%${search}%`);
     }
     if (category) {
-        conditions.push("i.category = ?");
-        params.push(category);
+        buildCategoryCondition("i", category, conditions, params);
     }
     if (subcategory) {
-        conditions.push("i.subcategory = ?");
-        params.push(subcategory);
+        buildSubcategoryCondition("i", subcategory, conditions, params);
     }
     if (rarity) {
         conditions.push("COALESCE(gtl.quality, i.rarity) = ?");
