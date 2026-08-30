@@ -34,32 +34,59 @@ function getItemSetName(item, setsList = []) {
   return null;
 }
 
-const TRAITS = [
+export const ARMOR_TRAITS = [
   "None",
   "Divines",
   "Infused",
-  "Precise",
-  "Sharpened",
-  "Charged",
-  "Defending",
-  "Powered",
-  "Training",
-  "Decisive",
-  "Sturdy",
   "Impenetrable",
   "Reinforced",
+  "Sturdy",
+  "Training",
   "Well-Fitted",
   "Invigorating",
+  "Nirnhoned"
+];
+
+export const WEAPON_TRAITS = [
+  "None",
+  "Charged",
+  "Defending",
+  "Infused",
   "Nirnhoned",
+  "Powered",
+  "Precise",
+  "Sharpened",
+  "Training",
+  "Decisive"
+];
+
+export const JEWELRY_TRAITS = [
+  "None",
   "Arcane",
-  "Healthy",
-  "Robust",
-  "Triune",
   "Bloodthirsty",
   "Harmony",
+  "Healthy",
+  "Infused",
+  "Protective",
+  "Robust",
   "Swift",
-  "Protective"
+  "Triune"
 ];
+
+export function getApplicableTraits(item) {
+  if (!item) return ARMOR_TRAITS;
+  const cat = (item.category || "").toLowerCase();
+  const subcat = (item.subcategory || "").toLowerCase();
+  const itemType = (item.item_type || "").toLowerCase();
+
+  if (cat.includes("weapon") || itemType.includes("weapon")) {
+    return WEAPON_TRAITS;
+  }
+  if (cat.includes("jewelry") || subcat.includes("ring") || subcat.includes("necklace") || itemType.includes("jewelry")) {
+    return JEWELRY_TRAITS;
+  }
+  return ARMOR_TRAITS;
+}
 
 const STYLES = [
   "Any Style",
@@ -221,6 +248,18 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
       item.category?.toLowerCase().includes("armor") ||
       item.category?.toLowerCase().includes("apparel") ||
       item.category?.toLowerCase().includes("jewelry");
+
+    const applicableTraits = getApplicableTraits(item);
+    if (!applicableTraits.includes(selectedTrait)) {
+      const cat = (item.category || "").toLowerCase();
+      if (cat.includes("weapon") || (item.item_type || "").toLowerCase().includes("weapon")) {
+        setSelectedTrait("Precise");
+      } else if (cat.includes("jewelry") || (item.subcategory || "").toLowerCase().includes("ring") || (item.subcategory || "").toLowerCase().includes("necklace")) {
+        setSelectedTrait("Bloodthirsty");
+      } else {
+        setSelectedTrait("Divines");
+      }
+    }
 
     if (isGear) {
       setRequestType("CRAFTING");
@@ -474,37 +513,42 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
                     </div>
                   )}
 
-                  {/* Trait Selector */}
+                  {/* Trait Selector (Filtered to applicable item discipline) */}
                   <div>
-                    <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
-                      Trait
+                    <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold flex items-center justify-between">
+                      <span>Trait</span>
+                      <span className="text-[10px] text-[#c5a059] font-mono lowercase">
+                        {getApplicableTraits(selectedItem) === WEAPON_TRAITS ? "weapon traits" : getApplicableTraits(selectedItem) === JEWELRY_TRAITS ? "jewelry traits" : "armor traits"}
+                      </span>
                     </label>
                     <select
                       value={selectedTrait}
                       onChange={(e) => setSelectedTrait(e.target.value)}
                       className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
                     >
-                      {TRAITS.map((t) => (
+                      {getApplicableTraits(selectedItem).map((t) => (
                         <option key={t} value={t}>{t}</option>
                       ))}
                     </select>
                   </div>
 
-                  {/* Style Motif Selector */}
-                  <div>
-                    <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
-                      Style Motif
-                    </label>
-                    <select
-                      value={selectedStyle}
-                      onChange={(e) => setSelectedStyle(e.target.value)}
-                      className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
-                    >
-                      {STYLES.map((st) => (
-                        <option key={st} value={st}>{st}</option>
-                      ))}
-                    </select>
-                  </div>
+                  {/* Style Motif Selector (Hidden for Jewelry) */}
+                  {getApplicableTraits(selectedItem) !== JEWELRY_TRAITS && (
+                    <div>
+                      <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
+                        Style Motif
+                      </label>
+                      <select
+                        value={selectedStyle}
+                        onChange={(e) => setSelectedStyle(e.target.value)}
+                        className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+                      >
+                        {STYLES.map((st) => (
+                          <option key={st} value={st}>{st}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
 
                   {/* Quality Selector */}
                   <div>
