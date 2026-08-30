@@ -5,7 +5,6 @@ import {
   Hammer, 
   ShoppingCart, 
   Search, 
-  Plus, 
   Clock, 
   Check, 
   Coins, 
@@ -27,7 +26,6 @@ import {
 } from "../api/api";
 import { useAuth } from "../context/AuthContext";
 import { RequestCard } from "../components/requests/RequestCard";
-import { RequestModal } from "../components/requests/RequestModal";
 import Navbar from "@/components/ui/navbar";
 
 export function MyOrders() {
@@ -46,8 +44,6 @@ export function MyOrders() {
   const [currentPage, setCurrentPage] = useState(1);
   const pageSize = 12;
 
-  // Modal
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [actionLoadingId, setActionLoadingId] = useState(null);
 
   // Load user's trade requests
@@ -176,7 +172,7 @@ export function MyOrders() {
   const postedCount = requests.filter(r => r.user_id === user?.id).length;
   const claimedCount = requests.filter(r => r.claimed_by_user_id === user?.id).length;
   const fulfilledCount = requests.filter(r => r.status === "FULFILLED").length;
-  const totalGold = requests.reduce((acc, r) => acc + (r.offered_gold_price * (r.quantity || 1)), 0);
+  const totalGold = requests.reduce((acc, r) => acc + ((r.offered_gold_price || 0) * (r.quantity || 1)), 0);
 
   return (
     <div className="min-h-screen bg-[#0a0a0d] text-[#e0d8c3] flex flex-col font-sans selection:bg-[#c5a059] selection:text-black">
@@ -195,7 +191,7 @@ export function MyOrders() {
             </p>
           </div>
 
-          {/* Controls: Megaserver & Post Request CTA */}
+          {/* Controls: Megaserver & Link to Public Board */}
           <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
             {/* Server Selector */}
             <div className="flex rounded-none border border-[#2a2c33] bg-[#0e0e13] p-0.5">
@@ -221,16 +217,14 @@ export function MyOrders() {
               </button>
             </div>
 
-            {/* Post Request CTA */}
-            {user && (
-              <button
-                onClick={() => setIsModalOpen(true)}
-                className="px-4 py-2 bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg flex items-center gap-1.5"
-              >
-                <Plus className="size-4" />
-                <span>Post New Request</span>
-              </button>
-            )}
+            {/* Navigation to Public Requests */}
+            <Link
+              to="/requests"
+              className="px-4 py-2 bg-[#161620] hover:bg-[#1f1f2e] border border-[#c5a059]/40 hover:border-[#c5a059] text-xs font-cinzel font-bold text-[#e6c278] hover:text-white uppercase tracking-wider transition-all flex items-center gap-1.5 shadow"
+            >
+              <ShoppingCart className="size-3.5 text-[#c5a059]" />
+              <span>Browse Public Requests →</span>
+            </Link>
           </div>
         </div>
       </header>
@@ -276,7 +270,7 @@ export function MyOrders() {
                     Requests I Posted
                   </span>
                   <span className="font-mono text-xl font-bold text-white">
-                    {loading ? "..." : postedCount}
+                    {loading ? "..." : (postedCount || 0)}
                   </span>
                 </div>
               </div>
@@ -290,7 +284,7 @@ export function MyOrders() {
                     Bounties I Claimed
                   </span>
                   <span className="font-mono text-xl font-bold text-white">
-                    {loading ? "..." : claimedCount}
+                    {loading ? "..." : (claimedCount || 0)}
                   </span>
                 </div>
               </div>
@@ -304,7 +298,7 @@ export function MyOrders() {
                     Fulfilled Orders
                   </span>
                   <span className="font-mono text-xl font-bold text-white">
-                    {loading ? "..." : fulfilledCount}
+                    {loading ? "..." : (fulfilledCount || 0)}
                   </span>
                 </div>
               </div>
@@ -437,17 +431,12 @@ export function MyOrders() {
                   You have not posted or claimed any orders matching this category yet.
                 </p>
                 <div className="pt-2 flex items-center justify-center gap-3">
-                  <button
-                    onClick={() => setIsModalOpen(true)}
-                    className="px-5 py-2 bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-colors shadow"
-                  >
-                    + Post a Request
-                  </button>
                   <Link
                     to="/requests"
-                    className="px-4 py-2 bg-[#161620] hover:bg-[#1c1c26] border border-[#2a2c33] text-xs font-cinzel text-muted-foreground hover:text-white uppercase transition-colors"
+                    className="px-5 py-2.5 bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-colors shadow flex items-center gap-1.5"
                   >
-                    Browse Public Feed
+                    <ShoppingCart className="size-4" />
+                    <span>Browse Public Requests</span>
                   </Link>
                 </div>
               </div>
@@ -497,16 +486,6 @@ export function MyOrders() {
           </>
         )}
       </main>
-
-      {/* Create Request Modal */}
-      <RequestModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-        defaultServer={server}
-        onRequestCreated={() => {
-          loadRequests();
-        }}
-      />
     </div>
   );
 }
