@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { 
   ScrollText, 
   Hammer, 
@@ -346,47 +347,25 @@ export function RequestBoard() {
           </div>
         </div>
 
-        {/* 2-TAB PRIMARY NAVIGATION: WTB / Bounties vs My Orders */}
-        <div className="flex items-center justify-between border-b border-[#2a2c33] bg-[#0e0e13] px-2 overflow-x-auto gap-2">
-          <div className="flex items-center gap-1 py-2">
-            <button
-              onClick={() => { setActiveTab("PUBLIC"); setCurrentPage(1); }}
-              className={`px-4 py-2 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
-                activeTab === "PUBLIC"
-                  ? "bg-[#c5a059] text-black shadow-md font-extrabold"
-                  : "text-muted-foreground hover:text-[#e0d8c3] hover:bg-white/5"
-              }`}
-            >
-              <ShoppingCart className="size-4" />
-              <span>Want-To-Buy / Public Requests</span>
-            </button>
-
-            {user ? (
-              <button
-                onClick={() => { setActiveTab("MY_ORDERS"); setCurrentPage(1); }}
-                className={`px-4 py-2 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shrink-0 border ${
-                  activeTab === "MY_ORDERS"
-                    ? "bg-purple-600 text-white border-purple-400 shadow-md font-extrabold"
-                    : "text-purple-400 border-purple-500/30 hover:bg-purple-950/20"
-                }`}
-              >
-                <User className="size-4" />
-                <span>My Orders & Claims</span>
-              </button>
-            ) : (
-              <button
-                onClick={() => alert("Please log in to manage your created orders and claimed bounties.")}
-                className="px-4 py-2 text-xs font-cinzel text-muted-foreground/60 border border-transparent hover:border-[#2a2c33] transition-all flex items-center gap-2 cursor-pointer shrink-0"
-              >
-                <User className="size-4" />
-                <span>My Orders (Login Required)</span>
-              </button>
-            )}
+        {/* Feed Header Bar & Link to My Orders */}
+        <div className="flex items-center justify-between border-b border-[#2a2c33] bg-[#0e0e13] px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <ShoppingCart className="size-4 text-[#c5a059]" />
+            <span className="text-xs font-cinzel font-bold uppercase tracking-wider text-[#e0d8c3]">
+              Public Request Feed
+            </span>
+            <span className="text-xs font-mono text-muted-foreground ml-2">
+              (<strong className="text-white">{requests.length}</strong> of {totalCount} active)
+            </span>
           </div>
 
-          <span className="text-xs font-mono text-muted-foreground hidden sm:block">
-            Showing <strong className="text-white">{requests.length}</strong> of {totalCount} requests
-          </span>
+          <Link
+            to="/my-orders"
+            className="text-xs font-cinzel font-bold text-[#e6c278] hover:text-white px-3 py-1.5 bg-[#161620] hover:bg-[#1f1f2e] border border-[#c5a059]/40 hover:border-[#c5a059] transition-all flex items-center gap-1.5 uppercase tracking-wider"
+          >
+            <Package className="size-3.5 text-[#c5a059]" />
+            <span>My Orders & Claims →</span>
+          </Link>
         </div>
 
         {/* Dynamic Filter Controls Bar */}
