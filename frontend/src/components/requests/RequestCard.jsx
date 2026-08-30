@@ -414,13 +414,14 @@ export function RequestCard({
                     <Check className="size-3.5" />
                     <span>Confirm & Close</span>
                   </button>
-                  <button
-                    onClick={() => onUnclaim(request.id)}
-                    className="py-2 px-3 bg-[#161620] hover:bg-amber-950/30 border border-[#2a2c33] hover:border-amber-500/40 text-amber-300 hover:text-amber-200 font-cinzel text-xs uppercase transition-all cursor-pointer"
-                    title="Unassign this claimer and open request back to the public board"
-                  >
-                    Unassign
-                  </button>
+                  <EsoTooltip content="Unassign this claimer and reopen request to the public board">
+                    <button
+                      onClick={() => onUnclaim(request.id)}
+                      className="py-2 px-3 bg-[#161620] hover:bg-amber-950/30 border border-[#2a2c33] hover:border-amber-500/40 text-amber-300 hover:text-amber-200 font-cinzel text-xs uppercase transition-all cursor-pointer"
+                    >
+                      Unassign
+                    </button>
+                  </EsoTooltip>
                 </>
               )}
 
@@ -446,13 +447,14 @@ export function RequestCard({
                     <Check className="size-3.5" />
                     <span>Confirm Delivery & Close Order</span>
                   </button>
-                  <button
-                    onClick={() => onUnclaim(request.id)}
-                    className="py-2 px-3 bg-[#161620] hover:bg-amber-950/30 border border-[#2a2c33] hover:border-amber-500/40 text-amber-300 hover:text-amber-200 font-cinzel text-xs uppercase transition-all cursor-pointer"
-                    title="Unassign crafter and reopen request"
-                  >
-                    Unassign
-                  </button>
+                  <EsoTooltip content="Unassign crafter and reopen request to the public board">
+                    <button
+                      onClick={() => onUnclaim(request.id)}
+                      className="py-2 px-3 bg-[#161620] hover:bg-amber-950/30 border border-[#2a2c33] hover:border-amber-500/40 text-amber-300 hover:text-amber-200 font-cinzel text-xs uppercase transition-all cursor-pointer"
+                    >
+                      Unassign
+                    </button>
+                  </EsoTooltip>
                 </>
               ) : isClaimedByMe ? (
                 <>
