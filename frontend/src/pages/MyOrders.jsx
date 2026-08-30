@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { 
   Package, 
@@ -36,7 +36,7 @@ export function MyOrders() {
   const [subTab, setSubTab] = useState("ALL"); // ALL, POSTED, CLAIMED, FULFILLED
   
   // Data state
-  const [requests, setRequests] = useState([]);
+  const [allOrders, setAllOrders] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Filters
@@ -76,25 +76,17 @@ export function MyOrders() {
           r => r.user_id === user.id || r.claimed_by_user_id === user.id
         );
 
-        if (subTab === "POSTED") {
-          userOrders = userOrders.filter(r => r.user_id === user.id);
-        } else if (subTab === "CLAIMED") {
-          userOrders = userOrders.filter(r => r.claimed_by_user_id === user.id);
-        } else if (subTab === "FULFILLED") {
-          userOrders = userOrders.filter(r => r.status === "FULFILLED");
-        }
-
-        setRequests(userOrders);
+        setAllOrders(userOrders);
       } else {
-        setRequests([]);
+        setAllOrders([]);
       }
     } catch (e) {
       console.error("Failed to load user orders:", e);
-      setRequests([]);
+      setAllOrders([]);
     } finally {
       setLoading(false);
     }
-  }, [server, subTab, searchQuery, sortOption, user?.id]);
+  }, [server, searchQuery, sortOption, user?.id]);
 
   useEffect(() => {
     loadRequests();
@@ -182,14 +174,27 @@ export function MyOrders() {
     }
   };
 
-  const paginatedRequests = requests.slice((currentPage - 1) * pageSize, currentPage * pageSize);
-  const totalPages = Math.ceil(requests.length / pageSize) || 1;
+  // Compute User-Specific Global Stats across all user orders
+  const postedCount = allOrders.filter(r => r.user_id === user?.id).length;
+  const claimedCount = allOrders.filter(r => r.claimed_by_user_id === user?.id).length;
+  const fulfilledCount = allOrders.filter(r => r.status === "FULFILLED").length;
+  const totalGold = allOrders.reduce((acc, r) => acc + ((r.offered_gold_price || 0) * (r.quantity || 1)), 0);
 
-  // Compute User Specific Stats
-  const postedCount = requests.filter(r => r.user_id === user?.id).length;
-  const claimedCount = requests.filter(r => r.claimed_by_user_id === user?.id).length;
-  const fulfilledCount = requests.filter(r => r.status === "FULFILLED").length;
-  const totalGold = requests.reduce((acc, r) => acc + ((r.offered_gold_price || 0) * (r.quantity || 1)), 0);
+  // Filter orders for active sub-tab and search query
+  const filteredRequests = useMemo(() => {
+    let list = allOrders;
+    if (subTab === "POSTED") {
+      list = list.filter(r => r.user_id === user?.id);
+    } else if (subTab === "CLAIMED") {
+      list = list.filter(r => r.claimed_by_user_id === user?.id);
+    } else if (subTab === "FULFILLED") {
+      list = list.filter(r => r.status === "FULFILLED");
+    }
+    return list;
+  }, [allOrders, subTab, user?.id]);
+
+  const paginatedRequests = filteredRequests.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const totalPages = Math.ceil(filteredRequests.length / pageSize) || 1;
 
   return (
     <div className="min-h-screen bg-[#0a0a0d] text-[#e0d8c3] flex flex-col font-sans selection:bg-[#c5a059] selection:text-black">
@@ -346,7 +351,7 @@ export function MyOrders() {
                       : "text-muted-foreground hover:text-[#e0d8c3] hover:bg-white/5"
                   }`}
                 >
-                  All Activity ({requests.length})
+                  All Activity ({allOrders.length})
                 </button>
 
                 <button
@@ -358,7 +363,7 @@ export function MyOrders() {
                   }`}
                 >
                   <ShoppingCart className="size-3.5" />
-                  My Posted Requests
+                  My Posted Requests ({postedCount})
                 </button>
 
                 <button
@@ -370,7 +375,7 @@ export function MyOrders() {
                   }`}
                 >
                   <Hammer className="size-3.5" />
-                  My Claimed Orders
+                  My Claimed Orders ({claimedCount})
                 </button>
 
                 <button
@@ -382,7 +387,7 @@ export function MyOrders() {
                   }`}
                 >
                   <Check className="size-3.5" />
-                  Completed History
+                  Completed History ({fulfilledCount})
                 </button>
               </div>
 
