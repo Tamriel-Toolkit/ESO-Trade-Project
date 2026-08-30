@@ -7,6 +7,7 @@ ESOTrade = ESOTrade or {}
 ESOTrade.name = "ESOTrade"
 
 -- Default SavedVariables structure with Scanner Character Header & Gear
+-- Default SavedVariables structure with Scanner Character Header, Gear & Trait Research
 ESOTradeVars = ESOTradeVars or {
     Server = "NA",
     Scans = {},
@@ -15,7 +16,8 @@ ESOTradeVars = ESOTradeVars or {
     PlayerLevel = 50,
     PlayerAlliance = 1,
     IsMasterCrafter = 0,
-    Gear = {}
+    Gear = {},
+    TraitResearch = {}
 }
 
 -- Dynamically determine player's current City & Zone location from ESO API
@@ -105,6 +107,68 @@ local function ExportEquippedGear()
     end
 end
 
+-- Export character trait research progress across all crafting stations
+local function ExportTraitResearch()
+    ESOTradeVars.TraitResearch = {}
+    local now = GetTimeStamp()
+
+    local craftingTypes = {
+        { type = CRAFTING_TYPE_BLACKSMITHING, name = "Blacksmithing" },
+        { type = CRAFTING_TYPE_CLOTHIER, name = "Clothier" },
+        { type = CRAFTING_TYPE_WOODWORKING, name = "Woodworking" },
+        { type = CRAFTING_TYPE_JEWELRYCRAFTING, name = "Jewelry" }
+    }
+
+    for _, cInfo in ipairs(craftingTypes) do
+        local cType = cInfo.type
+        local cName = cInfo.name
+        if cType and GetNumSmithingResearchLines then
+            local numLines = GetNumSmithingResearchLines(cType) or 0
+            for lineIndex = 1, numLines do
+                local lineName, icon, numTraits = GetSmithingResearchLineInfo(cType, lineIndex)
+                if lineName and lineName ~= "" then
+                    local traitsCount = numTraits or 9
+                    for traitIndex = 1, traitsCount do
+                        local traitType, traitDesc, known = GetSmithingResearchLineTraitInfo(cType, lineIndex, traitIndex)
+                        if traitType and traitType > 0 then
+                            local timeRemainingSecs, totalTimeSecs = GetSmithingResearchLineTraitTimes(cType, lineIndex, traitIndex)
+                            local status = "UNKNOWN"
+                            local startedAt = nil
+                            local completesAt = nil
+
+                            if known == true then
+                                status = "COMPLETED"
+                            elseif timeRemainingSecs and timeRemainingSecs > 0 then
+                                status = "RESEARCHING"
+                                completesAt = now + timeRemainingSecs
+                                if totalTimeSecs and totalTimeSecs > 0 then
+                                    startedAt = completesAt - totalTimeSecs
+                                else
+                                    startedAt = now
+                                end
+                            else
+                                status = "UNKNOWN"
+                            end
+
+                            local traitName = GetString("SI_ITEMTRAITTYPE", traitType) or ""
+
+                            table.insert(ESOTradeVars.TraitResearch, {
+                                CraftingType = cName,
+                                EquipmentType = lineName,
+                                TraitId = traitType,
+                                TraitName = traitName,
+                                Status = status,
+                                StartedAt = startedAt,
+                                CompletesAt = completesAt
+                            })
+                        end
+                    end
+                end
+            end
+        end
+    end
+end
+
 -- Callback: Fired when Trading House (Guild Trader) search/browse data arrives from ESO server
 local function OnTradingHouseResponse(eventCode, responseType, result)
     local numItemsOnPage, currentPage, hasMorePages = GetTradingHouseSearchResultsInfo()
@@ -166,7 +230,7 @@ local function OnTradingHouseResponse(eventCode, responseType, result)
     end
 end
 
--- Refresh Character Metadata & Equipped Gear
+-- Refresh Character Metadata, Equipped Gear & Trait Research
 local function RefreshCharacterData()
     local _, _, _, _, isMasterCrafterComplete = GetAchievementInfo(1683)
     ESOTradeVars.PlayerName = GetUnitName("player") or "Hero"
@@ -175,6 +239,7 @@ local function RefreshCharacterData()
     ESOTradeVars.PlayerAlliance = GetUnitAlliance("player") or 1
     ESOTradeVars.IsMasterCrafter = isMasterCrafterComplete and 1 or 0
     ExportEquippedGear()
+    ExportTraitResearch()
 end
 
 -- Addon Initialization
@@ -185,7 +250,7 @@ local function OnAddOnLoaded(eventCode, addOnName)
     -- Register for Trading House response event
     EVENT_MANAGER:RegisterForEvent(ESOTrade.name, EVENT_TRADING_HOUSE_RESPONSE_RECEIVED, OnTradingHouseResponse)
 
-    -- Register Slash Commands (/esotrade, /esotrade clear, /esotrade status, /esotrade gear, /esotrade testach <id>)
+    -- Register Slash Commands (/esotrade, /esotrade clear, /esotrade status, /esotrade gear, /esotrade traits, /esotrade testach <id>)
     SLASH_COMMANDS["/esotrade"] = function(option)
         local rawOption = option or ""
         option = string.lower(rawOption)
@@ -196,11 +261,13 @@ local function OnAddOnLoaded(eventCode, addOnName)
         elseif option == "status" then
             local count = #(ESOTradeVars.Scans or {})
             local gearCount = #(ESOTradeVars.Gear or {})
-            d("|c00FF00[ESOTrade Status]|r " .. count .. " active store listings and " .. gearCount .. " equipped gear items queued in SavedVariables memory.")
-        elseif option == "gear" or option == "sync" then
+            local traitCount = #(ESOTradeVars.TraitResearch or {})
+            d("|c00FF00[ESOTrade Status]|r " .. count .. " store listings, " .. gearCount .. " equipped gear slots, and " .. traitCount .. " trait research nodes queued in SavedVariables memory.")
+        elseif option == "gear" or option == "traits" or option == "sync" then
             RefreshCharacterData()
             local gearCount = #(ESOTradeVars.Gear or {})
-            d("|c00FF00[ESOTrade]|r Synced " .. gearCount .. " equipped gear items for character '" .. (ESOTradeVars.PlayerName or "Hero") .. "'.")
+            local traitCount = #(ESOTradeVars.TraitResearch or {})
+            d("|c00FF00[ESOTrade]|r Synced " .. gearCount .. " gear slots and " .. traitCount .. " trait research nodes for '" .. (ESOTradeVars.PlayerName or "Hero") .. "'.")
         elseif string.sub(option, 1, 7) == "testach" then
             local idStr = string.sub(rawOption, 9)
             local achId = tonumber(idStr) or 1683
@@ -212,8 +279,8 @@ local function OnAddOnLoaded(eventCode, addOnName)
             end
         else
             d("|c00FF00[ESOTrade Commands]|r")
-            d("  /esotrade status       - Show count of scanned items and gear queued in memory")
-            d("  /esotrade gear         - Manually refresh equipped gear loadout for sync")
+            d("  /esotrade status       - Show count of scanned items, gear, and trait research nodes")
+            d("  /esotrade sync         - Manually refresh equipped gear and trait research for sync")
             d("  /esotrade clear        - Flush all scanned items from memory")
             d("  /esotrade testach <id> - Test achievement completion by ID (e.g. /esotrade testach 1683)")
         end
@@ -227,8 +294,11 @@ local function OnAddOnLoaded(eventCode, addOnName)
         end
     end)
     EVENT_MANAGER:RegisterForEvent(ESOTrade.name, EVENT_ACTION_SLOTS_ACTIVE_HOTBAR_UPDATED, RefreshCharacterData)
+    EVENT_MANAGER:RegisterForEvent(ESOTrade.name, EVENT_CRAFTING_STATION_INTERACT, RefreshCharacterData)
+    EVENT_MANAGER:RegisterForEvent(ESOTrade.name, EVENT_SMITHING_TRAIT_RESEARCH_COMPLETED, RefreshCharacterData)
+    EVENT_MANAGER:RegisterForEvent(ESOTrade.name, EVENT_SMITHING_TRAIT_RESEARCH_STARTED, RefreshCharacterData)
 
-    d("|c00FF00[ESOTrade Addon v1.6 Loaded]|r Automatic metadata & gear sync active for character '" .. (ESOTradeVars.PlayerName or "Hero") .. "' on " .. (GetWorldName() or "NA"))
+    d("|c00FF00[ESOTrade Addon v1.6 Loaded]|r Automatic metadata, gear & trait research sync active for character '" .. (ESOTradeVars.PlayerName or "Hero") .. "' on " .. (GetWorldName() or "NA"))
 end
 
 EVENT_MANAGER:RegisterForEvent(ESOTrade.name, EVENT_ADD_ON_LOADED, OnAddOnLoaded)

@@ -679,7 +679,96 @@ async function runTests() {
         }
         console.log(`   Verified set search for 'Order\'s Wrath': ${searchSetsRes.data.sets[0].name} (${searchSetsRes.data.sets[0].category})`);
 
-        console.log("\nAll 42 API endpoint test suites passed successfully!");
+        console.log("\n43. Testing GET /api/characters/:id/traits & POST /api/characters/:id/traits (Trait Research Matrix)...");
+        // Create a test character for trait testing
+        const traitCharRes = await httpPost('/api/characters', {
+            name: "TraitCrafterHero",
+            class: "Templar",
+            level: 50,
+            alliance: 1
+        }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
+
+        const traitCharId = traitCharRes.data.character.id;
+
+        // Fetch traits matrix
+        const traitsRes = await httpGet(`/api/characters/${traitCharId}/traits`);
+        if (traitsRes.status !== 200 || !traitsRes.data.success || !Array.isArray(traitsRes.data.disciplines) || traitsRes.data.total_traits < 100) {
+            throw new Error(`Expected initialized traits matrix, got ${JSON.stringify(traitsRes.data)}`);
+        }
+        console.log(`   Traits matrix initialized: ${traitsRes.data.total_traits} total nodes across ${traitsRes.data.disciplines.length} disciplines!`);
+
+        // Test unauthenticated POST /api/characters/:id/traits -> 401
+        const unauthTraitUpdate = await httpPost(`/api/characters/${traitCharId}/traits`, {
+            equipment_type: "Dagger",
+            trait_id: 1,
+            research_status: "COMPLETED"
+        });
+        if (unauthTraitUpdate.status !== 401) {
+            throw new Error(`Expected 401 on unauthenticated trait update, got ${unauthTraitUpdate.status}`);
+        }
+        console.log("   Unauthenticated trait update correctly rejected (401)!");
+
+        // Test authorized POST /api/characters/:id/traits -> 200
+        const authTraitUpdate = await httpPost(`/api/characters/${traitCharId}/traits`, {
+            equipment_type: "Dagger",
+            trait_id: 1,
+            research_status: "COMPLETED"
+        }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
+        if (authTraitUpdate.status !== 200 || !authTraitUpdate.data.success) {
+            throw new Error(`Expected 200 on authorized trait update, got ${authTraitUpdate.status}`);
+        }
+        console.log("   Authorized trait status update succeeded (200)!");
+
+        console.log("\n44. Testing GET /api/characters/:id/trait-matches (Automated Market Fodder Matching Engine)...");
+        const traitMatchesRes = await httpGet(`/api/characters/${traitCharId}/trait-matches?server=NA`);
+        if (traitMatchesRes.status !== 200 || !traitMatchesRes.data.success || !Array.isArray(traitMatchesRes.data.matches)) {
+            throw new Error(`Expected trait matches response, got ${JSON.stringify(traitMatchesRes.data)}`);
+        }
+        console.log(`   Trait market matching engine verified: ${traitMatchesRes.data.missing_traits_count} missing traits checked, ${traitMatchesRes.data.available_matches_count} with active market fodder!`);
+
+        console.log("\n45. Testing POST /api/characters/upload-traits (Daemon & Addon Bulk Sync)...");
+        // Test unauthenticated upload-traits -> 401
+        const unauthUploadTraits = await httpPost('/api/characters/upload-traits', {
+            character_name: "TraitCrafterHero",
+            traits: [{ equipment_type: "Bow", trait_id: 1, research_status: "COMPLETED" }]
+        });
+        if (unauthUploadTraits.status !== 401) {
+            throw new Error(`Expected 401 on unauthenticated upload-traits, got ${unauthUploadTraits.status}`);
+        }
+        console.log("   Unauthenticated upload-traits correctly rejected (401)!");
+
+        // Test authorized upload-traits -> 200
+        const authUploadTraits = await httpPost('/api/characters/upload-traits', {
+            character_name: "TraitCrafterHero",
+            traits: [
+                { crafting_type: "Woodworking", equipment_type: "Bow", trait_id: 1, trait_name: "Powered", research_status: "COMPLETED" },
+                { crafting_type: "Woodworking", equipment_type: "Bow", trait_id: 2, trait_name: "Charged", research_status: "RESEARCHING" }
+            ]
+        }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
+        if (authUploadTraits.status !== 200 || !authUploadTraits.data.success || authUploadTraits.data.traits_updated !== 2) {
+            throw new Error(`Expected 200 on authorized upload-traits, got ${JSON.stringify(authUploadTraits.data)}`);
+        }
+        console.log("   Authorized upload-traits bulk sync verified (200)!");
+
+        // Cleanup test character
+        await httpDelete(`/api/characters/${traitCharId}`, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+
+        console.log("\n46. Testing GET /api/market/listings with trait filter & sort...");
+        const traitFilterRes = await httpGet('/api/market/listings?server=NA&trait=Precise');
+        if (traitFilterRes.status !== 200 || !Array.isArray(traitFilterRes.data.listings)) {
+            throw new Error(`Expected 200 on market listings with trait filter, got status ${traitFilterRes.status}`);
+        }
+        console.log(`   Trait filter 'Precise' returned ${traitFilterRes.data.listings.length} listings (trait_name: ${traitFilterRes.data.listings[0]?.trait_name || 'N/A'})!`);
+
+        const traitSortRes = await httpGet('/api/market/listings?server=NA&sort=trait_asc');
+        if (traitSortRes.status !== 200 || !Array.isArray(traitSortRes.data.listings)) {
+            throw new Error(`Expected 200 on market listings with sort=trait_asc, got status ${traitSortRes.status}`);
+        }
+        console.log(`   Trait sorting 'sort=trait_asc' verified (${traitSortRes.data.listings.length} total listings)!`);
+
+        console.log("\nAll 46 API endpoint test suites passed successfully!");
     } catch (err) {
         console.error("API test failed:", err);
         process.exitCode = 1;

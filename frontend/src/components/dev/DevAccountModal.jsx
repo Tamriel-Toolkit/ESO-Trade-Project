@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { fetchDevUsers, devUpdateUser, devDeleteUser, registerUser, clearAllListings } from '../../api/api';
 import { useAuth } from '../../context/AuthContext';
 import { Shield, Zap, Edit2, Trash2, X, Plus, Key, Users } from 'lucide-react';
+import { EsoTooltip } from '../ui/tooltip';
 
 export default function DevAccountModal({ isOpen, onClose }) {
     const { user: currentUser, devBypass, refreshUser } = useAuth();
@@ -144,14 +145,15 @@ export default function DevAccountModal({ isOpen, onClose }) {
                         <span>Registered Accounts: <strong className="text-[#e0d8c3]">{users.length}</strong></span>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button
-                            onClick={handleClearListings}
-                            className="px-3 py-1.5 rounded-none bg-red-950/30 hover:bg-red-900/50 border border-red-900/60 text-red-400 hover:text-red-300 text-xs font-cinzel font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
-                            title="Clear all active listings and price records from SQLite database"
-                        >
-                            <Trash2 className="w-3.5 h-3.5" />
-                            <span>Clear Market DB</span>
-                        </button>
+                        <EsoTooltip content="Clear all active listings and price records from SQLite database" side="bottom">
+                            <button
+                                onClick={handleClearListings}
+                                className="px-3 py-1.5 rounded-none bg-red-950/30 hover:bg-red-900/50 border border-red-900/60 text-red-400 hover:text-red-300 text-xs font-cinzel font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
+                            >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                <span>Clear Market DB</span>
+                            </button>
+                        </EsoTooltip>
                         <button
                             onClick={() => setShowCreate(!showCreate)}
                             className="px-3 py-1.5 rounded-none bg-[#c5a059]/20 hover:bg-[#c5a059]/30 border border-[#c5a059]/40 text-[#d4af37] text-xs font-cinzel font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all"
@@ -292,29 +294,34 @@ export default function DevAccountModal({ isOpen, onClose }) {
                                             {/* Action Buttons */}
                                             <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
                                                 {!isCurrent && (
-                                                    <button
-                                                        onClick={() => handleBypass(u.id)}
-                                                        className="px-3 py-1.5 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-[#0a0a0d] font-cinzel font-bold text-xs uppercase flex items-center gap-1.5 shadow-md transition-all"
-                                                        title="Instantly switch active session into this account without password"
-                                                    >
-                                                        <Zap className="w-3.5 h-3.5 fill-current" />
-                                                        Bypass Login
-                                                    </button>
+                                                    <EsoTooltip content="Instantly switch active session into this account without password" side="top">
+                                                        <button
+                                                            onClick={() => handleBypass(u.id)}
+                                                            className="px-3 py-1.5 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-[#0a0a0d] font-cinzel font-bold text-xs uppercase flex items-center gap-1.5 shadow-md transition-all cursor-pointer"
+                                                        >
+                                                            <Zap className="w-3.5 h-3.5 fill-current" />
+                                                            Bypass Login
+                                                        </button>
+                                                    </EsoTooltip>
                                                 )}
-                                                <button
-                                                    onClick={() => handleEditClick(u)}
-                                                    className="p-1.5 bg-[#161620] hover:bg-[#20202e] text-[#e0d8c3] border border-[#2a2c33] transition-colors"
-                                                    title="Edit Account Details"
-                                                >
-                                                    <Edit2 className="w-4 h-4" />
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDelete(u.id, u.username)}
-                                                    className="p-1.5 bg-red-950/30 hover:bg-red-900/50 text-red-400 border border-red-600/40 transition-colors"
-                                                    title="Delete Account"
-                                                >
-                                                    <Trash2 className="w-4 h-4" />
-                                                </button>
+                                                <EsoTooltip content="Edit Account Details" side="top">
+                                                    <button
+                                                        onClick={() => handleEditClick(u)}
+                                                        className="p-1.5 bg-[#161620] hover:bg-[#20202e] text-[#e0d8c3] border border-[#2a2c33] transition-colors cursor-pointer"
+                                                        aria-label="Edit Account Details"
+                                                    >
+                                                        <Edit2 className="w-4 h-4" />
+                                                    </button>
+                                                </EsoTooltip>
+                                                <EsoTooltip content={`Delete account @${u.username}`} side="top">
+                                                    <button
+                                                        onClick={() => handleDelete(u.id, u.username)}
+                                                        className="p-1.5 bg-red-950/30 hover:bg-red-900/50 text-red-400 border border-red-600/40 transition-colors cursor-pointer"
+                                                        aria-label="Delete Account"
+                                                    >
+                                                        <Trash2 className="w-4 h-4" />
+                                                    </button>
+                                                </EsoTooltip>
                                             </div>
                                         </div>
                                     )}

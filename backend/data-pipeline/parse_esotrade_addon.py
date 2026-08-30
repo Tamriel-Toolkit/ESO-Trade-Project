@@ -471,6 +471,82 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                 if synced_gear_count > 0:
                     print(f"Synced {synced_gear_count} equipped gear items to character '{player_name}' loadout!")
 
+            # Sync character trait research if present
+            trait_items = []
+            traits_pos = content.find('["TraitResearch"]')
+            if traits_pos != -1:
+                t_brace_start = content.find('{', traits_pos)
+                if t_brace_start != -1:
+                    depth = 1
+                    t_idx = t_brace_start + 1
+                    while t_idx < len(content) and depth > 0:
+                        if content[t_idx] == '{': depth += 1
+                        elif content[t_idx] == '}': depth -= 1
+                        t_idx += 1
+                    traits_text = content[t_brace_start+1:t_idx-1]
+
+                    # Use order-independent field extraction per block
+                    # ESO Lua serializer does NOT guarantee field order, so we
+                    # match each {...} block and extract fields individually.
+                    inner_blocks = list(re.finditer(r'\{([^{}]+)\}', traits_text))
+                    synced_traits_count = 0
+                    for block in inner_blocks:
+                        t_block_text = block.group(0)
+
+                        eq_m = re.search(r'\["EquipmentType"\]\s*=\s*"([^"]+)"', t_block_text)
+                        tid_m = re.search(r'\["TraitId"\]\s*=\s*(\d+)', t_block_text)
+                        st_m = re.search(r'\["Status"\]\s*=\s*"([^"]+)"', t_block_text)
+                        craft_m = re.search(r'\["CraftingType"\]\s*=\s*"([^"]+)"', t_block_text)
+                        tname_m = re.search(r'\["TraitName"\]\s*=\s*"([^"]*)"', t_block_text)
+                        start_m = re.search(r'\["StartedAt"\]\s*=\s*(\d+)', t_block_text)
+                        comp_m = re.search(r'\["CompletesAt"\]\s*=\s*(\d+)', t_block_text)
+
+                        if not eq_m or not tid_m or not st_m:
+                            continue
+
+                        eq_type = eq_m.group(1).strip()
+                        tr_id = int(tid_m.group(1))
+                        tr_status = st_m.group(1).strip().upper()
+
+                        started_at = None
+                        completes_at = None
+                        if start_m:
+                            try: started_at = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(int(start_m.group(1))))
+                            except Exception: pass
+                        if comp_m:
+                            try: completes_at = time.strftime('%Y-%m-%d %H:%M:%S', time.gmtime(int(comp_m.group(1))))
+                            except Exception: pass
+
+                        if tr_status in ("COMPLETED", "RESEARCHING", "UNKNOWN"):
+                            if craft_m:
+                                crafting_type = craft_m.group(1).strip()
+                            else:
+                                crafting_type = "Blacksmithing" if eq_type in ("Axe", "Mace", "Sword", "Battleaxe", "Greatsword", "Maul", "Dagger", "Cuirass", "Sabatons", "Gauntlets", "Helm", "Greaves", "Pauldrons", "Girdle") else ("Clothier" if eq_type in ("Robe", "Shoes", "Gloves", "Hat", "Breeches", "Epaulets", "Sash", "Jack", "Boots", "Bracers", "Helmet", "Guards", "Arm Cops", "Belt") else ("Woodworking" if eq_type in ("Bow", "Inferno Staff", "Ice Staff", "Lightning Staff", "Restoration Staff", "Shield") else "Jewelry"))
+                            
+                            tr_name = tname_m.group(1).strip() if tname_m else ESO_TRAIT_NAMES.get(tr_id, "Unknown")
+                            cursor.execute("""
+                                INSERT INTO character_trait_research (character_id, crafting_type, equipment_type, trait_id, trait_name, research_status, started_at, completes_at, updated_at)
+                                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                                ON CONFLICT(character_id, equipment_type, trait_id) DO UPDATE SET
+                                    research_status = excluded.research_status,
+                                    started_at = excluded.started_at,
+                                    completes_at = excluded.completes_at,
+                                    updated_at = CURRENT_TIMESTAMP;
+                            """, (char_id, crafting_type, eq_type, tr_id, tr_name, tr_status, started_at, completes_at))
+                            synced_traits_count += 1
+
+                            trait_items.append({
+                                "crafting_type": crafting_type,
+                                "equipment_type": eq_type,
+                                "trait_id": tr_id,
+                                "trait_name": tr_name,
+                                "research_status": tr_status,
+                                "started_at": started_at,
+                                "completes_at": completes_at
+                            })
+                    if synced_traits_count > 0:
+                        print(f"Synced {synced_traits_count} trait research records for '{player_name}'!")
+
         # Recalculate real-time market prices
         for item_id in affected_ids:
             cursor.execute("""
@@ -625,6 +701,27 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                     print(f"  [API Gear Sync] Synced {len(gear_items)} equipped gear slots for {player_name}!")
             except Exception as ge:
                 print("  [Notice] API Gear Push skipped:", ge)
+
+        if trait_items and player_name:
+            try:
+                traits_payload = {
+                    "character_name": player_name,
+                    "traits": trait_items
+                }
+                auth_token = os.environ.get("ESOTRADE_AUTH_TOKEN")
+                headers = {"Content-Type": "application/json"}
+                if auth_token:
+                    headers["Authorization"] = f"Bearer {auth_token}"
+                t_req = urllib.request.Request(
+                    f"{server_url}/api/characters/upload-traits",
+                    data=json.dumps(traits_payload).encode('utf-8'),
+                    headers=headers
+                )
+                with urllib.request.urlopen(t_req, timeout=10) as t_res:
+                    t_data = json.loads(t_res.read().decode('utf-8'))
+                    print(f"  [API Trait Sync] Synced {len(trait_items)} trait nodes for {player_name}!")
+            except Exception as te:
+                print("  [Notice] API Trait Push skipped:", te)
 
         print(f"SUCCESS! Ingested {len(listings)} custom ESOTrade listings into database!")
 

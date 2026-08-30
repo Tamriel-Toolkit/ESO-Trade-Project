@@ -3,7 +3,7 @@
 > **Live Status**: Canonical Roadmap & Priority Matrix  
 > **Master Tracking Issue on GitHub (Live Single Source of Truth)**: [Issue #35](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/35)  
 > **Repository Rules**: [.agents/AGENTS.md](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/AGENTS.md)  
-> **Last Evaluated**: 2026-08-22  
+> **Last Evaluated**: 2026-08-30  
 
 This living document provides the prioritized execution queue for both human maintainers and autonomous AI agents. Whenever an issue is created or resolved, GitHub Issue #35 (the live runtime SSOT) and this document are updated.
 
@@ -25,8 +25,8 @@ This living document provides the prioritized execution queue for both human mai
 
 | Rank | Issue | Area | Severity | Status | Blocked By | Strategic Rationale |
 |:---:|:---|:---|:---:|:---:|:---:|:---|
-| **1** | #10 | Feature Plan | FEATURE | 🟡 Next Up | None | Trait Research Tracker & Automated Kiosk Matching Engine. |
-| **2** | #9 | Feature Plan | FEATURE | ⚪ Queued | None | Structured Public Crafting & WTB (Want-To-Buy) Request Board. |
+| **1** | #10 | Feature Plan | FEATURE | 🟢 In Review (PR #101) | None | Trait Research Tracker & Automated Kiosk Matching Engine. |
+| **2** | #9 | Feature Plan | FEATURE | 🟡 Next Up | None | Structured Public Crafting & WTB (Want-To-Buy) Request Board. |
 | **3** | #82 | Feature Plan | FEATURE | ⚪ Queued | None | Saved search presets sidebar & quick-filter drawer for authenticated users in Marketplace UI. |
 | **4** | #16 | Config / Env | MINOR | ⚪ Queued | None | Adds documented `.env.example` file for backend and frontend. |
 | **5** | #74 | Pipeline / Deps | MINOR | ⚪ Queued | None | Adds playwright to backend/data-pipeline/requirements.txt. |
@@ -47,8 +47,8 @@ This living document provides the prioritized execution queue for both human mai
 ---
 
 ## 🏆 Recently Completed / Merged
-- **`#37`** — `[MINOR] Auto-fit dropdown width to longest option name in EsoSelect and CharacterManager` (In Review via PR #98)
-- **`#8`** — `[Milestone] Smart Build Importer & Market Deal Recommendation Engine` (In Review via PR #99)
+- **`#8`** — `[Milestone] Smart Build Importer & Market Deal Recommendation Engine` (Closed/Merged via PR #99)
+- **`#37`** — `[MINOR] Auto-fit dropdown width to longest option name in EsoSelect and CharacterManager` (Closed/Merged via PR #98)
 - **`#17`** — `[MINOR] WCAG contrast ratio concerns — dark background with muted text colors` (Closed/Merged via PR #97)
 - **`#77`** — `[MINOR] Expand CORS configuration to support multiple origins and dynamic local network testing` (Closed/Merged)
 - **`#18`** — `[NITPICK] Login.jsx is a 10-line stub — needs full implementation` (Closed/Merged)

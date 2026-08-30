@@ -33,27 +33,27 @@ function Navbar() {
         {/* Ornate Top Border Highlight */}
         <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#c5a059] to-transparent"></div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between relative">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-2 lg:gap-4 xl:gap-6">
           {/* 1. Left: Brand Identity */}
-          <div className="flex items-center">
+          <div className="flex items-center shrink-0">
             <Link 
               to="/" 
-              className="group flex items-center gap-3 font-cinzel text-xl md:text-2xl font-extrabold tracking-wider text-[#d4af37] hover:text-[#e0d8c3] transition-colors"
+              className="group flex items-center gap-2.5 sm:gap-3 font-cinzel text-lg sm:text-xl xl:text-2xl font-extrabold tracking-wider text-[#d4af37] hover:text-[#e0d8c3] transition-colors whitespace-nowrap"
             >
-              <div className="size-10 rounded-none bg-[#0a0a0d] border-2 border-[#c5a059]/60 flex items-center justify-center text-xs font-black font-mono text-[#d4af37] shadow-inner group-hover:border-[#c5a059] group-hover:shadow-[0_0_12px_rgba(197,160,89,0.4)] transition-all">
+              <div className="size-9 sm:size-10 rounded-none bg-[#0a0a0d] border-2 border-[#c5a059]/60 flex items-center justify-center text-xs font-black font-mono text-[#d4af37] shadow-inner group-hover:border-[#c5a059] group-hover:shadow-[0_0_12px_rgba(197,160,89,0.4)] transition-all shrink-0">
                 ESO
               </div>
-              <span className="flex items-center gap-2">
-                TAMRIEL <span className="text-[#e0d8c3] font-medium text-base md:text-lg">TRADE HUB</span>
+              <span className="flex items-center gap-1.5 sm:gap-2">
+                TAMRIEL <span className="text-[#e0d8c3] font-medium text-sm sm:text-base xl:text-lg">TRADE HUB</span>
               </span>
             </Link>
           </div>
 
-          {/* 2. Center: Absolute Geometric Center Primary Navigation */}
-          <nav className="hidden md:flex items-center gap-2 absolute left-1/2 -translate-x-1/2">
+          {/* 2. Center: Responsive Desktop Primary Navigation */}
+          <nav className="hidden lg:flex items-center justify-center gap-1 xl:gap-2 flex-1 min-w-0 px-2">
             <Link
               to="/"
-              className={`px-4 py-2 text-sm uppercase font-cinzel font-bold tracking-[0.15em] transition-all border-b-2 ${
+              className={`px-2.5 xl:px-4 py-2 text-xs xl:text-sm uppercase font-cinzel font-bold tracking-wider xl:tracking-[0.15em] transition-all border-b-2 whitespace-nowrap shrink-0 ${
                 isActive('/') 
                   ? 'border-[#c5a059] text-[#d4af37] bg-[#c5a059]/10 shadow-[0_2px_12px_rgba(197,160,89,0.3)]' 
                   : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
@@ -63,7 +63,7 @@ function Navbar() {
             </Link>
             <Link
               to="/marketplace"
-              className={`px-4 py-2 text-sm uppercase font-cinzel font-bold tracking-[0.15em] transition-all border-b-2 ${
+              className={`px-2.5 xl:px-4 py-2 text-xs xl:text-sm uppercase font-cinzel font-bold tracking-wider xl:tracking-[0.15em] transition-all border-b-2 whitespace-nowrap shrink-0 ${
                 isActive('/marketplace') 
                   ? 'border-[#c5a059] text-[#d4af37] bg-[#c5a059]/10 shadow-[0_2px_12px_rgba(197,160,89,0.3)]' 
                   : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
@@ -73,7 +73,7 @@ function Navbar() {
             </Link>
             <Link
               to="/builds"
-              className={`px-4 py-2 text-sm uppercase font-cinzel font-bold tracking-[0.15em] transition-all border-b-2 ${
+              className={`px-2.5 xl:px-4 py-2 text-xs xl:text-sm uppercase font-cinzel font-bold tracking-wider xl:tracking-[0.15em] transition-all border-b-2 whitespace-nowrap shrink-0 ${
                 isActive('/builds') 
                   ? 'border-[#c5a059] text-[#d4af37] bg-[#c5a059]/10 shadow-[0_2px_12px_rgba(197,160,89,0.3)]' 
                   : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
@@ -82,19 +82,30 @@ function Navbar() {
               Builds
             </Link>
             <Link
+              to="/traits"
+              className={`px-2.5 xl:px-4 py-2 text-xs xl:text-sm uppercase font-cinzel font-bold tracking-wider xl:tracking-[0.15em] transition-all border-b-2 whitespace-nowrap shrink-0 ${
+                isActive('/traits') 
+                  ? 'border-[#c5a059] text-[#d4af37] bg-[#c5a059]/10 shadow-[0_2px_12px_rgba(197,160,89,0.3)]' 
+                  : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
+              }`}
+            >
+              Traits
+            </Link>
+            <Link
               to="/characters"
-              className={`px-4 py-2 text-sm uppercase font-cinzel font-bold tracking-[0.15em] transition-all border-b-2 ${
+              className={`px-2.5 xl:px-4 py-2 text-xs xl:text-sm uppercase font-cinzel font-bold tracking-wider xl:tracking-[0.15em] transition-all border-b-2 whitespace-nowrap shrink-0 ${
                 isActive('/characters') 
                   ? 'border-[#c5a059] text-[#d4af37] bg-[#c5a059]/10 shadow-[0_2px_12px_rgba(197,160,89,0.3)]' 
                   : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
               }`}
             >
-              Roster & Crafters
+              <span className="hidden xl:inline">Roster & Crafters</span>
+              <span className="xl:hidden">Roster</span>
             </Link>
           </nav>
 
           {/* 3. Right: Minimalist Utility Controls (Settings Gear & Profile Menu) */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
             <SettingsMenu
               syncStatus={syncStatus}
               onOpenDevModal={() => setIsDevModalOpen(true)}
@@ -103,12 +114,12 @@ function Navbar() {
           </div>
         </div>
 
-        {/* Mobile Navigation Links */}
-        <div className="border-t border-[#2a2c33] bg-[#0a0a0d] md:hidden">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 py-2 flex items-center justify-around">
+        {/* Mobile & Tablet Navigation Links (< lg) */}
+        <div className="border-t border-[#2a2c33] bg-[#0a0a0d] lg:hidden">
+          <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 flex items-center justify-around sm:justify-center sm:gap-3 overflow-x-auto scrollbar-none">
             <Link
               to="/"
-              className={`px-2.5 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
+              className={`px-2.5 sm:px-3 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider whitespace-nowrap border shrink-0 ${
                 isActive('/') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
               }`}
             >
@@ -116,7 +127,7 @@ function Navbar() {
             </Link>
             <Link
               to="/marketplace"
-              className={`px-2.5 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
+              className={`px-2.5 sm:px-3 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider whitespace-nowrap border shrink-0 ${
                 isActive('/marketplace') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
               }`}
             >
@@ -124,15 +135,23 @@ function Navbar() {
             </Link>
             <Link
               to="/builds"
-              className={`px-2.5 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
+              className={`px-2.5 sm:px-3 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider whitespace-nowrap border shrink-0 ${
                 isActive('/builds') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
               }`}
             >
               Builds
             </Link>
             <Link
+              to="/traits"
+              className={`px-2.5 sm:px-3 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider whitespace-nowrap border shrink-0 ${
+                isActive('/traits') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
+              }`}
+            >
+              Traits
+            </Link>
+            <Link
               to="/characters"
-              className={`px-2.5 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider border ${
+              className={`px-2.5 sm:px-3 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider whitespace-nowrap border shrink-0 ${
                 isActive('/characters') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
               }`}
             >

@@ -6,6 +6,7 @@ import { fetchCharacters, createCharacter, deleteCharacter } from '../api/api';
 import { Shield, Sparkles, Plus, Trash2, User, Award, CheckCircle2, Clock, X, Users, Flame, Zap, Sword, Skull, Sun, BookOpen, ExternalLink } from 'lucide-react';
 import { AldmeriDominionIcon, EbonheartPactIcon, DaggerfallCovenantIcon, getAllianceIcon } from '../components/ui/alliance-icons';
 import { EsoSelect } from '../components/ui/eso-select';
+import { EsoTooltip } from '../components/ui/tooltip';
 import { CharacterProfileModal } from '../components/character/CharacterProfileModal';
 
 const CLASS_COLORS = {
@@ -277,13 +278,12 @@ export default function CharacterManager() {
                                                     </h3>
                                                     {/* MASTER CRAFTER ICON BADGE */}
                                                     {isMasterCrafter && (
-                                                        <span
-                                                            className="px-2 py-0.5 rounded-none bg-[#c5a059]/20 border border-[#c5a059]/60 text-[#d4af37] text-[10px] font-cinzel font-bold uppercase tracking-wider flex items-center gap-1"
-                                                            title="Master Crafter Achievement Unlocked!"
-                                                        >
-                                                            <Award className="w-3.5 h-3.5 text-[#c5a059] fill-[#c5a059]/20" />
-                                                            Master Crafter
-                                                        </span>
+                                                        <EsoTooltip content="Master Crafter Achievement Unlocked! Complete 9-trait research & crafting proficiencies." side="top">
+                                                            <span className="px-2 py-0.5 rounded-none bg-[#c5a059]/20 border border-[#c5a059]/60 text-[#d4af37] text-[10px] font-cinzel font-bold uppercase tracking-wider flex items-center gap-1 cursor-default">
+                                                                <Award className="w-3.5 h-3.5 text-[#c5a059] fill-[#c5a059]/20" />
+                                                                Master Crafter
+                                                            </span>
+                                                        </EsoTooltip>
                                                     )}
                                                 </div>
                                                 <div className="text-xs mt-1.5 flex items-center gap-2">
@@ -294,13 +294,15 @@ export default function CharacterManager() {
                                                 </div>
                                             </div>
 
-                                            <button
-                                                onClick={(e) => handleDelete(c.id, c.name, e)}
-                                                className="opacity-0 group-hover:opacity-100 p-1.5 rounded-none bg-red-950/40 border border-red-600/40 text-red-400 hover:bg-red-900/60 transition-all"
-                                                title="Remove character"
-                                            >
-                                                <Trash2 className="w-4 h-4" />
-                                            </button>
+                                            <EsoTooltip content={`Remove ${c.name} from character roster`} side="left">
+                                                <button
+                                                    onClick={(e) => handleDelete(c.id, c.name, e)}
+                                                    className="opacity-0 group-hover:opacity-100 p-1.5 rounded-none bg-red-950/40 border border-red-600/40 text-red-400 hover:bg-red-900/60 transition-all cursor-pointer"
+                                                    aria-label="Remove character"
+                                                >
+                                                    <Trash2 className="w-4 h-4" />
+                                                </button>
+                                            </EsoTooltip>
                                         </div>
 
                                         {/* Class & Level Badges */}

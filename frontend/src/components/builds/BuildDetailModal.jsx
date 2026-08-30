@@ -9,6 +9,7 @@ import { fetchBuildById, fetchBuildGearDiff, fetchBuildDeals, fetchCharacters, d
 import { useAuth } from "@/context/AuthContext";
 import { AnatomicalEquipmentDiagram } from "@/components/character/AnatomicalEquipmentDiagram";
 import { getEsoIconUrl } from "@/lib/utils";
+import { EsoTooltip } from "@/components/ui/tooltip";
 
 const ROLE_COLORS = {
     "Magicka DPS": "text-sky-400 border-sky-500/40 bg-sky-950/20",
@@ -117,13 +118,65 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose, onBuil
         setTimeout(() => setCopiedZone(null), 2500);
     };
 
-    const handleSearchMarketplace = (itemName, setName) => {
-        const isGeneric = !itemName || 
-            / (Legs|Head|Chest|Shoulders|Waist|Feet|Hands|Ring 1|Ring 2|Necklace|Main Hand|Off Hand)$/i.test(itemName) ||
-            /^Monster (Helm|Shoulders)/i.test(itemName);
+    const handleSearchMarketplace = (targetItem, setName) => {
+        const params = new URLSearchParams();
+        params.set("view", "listings");
 
-        const query = (isGeneric && setName) ? setName : (itemName || setName || "");
-        navigate(`/marketplace?search=${encodeURIComponent(query.trim())}`);
+        const itemObj = (typeof targetItem === "object" && targetItem !== null) ? targetItem : {};
+        const rawName = itemObj.item_name || (typeof targetItem === "string" ? targetItem : "");
+        const rawSet = itemObj.set_name || setName || "";
+        const trait = itemObj.trait_name;
+
+        // 1. Search Query: Set name if available
+        const isGeneric = !rawName || 
+            / (Legs|Head|Chest|Shoulders|Waist|Feet|Hands|Ring 1|Ring 2|Necklace|Main Hand|Off Hand)$/i.test(rawName) ||
+            /^Monster (Helm|Shoulders)/i.test(rawName);
+
+        const query = (isGeneric && rawSet) ? rawSet : (rawSet || rawName || "");
+        if (query.trim()) {
+            params.set("search", query.trim());
+        }
+
+        // 2. Trait Filter
+        if (trait && trait !== "None" && trait !== "Unknown") {
+            params.set("trait", trait);
+        }
+
+        // 3. Category / Subcategory Filter based on armor weight or weapon/jewelry type
+        const weight = itemObj.armor_weight;
+        const itemType = (itemObj.item_type || "").toLowerCase();
+        const weaponType = (itemObj.weapon_type || "").toLowerCase();
+
+        if (weight) {
+            params.set("category", "Apparel");
+            if (weight === "Light") params.set("subcategory", "Light Armor");
+            else if (weight === "Medium") params.set("subcategory", "Medium Armor");
+            else if (weight === "Heavy") params.set("subcategory", "Heavy Armor");
+        } else if (itemType.includes("dagger") || weaponType === "dagger") {
+            params.set("category", "Weapons");
+            params.set("subcategory", "Dagger");
+        } else if (itemType.includes("bow") || weaponType === "bow") {
+            params.set("category", "Weapons");
+            params.set("subcategory", "Bow");
+        } else if (itemType.includes("staff") || weaponType.includes("staff")) {
+            params.set("category", "Weapons");
+            params.set("subcategory", itemType.includes("resto") ? "Restoration Staff" : "Destruction Staff");
+        } else if (itemType.includes("axe") || weaponType.includes("axe")) {
+            params.set("category", "Weapons");
+            params.set("subcategory", itemType.includes("two") ? "Two-Handed Axe" : "One-Handed Axe");
+        } else if (itemType.includes("sword") || weaponType.includes("sword")) {
+            params.set("category", "Weapons");
+            params.set("subcategory", itemType.includes("two") ? "Two-Handed Sword" : "One-Handed Sword");
+        } else if (itemType.includes("mace") || weaponType.includes("mace")) {
+            params.set("category", "Weapons");
+            params.set("subcategory", itemType.includes("two") ? "Two-Handed Mace" : "One-Handed Mace");
+        } else if (itemType.includes("ring") || itemType.includes("neck") || itemType.includes("jewelry")) {
+            params.set("category", "Jewelry");
+            if (itemType.includes("neck")) params.set("subcategory", "Necklace");
+            else if (itemType.includes("ring")) params.set("subcategory", "Ring");
+        }
+
+        navigate(`/marketplace?${params.toString()}`);
         onClose();
     };
 
@@ -193,16 +246,17 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose, onBuil
                     
                     <div className="flex items-center gap-2 shrink-0">
                         {Boolean(user && build && !build.is_curated && (build.user_id === user.id || user.role === "admin")) && (
-                            <button
-                                onClick={handleDelete}
-                                disabled={deleting}
-                                className="px-3 py-1.5 rounded-none bg-red-950/50 hover:bg-red-900/70 text-red-300 border border-red-500/40 text-xs font-cinzel font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
-                                title="Delete this custom build"
-                                aria-label="Delete build"
-                            >
-                                <Trash2 className="size-3.5" />
-                                {deleting ? "Deleting..." : "Delete Build"}
-                            </button>
+                            <EsoTooltip content="Permanently delete this custom build" side="bottom">
+                                <button
+                                    onClick={handleDelete}
+                                    disabled={deleting}
+                                    className="px-3 py-1.5 rounded-none bg-red-950/50 hover:bg-red-900/70 text-red-300 border border-red-500/40 text-xs font-cinzel font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                                    aria-label="Delete build"
+                                >
+                                    <Trash2 className="size-3.5" />
+                                    {deleting ? "Deleting..." : "Delete Build"}
+                                </button>
+                            </EsoTooltip>
                         )}
                         <button
                             onClick={onClose}
@@ -585,18 +639,21 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose, onBuil
                                                                                 {slotDeal.cheapest_price.toLocaleString()}g
                                                                             </span>
                                                                         ) : null}
-                                                                        <button
-                                                                            onClick={() => handleSearchMarketplace(diff.target_item.item_name, diff.target_item.set_name)}
-                                                                            className="px-3 py-1.5 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-md cursor-pointer shrink-0"
-                                                                            title={`Search marketplace for ${diff.target_item.item_name}`}
-                                                                        >
-                                                                            <Search className="size-3.5" /> Search Market
-                                                                        </button>
+                                                                        <EsoTooltip content={`Search marketplace for ${diff.target_item.item_name}`} side="left">
+                                                                            <button
+                                                                                onClick={() => handleSearchMarketplace(diff.target_item, diff.target_item.set_name)}
+                                                                                className="px-3 py-1.5 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-md cursor-pointer shrink-0"
+                                                                            >
+                                                                                <Search className="size-3.5" /> Search Market
+                                                                            </button>
+                                                                        </EsoTooltip>
                                                                     </div>
                                                                 ) : (
-                                                                    <span className="text-[11px] text-[#8a8275] font-cinzel text-right truncate max-w-[170px]" title={diff.target_item.source_location}>
-                                                                        {diff.target_item.source_location || "Dungeon / Trial"}
-                                                                    </span>
+                                                                    <EsoTooltip content={diff.target_item.source_location || "Dungeon / Trial"} side="left">
+                                                                        <span className="text-[11px] text-[#8a8275] font-cinzel text-right truncate max-w-[170px] cursor-default">
+                                                                            {diff.target_item.source_location || "Dungeon / Trial"}
+                                                                        </span>
+                                                                    </EsoTooltip>
                                                                 )}
                                                             </div>
                                                         </div>

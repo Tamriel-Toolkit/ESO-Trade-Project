@@ -7,6 +7,7 @@ import {
 import { createCustomBuild, fetchSets, resolveSetItem } from "@/api/api";
 import { useAuth } from "@/context/AuthContext";
 import { getEsoIconUrl, cleanEsoText } from "@/lib/utils";
+import { EsoTooltip } from "@/components/ui/tooltip";
 
 const ESO_CLASSES = ["Arcanist", "Dragonknight", "Necromancer", "Nightblade", "Sorcerer", "Templar", "Warden", "All"];
 const ESO_ROLES = ["Magicka DPS", "Stamina DPS", "Tank", "Healer", "Solo / Arena", "PvP"];
@@ -396,9 +397,11 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                                                             </span>
                                                         )}
                                                     </div>
-                                                    <h4 className="font-cinzel font-bold text-sm text-[#e0d8c3] mt-0.5 truncate" title={slot.item_name}>
-                                                        {slot.item_name}
-                                                    </h4>
+                                                    <EsoTooltip content={slot.item_name} side="top">
+                                                        <h4 className="font-cinzel font-bold text-sm text-[#e0d8c3] mt-0.5 truncate cursor-default">
+                                                            {slot.item_name}
+                                                        </h4>
+                                                    </EsoTooltip>
                                                     <p className="text-[11px] text-muted-foreground truncate">
                                                         Set: <span className="text-gray-300 font-medium">{slot.set_name}</span>
                                                     </p>

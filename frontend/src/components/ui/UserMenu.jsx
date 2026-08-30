@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { User, LogIn, UserPlus, LogOut, Shield, Bookmark, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+import { EsoTooltip } from "@/components/ui/tooltip";
 
 export default function UserMenu() {
   const [isOpen, setIsOpen] = useState(false);
@@ -27,28 +28,31 @@ export default function UserMenu() {
     setIsOpen(false);
   }, [location.pathname]);
 
+  const userTooltip = user ? `@${user.username}` : "Guest Account";
+
   return (
     <div className="relative" ref={menuRef}>
       {/* Profile Icon Trigger Button */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        aria-label="User Account Menu"
-        className={`size-10 flex items-center justify-center rounded-none border-2 transition-all cursor-pointer ${
-          user
-            ? 'bg-[#161620] border-[#c5a059] text-[#d4af37] shadow-[0_0_12px_rgba(197,160,89,0.35)] font-mono font-bold text-sm hover:bg-[#1f1f2e]'
-            : isOpen
-              ? 'bg-[#c5a059]/20 border-[#c5a059] text-[#d4af37] shadow-[0_0_12px_rgba(197,160,89,0.3)]'
-              : 'bg-[#161620] border-[#c5a059]/40 text-[#a89f91] hover:text-[#d4af37] hover:border-[#c5a059] hover:bg-[#1f1f2e] shadow-sm'
-        }`}
-        title={user ? `@${user.username}` : "Guest Account"}
-      >
-        {user ? (
-          <span>{user.username.charAt(0).toUpperCase()}</span>
-        ) : (
-          <User className="size-4.5" />
-        )}
-      </button>
+      <EsoTooltip content={userTooltip} side="bottom">
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          aria-label="User Account Menu"
+          className={`size-10 flex items-center justify-center rounded-none border-2 transition-all cursor-pointer ${
+            user
+              ? 'bg-[#161620] border-[#c5a059] text-[#d4af37] shadow-[0_0_12px_rgba(197,160,89,0.35)] font-mono font-bold text-sm hover:bg-[#1f1f2e]'
+              : isOpen
+                ? 'bg-[#c5a059]/20 border-[#c5a059] text-[#d4af37] shadow-[0_0_12px_rgba(197,160,89,0.3)]'
+                : 'bg-[#161620] border-[#c5a059]/40 text-[#a89f91] hover:text-[#d4af37] hover:border-[#c5a059] hover:bg-[#1f1f2e] shadow-sm'
+          }`}
+        >
+          {user ? (
+            <span>{user.username.charAt(0).toUpperCase()}</span>
+          ) : (
+            <User className="size-4.5" />
+          )}
+        </button>
+      </EsoTooltip>
 
       {/* Popover Dropdown Menu */}
       {isOpen && (

@@ -416,4 +416,38 @@ export async function resolveSetItem({ set, slot_id, slot_name, weight, weapon }
     }
 }
 
+export async function fetchCharacterTraits(characterId) {
+    try {
+        const response = await apiFetch(`/api/characters/${characterId}/traits`);
+        return await safeJsonResponse(response, 'Failed to fetch character traits');
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function updateCharacterTraits(characterId, payload) {
+    try {
+        const response = await apiFetch(`/api/characters/${characterId}/traits`, {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+        return await safeJsonResponse(response, 'Failed to update character traits');
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function fetchTraitMarketMatches(characterId, { server = "NA", limitPerTrait = 3 } = {}) {
+    try {
+        const params = new URLSearchParams();
+        params.append("server", server);
+        params.append("limit_per_trait", limitPerTrait);
+
+        const response = await apiFetch(`/api/characters/${characterId}/trait-matches?${params.toString()}`);
+        return await safeJsonResponse(response, 'Failed to fetch trait market matches');
+    } catch (error) {
+        return { success: false, matches: [], error: error.message };
+    }
+}
+
 export default fetchTaxonomy;

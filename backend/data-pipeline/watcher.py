@@ -73,6 +73,11 @@ def start_watching(poll_interval=2, purge_interval=PURGE_INTERVAL_SECONDS):
                     mtime = os.path.getmtime(path)
                     if path not in last_mtimes:
                         last_mtimes[path] = mtime
+                        print(f"\n[Startup Ingestion] Reading {os.path.basename(path)} ({path})...")
+                        if "ESOTrade.lua" in path:
+                            subprocess.run([sys.executable, PARSER_ESOTRADE, "--file", path])
+                        else:
+                            subprocess.run([sys.executable, PARSER_TTC, "--file", path])
                     elif mtime > last_mtimes[path]:
                         print(f"\n[File Modified] {os.path.basename(path)} update detected at {time.strftime('%H:%M:%S')}!")
                         if "ESOTrade.lua" in path:

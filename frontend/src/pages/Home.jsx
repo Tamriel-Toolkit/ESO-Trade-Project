@@ -29,7 +29,7 @@ function CategoryCard({ category }) {
       <CardContent className="p-4 text-xs text-[#a89f91] flex items-center justify-between">
         <span>Authentic TTC Market Metrics</span>
         <Link
-          to={`/marketplace`}
+          to={`/marketplace?category=${encodeURIComponent(category)}`}
           className="font-cinzel text-[11px] font-bold text-[#c5a059] hover:underline uppercase tracking-wider flex items-center gap-1"
         >
           Explore <ChevronRight className="size-3" />
