@@ -127,20 +127,21 @@ export function RequestBoard() {
       }
 
       const res = await fetchTradeRequests(params);
-      if (res && res.requests) {
-        let list = res.requests;
-        if (activeTab === "MY_ORDERS" && user) {
-          list = list.filter(r => r.user_id === user.id || r.claimed_by_user_id === user.id);
-        }
-        setRequests(list);
-        setTotalCount(activeTab === "MY_ORDERS" ? list.length : (res.total || 0));
+      if (res && Array.isArray(res.requests)) {
+        setRequests(res.requests);
+        setTotalCount(res.total || 0);
+      } else {
+        setRequests([]);
+        setTotalCount(0);
       }
     } catch (e) {
       console.error("Failed to load requests:", e);
+      setRequests([]);
+      setTotalCount(0);
     } finally {
       setLoading(false);
     }
-  }, [server, activeTab, selectedType, selectedStatus, selectedCategory, searchQuery, sortOption, currentPage, user]);
+  }, [server, selectedType, selectedStatus, selectedCategory, searchQuery, sortOption, currentPage]);
 
   useEffect(() => {
     loadStats();
@@ -299,7 +300,7 @@ export function RequestBoard() {
                 Open Requests
               </span>
               <span className="font-mono text-xl font-bold text-white">
-                {statsLoading ? "..." : stats.total_open}
+                {statsLoading ? "..." : (stats?.total_open || 0)}
               </span>
             </div>
           </div>
@@ -313,7 +314,7 @@ export function RequestBoard() {
                 In Progress (Claimed)
               </span>
               <span className="font-mono text-xl font-bold text-white">
-                {statsLoading ? "..." : stats.total_in_progress}
+                {statsLoading ? "..." : (stats?.total_in_progress || 0)}
               </span>
             </div>
           </div>
@@ -327,7 +328,7 @@ export function RequestBoard() {
                 Fulfilled Orders
               </span>
               <span className="font-mono text-xl font-bold text-white">
-                {statsLoading ? "..." : stats.total_fulfilled}
+                {statsLoading ? "..." : (stats?.total_fulfilled || 0)}
               </span>
             </div>
           </div>
@@ -341,7 +342,7 @@ export function RequestBoard() {
                 Active Gold Bounty
               </span>
               <span className="font-mono text-xl font-bold text-[#e6c278]">
-                {statsLoading ? "..." : `${stats.total_gold_offered.toLocaleString()}g`}
+                {statsLoading ? "..." : `${(stats?.total_gold_offered || 0).toLocaleString()}g`}
               </span>
             </div>
           </div>

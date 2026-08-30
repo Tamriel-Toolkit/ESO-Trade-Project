@@ -86,11 +86,13 @@ export function RequestCard({
     setTimeout(() => setCopiedType(null), 2500);
   };
 
-  const whisperText = `/w ${request.buyer_display_handle} Hello! I can fulfill your ${
-    request.request_type === "CRAFTING" ? "crafting order" : "WTB request"
-  } for ${request.quantity > 1 ? `${request.quantity}x ` : ""}${request.item_name} (${request.offered_gold_price.toLocaleString()}g C.O.D.).`;
+  if (!request) return null;
 
-  const mailCodText = `${request.quantity > 1 ? `${request.quantity}x ` : ""}${request.item_name}${
+  const whisperText = `/w ${request.buyer_display_handle || 'Buyer'} Hello! I can fulfill your ${
+    request.request_type === "CRAFTING" ? "crafting order" : "WTB request"
+  } for ${request.quantity > 1 ? `${request.quantity}x ` : ""}${request.item_name || 'Item'} (${(request.offered_gold_price || 0).toLocaleString()}g C.O.D.).`;
+
+  const mailCodText = `${request.quantity > 1 ? `${request.quantity}x ` : ""}${request.item_name || 'Item'}${
     request.set_name ? ` (${request.set_name})` : ""
   } - Requested on ESO Trade Platform`;
 
@@ -99,13 +101,14 @@ export function RequestCard({
   const rarityBg = RARITY_BG[quality] || RARITY_BG[1];
 
   // Price Guidance Calculation
+  const offeredGold = request.offered_gold_price || 0;
   const suggestedPrice = request.current_suggested_price || request.suggested_price || 0;
-  const totalPrice = request.offered_gold_price * (request.quantity || 1);
+  const totalPrice = offeredGold * (request.quantity || 1);
   const totalSuggested = suggestedPrice * (request.quantity || 1);
 
   let priceIndicator = null;
-  if (suggestedPrice > 0) {
-    const ratio = request.offered_gold_price / suggestedPrice;
+  if (suggestedPrice > 0 && offeredGold > 0) {
+    const ratio = offeredGold / suggestedPrice;
     if (ratio >= 1.25) {
       priceIndicator = {
         label: `High Bounty (+${Math.round((ratio - 1) * 100)}%)`,
@@ -254,11 +257,11 @@ export function RequestCard({
             <div className="flex items-baseline gap-1.5">
               <span className="font-mono text-xl font-extrabold text-[#e6c278] flex items-center gap-1">
                 <Coins className="size-4 text-[#c5a059]" />
-                {totalPrice.toLocaleString()}g
+                {(totalPrice || 0).toLocaleString()}g
               </span>
               {request.quantity > 1 && (
                 <span className="text-[10px] font-mono text-muted-foreground">
-                  ({request.offered_gold_price.toLocaleString()}g/ea)
+                  ({(offeredGold || 0).toLocaleString()}g/ea)
                 </span>
               )}
             </div>
@@ -276,7 +279,7 @@ export function RequestCard({
           <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-[#2a2c33]/50">
             <span>TTC Suggested Value:</span>
             <span className="font-mono text-[#a89f91]">
-              {totalSuggested.toLocaleString()}g
+              {(totalSuggested || 0).toLocaleString()}g
             </span>
           </div>
         )}

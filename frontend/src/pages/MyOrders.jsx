@@ -73,7 +73,7 @@ export function MyOrders() {
       }
 
       const res = await fetchTradeRequests(params);
-      if (res && res.requests) {
+      if (res && Array.isArray(res.requests)) {
         // Filter strictly for orders created by user OR claimed by user
         let userOrders = res.requests.filter(
           r => r.user_id === user.id || r.claimed_by_user_id === user.id
@@ -88,13 +88,16 @@ export function MyOrders() {
         }
 
         setRequests(userOrders);
+      } else {
+        setRequests([]);
       }
     } catch (e) {
       console.error("Failed to load user orders:", e);
+      setRequests([]);
     } finally {
       setLoading(false);
     }
-  }, [server, subTab, searchQuery, sortOption, user]);
+  }, [server, subTab, searchQuery, sortOption, user?.id]);
 
   useEffect(() => {
     loadRequests();
@@ -315,7 +318,7 @@ export function MyOrders() {
                     Total Order Value
                   </span>
                   <span className="font-mono text-xl font-bold text-[#e6c278]">
-                    {loading ? "..." : `${totalGold.toLocaleString()}g`}
+                    {loading ? "..." : `${(totalGold || 0).toLocaleString()}g`}
                   </span>
                 </div>
               </div>
