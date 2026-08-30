@@ -501,6 +501,24 @@ export function TraitTracker() {
                             Loading Trait Matrix...
                         </p>
                     </div>
+                ) : characters.length === 0 ? (
+                    <div className="py-16 text-center bg-[#121218] border border-[#2a2c33] p-8 max-w-xl mx-auto space-y-4 shadow-xl">
+                        <Hammer className="size-12 text-[#c5a059] mx-auto opacity-80" />
+                        <h3 className="font-cinzel font-bold text-lg text-[#e0d8c3]">
+                            No Characters Found
+                        </h3>
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                            Create a character or sync with the <code className="text-[#e6c278] bg-black/40 px-1 py-0.5 border border-[#2a2c33]">ESOTrade</code> addon to track trait research mastery, monitor active timers, and discover cheap market fodder.
+                        </p>
+                        <div className="pt-2">
+                            <Link
+                                to="/characters"
+                                className="inline-block px-5 py-2.5 bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-colors shadow-md"
+                            >
+                                Open Character Manager
+                            </Link>
+                        </div>
+                    </div>
                 ) : activeTab === "MarketFodder" ? (
                     /* Market Fodder Shopping List View */
                     <div className="space-y-4">
