@@ -726,12 +726,49 @@ async function runTests() {
         }
         console.log(`   Trait market matching engine verified: ${traitMatchesRes.data.missing_traits_count} missing traits checked, ${traitMatchesRes.data.available_matches_count} with active market fodder!`);
 
+        console.log("\n45. Testing POST /api/characters/upload-traits (Daemon & Addon Bulk Sync)...");
+        // Test unauthenticated upload-traits -> 401
+        const unauthUploadTraits = await httpPost('/api/characters/upload-traits', {
+            character_name: "TraitCrafterHero",
+            traits: [{ equipment_type: "Bow", trait_id: 1, research_status: "COMPLETED" }]
+        });
+        if (unauthUploadTraits.status !== 401) {
+            throw new Error(`Expected 401 on unauthenticated upload-traits, got ${unauthUploadTraits.status}`);
+        }
+        console.log("   Unauthenticated upload-traits correctly rejected (401)!");
+
+        // Test authorized upload-traits -> 200
+        const authUploadTraits = await httpPost('/api/characters/upload-traits', {
+            character_name: "TraitCrafterHero",
+            traits: [
+                { crafting_type: "Woodworking", equipment_type: "Bow", trait_id: 1, trait_name: "Powered", research_status: "COMPLETED" },
+                { crafting_type: "Woodworking", equipment_type: "Bow", trait_id: 2, trait_name: "Charged", research_status: "RESEARCHING" }
+            ]
+        }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
+        if (authUploadTraits.status !== 200 || !authUploadTraits.data.success || authUploadTraits.data.traits_updated !== 2) {
+            throw new Error(`Expected 200 on authorized upload-traits, got ${JSON.stringify(authUploadTraits.data)}`);
+        }
+        console.log("   Authorized upload-traits bulk sync verified (200)!");
+
         // Cleanup test character
         await httpDelete(`/api/characters/${traitCharId}`, {
             'Authorization': `Bearer ${bypassRes.data.token}`
         });
 
-        console.log("\nAll 44 API endpoint test suites passed successfully!");
+        console.log("\n46. Testing GET /api/market/listings with trait filter & sort...");
+        const traitFilterRes = await httpGet('/api/market/listings?server=NA&trait=Precise');
+        if (traitFilterRes.status !== 200 || !Array.isArray(traitFilterRes.data.listings)) {
+            throw new Error(`Expected 200 on market listings with trait filter, got status ${traitFilterRes.status}`);
+        }
+        console.log(`   Trait filter 'Precise' returned ${traitFilterRes.data.listings.length} listings (trait_name: ${traitFilterRes.data.listings[0]?.trait_name || 'N/A'})!`);
+
+        const traitSortRes = await httpGet('/api/market/listings?server=NA&sort=trait_asc');
+        if (traitSortRes.status !== 200 || !Array.isArray(traitSortRes.data.listings)) {
+            throw new Error(`Expected 200 on market listings with sort=trait_asc, got status ${traitSortRes.status}`);
+        }
+        console.log(`   Trait sorting 'sort=trait_asc' verified (${traitSortRes.data.listings.length} total listings)!`);
+
+        console.log("\nAll 46 API endpoint test suites passed successfully!");
     } catch (err) {
         console.error("API test failed:", err);
         process.exitCode = 1;

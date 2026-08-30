@@ -963,6 +963,74 @@ app.post("/api/characters/upload-gear", batchUploadLimiter, async (req, res) => 
 });
 
 /**
+ * POST /api/characters/upload-traits
+ * Receives JSON trait research payload from watcher/addon and updates character_trait_research table.
+ */
+app.post("/api/characters/upload-traits", batchUploadLimiter, async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) {
+        return res.status(401).json({ error: "Authentication required to upload character traits." });
+    }
+
+    const { character_name, traits } = req.body;
+    if (!character_name || !Array.isArray(traits)) {
+        return res.status(400).json({ error: "character_name and traits array are required." });
+    }
+
+    try {
+        let charRow = await dbGet("SELECT id, user_id FROM characters WHERE name = ?", [character_name]);
+        if (charRow) {
+            if (charRow.user_id && charRow.user_id !== userId) {
+                return res.status(403).json({ error: "Forbidden: You do not have permission to modify traits for this character." });
+            }
+        } else {
+            await dbRun(`
+                INSERT INTO characters (name, class, level, is_master_crafter, user_id, last_sync_at)
+                VALUES (?, 'Dragonknight', 50, 0, ?, CURRENT_TIMESTAMP)
+            `, [character_name, userId]);
+            charRow = await dbGet("SELECT id, user_id FROM characters WHERE name = ?", [character_name]);
+        }
+
+        const characterId = charRow.id;
+        await ensureCharacterTraitsInitialized(characterId);
+
+        await dbRun("BEGIN IMMEDIATE TRANSACTION");
+        for (const t of traits) {
+            const { crafting_type, equipment_type, trait_id, trait_name, research_status, started_at, completes_at } = t;
+            if (!equipment_type || trait_id === undefined || !research_status) continue;
+            
+            const validStatus = ["UNKNOWN", "RESEARCHING", "COMPLETED"].includes(research_status) ? research_status : "UNKNOWN";
+            await dbRun(`
+                INSERT INTO character_trait_research (
+                    character_id, crafting_type, equipment_type, trait_id, trait_name, research_status, started_at, completes_at, updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(character_id, equipment_type, trait_id) DO UPDATE SET
+                    research_status = excluded.research_status,
+                    started_at = excluded.started_at,
+                    completes_at = excluded.completes_at,
+                    updated_at = CURRENT_TIMESTAMP;
+            `, [
+                characterId,
+                crafting_type || 'Blacksmithing',
+                equipment_type,
+                trait_id,
+                trait_name || 'Unknown',
+                validStatus,
+                started_at || null,
+                completes_at || null
+            ]);
+        }
+        await dbRun("COMMIT");
+
+        res.json({ success: true, character_id: characterId, traits_updated: traits.length });
+    } catch (err) {
+        try { await dbRun("ROLLBACK"); } catch (rErr) {}
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
  * GET /api/character/:character_id
  * Returns all items associated with a specific character ID (SQL JOIN)
  */
@@ -1537,13 +1605,85 @@ app.get("/api/trades/matches/:character_id", async (req, res) => {
     }
 });
 
+// Canonical ESO Trait Mapping for Market & Trait Search Engines
+const ESO_TRAIT_ID_TO_NAME = {
+    0: null,
+    // Weapon Traits (1-10, 25/26)
+    1: "Powered",
+    2: "Charged",
+    3: "Precise",
+    4: "Infused",
+    5: "Defending",
+    6: "Training",
+    7: "Sharpened",
+    8: "Decisive",
+    9: "Intricate",
+    10: "Ornate",
+    // Armor Traits (11-20, 25/26)
+    11: "Sturdy",
+    12: "Impenetrable",
+    13: "Reinforced",
+    14: "Well-Fitted",
+    15: "Training",
+    16: "Infused",
+    17: "Invigorating",
+    18: "Divines",
+    19: "Intricate",
+    20: "Ornate",
+    // Jewelry Traits (21-24, 25, 27-35)
+    21: "Healthy",
+    22: "Arcane",
+    23: "Robust",
+    24: "Intricate",
+    25: "Nirnhoned",
+    26: "Nirnhoned",
+    27: "Ornate",
+    28: "Protective",
+    29: "Swift",
+    30: "Triune",
+    31: "Bloodthirsty",
+    32: "Harmony",
+    33: "Swift",
+    34: "Protective",
+    35: "Infused"
+};
+
+const TRAIT_NAME_TO_IDS = {
+    "powered": [1],
+    "charged": [2],
+    "precise": [3],
+    "infused": [4, 16, 35],
+    "defending": [5],
+    "training": [6, 15],
+    "sharpened": [7],
+    "decisive": [8],
+    "intricate": [9, 19, 24],
+    "ornate": [10, 20, 27],
+    "sturdy": [11],
+    "impenetrable": [12],
+    "reinforced": [13],
+    "well-fitted": [14],
+    "well fitted": [14],
+    "invigorating": [17],
+    "divines": [18],
+    "nirnhoned": [25, 26],
+    "healthy": [21],
+    "arcane": [22],
+    "robust": [23],
+    "protective": [28, 34],
+    "swift": [29, 33],
+    "triune": [30],
+    "bloodthirsty": [31],
+    "harmony": [32]
+};
+
 /**
  * GET /api/market/prices
  * Query market prices joined with item metadata.
- * Supports filtering by search, category, subcategory, server, min/max price.
+ * Supports filtering by search, category, subcategory, trait, server, min/max price.
  */
 app.get("/api/market/prices", async (req, res) => {
-    let { search, category, subcategory, rarity, server, min_price, max_price, limit, offset, sort } = req.query;
+    let { search, category, subcategory, rarity, trait, server, min_price, max_price, limit, offset, sort } = req.query;
 
     limit = Math.min(parseInt(limit, 10) || 20, 100);
     offset = Math.max(parseInt(offset, 10) || 0, 0);
@@ -1567,6 +1707,19 @@ app.get("/api/market/prices", async (req, res) => {
     if (rarity) {
         conditions.push("i.rarity = ?");
         params.push(parseInt(rarity, 10));
+    }
+    if (trait) {
+        const traitStr = trait.toString().trim();
+        const traitKey = traitStr.toLowerCase();
+        const matchedIds = TRAIT_NAME_TO_IDS[traitKey] || (!isNaN(parseInt(traitStr, 10)) ? [parseInt(traitStr, 10)] : []);
+        if (matchedIds.length > 0) {
+            const placeholders = matchedIds.map(() => '?').join(', ');
+            conditions.push(`(json_extract(i.metadata, '$.trait_id') IN (${placeholders}) OR json_extract(i.metadata, '$.trait') LIKE ? OR i.name LIKE ?)`);
+            params.push(...matchedIds, `%${traitStr}%`, `%${traitStr}%`);
+        } else {
+            conditions.push("(json_extract(i.metadata, '$.trait') LIKE ? OR i.name LIKE ?)");
+            params.push(`%${traitStr}%`, `%${traitStr}%`);
+        }
     }
     if (min_price) {
         conditions.push("ip.suggested_price >= ?");
@@ -1653,9 +1806,11 @@ app.get("/api/market/prices", async (req, res) => {
  * GET /api/market/listings
  * Query active guild trader listings joined with item metadata and suggested prices.
  * Calculates value_index (suggested_price / price).
+ * Supports filtering by search, category, subcategory, rarity, trait, location, server, price range.
+ * Supports sorting by value_index, rarity, price, newest, trait.
  */
 app.get("/api/market/listings", async (req, res) => {
-    let { search, category, subcategory, rarity, location, server, min_price, max_price, min_value_index, hide_stale, max_age, limit, offset, sort } = req.query;
+    let { search, category, subcategory, rarity, trait, location, server, min_price, max_price, min_value_index, hide_stale, max_age, limit, offset, sort } = req.query;
 
     limit = Math.min(parseInt(limit, 10) || 20, 100);
     offset = Math.max(parseInt(offset, 10) || 0, 0);
@@ -1679,6 +1834,16 @@ app.get("/api/market/listings", async (req, res) => {
     if (rarity) {
         conditions.push("COALESCE(gtl.quality, i.rarity) = ?");
         params.push(parseInt(rarity, 10));
+    }
+    if (trait) {
+        const traitStr = trait.toString().trim();
+        const traitKey = traitStr.toLowerCase();
+        const matchedIds = TRAIT_NAME_TO_IDS[traitKey] || (!isNaN(parseInt(traitStr, 10)) ? [parseInt(traitStr, 10)] : []);
+        if (matchedIds.length > 0) {
+            const placeholders = matchedIds.map(() => '?').join(', ');
+            conditions.push(`gtl.trait_id IN (${placeholders})`);
+            params.push(...matchedIds);
+        }
     }
     if (location) {
         conditions.push("gtl.location LIKE ?");
@@ -1713,6 +1878,8 @@ app.get("/api/market/listings", async (req, res) => {
     if (sort === "price_asc") orderBy = "ORDER BY gtl.price ASC";
     if (sort === "price_desc") orderBy = "ORDER BY gtl.price DESC";
     if (sort === "newest") orderBy = "ORDER BY gtl.discovered_at DESC";
+    if (sort === "trait_asc") orderBy = "ORDER BY gtl.trait_id ASC, value_index DESC";
+    if (sort === "trait_desc") orderBy = "ORDER BY gtl.trait_id DESC, value_index DESC";
 
     try {
         const countQuery = `
@@ -1765,6 +1932,7 @@ app.get("/api/market/listings", async (req, res) => {
             } catch (e) {
                 row.item_metadata = {};
             }
+            row.trait_name = row.trait_name || (row.trait_id ? ESO_TRAIT_ID_TO_NAME[row.trait_id] : null) || null;
             return row;
         });
 

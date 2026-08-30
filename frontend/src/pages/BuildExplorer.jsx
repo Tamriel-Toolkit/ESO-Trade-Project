@@ -8,6 +8,7 @@ import { fetchBuilds, deleteCustomBuild } from "@/api/api";
 import { useAuth } from "@/context/AuthContext";
 import Navbar from "@/components/ui/navbar";
 import { EsoSelect } from "@/components/ui/eso-select";
+import { EsoTooltip } from "@/components/ui/tooltip";
 import { BuildDetailModal } from "@/components/builds/BuildDetailModal";
 import { BuildCreatorModal } from "@/components/builds/BuildCreatorModal";
 
@@ -238,14 +239,15 @@ export function BuildExplorer() {
                                                 {build.class}
                                             </span>
                                             {Boolean(user && !build.is_curated && (build.user_id === user.id || user.role === "admin")) && (
-                                                <button
-                                                    onClick={(e) => handleDeleteBuild(e, build.id)}
-                                                    className="p-1 text-muted-foreground hover:text-red-400 hover:bg-red-950/50 border border-transparent hover:border-red-500/30 transition-all rounded-none cursor-pointer"
-                                                    title={`Delete ${build.title}`}
-                                                    aria-label={`Delete ${build.title}`}
-                                                >
-                                                    <Trash2 className="size-3.5" />
-                                                </button>
+                                                <EsoTooltip content={`Delete custom build "${build.title}"`} side="left">
+                                                    <button
+                                                        onClick={(e) => handleDeleteBuild(e, build.id)}
+                                                        className="p-1 text-muted-foreground hover:text-red-400 hover:bg-red-950/50 border border-transparent hover:border-red-500/30 transition-all rounded-none cursor-pointer"
+                                                        aria-label={`Delete ${build.title}`}
+                                                    >
+                                                        <Trash2 className="size-3.5" />
+                                                    </button>
+                                                </EsoTooltip>
                                             )}
                                         </div>
                                     </div>

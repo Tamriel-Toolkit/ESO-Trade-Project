@@ -28,6 +28,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { EsoTooltip } from "@/components/ui/tooltip";
 
 import {
   NativeSelect,
@@ -60,6 +61,17 @@ const RARITY_MAP = {
   3: { label: "Superior", color: "border-blue-600 text-blue-400 bg-blue-950/40" },
   4: { label: "Epic", color: "border-purple-600 text-purple-400 bg-purple-950/40" },
   5: { label: "Legendary", color: "border-[#c5a059] text-[#d4af37] bg-amber-950/40" },
+};
+
+const ESO_TRAIT_NAMES = {
+  0: "None",
+  1: "Powered", 2: "Charged", 3: "Precise", 4: "Infused", 5: "Defending",
+  6: "Training", 7: "Sharpened", 8: "Decisive", 9: "Intricate", 10: "Ornate",
+  11: "Sturdy", 12: "Impenetrable", 13: "Reinforced", 14: "Well-Fitted", 15: "Training",
+  16: "Infused", 17: "Invigorating", 18: "Divines", 19: "Intricate", 20: "Ornate",
+  21: "Healthy", 22: "Arcane", 23: "Robust", 24: "Intricate", 25: "Nirnhoned",
+  26: "Nirnhoned", 27: "Ornate", 28: "Protective", 29: "Swift", 30: "Triune",
+  31: "Bloodthirsty", 32: "Harmony", 33: "Swift", 34: "Protective", 35: "Infused"
 };
 
 // Major Tamriel Trading Hub Capitals
@@ -113,25 +125,34 @@ function Marketplace() {
   const [searchParams] = useSearchParams();
 
   // State Management
-  const [viewMode, setViewMode] = useState("prices"); // Default to "prices"
+  const [viewMode, setViewMode] = useState(searchParams.get("view") || "prices");
   const [taxonomy, setTaxonomy] = useState({});
-  const [selectedCategory, setSelectedCategory] = useState("");
-  const [selectedSubcategory, setSelectedSubcategory] = useState("");
-  const [selectedRarity, setSelectedRarity] = useState("");
-  const [selectedHubLocation, setSelectedHubLocation] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState(searchParams.get("category") || "");
+  const [selectedSubcategory, setSelectedSubcategory] = useState(searchParams.get("subcategory") || "");
+  const [selectedTrait, setSelectedTrait] = useState(searchParams.get("trait") || "");
+  const [selectedRarity, setSelectedRarity] = useState(searchParams.get("rarity") || "");
+  const [selectedHubLocation, setSelectedHubLocation] = useState(searchParams.get("location") || "");
   const [selectedMaxAge, setSelectedMaxAge] = useState("");
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
-  const [sortOption, setSortOption] = useState("value_index");
+  const [sortOption, setSortOption] = useState(searchParams.get("sort") || "value_index");
   const [dealsOnly, setDealsOnly] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
 
-  // Sync searchQuery when URL search parameter changes
+  // Sync URL search parameters on change
   useEffect(() => {
     const q = searchParams.get("search");
-    if (q !== null && q !== undefined) {
-      setSearchQuery(q);
-      setCurrentPage(1);
-    }
+    const t = searchParams.get("trait");
+    const cat = searchParams.get("category");
+    const subcat = searchParams.get("subcategory");
+    const vm = searchParams.get("view");
+    const srt = searchParams.get("sort");
+    if (q !== null && q !== undefined) setSearchQuery(q);
+    if (t !== null && t !== undefined) setSelectedTrait(t);
+    if (cat !== null && cat !== undefined) setSelectedCategory(cat);
+    if (subcat !== null && subcat !== undefined) setSelectedSubcategory(subcat);
+    if (vm === "listings" || vm === "prices") setViewMode(vm);
+    if (srt !== null && srt !== undefined) setSortOption(srt);
+    setCurrentPage(1);
   }, [searchParams]);
 
   // Pagination State
@@ -163,6 +184,7 @@ function Marketplace() {
       ...(searchQuery && { search: searchQuery }),
       ...(selectedCategory && { category: selectedCategory }),
       ...(selectedSubcategory && { subcategory: selectedSubcategory }),
+      ...(selectedTrait && { trait: selectedTrait }),
       ...(selectedRarity && { rarity: selectedRarity }),
       ...(selectedHubLocation && { location: selectedHubLocation }),
       ...(selectedMaxAge && { max_age: selectedMaxAge }),
@@ -188,6 +210,7 @@ function Marketplace() {
     viewMode,
     selectedCategory,
     selectedSubcategory,
+    selectedTrait,
     selectedRarity,
     selectedHubLocation,
     selectedMaxAge,
@@ -213,11 +236,12 @@ function Marketplace() {
   const handleResetFilters = () => {
     setSelectedCategory("");
     setSelectedSubcategory("");
+    setSelectedTrait("");
     setSelectedRarity("");
     setSelectedHubLocation("");
     setSelectedMaxAge("");
     setSearchQuery("");
-    setSortOption("value_index");
+    setSortOption(viewMode === "listings" ? "value_index" : "suggested_desc");
     setDealsOnly(false);
     setCurrentPage(1);
     setSelectedItem(null);
@@ -267,18 +291,19 @@ function Marketplace() {
 
           {/* Action Controls & Dev Tools */}
           <div className="flex flex-wrap items-center gap-3">
-            {/* Dev Clear Database Button (Development Only) */}
-            {import.meta.env.DEV && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleClearListings}
-                className="rounded-none gap-1.5 font-bold text-xs border-red-900/60 bg-red-950/30 text-red-400 hover:bg-red-900/50 hover:text-red-300 hover:border-red-600 transition-all cursor-pointer"
-                title="Development: Clear all active listings and price records from SQLite database"
-              >
-                <Trash2 className="size-3.5 text-red-400" />
-                <span>[DEV] Clear Listings</span>
-              </Button>
+            {/* Development: Clear Listings (Visible for dev testing) */}
+            {user?.role === "admin" && (
+              <EsoTooltip content="Development: Clear all active listings and price records from SQLite database" side="bottom">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearListings}
+                  className="rounded-none gap-1.5 font-bold text-xs border-red-900/60 bg-red-950/30 text-red-400 hover:bg-red-900/50 hover:text-red-300 hover:border-red-600 transition-all cursor-pointer"
+                >
+                  <Trash2 className="size-3.5 text-red-400" />
+                  <span>[DEV] Clear Listings</span>
+                </Button>
+              </EsoTooltip>
             )}
 
             {/* View Mode Toggle */}
@@ -379,9 +404,9 @@ function Marketplace() {
       </div>
 
       {/* Control Bar: Search & Select Filters */}
-      <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6 p-4 bg-[#121218] border border-[#2a2c33] shadow-lg">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5 mb-6 p-4 bg-[#121218] border border-[#2a2c33] shadow-lg">
         {/* Search Bar Input */}
-        <div className="relative md:col-span-2">
+        <div className="relative sm:col-span-2 md:col-span-3 lg:col-span-2 xl:col-span-2">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#8a8275]" />
           <input
             type="text"
@@ -447,6 +472,57 @@ function Marketplace() {
           )}
         </NativeSelect>
 
+        {/* Trait NativeSelect */}
+        <NativeSelect
+          value={selectedTrait}
+          onChange={(e) => {
+            setSelectedTrait(e.target.value);
+            setCurrentPage(1);
+          }}
+          className="w-full bg-[#0a0a0d] border-[#2a2c33] text-[#e0d8c3]"
+        >
+          <NativeSelectOption value="">All Traits</NativeSelectOption>
+          <NativeSelectOptGroup label="Weapon Traits">
+            <NativeSelectOption value="Powered">Powered (Healing)</NativeSelectOption>
+            <NativeSelectOption value="Charged">Charged (Status Effects)</NativeSelectOption>
+            <NativeSelectOption value="Precise">Precise (Crit Chance)</NativeSelectOption>
+            <NativeSelectOption value="Infused">Infused (Enchantment)</NativeSelectOption>
+            <NativeSelectOption value="Defending">Defending (Armor)</NativeSelectOption>
+            <NativeSelectOption value="Training">Training (XP)</NativeSelectOption>
+            <NativeSelectOption value="Sharpened">Sharpened (Penetration)</NativeSelectOption>
+            <NativeSelectOption value="Decisive">Decisive (Ultimate)</NativeSelectOption>
+            <NativeSelectOption value="Nirnhoned">Nirnhoned (Damage)</NativeSelectOption>
+            <NativeSelectOption value="Intricate">Intricate (Inspiration)</NativeSelectOption>
+            <NativeSelectOption value="Ornate">Ornate (Gold)</NativeSelectOption>
+          </NativeSelectOptGroup>
+          <NativeSelectOptGroup label="Armor Traits">
+            <NativeSelectOption value="Divines">Divines (Mundus Stone)</NativeSelectOption>
+            <NativeSelectOption value="Impenetrable">Impenetrable (Crit Resist)</NativeSelectOption>
+            <NativeSelectOption value="Infused">Infused (Enchantment)</NativeSelectOption>
+            <NativeSelectOption value="Invigorating">Invigorating (Recovery)</NativeSelectOption>
+            <NativeSelectOption value="Reinforced">Reinforced (Armor Rating)</NativeSelectOption>
+            <NativeSelectOption value="Sturdy">Sturdy (Block Cost)</NativeSelectOption>
+            <NativeSelectOption value="Training">Training (XP)</NativeSelectOption>
+            <NativeSelectOption value="Well-Fitted">Well-Fitted (Roll/Sprint)</NativeSelectOption>
+            <NativeSelectOption value="Nirnhoned">Nirnhoned (Armor)</NativeSelectOption>
+            <NativeSelectOption value="Intricate">Intricate (Inspiration)</NativeSelectOption>
+            <NativeSelectOption value="Ornate">Ornate (Gold)</NativeSelectOption>
+          </NativeSelectOptGroup>
+          <NativeSelectOptGroup label="Jewelry Traits">
+            <NativeSelectOption value="Arcane">Arcane (Max Magicka)</NativeSelectOption>
+            <NativeSelectOption value="Bloodthirsty">Bloodthirsty (Execute Damage)</NativeSelectOption>
+            <NativeSelectOption value="Harmony">Harmony (Synergies)</NativeSelectOption>
+            <NativeSelectOption value="Healthy">Healthy (Max Health)</NativeSelectOption>
+            <NativeSelectOption value="Infused">Infused (Enchantment)</NativeSelectOption>
+            <NativeSelectOption value="Protective">Protective (Armor)</NativeSelectOption>
+            <NativeSelectOption value="Robust">Robust (Max Stamina)</NativeSelectOption>
+            <NativeSelectOption value="Swift">Swift (Speed)</NativeSelectOption>
+            <NativeSelectOption value="Triune">Triune (Tri-Stat)</NativeSelectOption>
+            <NativeSelectOption value="Intricate">Intricate (Inspiration)</NativeSelectOption>
+            <NativeSelectOption value="Ornate">Ornate (Gold)</NativeSelectOption>
+          </NativeSelectOptGroup>
+        </NativeSelect>
+
         {/* Rarity NativeSelect */}
         <NativeSelect
           value={selectedRarity}
@@ -500,6 +576,8 @@ function Marketplace() {
             {viewMode === "listings" ? (
               <>
                 <NativeSelectOption value="value_index">🔥 Best Value Deals</NativeSelectOption>
+                <NativeSelectOption value="trait_asc">Trait: A → Z</NativeSelectOption>
+                <NativeSelectOption value="trait_desc">Trait: Z → A</NativeSelectOption>
                 <NativeSelectOption value="rarity_desc">Rarity: Legendary → Normal</NativeSelectOption>
                 <NativeSelectOption value="rarity_asc">Rarity: Normal → Legendary</NativeSelectOption>
                 <NativeSelectOption value="price_asc">Price: Low to High</NativeSelectOption>
@@ -539,7 +617,7 @@ function Marketplace() {
             </Button>
           )}
 
-          {(selectedCategory || selectedSubcategory || selectedRarity || selectedHubLocation || selectedMaxAge || searchQuery || dealsOnly) && (
+          {(selectedCategory || selectedSubcategory || selectedTrait || selectedRarity || selectedHubLocation || selectedMaxAge || searchQuery || dealsOnly) && (
             <Button
               variant="ghost"
               size="sm"
@@ -611,7 +689,7 @@ function Marketplace() {
                       <TrendingUp className="size-4 text-[#c5a059]" />
                       <span>Switch to Catalog Price Index (155,476 Items)</span>
                     </Button>
-                    {(selectedCategory || selectedSubcategory || selectedRarity || selectedHubLocation || searchQuery) && (
+                    {(selectedCategory || selectedSubcategory || selectedTrait || selectedRarity || selectedHubLocation || searchQuery) && (
                       <Button variant="outline" size="sm" onClick={handleResetFilters} className="rounded-none">
                         Clear Filters
                       </Button>
@@ -640,6 +718,7 @@ function Marketplace() {
                 );
                 const rarityInfo = RARITY_MAP[item.quality || item.item_rarity] || RARITY_MAP[1];
                 const cleanName = cleanEsoText(item.item_name);
+                const itemTrait = item.trait_name || (item.trait_id && ESO_TRAIT_NAMES[item.trait_id] && ESO_TRAIT_NAMES[item.trait_id] !== "None" ? ESO_TRAIT_NAMES[item.trait_id] : null);
 
                 return (
                   <Card
@@ -669,10 +748,15 @@ function Marketplace() {
                             <CardTitle className="font-cinzel text-sm font-bold text-[#e0d8c3] line-clamp-1">
                               {cleanName}
                             </CardTitle>
-                            <div className="flex items-center gap-2 mt-1">
+                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                               <span className={`text-[10px] px-1.5 py-0.5 rounded-none font-bold uppercase tracking-wider border ${rarityInfo.color}`}>
                                 {rarityInfo.label}
                               </span>
+                              {itemTrait && (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-none font-bold uppercase tracking-wider border border-amber-500/40 bg-amber-950/30 text-amber-300">
+                                  {itemTrait}
+                                </span>
+                              )}
                               <span className="text-[11px] text-[#8a8275]">
                                 {item.item_category} {item.item_subcategory ? `• ${item.item_subcategory}` : ""}
                               </span>
@@ -721,9 +805,11 @@ function Marketplace() {
                                   : `1 Stack Available (${item.quantity || 1} total)`}
                               </span>
                             </div>
-                            <span className="font-mono text-[#a89f91] text-[11px] truncate max-w-[110px]" title={item.seller_name}>
-                              {item.seller_name || "@Unknown"}
-                            </span>
+                            <EsoTooltip content={`Seller Account: ${item.seller_name || "@Unknown"}`} side="top">
+                              <span className="font-mono text-[#a89f91] text-[11px] truncate max-w-[110px] cursor-default">
+                                {item.seller_name || "@Unknown"}
+                              </span>
+                            </EsoTooltip>
                           </div>
 
                           <div className="flex items-center justify-between">
@@ -752,29 +838,35 @@ function Marketplace() {
 
                       {/* Prominent Guild Trader Name, Location, & Last Seen Marker */}
                       <div className="flex items-center justify-between text-[11px] text-[#8a8275] pt-2 mt-2 border-t border-[#2a2c33]/40 gap-1">
-                        <span className="flex items-center gap-1.5 truncate max-w-[120px]" title={item.guild_name || "Active Guild Trader"}>
-                          <Store className="size-3.5 text-[#c5a059] shrink-0" />
-                          <span className="truncate font-semibold text-[#e0d8c3]">{item.guild_name || "Guild Trader"}</span>
-                        </span>
-                        <span className="flex items-center gap-1.5 truncate max-w-[110px]" title={item.location || "Tamriel Guild Trader"}>
-                          <MapPin className="size-3.5 text-[#d4af37] shrink-0" />
-                          <span className="truncate font-semibold text-[#d4af37]">{item.location || "Tamriel Guild Trader"}</span>
-                        </span>
+                        <EsoTooltip content={`Guild Trader: ${item.guild_name || "Active Guild Trader"}`} side="top">
+                          <span className="flex items-center gap-1.5 truncate max-w-[120px] cursor-default">
+                            <Store className="size-3.5 text-[#c5a059] shrink-0" />
+                            <span className="truncate font-semibold text-[#e0d8c3]">{item.guild_name || "Guild Trader"}</span>
+                          </span>
+                        </EsoTooltip>
+                        <EsoTooltip content={`Location: ${item.location || "Tamriel Guild Trader"}`} side="top">
+                          <span className="flex items-center gap-1.5 truncate max-w-[110px] cursor-default">
+                            <MapPin className="size-3.5 text-[#d4af37] shrink-0" />
+                            <span className="truncate font-semibold text-[#d4af37]">{item.location || "Tamriel Guild Trader"}</span>
+                          </span>
+                        </EsoTooltip>
                         {(() => {
                           const scanDate = item.discovered_at || item.updated_at;
                           const isItemStale = scanDate && ((new Date() - new Date(scanDate)) / (1000 * 3600 * 24) > 7);
+                          const scanTooltip = `Last Seen Scan: ${scanDate ? new Date(scanDate).toLocaleString() : 'Recent scan'}${isItemStale ? ' (Stale >7d old)' : ''}`;
                           return (
-                            <span
-                              className={`flex items-center gap-1 shrink-0 font-mono text-[10px] px-1.5 py-0.5 border ${
-                                isItemStale
-                                  ? "border-amber-500/50 bg-amber-950/60 text-amber-400"
-                                  : "border-[#2a2c33] bg-[#0a0a0d] text-[#38bdf8]"
-                              }`}
-                              title={`Last Seen Scan: ${scanDate ? new Date(scanDate).toLocaleString() : 'Recent scan'}${isItemStale ? ' (Stale >7d old)' : ''}`}
-                            >
-                              <Clock className={`size-3 shrink-0 ${isItemStale ? 'text-amber-400' : 'text-[#38bdf8]'}`} />
-                              <span className="font-semibold">{isItemStale ? `⚠️ Stale (${formatLastSeen(scanDate)})` : formatLastSeen(scanDate || item.created_at)}</span>
-                            </span>
+                            <EsoTooltip content={scanTooltip} side="top">
+                              <span
+                                className={`flex items-center gap-1 shrink-0 font-mono text-[10px] px-1.5 py-0.5 border cursor-default ${
+                                  isItemStale
+                                    ? "border-amber-500/50 bg-amber-950/60 text-amber-400"
+                                    : "border-[#2a2c33] bg-[#0a0a0d] text-[#38bdf8]"
+                                }`}
+                              >
+                                <Clock className={`size-3 shrink-0 ${isItemStale ? 'text-amber-400' : 'text-[#38bdf8]'}`} />
+                                <span className="font-semibold">{isItemStale ? `⚠️ Stale (${formatLastSeen(scanDate)})` : formatLastSeen(scanDate || item.created_at)}</span>
+                              </span>
+                            </EsoTooltip>
                           );
                         })()}
                       </div>
@@ -808,6 +900,11 @@ function Marketplace() {
                       </CardTitle>
                       <CardDescription className="text-xs text-[#8a8275] font-mono">
                         ID: {selectedItem.game_item_id} • {selectedItem.item_category}
+                        {(selectedItem.trait_name || (selectedItem.trait_id && ESO_TRAIT_NAMES[selectedItem.trait_id] && ESO_TRAIT_NAMES[selectedItem.trait_id] !== "None")) && (
+                          <span className="ml-2 text-amber-300 font-bold font-cinzel">
+                            • Trait: {selectedItem.trait_name || ESO_TRAIT_NAMES[selectedItem.trait_id]}
+                          </span>
+                        )}
                       </CardDescription>
                     </div>
                   </div>

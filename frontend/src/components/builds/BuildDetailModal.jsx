@@ -9,6 +9,7 @@ import { fetchBuildById, fetchBuildGearDiff, fetchBuildDeals, fetchCharacters, d
 import { useAuth } from "@/context/AuthContext";
 import { AnatomicalEquipmentDiagram } from "@/components/character/AnatomicalEquipmentDiagram";
 import { getEsoIconUrl } from "@/lib/utils";
+import { EsoTooltip } from "@/components/ui/tooltip";
 
 const ROLE_COLORS = {
     "Magicka DPS": "text-sky-400 border-sky-500/40 bg-sky-950/20",
@@ -193,16 +194,17 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose, onBuil
                     
                     <div className="flex items-center gap-2 shrink-0">
                         {Boolean(user && build && !build.is_curated && (build.user_id === user.id || user.role === "admin")) && (
-                            <button
-                                onClick={handleDelete}
-                                disabled={deleting}
-                                className="px-3 py-1.5 rounded-none bg-red-950/50 hover:bg-red-900/70 text-red-300 border border-red-500/40 text-xs font-cinzel font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
-                                title="Delete this custom build"
-                                aria-label="Delete build"
-                            >
-                                <Trash2 className="size-3.5" />
-                                {deleting ? "Deleting..." : "Delete Build"}
-                            </button>
+                            <EsoTooltip content="Permanently delete this custom build" side="bottom">
+                                <button
+                                    onClick={handleDelete}
+                                    disabled={deleting}
+                                    className="px-3 py-1.5 rounded-none bg-red-950/50 hover:bg-red-900/70 text-red-300 border border-red-500/40 text-xs font-cinzel font-bold uppercase tracking-wider flex items-center gap-1.5 transition-all cursor-pointer disabled:opacity-50"
+                                    aria-label="Delete build"
+                                >
+                                    <Trash2 className="size-3.5" />
+                                    {deleting ? "Deleting..." : "Delete Build"}
+                                </button>
+                            </EsoTooltip>
                         )}
                         <button
                             onClick={onClose}
@@ -585,18 +587,21 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose, onBuil
                                                                                 {slotDeal.cheapest_price.toLocaleString()}g
                                                                             </span>
                                                                         ) : null}
-                                                                        <button
-                                                                            onClick={() => handleSearchMarketplace(diff.target_item.item_name, diff.target_item.set_name)}
-                                                                            className="px-3 py-1.5 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-md cursor-pointer shrink-0"
-                                                                            title={`Search marketplace for ${diff.target_item.item_name}`}
-                                                                        >
-                                                                            <Search className="size-3.5" /> Search Market
-                                                                        </button>
+                                                                        <EsoTooltip content={`Search marketplace for ${diff.target_item.item_name}`} side="left">
+                                                                            <button
+                                                                                onClick={() => handleSearchMarketplace(diff.target_item.item_name, diff.target_item.set_name)}
+                                                                                className="px-3 py-1.5 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-md cursor-pointer shrink-0"
+                                                                            >
+                                                                                <Search className="size-3.5" /> Search Market
+                                                                            </button>
+                                                                        </EsoTooltip>
                                                                     </div>
                                                                 ) : (
-                                                                    <span className="text-[11px] text-[#8a8275] font-cinzel text-right truncate max-w-[170px]" title={diff.target_item.source_location}>
-                                                                        {diff.target_item.source_location || "Dungeon / Trial"}
-                                                                    </span>
+                                                                    <EsoTooltip content={diff.target_item.source_location || "Dungeon / Trial"} side="left">
+                                                                        <span className="text-[11px] text-[#8a8275] font-cinzel text-right truncate max-w-[170px] cursor-default">
+                                                                            {diff.target_item.source_location || "Dungeon / Trial"}
+                                                                        </span>
+                                                                    </EsoTooltip>
                                                                 )}
                                                             </div>
                                                         </div>

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Settings, Globe, Monitor, Gamepad2, Moon, Sun, Laptop, Zap, Radio, Check, ChevronRight } from 'lucide-react';
 import { useTheme } from '@/components/theme-provider';
+import { EsoTooltip } from '@/components/ui/tooltip';
 
 export default function SettingsMenu({ syncStatus, onOpenDevModal }) {
   const [isOpen, setIsOpen] = useState(false);
@@ -23,19 +24,20 @@ export default function SettingsMenu({ syncStatus, onOpenDevModal }) {
   return (
     <div className="relative" ref={menuRef}>
       {/* Settings Icon Trigger Button */}
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        aria-label="Settings & Game Configuration"
-        className={`size-10 flex items-center justify-center rounded-none border-2 transition-all cursor-pointer ${
-          isOpen
-            ? 'bg-[#c5a059]/20 border-[#c5a059] text-[#d4af37] shadow-[0_0_12px_rgba(197,160,89,0.3)]'
-            : 'bg-[#161620] border-[#c5a059]/40 text-[#a89f91] hover:text-[#d4af37] hover:border-[#c5a059] hover:bg-[#1f1f2e] shadow-sm'
-        }`}
-        title="Settings & System Status"
-      >
-        <Settings className={`size-4.5 transition-transform duration-300 ${isOpen ? 'rotate-90 text-[#d4af37]' : ''}`} />
-      </button>
+      <EsoTooltip content="Settings, System Status & Environment Controls" side="bottom">
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          aria-label="Settings & Game Configuration"
+          className={`size-10 flex items-center justify-center rounded-none border-2 transition-all cursor-pointer ${
+            isOpen
+              ? 'bg-[#c5a059]/20 border-[#c5a059] text-[#d4af37] shadow-[0_0_12px_rgba(197,160,89,0.3)]'
+              : 'bg-[#161620] border-[#c5a059]/40 text-[#a89f91] hover:text-[#d4af37] hover:border-[#c5a059] hover:bg-[#1f1f2e] shadow-sm'
+          }`}
+        >
+          <Settings className={`size-4.5 transition-transform duration-300 ${isOpen ? 'rotate-90 text-[#d4af37]' : ''}`} />
+        </button>
+      </EsoTooltip>
 
       {/* Popover Dropdown Menu */}
       {isOpen && (
