@@ -28,6 +28,7 @@ import { useAuth } from "../context/AuthContext";
 import { RequestCard } from "../components/requests/RequestCard";
 import { RequestModal } from "../components/requests/RequestModal";
 import { EsoTooltip } from "../components/ui/tooltip";
+import Navbar from "@/components/ui/navbar";
 
 const CATEGORIES = [
   "All Categories",
@@ -227,8 +228,10 @@ export function RequestBoard() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0d] text-[#e0d8c3] flex flex-col font-sans selection:bg-[#c5a059] selection:text-black">
+      <Navbar />
+
       {/* Top Banner Header */}
-      <header className="border-b border-[#2a2c33] bg-[#121218]/90 backdrop-blur-md sticky top-0 z-30 shadow-md">
+      <header className="border-b border-[#2a2c33] bg-[#121218]/90 backdrop-blur-md shadow-md">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-cinzel font-bold tracking-wider text-[#e0d8c3] flex items-center gap-2.5">

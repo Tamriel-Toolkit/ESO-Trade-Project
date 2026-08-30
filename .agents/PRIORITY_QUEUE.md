@@ -25,30 +25,30 @@ This living document provides the prioritized execution queue for both human mai
 
 | Rank | Issue | Area | Severity | Status | Blocked By | Strategic Rationale |
 |:---:|:---|:---|:---:|:---:|:---:|:---|
-| **1** | #9 | Feature Plan | FEATURE | 🟡 Next Up | None | Structured Public Crafting & WTB (Want-To-Buy) Request Board. |
-| **2** | #82 | Feature Plan | FEATURE | ⚪ Queued | None | Saved search presets sidebar & quick-filter drawer for authenticated users in Marketplace UI. |
-| **3** | #16 | Config / Env | MINOR | ⚪ Queued | None | Adds documented `.env.example` file for backend and frontend. |
-| **4** | #74 | Pipeline / Deps | MINOR | ⚪ Queued | None | Adds playwright to backend/data-pipeline/requirements.txt. |
-| **5** | #76 | Backend / Config | MINOR | ⚪ Queued | None | Configures trust proxy setting for express rate limiters behind reverse proxies. |
-| **6** | #78 | Backend / Security | MINOR | ⚪ Queued | None | Deprecates legacy unsalted SHA-256 password fallback in favor of strict bcrypt verification. |
-| **7** | #70 | Backend / DB | NITPICK | ⚪ Queued | None | Handles and logs schema migration and transaction rollback errors. |
-| **8** | #75 | Pipeline / Logging | NITPICK | ⚪ Queued | None | Logs network and parsing exceptions in live trader extractor instead of silent pass. |
-| **9** | #79 | Frontend / Infra | NITPICK | ⚪ Queued | None | Adds standard start script to frontend/package.json for production deployment. |
-| **10** | #80 | Frontend / QA | NITPICK | ⚪ Queued | None | Configures Vitest and React Testing Library for frontend component unit tests. |
-| **11** | #100 | Frontend / Search | FEATURE | ⚪ Queued | None | Deep-linked structured URL query parameters (`set`, `category`, `slot`, `weight`, `trait`) for Marketplace navigation. |
-| **12** | #15 | Documentation | MINOR | ⚪ Queued | None | Expands root `README.md` with system overview, architecture, and getting-started guide. |
-| **13** | #14 | Documentation | MINOR | ⚪ Queued | None | Fixes PostgreSQL references in `DatabaseSchema.md` to reflect SQLite 3. |
-| **14** | #22 | Documentation | NITPICK | ⚪ Queued | None | Adds setup, watcher daemon, and ingestion guide in `backend/data-pipeline/README.md`. |
-| **15** | #23 | Documentation | NITPICK | ⚪ Queued | None | Adds deployment guide and production configuration documentation. |
-| **16** | #19 | Database / Perf | NITPICK | ⚪ Queued | None | Adds SQLite FTS5 Full-Text Search virtual table for sub-millisecond item catalog lookups. |
-| **17** | #21 | Testing / QA | NITPICK | ⚪ Queued | None | Expands unit & integration test coverage across all Express endpoints and Python parsers. |
+| **1** | #82 | Feature Plan | FEATURE | 🟡 Next Up | None | Saved search presets sidebar & quick-filter drawer for authenticated users in Marketplace UI. |
+| **2** | #16 | Config / Env | MINOR | ⚪ Queued | None | Adds documented `.env.example` file for backend and frontend. |
+| **3** | #74 | Pipeline / Deps | MINOR | ⚪ Queued | None | Adds playwright to backend/data-pipeline/requirements.txt. |
+| **4** | #76 | Backend / Config | MINOR | ⚪ Queued | None | Configures trust proxy setting for express rate limiters behind reverse proxies. |
+| **5** | #78 | Backend / Security | MINOR | ⚪ Queued | None | Deprecates legacy unsalted SHA-256 password fallback in favor of strict bcrypt verification. |
+| **6** | #70 | Backend / DB | NITPICK | ⚪ Queued | None | Handles and logs schema migration and transaction rollback errors. |
+| **7** | #75 | Pipeline / Logging | NITPICK | ⚪ Queued | None | Logs network and parsing exceptions in live trader extractor instead of silent pass. |
+| **8** | #79 | Frontend / Infra | NITPICK | ⚪ Queued | None | Adds standard start script to frontend/package.json for production deployment. |
+| **9** | #80 | Frontend / QA | NITPICK | ⚪ Queued | None | Configures Vitest and React Testing Library for frontend component unit tests. |
+| **10** | #100 | Frontend / Search | FEATURE | ⚪ Queued | None | Deep-linked structured URL query parameters (`set`, `category`, `slot`, `weight`, `trait`) for Marketplace navigation. |
+| **11** | #15 | Documentation | MINOR | ⚪ Queued | None | Expands root `README.md` with system overview, architecture, and getting-started guide. |
+| **12** | #14 | Documentation | MINOR | ⚪ Queued | None | Fixes PostgreSQL references in `DatabaseSchema.md` to reflect SQLite 3. |
+| **13** | #22 | Documentation | NITPICK | ⚪ Queued | None | Adds setup, watcher daemon, and ingestion guide in `backend/data-pipeline/README.md`. |
+| **14** | #23 | Documentation | NITPICK | ⚪ Queued | None | Adds deployment guide and production configuration documentation. |
+| **15** | #19 | Database / Perf | NITPICK | ⚪ Queued | None | Adds SQLite FTS5 Full-Text Search virtual table for sub-millisecond item catalog lookups. |
+| **16** | #21 | Testing / QA | NITPICK | ⚪ Queued | None | Expands unit & integration test coverage across all Express endpoints and Python parsers. |
 
 ---
 
 ## 🏆 Recently Completed / Merged
-- **`#10`** — `[Milestone] Trait Research Tracker & Automated Market Matching Engine` (In Review via PR #101)
-- **`#8`** — `[Milestone] Smart Build Importer & Market Deal Recommendation Engine` (In Review via PR #99)
-- **`#37`** — `[MINOR] Auto-fit dropdown width to longest option name in EsoSelect and CharacterManager` (In Review via PR #98)
+- **`#9`** — `[Milestone] Structured Public Crafting & WTB Request Board` (In Review via PR #102)
+- **`#10`** — `[Milestone] Trait Research Tracker & Automated Market Matching Engine` (Closed/Merged via PR #101)
+- **`#8`** — `[Milestone] Smart Build Importer & Market Deal Recommendation Engine` (Closed/Merged via PR #99)
+- **`#37`** — `[MINOR] Auto-fit dropdown width to longest option name in EsoSelect and CharacterManager` (Closed/Merged via PR #98)
 - **`#17`** — `[MINOR] WCAG contrast ratio concerns — dark background with muted text colors` (Closed/Merged via PR #97)
 - **`#77`** — `[MINOR] Expand CORS configuration to support multiple origins and dynamic local network testing` (Closed/Merged)
 - **`#18`** — `[NITPICK] Login.jsx is a 10-line stub — needs full implementation` (Closed/Merged)
