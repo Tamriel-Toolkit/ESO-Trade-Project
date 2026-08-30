@@ -314,6 +314,18 @@ export function RequestCard({
               </span>
             </div>
           )}
+
+          {(request.status === "COMPLETED" || request.status === "FULFILLED") && request.claimed_by_handle && (
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground flex items-center gap-1">
+                <Hammer className="size-3 text-[#c5a059]" />
+                Merchant:
+              </span>
+              <span className="font-mono text-[#e6c278] font-bold">
+                {request.claimed_by_handle}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* In-Game C.O.D. Mail Helper Buttons */}
