@@ -309,7 +309,7 @@ export function RequestBoard() {
       {/* Main Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1 space-y-6">
         {/* Stats Dashboard */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="p-4 bg-[#121218] border border-emerald-500/30 flex items-center gap-3 shadow">
             <div className="size-10 bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-center shrink-0">
               <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
@@ -334,34 +334,6 @@ export function RequestBoard() {
               </span>
               <span className="font-mono text-xl font-bold text-white">
                 {statsLoading ? "..." : (stats?.total_in_progress || 0)}
-              </span>
-            </div>
-          </div>
-
-          <div className="p-4 bg-[#121218] border border-purple-500/30 flex items-center gap-3 shadow">
-            <div className="size-10 bg-purple-950/40 border border-purple-500/40 flex items-center justify-center shrink-0">
-              <Check className="size-5 text-purple-400" />
-            </div>
-            <div>
-              <span className="text-[10px] font-cinzel uppercase text-purple-400 block font-bold">
-                Fulfilled Orders
-              </span>
-              <span className="font-mono text-xl font-bold text-white">
-                {statsLoading ? "..." : (stats?.total_fulfilled || 0)}
-              </span>
-            </div>
-          </div>
-
-          <div className="p-4 bg-[#121218] border border-[#c5a059]/40 flex items-center gap-3 shadow">
-            <div className="size-10 bg-[#c5a059]/15 border border-[#c5a059]/40 flex items-center justify-center shrink-0">
-              <Coins className="size-5 text-[#e6c278]" />
-            </div>
-            <div>
-              <span className="text-[10px] font-cinzel uppercase text-[#c5a059] block font-bold">
-                Active Gold Bounty
-              </span>
-              <span className="font-mono text-xl font-bold text-[#e6c278]">
-                {statsLoading ? "..." : `${(stats?.total_gold_offered || 0).toLocaleString()}g`}
               </span>
             </div>
           </div>
