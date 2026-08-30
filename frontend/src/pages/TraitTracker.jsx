@@ -79,6 +79,67 @@ const TRAIT_DESCRIPTIONS = {
     "Swift": "Increases Movement Speed."
 };
 
+/**
+ * Generates a clean marketplace navigation URL using structured category, subcategory, and trait filters
+ * instead of raw keyword substring searches.
+ */
+export function getMarketplaceUrlForTrait(craftingType, equipmentType, traitName) {
+    const params = new URLSearchParams();
+    params.set("view", "listings");
+    if (traitName) params.set("trait", traitName);
+
+    const eqLower = (equipmentType || "").toLowerCase();
+    const craftLower = (craftingType || "").toLowerCase();
+
+    if (craftLower.includes("blacksmith")) {
+        if (["axe", "mace", "sword", "dagger"].includes(eqLower)) {
+            params.set("category", "Weapon");
+            params.set("subcategory", equipmentType);
+        } else if (eqLower === "battle axe") {
+            params.set("category", "Weapon");
+            params.set("subcategory", "Two Handed Axe");
+        } else if (eqLower === "maul") {
+            params.set("category", "Weapon");
+            params.set("subcategory", "Two Handed Mace");
+        } else if (eqLower === "greatsword") {
+            params.set("category", "Weapon");
+            params.set("subcategory", "Two Handed Sword");
+        } else {
+            // Heavy Armor pieces (Cuirass, Helm, Pauldrons, Gauntlets, Girdle, Greaves, Sabatons)
+            params.set("category", "Armor");
+            params.set("subcategory", "Heavy Armor");
+        }
+    } else if (craftLower.includes("clothier")) {
+        if (["robe", "jerkin", "hat", "epaulets", "gloves", "sash", "breeches", "shoes"].includes(eqLower)) {
+            params.set("category", "Armor");
+            params.set("subcategory", "Light Armor");
+        } else {
+            // Medium Armor pieces (Jack, Helmet, Arm Cops, Bracers, Belt, Guards, Boots)
+            params.set("category", "Armor");
+            params.set("subcategory", "Medium Armor");
+        }
+    } else if (craftLower.includes("woodwork")) {
+        if (eqLower === "bow") {
+            params.set("category", "Weapon");
+            params.set("subcategory", "Bow");
+        } else if (eqLower.includes("staff") || eqLower.includes("staves")) {
+            if (eqLower.includes("restoration") || eqLower.includes("resto")) {
+                params.set("category", "Weapon");
+                params.set("subcategory", "Restoration Staff");
+            } else {
+                params.set("category", "Weapon");
+                params.set("subcategory", "Destruction Staff");
+            }
+        } else if (eqLower === "shield") {
+            params.set("category", "Armor");
+        }
+    } else if (craftLower.includes("jewelry")) {
+        params.set("category", "Other");
+    }
+
+    return `/marketplace?${params.toString()}`;
+}
+
 export function TraitTracker() {
     const { user } = useAuth();
     const navigate = useNavigate();
@@ -450,7 +511,7 @@ export function TraitTracker() {
                                                     </span>
                                                 </div>
                                                 <button
-                                                    onClick={() => navigate(`/marketplace?view=listings&search=${encodeURIComponent(m.equipment_type)}&trait=${encodeURIComponent(m.trait_name)}`)}
+                                                    onClick={() => navigate(getMarketplaceUrlForTrait(m.crafting_type, m.equipment_type, m.trait_name))}
                                                     className="px-3 py-1.5 bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer shadow"
                                                 >
                                                     Market <ChevronRight className="size-3" />
@@ -541,6 +602,8 @@ export function TraitTracker() {
                                                                 ? `Missing trait. Cheapest kiosk deal: ${marketFodder.cheapest_listing.price.toLocaleString()}g @ ${marketFodder.cheapest_listing.location}. Click to buy.`
                                                                 : `Missing trait. Click to search Marketplace. ${TRAIT_DESCRIPTIONS[t.trait_name] || ""}`;
 
+                                                    const marketUrl = getMarketplaceUrlForTrait(activeDisciplineData.crafting_type, line.equipment_type, t.trait_name);
+
                                                     return (
                                                         <td 
                                                             key={t.trait_id} 
@@ -557,14 +620,14 @@ export function TraitTracker() {
                                                                     {status === "UNKNOWN" && (
                                                                         marketFodder ? (
                                                                             <button 
-                                                                                onClick={() => navigate(`/marketplace?view=listings&search=${encodeURIComponent(line.equipment_type)}&trait=${encodeURIComponent(t.trait_name)}`)}
+                                                                                onClick={() => navigate(marketUrl)}
                                                                                 className="mt-1 px-1.5 py-0.5 rounded-none bg-[#c5a059]/20 border border-[#c5a059]/40 text-[#e6c278] text-[8px] font-mono font-bold hover:bg-[#c5a059] hover:text-black transition-colors cursor-pointer flex items-center gap-0.5"
                                                                             >
                                                                                 <span>{marketFodder.cheapest_listing.price.toLocaleString()}g</span>
                                                                             </button>
                                                                         ) : (
                                                                             <button 
-                                                                                onClick={() => navigate(`/marketplace?view=listings&search=${encodeURIComponent(line.equipment_type)}&trait=${encodeURIComponent(t.trait_name)}`)}
+                                                                                onClick={() => navigate(marketUrl)}
                                                                                 className="mt-1 px-1.5 py-0.5 rounded-none bg-[#161620] border border-[#2a2c33] hover:border-[#c5a059] text-[#a89f91] hover:text-[#d4af37] text-[8px] font-cinzel font-bold transition-all cursor-pointer flex items-center gap-0.5 shadow-sm"
                                                                             >
                                                                                 <Search className="size-2.5" />
