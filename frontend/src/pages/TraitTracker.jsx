@@ -38,20 +38,73 @@ const DISCIPLINE_CONFIG = {
     }
 };
 
-const getArmorWeightOrType = (craftingType, eqType) => {
-    const light = ["Robe", "Shoes", "Gloves", "Hat", "Breeches", "Epaulets", "Sash"];
-    const medium = ["Jack", "Boots", "Bracers", "Helmet", "Guards", "Arm Cops", "Belt"];
-    const heavy = ["Cuirass", "Sabatons", "Gauntlets", "Helm", "Greaves", "Pauldrons", "Girdle"];
-    const blacksmithWeapons = ["Axe", "Mace", "Sword", "Battleaxe", "Greatsword", "Maul", "Dagger"];
+const getDisciplineGroups = (disciplineName, lines) => {
+    if (!lines || lines.length === 0) return [];
 
-    if (light.includes(eqType)) return "Light Armor";
-    if (medium.includes(eqType)) return "Medium Armor";
-    if (heavy.includes(eqType)) return "Heavy Armor";
-    if (blacksmithWeapons.includes(eqType)) return "Weapon";
-    if (eqType === "Shield") return "Shield";
-    if (craftingType === "Woodworking") return "Staff / Bow";
-    if (craftingType === "Jewelry") return "Jewelry";
-    return "";
+    if (disciplineName === "Blacksmithing") {
+        const weaponTypes = ["axe", "mace", "sword", "battle axe", "battleaxe", "maul", "greatsword", "dagger"];
+        const weapons = lines.filter(l => weaponTypes.includes(l.equipment_type.toLowerCase()));
+        const heavyArmor = lines.filter(l => !weaponTypes.includes(l.equipment_type.toLowerCase()));
+
+        return [
+            {
+                title: "Weapons",
+                icon: <Sword className="size-4 text-[#c5a059]" />,
+                lines: weapons
+            },
+            {
+                title: "Heavy Armor",
+                icon: <Shield className="size-4 text-[#c5a059]" />,
+                lines: heavyArmor
+            }
+        ];
+    }
+
+    if (disciplineName === "Clothier") {
+        const lightArmorTypes = ["robe", "jerkin", "robe & jerkin", "shoes", "gloves", "hat", "breeches", "epaulets", "sash"];
+        const light = lines.filter(l => lightArmorTypes.includes(l.equipment_type.toLowerCase()));
+        const medium = lines.filter(l => !lightArmorTypes.includes(l.equipment_type.toLowerCase()));
+
+        return [
+            {
+                title: "Light Armor",
+                icon: <Sparkles className="size-4 text-[#c5a059]" />,
+                lines: light
+            },
+            {
+                title: "Medium Armor",
+                icon: <Shield className="size-4 text-[#c5a059]" />,
+                lines: medium
+            }
+        ];
+    }
+
+    if (disciplineName === "Woodworking") {
+        const bowStaff = lines.filter(l => l.equipment_type.toLowerCase() !== "shield");
+        const shields = lines.filter(l => l.equipment_type.toLowerCase() === "shield");
+
+        return [
+            {
+                title: "Bows & Staves",
+                icon: <Zap className="size-4 text-[#c5a059]" />,
+                lines: bowStaff
+            },
+            {
+                title: "Shields",
+                icon: <Shield className="size-4 text-[#c5a059]" />,
+                lines: shields
+            }
+        ];
+    }
+
+    // Single-group disciplines (Jewelry Crafting) do not render subheaders or dividers
+    return [
+        {
+            title: null,
+            icon: null,
+            lines: lines
+        }
+    ];
 };
 
 const TRAIT_DESCRIPTIONS = {
@@ -550,97 +603,121 @@ export function TraitTracker() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-[#2a2c33]/50">
-                                    {activeDisciplineData.lines.map((line) => {
-                                        const completedInLine = line.traits.filter(t => t.research_status === "COMPLETED").length;
+                                    {getDisciplineGroups(activeDisciplineData.crafting_type, activeDisciplineData.lines).map((group, groupIdx) => {
+                                        const groupTotalKnown = group.lines.reduce((acc, l) => acc + l.traits.filter(t => t.research_status === "COMPLETED").length, 0);
+                                        const groupTotalTraits = group.lines.length * 9;
+                                        const groupPercent = groupTotalTraits > 0 ? Math.round((groupTotalKnown / groupTotalTraits) * 100) : 0;
+
                                         return (
-                                            <tr key={line.equipment_type} className="hover:bg-[#181822]/60 transition-colors">
-                                                {/* Line Header & Progress */}
-                                                <td className="py-3 px-4 font-cinzel">
-                                                    <div className="flex items-center gap-2 flex-wrap">
-                                                        <span className="font-bold text-sm text-[#e0d8c3]">
-                                                            {line.equipment_type}
-                                                        </span>
-                                                        {getArmorWeightOrType(activeDisciplineData.crafting_type, line.equipment_type) && (
-                                                            <span className="text-[9px] px-1.5 py-0.2 rounded-none font-mono uppercase bg-[#0a0a0d] border border-[#2a2c33] text-[#c5a059]">
-                                                                {getArmorWeightOrType(activeDisciplineData.crafting_type, line.equipment_type)}
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
-                                                        {completedInLine}/9 Known ({Math.round((completedInLine / 9) * 100)}%)
-                                                    </div>
-                                                </td>
-
-                                                {/* 9 Trait Status Cells */}
-                                                {line.traits.map((t) => {
-                                                    const status = t.research_status; // "UNKNOWN", "RESEARCHING", "COMPLETED"
-                                                    const cellKey = `${line.equipment_type}_${t.trait_id}`;
-                                                    const marketFodder = matchLookup[cellKey];
-
-                                                    let cellBg = "bg-[#0d0d12]/50";
-                                                    let statusIcon = null;
-                                                    let statusBadge = "text-red-400";
-
-                                                    if (status === "COMPLETED") {
-                                                        cellBg = "bg-emerald-950/25 border-emerald-500/40";
-                                                        statusIcon = <Check className="size-4 text-emerald-400 mx-auto" />;
-                                                        statusBadge = "text-emerald-400";
-                                                    } else if (status === "RESEARCHING") {
-                                                        cellBg = "bg-amber-950/30 border-amber-500/40 animate-pulse";
-                                                        statusIcon = <Clock className="size-4 text-amber-400 mx-auto" />;
-                                                        statusBadge = "text-amber-400";
-                                                    } else {
-                                                        statusIcon = <span className="size-2 rounded-full bg-red-500/50 block mx-auto" />;
-                                                    }
-
-                                                    const cellTooltipTitle = `${line.equipment_type} — ${t.trait_name}`;
-                                                    const cellTooltipDesc = status === "COMPLETED" 
-                                                        ? `Researched on this character. ${TRAIT_DESCRIPTIONS[t.trait_name] || ""}`
-                                                        : status === "RESEARCHING"
-                                                            ? `Currently researching at crafting station. ${TRAIT_DESCRIPTIONS[t.trait_name] || ""}`
-                                                            : marketFodder
-                                                                ? `Missing trait. Cheapest kiosk deal: ${marketFodder.cheapest_listing.price.toLocaleString()}g @ ${marketFodder.cheapest_listing.location}. Click to buy.`
-                                                                : `Missing trait. Click to search Marketplace. ${TRAIT_DESCRIPTIONS[t.trait_name] || ""}`;
-
-                                                    const marketUrl = getMarketplaceUrlForTrait(activeDisciplineData.crafting_type, line.equipment_type, t.trait_name);
-
-                                                    return (
+                                            <React.Fragment key={group.title || `group_${groupIdx}`}>
+                                                {/* Section Header Divider (only for disciplines with divisions like Blacksmithing, Clothier, Woodworking) */}
+                                                {group.title && (
+                                                    <tr className="bg-[#14141d] border-y border-[#2a2c33]">
                                                         <td 
-                                                            key={t.trait_id} 
-                                                            className={`py-2 px-1 text-center border-l border-[#2a2c33]/40 select-none ${cellBg}`}
+                                                            colSpan={(activeDisciplineData.lines[0]?.traits?.length || 9) + 1}
+                                                            className="py-2.5 px-4 font-cinzel text-xs font-bold uppercase tracking-wider text-[#c5a059] bg-[#161622]"
                                                         >
-                                                            <EsoTooltip title={cellTooltipTitle} content={cellTooltipDesc} side="top">
-                                                                <div className="flex flex-col items-center justify-center min-h-[44px] cursor-pointer">
-                                                                    {statusIcon}
-                                                                    <span className={`text-[9px] font-cinzel font-bold mt-1 uppercase ${statusBadge}`}>
-                                                                        {status === "COMPLETED" ? "Known" : status === "RESEARCHING" ? "In Progress" : "Missing"}
-                                                                    </span>
-
-                                                                    {/* Search Market / Fodder Price Button for UNKNOWN Traits */}
-                                                                    {status === "UNKNOWN" && (
-                                                                        marketFodder ? (
-                                                                            <button 
-                                                                                onClick={() => navigate(marketUrl)}
-                                                                                className="mt-1 px-1.5 py-0.5 rounded-none bg-[#c5a059]/20 border border-[#c5a059]/40 text-[#e6c278] text-[8px] font-mono font-bold hover:bg-[#c5a059] hover:text-black transition-colors cursor-pointer flex items-center gap-0.5"
-                                                                            >
-                                                                                <span>{marketFodder.cheapest_listing.price.toLocaleString()}g</span>
-                                                                            </button>
-                                                                        ) : (
-                                                                            <button 
-                                                                                onClick={() => navigate(marketUrl)}
-                                                                                className="mt-1 px-1.5 py-0.5 rounded-none bg-[#161620] border border-[#2a2c33] hover:border-[#c5a059] text-[#a89f91] hover:text-[#d4af37] text-[8px] font-cinzel font-bold transition-all cursor-pointer flex items-center gap-0.5 shadow-sm"
-                                                                            >
-                                                                                <Search className="size-2.5" />
-                                                                                <span>Market</span>
-                                                                            </button>
-                                                                        )
-                                                                    )}
+                                                            <div className="flex items-center justify-between">
+                                                                <div className="flex items-center gap-2">
+                                                                    {group.icon}
+                                                                    <span>{group.title}</span>
                                                                 </div>
-                                                            </EsoTooltip>
+                                                                <span className="text-[11px] font-mono text-[#8a8275] normal-case font-medium">
+                                                                    {groupTotalKnown}/{groupTotalTraits} Known ({groupPercent}%)
+                                                                </span>
+                                                            </div>
                                                         </td>
+                                                    </tr>
+                                                )}
+
+                                                {/* Individual Equipment Line Rows */}
+                                                {group.lines.map((line) => {
+                                                    const completedInLine = line.traits.filter(t => t.research_status === "COMPLETED").length;
+                                                    return (
+                                                        <tr key={line.equipment_type} className="hover:bg-[#181822]/60 transition-colors">
+                                                            {/* Line Header & Progress */}
+                                                            <td className="py-3 px-4 font-cinzel">
+                                                                <div className="font-bold text-sm text-[#e0d8c3]">
+                                                                    {line.equipment_type}
+                                                                </div>
+                                                                <div className="text-[10px] text-muted-foreground font-mono mt-0.5">
+                                                                    {completedInLine}/9 Known ({Math.round((completedInLine / 9) * 100)}%)
+                                                                </div>
+                                                            </td>
+
+                                                            {/* 9 Trait Status Cells */}
+                                                            {line.traits.map((t) => {
+                                                                const status = t.research_status; // "UNKNOWN", "RESEARCHING", "COMPLETED"
+                                                                const cellKey = `${line.equipment_type}_${t.trait_id}`;
+                                                                const marketFodder = matchLookup[cellKey];
+
+                                                                let cellBg = "bg-[#0d0d12]/50";
+                                                                let statusIcon = null;
+                                                                let statusBadge = "text-red-400";
+
+                                                                if (status === "COMPLETED") {
+                                                                    cellBg = "bg-emerald-950/25 border-emerald-500/40";
+                                                                    statusIcon = <Check className="size-4 text-emerald-400 mx-auto" />;
+                                                                    statusBadge = "text-emerald-400";
+                                                                } else if (status === "RESEARCHING") {
+                                                                    cellBg = "bg-amber-950/30 border-amber-500/40 animate-pulse";
+                                                                    statusIcon = <Clock className="size-4 text-amber-400 mx-auto" />;
+                                                                    statusBadge = "text-amber-400";
+                                                                } else {
+                                                                    statusIcon = <span className="size-2 rounded-full bg-red-500/50 block mx-auto" />;
+                                                                }
+
+                                                                const cellTooltipTitle = `${line.equipment_type} — ${t.trait_name}`;
+                                                                const cellTooltipDesc = status === "COMPLETED" 
+                                                                    ? `Researched on this character. ${TRAIT_DESCRIPTIONS[t.trait_name] || ""}`
+                                                                    : status === "RESEARCHING"
+                                                                        ? `Currently researching at crafting station. ${TRAIT_DESCRIPTIONS[t.trait_name] || ""}`
+                                                                        : marketFodder
+                                                                            ? `Missing trait. Cheapest kiosk deal: ${marketFodder.cheapest_listing.price.toLocaleString()}g @ ${marketFodder.cheapest_listing.location}. Click to buy.`
+                                                                            : `Missing trait. Click to search Marketplace. ${TRAIT_DESCRIPTIONS[t.trait_name] || ""}`;
+
+                                                                const marketUrl = getMarketplaceUrlForTrait(activeDisciplineData.crafting_type, line.equipment_type, t.trait_name);
+
+                                                                return (
+                                                                    <td 
+                                                                        key={t.trait_id} 
+                                                                        className={`py-2 px-1 text-center border-l border-[#2a2c33]/40 select-none ${cellBg}`}
+                                                                    >
+                                                                        <EsoTooltip title={cellTooltipTitle} content={cellTooltipDesc} side="top">
+                                                                            <div className="flex flex-col items-center justify-center min-h-[44px] cursor-pointer">
+                                                                                {statusIcon}
+                                                                                <span className={`text-[9px] font-cinzel font-bold mt-1 uppercase ${statusBadge}`}>
+                                                                                    {status === "COMPLETED" ? "Known" : status === "RESEARCHING" ? "In Progress" : "Missing"}
+                                                                                </span>
+
+                                                                                {/* Search Market / Fodder Price Button for UNKNOWN Traits */}
+                                                                                {status === "UNKNOWN" && (
+                                                                                    marketFodder ? (
+                                                                                        <button 
+                                                                                            onClick={() => navigate(marketUrl)}
+                                                                                            className="mt-1 px-1.5 py-0.5 rounded-none bg-[#c5a059]/20 border border-[#c5a059]/40 text-[#e6c278] text-[8px] font-mono font-bold hover:bg-[#c5a059] hover:text-black transition-colors cursor-pointer flex items-center gap-0.5"
+                                                                                        >
+                                                                                            <span>{marketFodder.cheapest_listing.price.toLocaleString()}g</span>
+                                                                                        </button>
+                                                                                    ) : (
+                                                                                        <button 
+                                                                                            onClick={() => navigate(marketUrl)}
+                                                                                            className="mt-1 px-1.5 py-0.5 rounded-none bg-[#161620] border border-[#2a2c33] hover:border-[#c5a059] text-[#a89f91] hover:text-[#d4af37] text-[8px] font-cinzel font-bold transition-all cursor-pointer flex items-center gap-0.5 shadow-sm"
+                                                                                        >
+                                                                                            <Search className="size-2.5" />
+                                                                                            <span>Market</span>
+                                                                                        </button>
+                                                                                    )
+                                                                                )}
+                                                                            </div>
+                                                                        </EsoTooltip>
+                                                                    </td>
+                                                                );
+                                                            })}
+                                                        </tr>
                                                     );
                                                 })}
-                                            </tr>
+                                            </React.Fragment>
                                         );
                                     })}
                                 </tbody>
