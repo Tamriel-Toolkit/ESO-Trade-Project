@@ -34,13 +34,17 @@ This living document provides the prioritized execution queue for both human mai
 | **7** | #75 | Pipeline / Logging | NITPICK | ⚪ Queued | None | Logs network and parsing exceptions in live trader extractor instead of silent pass. |
 | **8** | #79 | Frontend / Infra | NITPICK | ⚪ Queued | None | Adds standard start script to frontend/package.json for production deployment. |
 | **9** | #80 | Frontend / QA | NITPICK | ⚪ Queued | None | Configures Vitest and React Testing Library for frontend component unit tests. |
-| **10** | #100 | Frontend / Search | FEATURE | ⚪ Queued | None | Deep-linked structured URL query parameters (`set`, `category`, `slot`, `weight`, `trait`) for Marketplace navigation. |
-| **11** | #15 | Documentation | MINOR | ⚪ Queued | None | Expands root `README.md` with system overview, architecture, and getting-started guide. |
-| **12** | #14 | Documentation | MINOR | ⚪ Queued | None | Fixes PostgreSQL references in `DatabaseSchema.md` to reflect SQLite 3. |
-| **13** | #22 | Documentation | NITPICK | ⚪ Queued | None | Adds setup, watcher daemon, and ingestion guide in `backend/data-pipeline/README.md`. |
-| **14** | #23 | Documentation | NITPICK | ⚪ Queued | None | Adds deployment guide and production configuration documentation. |
-| **15** | #19 | Database / Perf | NITPICK | ⚪ Queued | None | Adds SQLite FTS5 Full-Text Search virtual table for sub-millisecond item catalog lookups. |
-| **16** | #21 | Testing / QA | NITPICK | ⚪ Queued | None | Expands unit & integration test coverage across all Express endpoints and Python parsers. |
+| **10** | #104 | Frontend / Design | FEATURE | ⚪ Queued | None | Centralized Design System Tokens, CSS/Tailwind Variable Architecture, and UI Style Guide Documentation. |
+| **11** | #100 | Frontend / Search | FEATURE | ⚪ Queued | None | Deep-linked structured URL query parameters (`set`, `category`, `slot`, `weight`, `trait`) for Marketplace navigation. |
+| **12** | #103 | Requests / Messaging | FEATURE | ⚪ Queued | None | Direct 1-on-1 In-App Messaging & Negotiation Chat for Claimed Trade Requests. |
+| **13** | #105 | Profiles / Social | FEATURE | ⚪ Queued | None | Dedicated Public & Personal User Profile Pages with Trader Showcase, Crafter Badges, and Feedback Reputation. |
+| **14** | #106 | Builds / Social | FEATURE | ⚪ Queued | None | Build Visibility Controls (Public vs Private/Draft), Personal Saved Builds Dashboard, and 1-Click Fork/Bookmark Community Builds. |
+| **15** | #15 | Documentation | MINOR | ⚪ Queued | None | Expands root `README.md` with system overview, architecture, and getting-started guide. |
+| **16** | #14 | Documentation | MINOR | ⚪ Queued | None | Fixes PostgreSQL references in `DatabaseSchema.md` to reflect SQLite 3. |
+| **17** | #22 | Documentation | NITPICK | ⚪ Queued | None | Adds setup, watcher daemon, and ingestion guide in `backend/data-pipeline/README.md`. |
+| **18** | #23 | Documentation | NITPICK | ⚪ Queued | None | Adds deployment guide and production configuration documentation. |
+| **19** | #19 | Database / Perf | NITPICK | ⚪ Queued | None | Adds SQLite FTS5 Full-Text Search virtual table for sub-millisecond item catalog lookups. |
+| **20** | #21 | Testing / QA | NITPICK | ⚪ Queued | None | Expands unit & integration test coverage across all Express endpoints and Python parsers. |
 
 ---
 
