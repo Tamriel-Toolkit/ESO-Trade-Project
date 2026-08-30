@@ -489,6 +489,57 @@ function initializeDatabaseSchema() {
             else console.log("'character_trait_research' table initialized successfully.");
         });
 
+        // Check if trade_requests table needs 'COMPLETED' status constraint migration
+        db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='trade_requests'", (err, row) => {
+            if (row && row.sql && !row.sql.includes("'COMPLETED'")) {
+                console.log("Migrating trade_requests table to include 'COMPLETED' status constraint...");
+                db.serialize(() => {
+                    db.run("PRAGMA foreign_keys = OFF;");
+                    db.run("ALTER TABLE trade_requests RENAME TO _trade_requests_old;");
+                    db.run(`
+                        CREATE TABLE trade_requests (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            user_id INTEGER,
+                            request_type TEXT NOT NULL CHECK(request_type IN ('CRAFTING', 'WTB')),
+                            server TEXT NOT NULL DEFAULT 'NA' CHECK(server IN ('NA', 'EU')),
+                            buyer_character_id INTEGER,
+                            buyer_display_handle TEXT NOT NULL,
+                            game_item_id INTEGER NOT NULL,
+                            item_name TEXT NOT NULL,
+                            category TEXT,
+                            subcategory TEXT,
+                            quantity INTEGER DEFAULT 1,
+                            quality INTEGER DEFAULT 1 CHECK(quality BETWEEN 1 AND 5),
+                            trait_id INTEGER DEFAULT 0,
+                            trait_name TEXT,
+                            style_id INTEGER DEFAULT 0,
+                            style_name TEXT,
+                            set_name TEXT,
+                            level_req INTEGER DEFAULT 50,
+                            cp_req INTEGER DEFAULT 160,
+                            offered_gold_price INTEGER NOT NULL CHECK(offered_gold_price > 0),
+                            suggested_price INTEGER DEFAULT 0,
+                            delivery_notes TEXT,
+                            status TEXT NOT NULL DEFAULT 'OPEN' CHECK(status IN ('OPEN', 'IN_PROGRESS', 'COMPLETED', 'FULFILLED', 'CANCELLED', 'EXPIRED')),
+                            claimed_by_user_id INTEGER,
+                            claimed_by_handle TEXT,
+                            claimed_at TEXT,
+                            claim_expires_at TEXT,
+                            fulfilled_at TEXT,
+                            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                            expires_at TEXT NOT NULL,
+                            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+                            FOREIGN KEY (claimed_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+                            FOREIGN KEY (game_item_id) REFERENCES items(game_item_id)
+                        );
+                    `);
+                    db.run("INSERT INTO trade_requests SELECT * FROM _trade_requests_old;");
+                    db.run("DROP TABLE _trade_requests_old;");
+                    db.run("PRAGMA foreign_keys = ON;");
+                });
+            }
+        });
+
         // Structured Public Crafting & WTB Request Board Table
         db.run(`
             CREATE TABLE IF NOT EXISTS trade_requests (
