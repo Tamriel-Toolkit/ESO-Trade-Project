@@ -350,85 +350,95 @@ function Marketplace() {
 
       {/* Main Content Body Container */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1 space-y-6">
-        {/* Trade Hub Capital Zone Chips */}
-        <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs text-[#a89f91] font-cinzel uppercase font-bold tracking-wider">
-          <span className="flex items-center gap-1.5 text-[#c5a059]">
-            <Compass className="size-3.5" /> Major Trading Hubs
-          </span>
-          {selectedHubLocation && (
-            <button
-              onClick={() => { setSelectedHubLocation(""); setCurrentPage(1); }}
-              className="text-[11px] text-[#8a8275] hover:text-[#e0d8c3] underline"
-            >
-              Clear Zone Filter
-            </button>
-          )}
-        </div>
-        <div className="flex flex-wrap gap-1.5 overflow-x-auto pb-1">
-          {MAJOR_TRADE_HUBS.map((hub) => {
-            const isSelected = selectedHubLocation === hub.location;
-            return (
-              <button
-                key={hub.name}
-                onClick={() => {
-                  setSelectedHubLocation(hub.location);
-                  if (hub.location && viewMode !== "listings") {
+        {/* Quick Selectors Bar: Major Trading Hubs & Popular Trade Presets */}
+        <div className="p-3 bg-[#121218] border border-[#2a2c33] shadow flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+            {/* Major Trading Hub Selector */}
+            <div className="flex items-center gap-2 flex-1">
+              <span className="text-xs font-cinzel text-[#c5a059] font-bold uppercase tracking-wider whitespace-nowrap flex items-center gap-1.5 shrink-0">
+                <Compass className="size-3.5" /> Trading Hub:
+              </span>
+              <NativeSelect
+                value={selectedHubLocation}
+                onChange={(e) => {
+                  const loc = e.target.value;
+                  setSelectedHubLocation(loc);
+                  if (loc && viewMode !== "listings") {
                     setViewMode("listings");
                   }
                   setCurrentPage(1);
                 }}
-                className={`px-2.5 py-1 text-[11px] font-semibold border transition-all whitespace-nowrap ${
-                  isSelected
-                    ? "bg-[#c5a059] text-[#0a0a0d] border-[#c5a059] font-bold"
-                    : "bg-[#121218] text-[#a89f91] border-[#2a2c33] hover:border-[#c5a059]/40 hover:text-[#e0d8c3]"
-                }`}
+                className="w-full bg-[#0a0a0d] border-[#2a2c33] text-[#e0d8c3] text-xs h-9"
               >
-                {hub.name}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+                <NativeSelectOption value="">All Trading Hubs</NativeSelectOption>
+                <NativeSelectOptGroup label="Major Capital Hubs">
+                  {MAJOR_TRADE_HUBS.filter(h => h.location).map((hub) => (
+                    <NativeSelectOption key={hub.name} value={hub.location}>
+                      {hub.name}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelectOptGroup>
+              </NativeSelect>
+            </div>
 
-      {/* Popular ESO Item Preset Filter Chips */}
-      <div className="mb-6 flex flex-wrap items-center gap-1.5 text-xs text-[#a89f91]">
-        <span className="font-cinzel text-[#c5a059] font-bold uppercase tracking-wider text-[11px] mr-1">Popular Trades:</span>
-        {POPULAR_SEARCH_PRESETS.map((preset) => {
-          const isActive = 
-            selectedCategory === (preset.category || "") &&
-            selectedSubcategory === (preset.subcategory || "") &&
-            selectedRarity === (preset.rarity || "") &&
-            !searchQuery;
-
-          return (
-            <button
-              key={preset.label}
-              onClick={() => {
-                if (isActive) {
-                  // Toggle off
-                  setSelectedCategory("");
-                  setSelectedSubcategory("");
-                  setSelectedRarity("");
-                } else {
-                  setSelectedCategory(preset.category || "");
-                  setSelectedSubcategory(preset.subcategory || "");
-                  setSelectedRarity(preset.rarity || "");
+            {/* Popular Trade Presets Selector */}
+            <div className="flex items-center gap-2 flex-1">
+              <span className="text-xs font-cinzel text-[#c5a059] font-bold uppercase tracking-wider whitespace-nowrap flex items-center gap-1.5 shrink-0">
+                <Sparkles className="size-3.5" /> Popular Trades:
+              </span>
+              <NativeSelect
+                value={
+                  POPULAR_SEARCH_PRESETS.find(p => 
+                    selectedCategory === (p.category || "") &&
+                    selectedSubcategory === (p.subcategory || "") &&
+                    selectedRarity === (p.rarity || "") &&
+                    !searchQuery
+                  )?.label || ""
                 }
-                setSearchQuery(""); // Zero manual text search input
+                onChange={(e) => {
+                  const val = e.target.value;
+                  const preset = POPULAR_SEARCH_PRESETS.find(p => p.label === val);
+                  if (preset) {
+                    setSelectedCategory(preset.category || "");
+                    setSelectedSubcategory(preset.subcategory || "");
+                    setSelectedRarity(preset.rarity || "");
+                  } else {
+                    setSelectedCategory("");
+                    setSelectedSubcategory("");
+                    setSelectedRarity("");
+                  }
+                  setSearchQuery("");
+                  setCurrentPage(1);
+                }}
+                className="w-full bg-[#0a0a0d] border-[#2a2c33] text-[#e0d8c3] text-xs h-9"
+              >
+                <NativeSelectOption value="">Popular Trade Presets...</NativeSelectOption>
+                <NativeSelectOptGroup label="Quick Trade Presets">
+                  {POPULAR_SEARCH_PRESETS.map((preset) => (
+                    <NativeSelectOption key={preset.label} value={preset.label}>
+                      {preset.label}
+                    </NativeSelectOption>
+                  ))}
+                </NativeSelectOptGroup>
+              </NativeSelect>
+            </div>
+          </div>
+
+          {(selectedHubLocation || (selectedCategory && POPULAR_SEARCH_PRESETS.some(p => p.category === selectedCategory))) && (
+            <button
+              onClick={() => {
+                setSelectedHubLocation("");
+                setSelectedCategory("");
+                setSelectedSubcategory("");
+                setSelectedRarity("");
                 setCurrentPage(1);
               }}
-              className={`px-2 py-0.5 border text-[11px] font-mono transition-all cursor-pointer ${
-                isActive
-                  ? "bg-[#c5a059] text-black font-bold border-[#c5a059] shadow"
-                  : "bg-[#121218] border-[#2a2c33] hover:border-[#c5a059]/40 text-[#d4af37]"
-              }`}
+              className="text-xs font-cinzel text-[#a89f91] hover:text-[#e0d8c3] underline shrink-0 cursor-pointer self-end md:self-center"
             >
-              {preset.label}
+              Clear Quick Filters
             </button>
-          );
-        })}
-      </div>
+          )}
+        </div>
 
       {/* Control Bar: Search & Select Filters */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-2.5 mb-6 p-4 bg-[#121218] border border-[#2a2c33] shadow-lg">
