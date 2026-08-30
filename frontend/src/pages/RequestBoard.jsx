@@ -14,7 +14,8 @@ import {
   Sparkles,
   X,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Layers
 } from "lucide-react";
 import { 
   fetchTradeRequests, 
@@ -46,7 +47,8 @@ export function RequestBoard() {
   const { user } = useAuth();
 
   const [server, setServer] = useState("NA");
-  const [activeTab, setActiveTab] = useState("ALL"); // ALL, CRAFTING, WTB, MY_ORDERS
+  // Streamlined 2-tab view: PUBLIC (all WTB & crafting bounties) and MY_ORDERS
+  const [activeTab, setActiveTab] = useState("PUBLIC"); // PUBLIC, MY_ORDERS
   
   // Data state
   const [requests, setRequests] = useState([]);
@@ -57,6 +59,7 @@ export function RequestBoard() {
 
   // Filters
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedType, setSelectedType] = useState("ALL"); // ALL, CRAFTING, WTB
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [selectedStatus, setSelectedStatus] = useState("ACTIVE"); // ACTIVE (Open/In-Progress), OPEN, IN_PROGRESS, FULFILLED, ALL
   const [sortOption, setSortOption] = useState("newest"); // newest, gold_desc, gold_asc, expiring_soon
@@ -92,16 +95,16 @@ export function RequestBoard() {
         offset: (currentPage - 1) * pageSize
       };
 
-      // Tab filter
-      if (activeTab === "CRAFTING") params.request_type = "CRAFTING";
-      else if (activeTab === "WTB") params.request_type = "WTB";
-      else if (activeTab === "MY_ORDERS" && user) {
-        // Will be filtered or queried
-        params.status = "ALL";
+      // Type filter (All, Crafting, WTB)
+      if (selectedType && selectedType !== "ALL") {
+        params.request_type = selectedType;
       }
 
-      // Status filter
-      if (activeTab !== "MY_ORDERS") {
+      // Tab filter
+      if (activeTab === "MY_ORDERS" && user) {
+        params.status = "ALL";
+      } else {
+        // Status filter
         if (selectedStatus === "ACTIVE") params.status = "OPEN,IN_PROGRESS";
         else if (selectedStatus !== "ALL") params.status = selectedStatus;
         else params.status = "ALL";
@@ -136,7 +139,7 @@ export function RequestBoard() {
     } finally {
       setLoading(false);
     }
-  }, [server, activeTab, selectedStatus, selectedCategory, searchQuery, sortOption, currentPage, user]);
+  }, [server, activeTab, selectedType, selectedStatus, selectedCategory, searchQuery, sortOption, currentPage, user]);
 
   useEffect(() => {
     loadStats();
@@ -220,6 +223,7 @@ export function RequestBoard() {
 
   const handleResetFilters = () => {
     setSearchQuery("");
+    setSelectedType("ALL");
     setSelectedCategory("All Categories");
     setSelectedStatus("ACTIVE");
     setSortOption("newest");
@@ -235,11 +239,11 @@ export function RequestBoard() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl md:text-3xl font-cinzel font-bold tracking-wider text-[#e0d8c3] flex items-center gap-2.5">
-              <ScrollText className="size-7 text-[#c5a059]" />
-              <span>Public Crafting & WTB Request Board</span>
+              <ShoppingCart className="size-7 text-[#c5a059]" />
+              <span>Public WTB & Crafting Request Board</span>
             </h1>
             <p className="text-[#a89f91] text-xs md:text-sm mt-1">
-              Asynchronous matchmaking for custom crafted set loadouts and bulk material bounties across Tamriel.
+              Asynchronous matchmaking for custom crafted gear bounties and bulk material requests across Tamriel.
             </p>
           </div>
 
@@ -275,7 +279,7 @@ export function RequestBoard() {
               className="px-4 py-2 bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg flex items-center gap-1.5"
             >
               <Plus className="size-4" />
-              <span>Post Request</span>
+              <span>Post WTB / Craft Request</span>
             </button>
           </div>
         </div>
@@ -342,55 +346,40 @@ export function RequestBoard() {
           </div>
         </div>
 
-        {/* View Mode Navigation Tabs */}
+        {/* 2-TAB PRIMARY NAVIGATION: WTB / Bounties vs My Orders */}
         <div className="flex items-center justify-between border-b border-[#2a2c33] bg-[#0e0e13] px-2 overflow-x-auto gap-2">
           <div className="flex items-center gap-1 py-2">
             <button
-              onClick={() => { setActiveTab("ALL"); setCurrentPage(1); }}
-              className={`px-3.5 py-2 text-xs font-cinzel font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 ${
-                activeTab === "ALL"
+              onClick={() => { setActiveTab("PUBLIC"); setCurrentPage(1); }}
+              className={`px-4 py-2 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shrink-0 ${
+                activeTab === "PUBLIC"
                   ? "bg-[#c5a059] text-black shadow-md font-extrabold"
                   : "text-muted-foreground hover:text-[#e0d8c3] hover:bg-white/5"
               }`}
             >
-              All Requests
+              <ShoppingCart className="size-4" />
+              <span>Want-To-Buy / Public Requests</span>
             </button>
 
-            <button
-              onClick={() => { setActiveTab("CRAFTING"); setCurrentPage(1); }}
-              className={`px-3.5 py-2 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-                activeTab === "CRAFTING"
-                  ? "bg-[#c5a059] text-black shadow-md font-extrabold"
-                  : "text-muted-foreground hover:text-[#e0d8c3] hover:bg-white/5"
-              }`}
-            >
-              <Hammer className="size-3.5" />
-              Crafting Orders
-            </button>
-
-            <button
-              onClick={() => { setActiveTab("WTB"); setCurrentPage(1); }}
-              className={`px-3.5 py-2 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
-                activeTab === "WTB"
-                  ? "bg-blue-600 text-white shadow-md font-extrabold"
-                  : "text-muted-foreground hover:text-[#e0d8c3] hover:bg-white/5"
-              }`}
-            >
-              <ShoppingCart className="size-3.5" />
-              Want-To-Buy (WTB)
-            </button>
-
-            {user && (
+            {user ? (
               <button
                 onClick={() => { setActiveTab("MY_ORDERS"); setCurrentPage(1); }}
-                className={`px-3.5 py-2 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shrink-0 border ${
+                className={`px-4 py-2 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center gap-2 cursor-pointer shrink-0 border ${
                   activeTab === "MY_ORDERS"
                     ? "bg-purple-600 text-white border-purple-400 shadow-md font-extrabold"
                     : "text-purple-400 border-purple-500/30 hover:bg-purple-950/20"
                 }`}
               >
-                <User className="size-3.5" />
-                My Orders & Claims
+                <User className="size-4" />
+                <span>My Orders & Claims</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => alert("Please log in to manage your created orders and claimed bounties.")}
+                className="px-4 py-2 text-xs font-cinzel text-muted-foreground/60 border border-transparent hover:border-[#2a2c33] transition-all flex items-center gap-2 cursor-pointer shrink-0"
+              >
+                <User className="size-4" />
+                <span>My Orders (Login Required)</span>
               </button>
             )}
           </div>
@@ -400,10 +389,10 @@ export function RequestBoard() {
           </span>
         </div>
 
-        {/* Control Filter Bar */}
-        <div className="p-4 bg-[#121218] border border-[#2a2c33] shadow-lg grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 items-center">
+        {/* Dynamic Filter Controls Bar */}
+        <div className="p-4 bg-[#121218] border border-[#2a2c33] shadow-lg grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 items-center">
           {/* Search Query */}
-          <div className="relative sm:col-span-2 lg:col-span-2">
+          <div className="relative sm:col-span-2 lg:col-span-1">
             <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
@@ -420,6 +409,19 @@ export function RequestBoard() {
                 <X className="size-3.5" />
               </button>
             )}
+          </div>
+
+          {/* Type Filter */}
+          <div>
+            <select
+              value={selectedType}
+              onChange={(e) => { setSelectedType(e.target.value); setCurrentPage(1); }}
+              className="w-full py-2 px-3 bg-[#0e0e13] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+            >
+              <option value="ALL">All Request Types</option>
+              <option value="CRAFTING">Crafted Gear Only</option>
+              <option value="WTB">Materials & Items Only</option>
+            </select>
           </div>
 
           {/* Category Filter */}
@@ -471,12 +473,12 @@ export function RequestBoard() {
           <div className="py-24 text-center space-y-3">
             <RefreshCw className="size-8 animate-spin mx-auto text-[#c5a059]" />
             <p className="text-xs font-cinzel text-muted-foreground uppercase tracking-wider">
-              Loading Public Trade Board...
+              Loading Public Request Board...
             </p>
           </div>
         ) : requests.length === 0 ? (
           <div className="py-20 text-center bg-[#121218] border border-[#2a2c33] p-8 max-w-xl mx-auto space-y-4 shadow-xl">
-            <ScrollText className="size-12 text-[#c5a059] mx-auto opacity-70" />
+            <ShoppingCart className="size-12 text-[#c5a059] mx-auto opacity-70" />
             <h3 className="font-cinzel font-bold text-lg text-[#e0d8c3]">
               No Matching Trade Requests Found
             </h3>

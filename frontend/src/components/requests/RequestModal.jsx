@@ -9,9 +9,10 @@ import {
   AlertCircle, 
   Check, 
   ShieldAlert,
-  Loader2
+  Loader2,
+  Package
 } from "lucide-react";
-import { createTradeRequest, fetchCraftableSets } from "../../api/api";
+import { createTradeRequest, fetchCraftableSets, apiFetch } from "../../api/api";
 import { useAuth } from "../../context/AuthContext";
 
 const TRAITS = [
@@ -81,16 +82,16 @@ const QUALITIES = [
 export function RequestModal({ isOpen, onClose, defaultServer = "NA", onRequestCreated }) {
   const { user } = useAuth();
 
-  const [requestType, setRequestType] = useState("CRAFTING");
   const [server, setServer] = useState(defaultServer);
   
-  // Item search & selection
+  // Item search & selection from catalog
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
   const [selectedItem, setSelectedItem] = useState(null);
 
-  // Attribute specs
+  // Dynamic attribute specs (derived automatically from selected item)
+  const [requestType, setRequestType] = useState("WTB"); // Auto-set to CRAFTING or WTB based on item
   const [craftableSets, setCraftableSets] = useState([]);
   const [selectedSet, setSelectedSet] = useState("");
   const [selectedTrait, setSelectedTrait] = useState("Divines");
@@ -128,7 +129,7 @@ export function RequestModal({ isOpen, onClose, defaultServer = "NA", onRequestC
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const res = await fetch(`http://localhost:5001/api/items?search=${encodeURIComponent(searchQuery)}&limit=10`);
+        const res = await apiFetch(`/api/items?search=${encodeURIComponent(searchQuery)}&limit=10`);
         if (res.ok) {
           const data = await res.json();
           setSearchResults(data.items || []);
@@ -152,8 +153,8 @@ export function RequestModal({ isOpen, onClose, defaultServer = "NA", onRequestC
 
     const fetchPrice = async () => {
       try {
-        const res = await fetch(
-          `http://localhost:5001/api/market/prices?search=${encodeURIComponent(selectedItem.name)}&server=${server}&limit=1`
+        const res = await apiFetch(
+          `/api/market/prices?search=${encodeURIComponent(selectedItem.name)}&server=${server}&limit=1`
         );
         if (res.ok) {
           const data = await res.json();
@@ -173,16 +174,34 @@ export function RequestModal({ isOpen, onClose, defaultServer = "NA", onRequestC
 
   if (!isOpen) return null;
 
+  // Dynamically classify item into Gear/Crafting vs Materials/Items
+  const isGearItem = selectedItem && (
+    ["Weapons", "Apparel", "Jewelry", "Weapon", "Armor"].includes(selectedItem.category) ||
+    selectedItem.category?.toLowerCase().includes("weapon") ||
+    selectedItem.category?.toLowerCase().includes("armor") ||
+    selectedItem.category?.toLowerCase().includes("apparel") ||
+    selectedItem.category?.toLowerCase().includes("jewelry")
+  );
+
   const handleSelectItem = (item) => {
     setSelectedItem(item);
     setSearchQuery("");
     setSearchResults([]);
 
-    // Auto-configure defaults based on category
-    if (item.category === "Materials" || item.category === "Consumables") {
-      setRequestType("WTB");
-    } else {
+    const isGear = ["Weapons", "Apparel", "Jewelry", "Weapon", "Armor"].includes(item.category) ||
+      item.category?.toLowerCase().includes("weapon") ||
+      item.category?.toLowerCase().includes("armor") ||
+      item.category?.toLowerCase().includes("apparel") ||
+      item.category?.toLowerCase().includes("jewelry");
+
+    if (isGear) {
       setRequestType("CRAFTING");
+      setSelectedQuality(4); // Default Epic for gear
+      setQuantity(1);
+    } else {
+      setRequestType("WTB");
+      setSelectedQuality(1);
+      setQuantity(item.category === "Materials" ? 8 : 1);
     }
   };
 
@@ -196,7 +215,7 @@ export function RequestModal({ isOpen, onClose, defaultServer = "NA", onRequestC
     }
 
     if (!selectedItem) {
-      setErrorMsg("Please search and select an authentic item from the catalog.");
+      setErrorMsg("Please search and select an item from the catalog.");
       return;
     }
 
@@ -223,9 +242,9 @@ export function RequestModal({ isOpen, onClose, defaultServer = "NA", onRequestC
         subcategory: selectedItem.subcategory,
         quantity: parseInt(quantity, 10) || 1,
         quality: parseInt(selectedQuality, 10) || 1,
-        trait_name: requestType === "CRAFTING" ? selectedTrait : null,
-        style_name: requestType === "CRAFTING" ? selectedStyle : null,
-        set_name: (requestType === "CRAFTING" && selectedSet) ? selectedSet : null,
+        trait_name: isGearItem ? selectedTrait : null,
+        style_name: isGearItem ? selectedStyle : null,
+        set_name: (isGearItem && selectedSet) ? selectedSet : null,
         level_req: levelType === "CP160" ? 50 : 50,
         cp_req: levelType === "CP160" ? 160 : 0,
         offered_gold_price: gold,
@@ -256,17 +275,13 @@ export function RequestModal({ isOpen, onClose, defaultServer = "NA", onRequestC
         {/* Modal Header */}
         <div className="flex items-center justify-between p-5 border-b border-[#2a2c33] bg-[#0e0e13]">
           <div className="flex items-center gap-2.5">
-            {requestType === "CRAFTING" ? (
-              <Hammer className="size-6 text-[#c5a059]" />
-            ) : (
-              <ShoppingCart className="size-6 text-blue-400" />
-            )}
+            <ShoppingCart className="size-6 text-[#c5a059]" />
             <div>
               <h3 className="font-cinzel font-bold text-lg text-[#e0d8c3]">
-                Post Public Trade Request
+                Post Want-To-Buy (WTB) / Crafting Bounty
               </h3>
               <p className="text-xs text-muted-foreground">
-                Asynchronous matchmaking with in-game C.O.D. mail delivery.
+                Search an item below to dynamically configure custom crafted gear or bulk material requests.
               </p>
             </div>
           </div>
@@ -288,91 +303,38 @@ export function RequestModal({ isOpen, onClose, defaultServer = "NA", onRequestC
             </div>
           )}
 
-          {/* Request Type Toggle & Megaserver */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1.5 font-bold">
-                Order Type
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setRequestType("CRAFTING")}
-                  className={`py-2 px-3 text-xs font-cinzel font-bold uppercase transition-all cursor-pointer flex items-center justify-center gap-1.5 border ${
-                    requestType === "CRAFTING"
-                      ? "bg-[#c5a059] text-black border-[#c5a059] shadow font-extrabold"
-                      : "bg-[#0e0e13] border-[#2a2c33] text-muted-foreground hover:text-white"
-                  }`}
-                >
-                  <Hammer className="size-3.5" />
-                  Crafting
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRequestType("WTB")}
-                  className={`py-2 px-3 text-xs font-cinzel font-bold uppercase transition-all cursor-pointer flex items-center justify-center gap-1.5 border ${
-                    requestType === "WTB"
-                      ? "bg-blue-600 text-white border-blue-500 shadow font-extrabold"
-                      : "bg-[#0e0e13] border-[#2a2c33] text-muted-foreground hover:text-white"
-                  }`}
-                >
-                  <ShoppingCart className="size-3.5" />
-                  WTB
-                </button>
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1.5 font-bold">
-                Megaserver
-              </label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setServer("NA")}
-                  className={`py-2 px-3 text-xs font-cinzel font-bold transition-all cursor-pointer border ${
-                    server === "NA"
-                      ? "bg-[#c5a059] text-black border-[#c5a059] shadow font-extrabold"
-                      : "bg-[#0e0e13] border-[#2a2c33] text-muted-foreground hover:text-white"
-                  }`}
-                >
-                  North America (NA)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setServer("EU")}
-                  className={`py-2 px-3 text-xs font-cinzel font-bold transition-all cursor-pointer border ${
-                    server === "EU"
-                      ? "bg-[#c5a059] text-black border-[#c5a059] shadow font-extrabold"
-                      : "bg-[#0e0e13] border-[#2a2c33] text-muted-foreground hover:text-white"
-                  }`}
-                >
-                  Europe (EU)
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Item Catalog Selection (Dropdown-only Constraint) */}
+          {/* 1. Item Catalog Search (Primary Input) */}
           <div>
-            <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1.5 font-bold">
-              Target Item (Authoritative Catalog)
+            <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1.5 font-bold flex items-center justify-between">
+              <span>Target Item from Catalog</span>
+              <span className="text-[10px] text-[#c5a059] lowercase font-mono">155k+ authentic items</span>
             </label>
 
             {selectedItem ? (
-              <div className="p-3 bg-[#0e0e13] border border-[#c5a059] flex items-center justify-between gap-3">
+              <div className="p-3 bg-[#0e0e13] border border-[#c5a059] flex items-center justify-between gap-3 shadow-inner">
                 <div className="flex items-center gap-3">
-                  <div className="size-10 bg-black/40 border border-[#2a2c33] p-1 flex items-center justify-center shrink-0">
+                  <div className="size-11 bg-black/50 border border-[#2a2c33] p-1 flex items-center justify-center shrink-0">
                     {selectedItem.icon_url ? (
                       <img src={selectedItem.icon_url} alt="" className="size-full object-contain" />
                     ) : (
-                      <Hammer className="size-5 text-[#c5a059]" />
+                      <Package className="size-5 text-[#c5a059]" />
                     )}
                   </div>
                   <div>
-                    <h4 className="font-cinzel font-bold text-sm text-[#e0d8c3]">
-                      {selectedItem.name}
-                    </h4>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-cinzel font-bold text-sm text-[#e0d8c3]">
+                        {selectedItem.name}
+                      </h4>
+                      {isGearItem ? (
+                        <span className="px-1.5 py-0.5 bg-[#c5a059]/20 border border-[#c5a059]/40 text-[#e6c278] text-[9px] font-cinzel font-bold uppercase">
+                          Craftable Gear
+                        </span>
+                      ) : (
+                        <span className="px-1.5 py-0.5 bg-blue-950/40 border border-blue-500/40 text-blue-300 text-[9px] font-cinzel font-bold uppercase">
+                          Item / Mat
+                        </span>
+                      )}
+                    </div>
                     <span className="text-[11px] text-muted-foreground">
                       {selectedItem.category} {selectedItem.subcategory ? `• ${selectedItem.subcategory}` : ""}
                     </span>
@@ -382,9 +344,9 @@ export function RequestModal({ isOpen, onClose, defaultServer = "NA", onRequestC
                 <button
                   type="button"
                   onClick={() => setSelectedItem(null)}
-                  className="text-xs text-muted-foreground hover:text-red-400 uppercase font-cinzel font-bold cursor-pointer"
+                  className="px-2 py-1 bg-[#161620] hover:bg-red-950/40 border border-[#2a2c33] hover:border-red-500/40 text-xs text-muted-foreground hover:text-red-300 uppercase font-cinzel font-bold cursor-pointer transition-colors"
                 >
-                  Change
+                  Change Item
                 </button>
               </div>
             ) : (
@@ -394,16 +356,17 @@ export function RequestModal({ isOpen, onClose, defaultServer = "NA", onRequestC
                   type="text"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search item catalog by name (e.g. Rubedite Cuirass, Dreugh Wax, Kuta)..."
+                  placeholder="Search catalog by name (e.g. Rubedite Cuirass, Dreugh Wax, Kuta, Mother's Sorrow)..."
                   className="w-full pl-9 pr-8 py-2.5 bg-[#0e0e13] border border-[#2a2c33] text-xs text-[#e0d8c3] placeholder:text-muted-foreground font-cinzel focus:outline-none focus:border-[#c5a059]"
+                  autoFocus
                 />
                 {isSearching && (
                   <Loader2 className="size-4 absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-[#c5a059]" />
                 )}
 
-                {/* Dropdown Results */}
+                {/* Search Dropdown Results */}
                 {searchResults.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1 bg-[#121218] border border-[#2a2c33] max-h-56 overflow-y-auto z-20 shadow-2xl divide-y divide-[#2a2c33]/50">
+                  <div className="absolute left-0 right-0 top-full mt-1 bg-[#121218] border border-[#2a2c33] max-h-60 overflow-y-auto z-20 shadow-2xl divide-y divide-[#2a2c33]/50">
                     {searchResults.map((item) => (
                       <div
                         key={item.game_item_id}
@@ -437,136 +400,180 @@ export function RequestModal({ isOpen, onClose, defaultServer = "NA", onRequestC
             )}
           </div>
 
-          {/* Conditional Attributes Builder */}
-          {requestType === "CRAFTING" ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-[#0a0a0d] border border-[#2a2c33]">
-              {/* Craftable Set Selector */}
-              <div className="sm:col-span-2">
-                <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
-                  Craftable Set (Optional)
-                </label>
-                <select
-                  value={selectedSet}
-                  onChange={(e) => setSelectedSet(e.target.value)}
-                  className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
-                >
-                  <option value="">No Set (Standard Item)</option>
-                  {craftableSets.map((s) => (
-                    <option key={s.name} value={s.name}>
-                      {s.name} ({s.category || "Crafted"})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Trait Selector */}
-              <div>
-                <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
-                  Armor / Weapon Trait
-                </label>
-                <select
-                  value={selectedTrait}
-                  onChange={(e) => setSelectedTrait(e.target.value)}
-                  className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
-                >
-                  {TRAITS.map((t) => (
-                    <option key={t} value={t}>
-                      {t}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Style Motif Selector */}
-              <div>
-                <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
-                  Style Motif
-                </label>
-                <select
-                  value={selectedStyle}
-                  onChange={(e) => setSelectedStyle(e.target.value)}
-                  className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
-                >
-                  {STYLES.map((st) => (
-                    <option key={st} value={st}>
-                      {st}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Quality Selector */}
-              <div>
-                <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
-                  Target Quality
-                </label>
-                <select
-                  value={selectedQuality}
-                  onChange={(e) => setSelectedQuality(Number(e.target.value))}
-                  className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
-                >
-                  {QUALITIES.map((q) => (
-                    <option key={q.value} value={q.value}>
-                      {q.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Level / CP */}
-              <div>
-                <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
-                  Item Level
-                </label>
-                <select
-                  value={levelType}
-                  onChange={(e) => setLevelType(e.target.value)}
-                  className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
-                >
-                  <option value="CP160">Champion Point 160 (Max)</option>
-                  <option value="CP150">Champion Point 150</option>
-                  <option value="LVL50">Level 50</option>
-                  <option value="LVL1">Level 1-49 (Leveling Gear)</option>
-                </select>
-              </div>
+          {/* Megaserver Selector */}
+          <div>
+            <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1.5 font-bold">
+              Megaserver
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setServer("NA")}
+                className={`py-2 px-3 text-xs font-cinzel font-bold transition-all cursor-pointer border ${
+                  server === "NA"
+                    ? "bg-[#c5a059] text-black border-[#c5a059] shadow font-extrabold"
+                    : "bg-[#0e0e13] border-[#2a2c33] text-muted-foreground hover:text-white"
+                }`}
+              >
+                North America (NA)
+              </button>
+              <button
+                type="button"
+                onClick={() => setServer("EU")}
+                className={`py-2 px-3 text-xs font-cinzel font-bold transition-all cursor-pointer border ${
+                  server === "EU"
+                    ? "bg-[#c5a059] text-black border-[#c5a059] shadow font-extrabold"
+                    : "bg-[#0e0e13] border-[#2a2c33] text-muted-foreground hover:text-white"
+                }`}
+              >
+                Europe (EU)
+              </button>
             </div>
-          ) : (
-            /* WTB Mode Attribute Inputs */
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-[#0a0a0d] border border-[#2a2c33]">
-              <div>
-                <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
-                  Desired Quantity
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  max="5000"
-                  value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                  className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-mono focus:outline-none focus:border-[#c5a059]"
-                />
-              </div>
+          </div>
 
-              <div>
-                <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
-                  Item Quality
-                </label>
-                <select
-                  value={selectedQuality}
-                  onChange={(e) => setSelectedQuality(Number(e.target.value))}
-                  className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
-                >
-                  {QUALITIES.map((q) => (
-                    <option key={q.value} value={q.value}>
-                      {q.label}
-                    </option>
-                  ))}
-                </select>
+          {/* 2. DYNAMIC ATTRIBUTE CONTROLS: Automatically Adapts to Selected Item */}
+          {selectedItem && (
+            isGearItem ? (
+              /* Gear / Crafted Set Controls */
+              <div className="p-4 bg-[#0a0a0d] border border-[#2a2c33] space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-[#2a2c33]">
+                  <Hammer className="size-4 text-[#c5a059]" />
+                  <span className="text-xs font-cinzel font-bold uppercase tracking-wider text-[#e6c278]">
+                    Crafted Gear Attributes
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Craftable Set Selector */}
+                  <div className="sm:col-span-2">
+                    <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
+                      Craftable Set Name (Optional)
+                    </label>
+                    <select
+                      value={selectedSet}
+                      onChange={(e) => setSelectedSet(e.target.value)}
+                      className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+                    >
+                      <option value="">No Set (Standard Item)</option>
+                      {craftableSets.map((s) => (
+                        <option key={s.name} value={s.name}>
+                          {s.name} ({s.category || "Crafted"})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Trait Selector */}
+                  <div>
+                    <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
+                      Trait
+                    </label>
+                    <select
+                      value={selectedTrait}
+                      onChange={(e) => setSelectedTrait(e.target.value)}
+                      className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+                    >
+                      {TRAITS.map((t) => (
+                        <option key={t} value={t}>{t}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Style Motif Selector */}
+                  <div>
+                    <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
+                      Style Motif
+                    </label>
+                    <select
+                      value={selectedStyle}
+                      onChange={(e) => setSelectedStyle(e.target.value)}
+                      className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+                    >
+                      {STYLES.map((st) => (
+                        <option key={st} value={st}>{st}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Quality Selector */}
+                  <div>
+                    <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
+                      Target Quality
+                    </label>
+                    <select
+                      value={selectedQuality}
+                      onChange={(e) => setSelectedQuality(Number(e.target.value))}
+                      className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+                    >
+                      {QUALITIES.map((q) => (
+                        <option key={q.value} value={q.value}>{q.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Level / CP */}
+                  <div>
+                    <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
+                      Item Level
+                    </label>
+                    <select
+                      value={levelType}
+                      onChange={(e) => setLevelType(e.target.value)}
+                      className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+                    >
+                      <option value="CP160">Champion Point 160 (Max)</option>
+                      <option value="CP150">Champion Point 150</option>
+                      <option value="LVL50">Level 50</option>
+                      <option value="LVL1">Level 1-49 (Leveling Gear)</option>
+                    </select>
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : (
+              /* Materials / Consumables / Items Controls */
+              <div className="p-4 bg-[#0a0a0d] border border-[#2a2c33] space-y-4">
+                <div className="flex items-center gap-2 pb-2 border-b border-[#2a2c33]">
+                  <ShoppingCart className="size-4 text-blue-400" />
+                  <span className="text-xs font-cinzel font-bold uppercase tracking-wider text-blue-300">
+                    Material / Item Quantity & Quality
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
+                      Desired Quantity
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="5000"
+                      value={quantity}
+                      onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                      className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-mono focus:outline-none focus:border-[#c5a059]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
+                      Item Quality
+                    </label>
+                    <select
+                      value={selectedQuality}
+                      onChange={(e) => setSelectedQuality(Number(e.target.value))}
+                      className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+                    >
+                      {QUALITIES.map((q) => (
+                        <option key={q.value} value={q.value}>{q.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )
           )}
 
-          {/* Financials & Market Guidance */}
+          {/* 3. Financials & Market Guidance */}
           <div className="p-4 bg-[#0e0e13] border border-[#2a2c33] space-y-3">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
               <div className="flex-1">
@@ -606,7 +613,7 @@ export function RequestModal({ isOpen, onClose, defaultServer = "NA", onRequestC
             </div>
           </div>
 
-          {/* In-Game Handle & Delivery Instructions */}
+          {/* 4. In-Game Handle & Delivery Instructions */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
@@ -646,13 +653,13 @@ export function RequestModal({ isOpen, onClose, defaultServer = "NA", onRequestC
             </button>
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || !selectedItem}
               className="px-6 py-2 bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg flex items-center gap-1.5 disabled:opacity-50"
             >
               {submitting ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  <span>Publishing Order...</span>
+                  <span>Publishing Request...</span>
                 </>
               ) : (
                 <>

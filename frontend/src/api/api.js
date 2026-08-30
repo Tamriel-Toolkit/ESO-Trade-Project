@@ -29,7 +29,7 @@ function getHeaders(customHeaders = {}) {
 /**
  * Universal fetch wrapper enforcing credentials: 'include' for HttpOnly SameSite cookies
  */
-async function apiFetch(path, options = {}) {
+export async function apiFetch(path, options = {}) {
     const url = `${BASE_URL}${path}`;
     const headers = getHeaders(options.headers);
     const config = {
