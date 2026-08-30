@@ -175,6 +175,9 @@ export function MyOrders() {
   };
 
   // Compute User-Specific Global Stats across all user orders
+  const activeOrdersCount = allOrders.filter(
+    r => r.status === "OPEN" || r.status === "IN_PROGRESS" || r.status === "COMPLETED"
+  ).length;
   const postedCount = allOrders.filter(r => r.user_id === user?.id).length;
   const claimedCount = allOrders.filter(r => r.claimed_by_user_id === user?.id).length;
   const fulfilledCount = allOrders.filter(r => r.status === "FULFILLED").length;
@@ -183,7 +186,10 @@ export function MyOrders() {
   // Filter orders for active sub-tab and search query
   const filteredRequests = useMemo(() => {
     let list = allOrders;
-    if (subTab === "POSTED") {
+    if (subTab === "ALL") {
+      // Only show active requests and actively claimed orders
+      list = list.filter(r => r.status === "OPEN" || r.status === "IN_PROGRESS" || r.status === "COMPLETED");
+    } else if (subTab === "POSTED") {
       list = list.filter(r => r.user_id === user?.id);
     } else if (subTab === "CLAIMED") {
       list = list.filter(r => r.claimed_by_user_id === user?.id);
@@ -351,7 +357,7 @@ export function MyOrders() {
                       : "text-muted-foreground hover:text-[#e0d8c3] hover:bg-white/5"
                   }`}
                 >
-                  All Activity ({allOrders.length})
+                  All Activity ({activeOrdersCount})
                 </button>
 
                 <button
