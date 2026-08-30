@@ -298,7 +298,7 @@ export function RequestCard({
               <User className="size-3 text-[#c5a059]" />
               Buyer:
             </span>
-            <span className="font-mono text-[#e0d8c3] font-bold">
+            <span className="font-mono text-white font-bold">
               {request.buyer_display_handle}
             </span>
           </div>
@@ -321,7 +321,7 @@ export function RequestCard({
                 <Hammer className="size-3 text-[#c5a059]" />
                 Merchant:
               </span>
-              <span className="font-mono text-[#e6c278] font-bold">
+              <span className="font-mono text-white font-bold">
                 {request.claimed_by_handle}
               </span>
             </div>
