@@ -29,7 +29,7 @@ function getHeaders(customHeaders = {}) {
 /**
  * Universal fetch wrapper enforcing credentials: 'include' for HttpOnly SameSite cookies
  */
-async function apiFetch(path, options = {}) {
+export async function apiFetch(path, options = {}) {
     const url = `${BASE_URL}${path}`;
     const headers = getHeaders(options.headers);
     const config = {
@@ -447,6 +447,113 @@ export async function fetchTraitMarketMatches(characterId, { server = "NA", limi
         return await safeJsonResponse(response, 'Failed to fetch trait market matches');
     } catch (error) {
         return { success: false, matches: [], error: error.message };
+    }
+}
+
+/**
+ * Trade Request Board Client Functions
+ */
+export async function fetchTradeRequests(queryParams = {}) {
+    try {
+        const params = new URLSearchParams();
+        Object.entries(queryParams).forEach(([key, val]) => {
+            if (val !== undefined && val !== null && val !== '') {
+                params.append(key, val);
+            }
+        });
+
+        const response = await apiFetch(`/api/requests?${params.toString()}`);
+        return await safeJsonResponse(response, 'Failed to fetch trade requests');
+    } catch (error) {
+        return { success: false, requests: [], total: 0, error: error.message };
+    }
+}
+
+export async function fetchTradeRequestStats(server = "NA") {
+    try {
+        const params = new URLSearchParams();
+        if (server) params.append("server", server);
+
+        const response = await apiFetch(`/api/requests/stats?${params.toString()}`);
+        return await safeJsonResponse(response, 'Failed to fetch request stats');
+    } catch (error) {
+        return { success: false, total_open: 0, total_in_progress: 0, total_fulfilled: 0, total_gold_offered: 0 };
+    }
+}
+
+export async function fetchCraftableSets() {
+    try {
+        const response = await apiFetch('/api/requests/craftable-sets');
+        return await safeJsonResponse(response, 'Failed to fetch craftable sets');
+    } catch (error) {
+        return [];
+    }
+}
+
+export async function createTradeRequest(payload) {
+    try {
+        const response = await apiFetch('/api/requests', {
+            method: 'POST',
+            body: JSON.stringify(payload)
+        });
+        return await safeJsonResponse(response, 'Failed to create trade request');
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function claimTradeRequest(requestId) {
+    try {
+        const response = await apiFetch(`/api/requests/${requestId}/claim`, {
+            method: 'PATCH'
+        });
+        return await safeJsonResponse(response, 'Failed to claim trade request');
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function unclaimTradeRequest(requestId) {
+    try {
+        const response = await apiFetch(`/api/requests/${requestId}/unclaim`, {
+            method: 'PATCH'
+        });
+        return await safeJsonResponse(response, 'Failed to release claim');
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function completeTradeRequest(requestId) {
+    try {
+        const response = await apiFetch(`/api/requests/${requestId}/complete`, {
+            method: 'PATCH'
+        });
+        return await safeJsonResponse(response, 'Failed to mark order as completed');
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function fulfillTradeRequest(requestId) {
+    try {
+        const response = await apiFetch(`/api/requests/${requestId}/fulfill`, {
+            method: 'PATCH'
+        });
+        return await safeJsonResponse(response, 'Failed to fulfill trade request');
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function cancelTradeRequest(requestId) {
+    try {
+        const response = await apiFetch(`/api/requests/${requestId}`, {
+            method: 'DELETE'
+        });
+        return await safeJsonResponse(response, 'Failed to cancel trade request');
+    } catch (error) {
+        return { success: false, error: error.message };
     }
 }
 

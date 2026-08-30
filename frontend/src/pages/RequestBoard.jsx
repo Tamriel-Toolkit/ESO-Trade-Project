@@ -1,0 +1,534 @@
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { Link } from "react-router-dom";
+import { 
+  ScrollText, 
+  Hammer, 
+  ShoppingCart, 
+  Search, 
+  Plus, 
+  Filter, 
+  Clock, 
+  Check, 
+  Coins, 
+  RefreshCw, 
+  User, 
+  Sparkles, 
+  Package,
+  X, 
+  ChevronLeft, 
+  ChevronRight, 
+  Layers 
+} from "lucide-react";
+import { 
+  fetchTradeRequests, 
+  fetchTradeRequestStats, 
+  claimTradeRequest, 
+  unclaimTradeRequest, 
+  completeTradeRequest,
+  fulfillTradeRequest, 
+  cancelTradeRequest 
+} from "../api/api";
+import { useAuth } from "../context/AuthContext";
+import { RequestCard } from "../components/requests/RequestCard";
+import { RequestModal } from "../components/requests/RequestModal";
+import { EsoTooltip } from "../components/ui/tooltip";
+import Navbar from "@/components/ui/navbar";
+
+const CATEGORIES = [
+  "All Categories",
+  "Weapons",
+  "Apparel",
+  "Jewelry",
+  "Consumables",
+  "Materials",
+  "Glyphs",
+  "Furnishings",
+  "Miscellaneous"
+];
+
+export function RequestBoard() {
+  const { user } = useAuth();
+
+  const [server, setServer] = useState("NA");
+  // Streamlined 2-tab view: PUBLIC (all WTB & crafting bounties) and MY_ORDERS
+  const [activeTab, setActiveTab] = useState("PUBLIC"); // PUBLIC, MY_ORDERS
+  
+  // Data state
+  const [requests, setRequests] = useState([]);
+  const [stats, setStats] = useState({ total_open: 0, total_in_progress: 0, total_fulfilled: 0, total_gold_offered: 0 });
+  const [totalCount, setTotalCount] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [statsLoading, setStatsLoading] = useState(true);
+
+  // Filters
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedType, setSelectedType] = useState("ALL"); // ALL, CRAFTING, WTB
+  const [selectedCategory, setSelectedCategory] = useState("All Categories");
+  const [selectedStatus, setSelectedStatus] = useState("ACTIVE"); // ACTIVE (Open/In-Progress), OPEN, IN_PROGRESS, FULFILLED, ALL
+  const [sortOption, setSortOption] = useState("newest"); // newest, gold_desc, gold_asc, expiring_soon
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 12;
+
+  // Modal
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [actionLoadingId, setActionLoadingId] = useState(null);
+
+  // Load request stats
+  const loadStats = useCallback(async () => {
+    setStatsLoading(true);
+    try {
+      const res = await fetchTradeRequestStats(server);
+      if (res && res.total_open !== undefined) {
+        setStats(res);
+      }
+    } catch (e) {
+      console.error("Failed to load request stats:", e);
+    } finally {
+      setStatsLoading(false);
+    }
+  }, [server]);
+
+  // Load trade requests
+  const loadRequests = useCallback(async () => {
+    setLoading(true);
+    try {
+      const params = {
+        server,
+        limit: pageSize,
+        offset: (currentPage - 1) * pageSize
+      };
+
+      // Type filter (All, Crafting, WTB)
+      if (selectedType && selectedType !== "ALL") {
+        params.request_type = selectedType;
+      }
+
+      // Tab filter
+      if (activeTab === "MY_ORDERS" && user) {
+        params.status = "ALL";
+      } else {
+        // Status filter
+        if (selectedStatus === "ACTIVE") params.status = "OPEN,IN_PROGRESS";
+        else if (selectedStatus !== "ALL") params.status = selectedStatus;
+        else params.status = "ALL";
+      }
+
+      // Category filter
+      if (selectedCategory && selectedCategory !== "All Categories") {
+        params.category = selectedCategory;
+      }
+
+      // Search filter
+      if (searchQuery.trim()) {
+        params.search = searchQuery.trim();
+      }
+
+      // Sort
+      if (sortOption !== "newest") {
+        params.sort = sortOption;
+      }
+
+      const res = await fetchTradeRequests(params);
+      if (res && Array.isArray(res.requests)) {
+        setRequests(res.requests);
+        setTotalCount(res.total || 0);
+      } else {
+        setRequests([]);
+        setTotalCount(0);
+      }
+    } catch (e) {
+      console.error("Failed to load requests:", e);
+      setRequests([]);
+      setTotalCount(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [server, selectedType, selectedStatus, selectedCategory, searchQuery, sortOption, currentPage]);
+
+  useEffect(() => {
+    loadStats();
+  }, [loadStats]);
+
+  useEffect(() => {
+    loadRequests();
+  }, [loadRequests]);
+
+  // Handlers for claim / unclaim / fulfill / cancel
+  const handleClaim = async (id) => {
+    setActionLoadingId(id);
+    try {
+      const res = await claimTradeRequest(id);
+      if (res && res.success) {
+        loadRequests();
+        loadStats();
+      } else {
+        alert(res?.error || "Failed to claim request.");
+      }
+    } catch (e) {
+      alert("Error claiming request: " + e.message);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleUnclaim = async (id) => {
+    setActionLoadingId(id);
+    try {
+      const res = await unclaimTradeRequest(id);
+      if (res && res.success) {
+        loadRequests();
+        loadStats();
+      } else {
+        alert(res?.error || "Failed to release claim.");
+      }
+    } catch (e) {
+      alert("Error releasing claim: " + e.message);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleComplete = async (id) => {
+    setActionLoadingId(id);
+    try {
+      const res = await completeTradeRequest(id);
+      if (res && res.success) {
+        loadRequests();
+        loadStats();
+      } else {
+        alert(res?.error || "Failed to mark order as completed.");
+      }
+    } catch (e) {
+      alert("Error completing order: " + e.message);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleFulfill = async (id) => {
+    setActionLoadingId(id);
+    try {
+      const res = await fulfillTradeRequest(id);
+      if (res && res.success) {
+        loadRequests();
+        loadStats();
+      } else {
+        alert(res?.error || "Failed to fulfill request.");
+      }
+    } catch (e) {
+      alert("Error fulfilling request: " + e.message);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const handleCancel = async (id) => {
+    if (!window.confirm("Are you sure you want to cancel this trade request?")) return;
+    setActionLoadingId(id);
+    try {
+      const res = await cancelTradeRequest(id);
+      if (res && res.success) {
+        loadRequests();
+        loadStats();
+      } else {
+        alert(res?.error || "Failed to cancel request.");
+      }
+    } catch (e) {
+      alert("Error canceling request: " + e.message);
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
+
+  const totalPages = Math.ceil(totalCount / pageSize) || 1;
+
+  const handleResetFilters = () => {
+    setSearchQuery("");
+    setSelectedType("ALL");
+    setSelectedCategory("All Categories");
+    setSelectedStatus("ACTIVE");
+    setSortOption("newest");
+    setCurrentPage(1);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0a0a0d] text-[#e0d8c3] flex flex-col font-sans selection:bg-[#c5a059] selection:text-black">
+      <Navbar />
+
+      {/* Top Banner Header */}
+      <header className="border-b border-[#2a2c33] bg-[#121218]/90 backdrop-blur-md shadow-md">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-cinzel font-bold tracking-wider text-[#e0d8c3] flex items-center gap-2.5">
+              <ShoppingCart className="size-7 text-[#c5a059]" />
+              <span>Public WTB & Crafting Request Board</span>
+            </h1>
+            <p className="text-[#a89f91] text-xs md:text-sm mt-1">
+              Asynchronous matchmaking for custom crafted gear bounties and bulk material requests across Tamriel.
+            </p>
+          </div>
+
+          {/* Controls: Megaserver & Post Request CTA */}
+          <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            {/* Server Selector */}
+            <div className="flex rounded-none border border-[#2a2c33] bg-[#0e0e13] p-0.5">
+              <button
+                onClick={() => { setServer("NA"); setCurrentPage(1); }}
+                className={`px-3 py-1.5 text-xs font-cinzel font-bold tracking-wider transition-all cursor-pointer ${
+                  server === "NA"
+                    ? "bg-[#c5a059] text-black shadow font-extrabold"
+                    : "text-muted-foreground hover:text-white"
+                }`}
+              >
+                NA
+              </button>
+              <button
+                onClick={() => { setServer("EU"); setCurrentPage(1); }}
+                className={`px-3 py-1.5 text-xs font-cinzel font-bold tracking-wider transition-all cursor-pointer ${
+                  server === "EU"
+                    ? "bg-[#c5a059] text-black shadow font-extrabold"
+                    : "text-muted-foreground hover:text-white"
+                }`}
+              >
+                EU
+              </button>
+            </div>
+
+            {/* Post Request CTA */}
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="px-4 py-2 bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg flex items-center gap-1.5"
+            >
+              <Plus className="size-4" />
+              <span>Post Item Request</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      {/* Main Container */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1 space-y-6">
+        {/* Stats Dashboard */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="p-4 bg-[#121218] border border-emerald-500/30 flex items-center gap-3 shadow">
+            <div className="size-10 bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-center shrink-0">
+              <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+            </div>
+            <div>
+              <span className="text-[10px] font-cinzel uppercase text-emerald-400 block font-bold">
+                Open Requests
+              </span>
+              <span className="font-mono text-xl font-bold text-white">
+                {statsLoading ? "..." : (stats?.total_open || 0)}
+              </span>
+            </div>
+          </div>
+
+          <div className="p-4 bg-[#121218] border border-amber-500/30 flex items-center gap-3 shadow">
+            <div className="size-10 bg-amber-950/40 border border-amber-500/40 flex items-center justify-center shrink-0">
+              <Clock className="size-5 text-amber-400" />
+            </div>
+            <div>
+              <span className="text-[10px] font-cinzel uppercase text-amber-400 block font-bold">
+                In Progress (Claimed)
+              </span>
+              <span className="font-mono text-xl font-bold text-white">
+                {statsLoading ? "..." : (stats?.total_in_progress || 0)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* Feed Header Bar & Link to My Orders */}
+        <div className="flex items-center justify-between border-b border-[#2a2c33] bg-[#0e0e13] px-4 py-2.5">
+          <div className="flex items-center gap-2">
+            <ShoppingCart className="size-4 text-[#c5a059]" />
+            <span className="text-xs font-cinzel font-bold uppercase tracking-wider text-[#e0d8c3]">
+              Public Request Feed
+            </span>
+            <span className="text-xs font-mono text-muted-foreground ml-2">
+              (<strong className="text-white">{requests.length}</strong> of {totalCount} active)
+            </span>
+          </div>
+
+          <Link
+            to="/my-orders"
+            className="text-xs font-cinzel font-bold text-[#e6c278] hover:text-white px-3 py-1.5 bg-[#161620] hover:bg-[#1f1f2e] border border-[#c5a059]/40 hover:border-[#c5a059] transition-all flex items-center gap-1.5 uppercase tracking-wider"
+          >
+            <Package className="size-3.5 text-[#c5a059]" />
+            <span>My Orders & Claims →</span>
+          </Link>
+        </div>
+
+        {/* Dynamic Filter Controls Bar */}
+        <div className="p-4 bg-[#121218] border border-[#2a2c33] shadow-lg grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 items-center">
+          {/* Search Query */}
+          <div className="relative sm:col-span-2 lg:col-span-1">
+            <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
+              placeholder="Search by item, set, or @handle..."
+              className="w-full pl-9 pr-8 py-2 bg-[#0e0e13] border border-[#2a2c33] text-xs text-[#e0d8c3] placeholder:text-muted-foreground font-cinzel focus:outline-none focus:border-[#c5a059]"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => { setSearchQuery(""); setCurrentPage(1); }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white cursor-pointer"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
+
+          {/* Type Filter */}
+          <div>
+            <select
+              value={selectedType}
+              onChange={(e) => { setSelectedType(e.target.value); setCurrentPage(1); }}
+              className="w-full py-2 px-3 bg-[#0e0e13] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+            >
+              <option value="ALL">All Request Types</option>
+              <option value="CRAFTING">Crafted Gear Only</option>
+              <option value="WTB">Materials & Items Only</option>
+            </select>
+          </div>
+
+          {/* Category Filter */}
+          <div>
+            <select
+              value={selectedCategory}
+              onChange={(e) => { setSelectedCategory(e.target.value); setCurrentPage(1); }}
+              className="w-full py-2 px-3 bg-[#0e0e13] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Status Filter */}
+          <div>
+            <select
+              value={selectedStatus}
+              onChange={(e) => { setSelectedStatus(e.target.value); setCurrentPage(1); }}
+              className="w-full py-2 px-3 bg-[#0e0e13] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+            >
+              <option value="ACTIVE">Active (Open & Claimed)</option>
+              <option value="OPEN">Open Only</option>
+              <option value="IN_PROGRESS">In Progress Only</option>
+              <option value="FULFILLED">Fulfilled (History)</option>
+              <option value="ALL">All Statuses</option>
+            </select>
+          </div>
+
+          {/* Sort Filter */}
+          <div>
+            <select
+              value={sortOption}
+              onChange={(e) => { setSortOption(e.target.value); setCurrentPage(1); }}
+              className="w-full py-2 px-3 bg-[#0e0e13] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+            >
+              <option value="newest">Newest First</option>
+              <option value="gold_desc">Highest Gold Bounty</option>
+              <option value="gold_asc">Lowest Gold Bounty</option>
+              <option value="expiring_soon">Expiring Soon</option>
+              <option value="quality_desc">Highest Quality</option>
+            </select>
+          </div>
+        </div>
+
+        {/* Request Cards Grid */}
+        {loading ? (
+          <div className="py-24 text-center space-y-3">
+            <RefreshCw className="size-8 animate-spin mx-auto text-[#c5a059]" />
+            <p className="text-xs font-cinzel text-muted-foreground uppercase tracking-wider">
+              Loading Public Request Board...
+            </p>
+          </div>
+        ) : requests.length === 0 ? (
+          <div className="py-20 text-center bg-[#121218] border border-[#2a2c33] p-8 max-w-xl mx-auto space-y-4 shadow-xl">
+            <ShoppingCart className="size-12 text-[#c5a059] mx-auto opacity-70" />
+            <h3 className="font-cinzel font-bold text-lg text-[#e0d8c3]">
+              No Matching Trade Requests Found
+            </h3>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              No active crafting orders or WTB bounties match your current server and filter criteria.
+            </p>
+            <div className="pt-2 flex items-center justify-center gap-3">
+              <button
+                onClick={handleResetFilters}
+                className="px-4 py-2 bg-[#161620] hover:bg-[#1c1c26] border border-[#2a2c33] text-xs font-cinzel text-muted-foreground hover:text-white uppercase transition-colors cursor-pointer"
+              >
+                Reset Filters
+              </button>
+              <button
+                onClick={() => setIsModalOpen(true)}
+                className="px-5 py-2 bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-colors shadow"
+              >
+                + Post the First Request
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {requests.map((req) => (
+              <RequestCard
+                key={req.id}
+                request={req}
+                currentUser={user}
+                onClaim={handleClaim}
+                onUnclaim={handleUnclaim}
+                onComplete={handleComplete}
+                onFulfill={handleFulfill}
+                onCancel={handleCancel}
+                isClaiming={actionLoadingId === req.id}
+                isCanceling={actionLoadingId === req.id}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Pagination Bar */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between border-t border-[#2a2c33] pt-4 px-2">
+            <span className="text-xs text-muted-foreground font-cinzel">
+              Page <strong className="text-white font-mono">{currentPage}</strong> of {totalPages}
+            </span>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="p-1.5 bg-[#121218] border border-[#2a2c33] hover:border-[#c5a059] disabled:opacity-40 disabled:cursor-not-allowed text-xs font-cinzel cursor-pointer transition-colors"
+              >
+                <ChevronLeft className="size-4" />
+              </button>
+              <button
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="p-1.5 bg-[#121218] border border-[#2a2c33] hover:border-[#c5a059] disabled:opacity-40 disabled:cursor-not-allowed text-xs font-cinzel cursor-pointer transition-colors"
+              >
+                <ChevronRight className="size-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </main>
+
+      {/* Create Request Modal */}
+      <RequestModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        defaultServer={server}
+        onRequestCreated={() => {
+          loadRequests();
+          loadStats();
+        }}
+      />
+    </div>
+  );
+}
+
+export default RequestBoard;

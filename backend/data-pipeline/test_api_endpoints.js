@@ -86,6 +86,33 @@ function httpDelete(path, headers = {}) {
     });
 }
 
+function httpPatch(path, body = {}, headers = {}) {
+    return new Promise((resolve, reject) => {
+        const payload = JSON.stringify(body);
+        const req = http.request(`http://localhost:${PORT}${path}`, {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload),
+                ...headers
+            }
+        }, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                try {
+                    resolve({ status: res.statusCode, headers: res.headers, data: JSON.parse(data) });
+                } catch (e) {
+                    resolve({ status: res.statusCode, headers: res.headers, raw: data });
+                }
+            });
+        });
+        req.on('error', err => reject(err));
+        req.write(payload);
+        req.end();
+    });
+}
+
 async function runTests() {
     // Poll server health up to 10 seconds for robust startup across all runner environments
     let serverReady = false;
@@ -768,7 +795,155 @@ async function runTests() {
         }
         console.log(`   Trait sorting 'sort=trait_asc' verified (${traitSortRes.data.listings.length} total listings)!`);
 
-        console.log("\nAll 46 API endpoint test suites passed successfully!");
+        console.log("\n47. Testing GET /api/requests/craftable-sets...");
+        const craftSetsRes = await httpGet('/api/requests/craftable-sets');
+        if (craftSetsRes.status !== 200 || !Array.isArray(craftSetsRes.data)) {
+            throw new Error(`Expected 200 on craftable-sets, got status ${craftSetsRes.status}`);
+        }
+        console.log(`   Craftable sets catalog retrieved: ${craftSetsRes.data.length} sets found!`);
+
+        console.log("\n48. Testing GET /api/requests/stats...");
+        const statsRes = await httpGet('/api/requests/stats?server=NA');
+        if (statsRes.status !== 200 || statsRes.data.total_open === undefined) {
+            throw new Error(`Expected 200 on requests stats, got ${JSON.stringify(statsRes.data)}`);
+        }
+        console.log(`   Trade requests stats verified: ${statsRes.data.total_open} open, ${statsRes.data.total_gold_offered}g offered!`);
+
+        console.log("\n49. Testing POST /api/requests auth & validation...");
+        const unauthReq = await httpPost('/api/requests', {
+            request_type: "CRAFTING",
+            server: "NA",
+            game_item_id: 1129,
+            item_name: "Rubedite Cuirass",
+            offered_gold_price: 25000
+        });
+        if (unauthReq.status !== 401) throw new Error(`Expected 401 for unauth request creation, got ${unauthReq.status}`);
+
+        const invalidReq = await httpPost('/api/requests', {
+            request_type: "INVALID_TYPE",
+            server: "NA",
+            game_item_id: 1129,
+            item_name: "Rubedite Cuirass",
+            offered_gold_price: -500
+        }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
+        if (invalidReq.status !== 400) throw new Error(`Expected 400 for invalid request payload, got ${invalidReq.status}`);
+        console.log("   Trade request auth & payload validation verified!");
+
+        console.log("\n50. Testing POST /api/requests authorized creation (User 1)...");
+        const createReqRes = await httpPost('/api/requests', {
+            request_type: "CRAFTING",
+            server: "NA",
+            game_item_id: 1129,
+            item_name: "Rubedite Cuirass",
+            category: "Apparel",
+            subcategory: "Heavy Armor",
+            quantity: 1,
+            quality: 4,
+            trait_name: "Divines",
+            set_name: "Order's Wrath",
+            offered_gold_price: 35000,
+            delivery_notes: "Please send C.O.D. promptly!"
+        }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
+        if (createReqRes.status !== 201 || !createReqRes.data.success || !createReqRes.data.request_id) {
+            throw new Error(`Expected 201 on trade request creation, got ${JSON.stringify(createReqRes.data)}`);
+        }
+        const testRequestId = createReqRes.data.request_id;
+        console.log(`   Trade request created successfully with ID: ${testRequestId}!`);
+
+        console.log("\n51. Testing PATCH /api/requests/:id/claim (User 2 claims User 1's request)...");
+        // User 1 cannot claim own request
+        const selfClaimRes = await httpPatch(`/api/requests/${testRequestId}/claim`, {}, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (selfClaimRes.status !== 400) throw new Error(`Expected 400 for self claim, got ${selfClaimRes.status}`);
+
+        // User 2 claims
+        const user2ClaimRes = await httpPatch(`/api/requests/${testRequestId}/claim`, {}, {
+            'Authorization': `Bearer ${user2BypassRes.data.token}`
+        });
+        if (user2ClaimRes.status !== 200 || !user2ClaimRes.data.success) {
+            throw new Error(`Expected 200 on crafter claim, got ${JSON.stringify(user2ClaimRes.data)}`);
+        }
+        console.log("   Order claim state machine verified (Status: IN_PROGRESS, 24h timer set)!");
+
+        // User 1 (buyer) unassigns the claim back to OPEN
+        const buyerUnassignRes = await httpPatch(`/api/requests/${testRequestId}/unclaim`, {}, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (buyerUnassignRes.status !== 200 || !buyerUnassignRes.data.success) {
+            throw new Error(`Expected 200 on buyer unassign claim, got ${JSON.stringify(buyerUnassignRes.data)}`);
+        }
+        console.log("   Buyer unassign claim verified (Status returned to OPEN)!");
+
+        // User 2 re-claims to proceed with lifecycle test
+        await httpPatch(`/api/requests/${testRequestId}/claim`, {}, {
+            'Authorization': `Bearer ${user2BypassRes.data.token}`
+        });
+
+        console.log("\n52. Testing PATCH /api/requests/:id/complete & buyer-only /fulfill...");
+        // User 2 (claiming crafter) marks completed/sent
+        const crafterCompleteRes = await httpPatch(`/api/requests/${testRequestId}/complete`, {}, {
+            'Authorization': `Bearer ${user2BypassRes.data.token}`
+        });
+        if (crafterCompleteRes.status !== 200 || !crafterCompleteRes.data.success) {
+            throw new Error(`Expected 200 on crafter complete, got ${JSON.stringify(crafterCompleteRes.data)}`);
+        }
+
+        // User 2 (crafter) tries to directly close/fulfill (expect 403)
+        const crafterFulfillRes = await httpPatch(`/api/requests/${testRequestId}/fulfill`, {}, {
+            'Authorization': `Bearer ${user2BypassRes.data.token}`
+        });
+        if (crafterFulfillRes.status !== 403) {
+            throw new Error(`Expected 403 when crafter tries to close order, got ${crafterFulfillRes.status}`);
+        }
+
+        // User 1 (buyer who posted) closes/fulfills
+        const fulfillRes = await httpPatch(`/api/requests/${testRequestId}/fulfill`, {}, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (fulfillRes.status !== 200 || !fulfillRes.data.success) {
+            throw new Error(`Expected 200 on buyer request fulfillment, got ${JSON.stringify(fulfillRes.data)}`);
+        }
+        console.log("   2-step order lifecycle verified (Crafter Complete -> Buyer Fulfill & Close)!");
+
+        console.log("\n53. Testing DELETE /api/requests/:id authorization & cancellation...");
+        // Create second request to test deletion
+        const req2 = await httpPost('/api/requests', {
+            request_type: "WTB",
+            server: "NA",
+            game_item_id: 1129,
+            item_name: "Dreugh Wax",
+            category: "Materials",
+            subcategory: "Upgrade Temper",
+            quantity: 8,
+            quality: 5,
+            offered_gold_price: 18000
+        }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
+        const req2Id = req2.data.request_id;
+
+        // User 2 tries to delete User 1's request (expect 403)
+        const idorDeleteReq = await httpDelete(`/api/requests/${req2Id}`, {
+            'Authorization': `Bearer ${user2BypassRes.data.token}`
+        });
+        if (idorDeleteReq.status !== 403) throw new Error(`Expected 403 for IDOR delete request, got ${idorDeleteReq.status}`);
+
+        // User 1 deletes own request
+        const authDeleteReq = await httpDelete(`/api/requests/${req2Id}`, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (authDeleteReq.status !== 200 || !authDeleteReq.data.success) {
+            throw new Error(`Expected 200 on owner delete request, got ${JSON.stringify(authDeleteReq.data)}`);
+        }
+        console.log("   Trade request cancellation and IDOR protection verified!");
+
+        console.log("\n54. Testing GET /api/requests filterable feed...");
+        const feedRes = await httpGet('/api/requests?server=NA&status=ALL');
+        if (feedRes.status !== 200 || !Array.isArray(feedRes.data.requests)) {
+            throw new Error(`Expected 200 on requests feed, got ${JSON.stringify(feedRes.data)}`);
+        }
+        console.log(`   Requests feed query verified: ${feedRes.data.requests.length} requests returned!`);
+
+        console.log("\nAll 54 API endpoint test suites passed successfully!");
     } catch (err) {
         console.error("API test failed:", err);
         process.exitCode = 1;

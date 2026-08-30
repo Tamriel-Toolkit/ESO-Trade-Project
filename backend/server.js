@@ -489,6 +489,99 @@ function initializeDatabaseSchema() {
             else console.log("'character_trait_research' table initialized successfully.");
         });
 
+        // Check if trade_requests table needs 'COMPLETED' status constraint migration
+        db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='trade_requests'", (err, row) => {
+            if (row && row.sql && !row.sql.includes("'COMPLETED'")) {
+                console.log("Migrating trade_requests table to include 'COMPLETED' status constraint...");
+                db.serialize(() => {
+                    db.run("PRAGMA foreign_keys = OFF;");
+                    db.run("ALTER TABLE trade_requests RENAME TO _trade_requests_old;");
+                    db.run(`
+                        CREATE TABLE trade_requests (
+                            id INTEGER PRIMARY KEY AUTOINCREMENT,
+                            user_id INTEGER,
+                            request_type TEXT NOT NULL CHECK(request_type IN ('CRAFTING', 'WTB')),
+                            server TEXT NOT NULL DEFAULT 'NA' CHECK(server IN ('NA', 'EU')),
+                            buyer_character_id INTEGER,
+                            buyer_display_handle TEXT NOT NULL,
+                            game_item_id INTEGER NOT NULL,
+                            item_name TEXT NOT NULL,
+                            category TEXT,
+                            subcategory TEXT,
+                            quantity INTEGER DEFAULT 1,
+                            quality INTEGER DEFAULT 1 CHECK(quality BETWEEN 1 AND 5),
+                            trait_id INTEGER DEFAULT 0,
+                            trait_name TEXT,
+                            style_id INTEGER DEFAULT 0,
+                            style_name TEXT,
+                            set_name TEXT,
+                            level_req INTEGER DEFAULT 50,
+                            cp_req INTEGER DEFAULT 160,
+                            offered_gold_price INTEGER NOT NULL CHECK(offered_gold_price > 0),
+                            suggested_price INTEGER DEFAULT 0,
+                            delivery_notes TEXT,
+                            status TEXT NOT NULL DEFAULT 'OPEN' CHECK(status IN ('OPEN', 'IN_PROGRESS', 'COMPLETED', 'FULFILLED', 'CANCELLED', 'EXPIRED')),
+                            claimed_by_user_id INTEGER,
+                            claimed_by_handle TEXT,
+                            claimed_at TEXT,
+                            claim_expires_at TEXT,
+                            fulfilled_at TEXT,
+                            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                            expires_at TEXT NOT NULL,
+                            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+                            FOREIGN KEY (claimed_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+                            FOREIGN KEY (game_item_id) REFERENCES items(game_item_id)
+                        );
+                    `);
+                    db.run("INSERT INTO trade_requests SELECT * FROM _trade_requests_old;");
+                    db.run("DROP TABLE _trade_requests_old;");
+                    db.run("PRAGMA foreign_keys = ON;");
+                });
+            }
+        });
+
+        // Structured Public Crafting & WTB Request Board Table
+        db.run(`
+            CREATE TABLE IF NOT EXISTS trade_requests (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER,
+                request_type TEXT NOT NULL CHECK(request_type IN ('CRAFTING', 'WTB')),
+                server TEXT NOT NULL DEFAULT 'NA' CHECK(server IN ('NA', 'EU')),
+                buyer_character_id INTEGER,
+                buyer_display_handle TEXT NOT NULL,
+                game_item_id INTEGER NOT NULL,
+                item_name TEXT NOT NULL,
+                category TEXT,
+                subcategory TEXT,
+                quantity INTEGER DEFAULT 1,
+                quality INTEGER DEFAULT 1 CHECK(quality BETWEEN 1 AND 5),
+                trait_id INTEGER DEFAULT 0,
+                trait_name TEXT,
+                style_id INTEGER DEFAULT 0,
+                style_name TEXT,
+                set_name TEXT,
+                level_req INTEGER DEFAULT 50,
+                cp_req INTEGER DEFAULT 160,
+                offered_gold_price INTEGER NOT NULL CHECK(offered_gold_price > 0),
+                suggested_price INTEGER DEFAULT 0,
+                delivery_notes TEXT,
+                status TEXT NOT NULL DEFAULT 'OPEN' CHECK(status IN ('OPEN', 'IN_PROGRESS', 'COMPLETED', 'FULFILLED', 'CANCELLED', 'EXPIRED')),
+                claimed_by_user_id INTEGER,
+                claimed_by_handle TEXT,
+                claimed_at TEXT,
+                claim_expires_at TEXT,
+                fulfilled_at TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                expires_at TEXT NOT NULL,
+                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
+                FOREIGN KEY (claimed_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
+                FOREIGN KEY (game_item_id) REFERENCES items(game_item_id)
+            );
+        `, (err) => {
+            if (err) console.error("Error creating 'trade_requests' table:", err.message);
+            else console.log("'trade_requests' table initialized successfully.");
+        });
+
         // Drop old indexes and create robust seller compound unique index
         db.run("DROP INDEX IF EXISTS idx_unique_listing;");
         db.run(`
@@ -502,6 +595,10 @@ function initializeDatabaseSchema() {
         db.run("CREATE INDEX IF NOT EXISTS idx_build_items_build_id ON build_items(build_id);");
         db.run("CREATE INDEX IF NOT EXISTS idx_builds_class_role ON builds(class, role);");
         db.run("CREATE INDEX IF NOT EXISTS idx_trait_research_lookup ON character_trait_research(character_id, research_status, equipment_type, trait_id);");
+        db.run("CREATE INDEX IF NOT EXISTS idx_trade_requests_status ON trade_requests(status, server, request_type);");
+        db.run("CREATE INDEX IF NOT EXISTS idx_trade_requests_user ON trade_requests(user_id);");
+        db.run("CREATE INDEX IF NOT EXISTS idx_trade_requests_claimed ON trade_requests(claimed_by_user_id);");
+        db.run("CREATE INDEX IF NOT EXISTS idx_trade_requests_item ON trade_requests(game_item_id);");
 
         // SQLite triggers for automated expired listing TTL purging on insert & update
         db.run(`
@@ -3829,6 +3926,482 @@ app.get("/api/characters/:id/trait-matches", async (req, res) => {
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
+});
+
+/**
+ * ============================================================================
+ * STRUCTURED PUBLIC CRAFTING & WTB (WANT-TO-BUY) REQUEST BOARD API
+ * ============================================================================
+ */
+
+/**
+ * Helper to auto-revert expired claims and expire old open requests
+ */
+function cleanupTradeRequests() {
+    // Revert claimed requests where crafter did not fulfill within 24 hours
+    db.run(`
+        UPDATE trade_requests 
+        SET status = 'OPEN', claimed_by_user_id = NULL, claimed_by_handle = NULL, claimed_at = NULL, claim_expires_at = NULL
+        WHERE status = 'IN_PROGRESS' AND claim_expires_at IS NOT NULL AND datetime(claim_expires_at) < datetime('now');
+    `, (err) => {
+        if (err) console.error("Error auto-reverting expired claims:", err.message);
+    });
+
+    // Expire open requests past their 7-day expiration
+    db.run(`
+        UPDATE trade_requests 
+        SET status = 'EXPIRED'
+        WHERE status = 'OPEN' AND expires_at IS NOT NULL AND datetime(expires_at) < datetime('now');
+    `, (err) => {
+        if (err) console.error("Error auto-expiring trade requests:", err.message);
+    });
+}
+
+/**
+ * GET /api/requests/craftable-sets
+ * Returns list of craftable sets from the sets catalog for structured dropdowns.
+ */
+app.get("/api/requests/craftable-sets", (req, res) => {
+    try {
+        const setsPath = path.join(__dirname, "eso_sets.json");
+        if (fs.existsSync(setsPath)) {
+            const raw = fs.readFileSync(setsPath, "utf-8");
+            const allSets = JSON.parse(raw);
+            const craftable = allSets.filter(s => 
+                s.category === "Crafted / Overland" || 
+                (s.source && s.source.toLowerCase().includes("craft"))
+            );
+            return res.json(craftable);
+        }
+        res.json([]);
+    } catch (e) {
+        res.status(500).json({ error: "Failed to load craftable sets catalog: " + e.message });
+    }
+});
+
+/**
+ * GET /api/requests/stats
+ * High-level statistics summary of active requests.
+ */
+app.get("/api/requests/stats", (req, res) => {
+    cleanupTradeRequests();
+    const { server } = req.query;
+    const params = [];
+    let serverClause = "";
+    if (server && ['NA', 'EU'].includes(server)) {
+        serverClause = "WHERE server = ?";
+        params.push(server);
+    }
+
+    const query = `
+        SELECT 
+            COUNT(CASE WHEN status = 'OPEN' THEN 1 END) as total_open,
+            COUNT(CASE WHEN status IN ('IN_PROGRESS', 'COMPLETED') THEN 1 END) as total_in_progress,
+            COUNT(CASE WHEN status = 'FULFILLED' THEN 1 END) as total_fulfilled,
+            COALESCE(SUM(CASE WHEN status IN ('OPEN', 'IN_PROGRESS', 'COMPLETED') THEN (offered_gold_price * quantity) ELSE 0 END), 0) as total_gold_offered
+        FROM trade_requests
+        ${serverClause}
+    `;
+
+    db.get(query, params, (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        res.json({
+            server: server || "ALL",
+            total_open: row.total_open || 0,
+            total_in_progress: row.total_in_progress || 0,
+            total_fulfilled: row.total_fulfilled || 0,
+            total_gold_offered: row.total_gold_offered || 0
+        });
+    });
+});
+
+/**
+ * GET /api/requests
+ * Filterable feed of public crafting & WTB trade requests.
+ */
+app.get("/api/requests", (req, res) => {
+    cleanupTradeRequests();
+
+    let { 
+        server, 
+        request_type, 
+        status, 
+        category, 
+        subcategory, 
+        search, 
+        min_gold, 
+        max_gold, 
+        user_id, 
+        claimed_by, 
+        limit, 
+        offset, 
+        sort 
+    } = req.query;
+
+    limit = Math.min(parseInt(limit, 10) || 20, 100);
+    offset = Math.max(parseInt(offset, 10) || 0, 0);
+
+    const conditions = [];
+    const params = [];
+
+    if (server && ['NA', 'EU'].includes(server)) {
+        conditions.push("tr.server = ?");
+        params.push(server);
+    }
+    if (request_type && ['CRAFTING', 'WTB'].includes(request_type)) {
+        conditions.push("tr.request_type = ?");
+        params.push(request_type);
+    }
+    if (status) {
+        if (status.includes(",")) {
+            const parts = status.split(",").map(s => s.trim().toUpperCase()).filter(Boolean);
+            const placeholders = parts.map(() => "?").join(", ");
+            conditions.push(`tr.status IN (${placeholders})`);
+            params.push(...parts);
+        } else if (status !== "ALL") {
+            conditions.push("tr.status = ?");
+            params.push(status.toUpperCase());
+        }
+    } else {
+        // Default to active open/in-progress/completed requests
+        conditions.push("tr.status IN ('OPEN', 'IN_PROGRESS', 'COMPLETED')");
+    }
+    if (category) {
+        buildCategoryCondition("tr", category, conditions, params);
+    }
+    if (subcategory) {
+        buildSubcategoryCondition("tr", subcategory, conditions, params);
+    }
+    if (search) {
+        conditions.push("(tr.item_name LIKE ? OR tr.set_name LIKE ? OR tr.buyer_display_handle LIKE ?)");
+        params.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    }
+    if (min_gold) {
+        conditions.push("tr.offered_gold_price >= ?");
+        params.push(parseInt(min_gold, 10));
+    }
+    if (max_gold) {
+        conditions.push("tr.offered_gold_price <= ?");
+        params.push(parseInt(max_gold, 10));
+    }
+    if (user_id) {
+        conditions.push("tr.user_id = ?");
+        params.push(parseInt(user_id, 10));
+    }
+    if (claimed_by) {
+        conditions.push("tr.claimed_by_user_id = ?");
+        params.push(parseInt(claimed_by, 10));
+    }
+
+    const whereClause = conditions.length > 0 ? " WHERE " + conditions.join(" AND ") : "";
+
+    let orderBy = "ORDER BY tr.created_at DESC";
+    if (sort === "gold_desc") orderBy = "ORDER BY tr.offered_gold_price DESC";
+    else if (sort === "gold_asc") orderBy = "ORDER BY tr.offered_gold_price ASC";
+    else if (sort === "expiring_soon") orderBy = "ORDER BY tr.expires_at ASC";
+    else if (sort === "quality_desc") orderBy = "ORDER BY tr.quality DESC";
+
+    const countQuery = `SELECT COUNT(*) as total FROM trade_requests tr ${whereClause}`;
+    const dataQuery = `
+        SELECT 
+            tr.*,
+            i.icon_url,
+            i.rarity as item_rarity,
+            COALESCE(ip.suggested_price, tr.suggested_price, 0) as current_suggested_price,
+            COALESCE(ip.avg_price, 0) as current_avg_price
+        FROM trade_requests tr
+        LEFT JOIN items i ON i.game_item_id = tr.game_item_id
+        LEFT JOIN item_prices ip ON ip.game_item_id = tr.game_item_id AND ip.server = tr.server
+        ${whereClause}
+        ${orderBy}
+        LIMIT ? OFFSET ?
+    `;
+
+    db.get(countQuery, params, (err, countRes) => {
+        if (err) return res.status(500).json({ error: err.message });
+        const total = countRes ? countRes.total : 0;
+
+        db.all(dataQuery, [...params, limit, offset], (err, rows) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({
+                total,
+                limit,
+                offset,
+                requests: rows
+            });
+        });
+    });
+});
+
+/**
+ * POST /api/requests
+ * Creates a new public crafting or WTB trade request.
+ */
+app.post("/api/requests", async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) {
+        return res.status(401).json({ error: "Authentication required to create a trade request." });
+    }
+
+    const {
+        request_type,
+        server,
+        buyer_character_id,
+        buyer_display_handle,
+        game_item_id,
+        item_name,
+        category,
+        subcategory,
+        quantity,
+        quality,
+        trait_id,
+        trait_name,
+        style_id,
+        style_name,
+        set_name,
+        level_req,
+        cp_req,
+        offered_gold_price,
+        suggested_price,
+        delivery_notes
+    } = req.body;
+
+    if (!request_type || !['CRAFTING', 'WTB'].includes(request_type)) {
+        return res.status(400).json({ error: "Invalid request_type. Must be 'CRAFTING' or 'WTB'." });
+    }
+    if (!server || !['NA', 'EU'].includes(server)) {
+        return res.status(400).json({ error: "Invalid server. Must be 'NA' or 'EU'." });
+    }
+    if (!game_item_id || !item_name) {
+        return res.status(400).json({ error: "game_item_id and item_name are required." });
+    }
+    const goldPrice = parseInt(offered_gold_price, 10);
+    if (isNaN(goldPrice) || goldPrice <= 0) {
+        return res.status(400).json({ error: "offered_gold_price must be a positive integer." });
+    }
+    const qty = Math.max(parseInt(quantity, 10) || 1, 1);
+    const qual = Math.min(Math.max(parseInt(quality, 10) || 1, 1), 5);
+
+    // Fetch user account info for handle
+    db.get("SELECT id, username, eso_handle FROM users WHERE id = ?", [userId], (err, userRow) => {
+        if (err || !userRow) {
+            return res.status(401).json({ error: "User account not found." });
+        }
+
+        const handle = (buyer_display_handle && buyer_display_handle.trim()) || userRow.eso_handle || userRow.username;
+        const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+        const insertQuery = `
+            INSERT INTO trade_requests (
+                user_id, request_type, server, buyer_character_id, buyer_display_handle,
+                game_item_id, item_name, category, subcategory, quantity, quality,
+                trait_id, trait_name, style_id, style_name, set_name, level_req, cp_req,
+                offered_gold_price, suggested_price, delivery_notes, status, expires_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)
+        `;
+
+        db.run(insertQuery, [
+            userId, 
+            request_type, 
+            server, 
+            buyer_character_id || null, 
+            handle,
+            parseInt(game_item_id, 10), 
+            item_name, 
+            category || null, 
+            subcategory || null, 
+            qty, 
+            qual,
+            parseInt(trait_id, 10) || 0, 
+            trait_name || null, 
+            parseInt(style_id, 10) || 0, 
+            style_name || null, 
+            set_name || null,
+            parseInt(level_req, 10) || 50, 
+            parseInt(cp_req, 10) || 160, 
+            goldPrice, 
+            parseInt(suggested_price, 10) || 0, 
+            delivery_notes ? delivery_notes.trim() : null, 
+            expiresAt
+        ], function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.status(201).json({
+                success: true,
+                request_id: this.lastID,
+                message: "Trade request posted successfully!"
+            });
+        });
+    });
+});
+
+/**
+ * PATCH /api/requests/:id/claim
+ * Crafter claims an open order (sets 24-hour fulfillment timer).
+ */
+app.patch("/api/requests/:id/claim", async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) {
+        return res.status(401).json({ error: "Authentication required to claim a trade request." });
+    }
+    const requestId = parseInt(req.params.id, 10);
+    if (isNaN(requestId)) return res.status(400).json({ error: "Invalid request ID." });
+
+    db.get("SELECT * FROM trade_requests WHERE id = ?", [requestId], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: "Trade request not found." });
+        if (row.user_id === userId) {
+            return res.status(400).json({ error: "You cannot claim your own trade request." });
+        }
+        if (row.status !== 'OPEN') {
+            return res.status(400).json({ error: `Cannot claim request with status '${row.status}'.` });
+        }
+
+        db.get("SELECT username, eso_handle FROM users WHERE id = ?", [userId], (err, crafter) => {
+            if (err || !crafter) return res.status(401).json({ error: "Crafter account not found." });
+            const crafterHandle = crafter.eso_handle || crafter.username;
+            const claimExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+
+            db.run(`
+                UPDATE trade_requests 
+                SET status = 'IN_PROGRESS', claimed_by_user_id = ?, claimed_by_handle = ?, claimed_at = CURRENT_TIMESTAMP, claim_expires_at = ?
+                WHERE id = ? AND status = 'OPEN'
+            `, [userId, crafterHandle, claimExpiresAt, requestId], function(err) {
+                if (err) return res.status(500).json({ error: err.message });
+                if (this.changes === 0) {
+                    return res.status(409).json({ error: "This request was just claimed by another user." });
+                }
+                res.json({ 
+                    success: true, 
+                    message: "Order claimed successfully! You have 24 hours to craft and deliver via in-game C.O.D. mail." 
+                });
+            });
+        });
+    });
+});
+
+/**
+ * PATCH /api/requests/:id/unclaim
+ * Releases an in-progress or completed claim back to OPEN status.
+ * Can be triggered by the claiming crafter OR the requester/buyer who created the request.
+ */
+app.patch("/api/requests/:id/unclaim", async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) return res.status(401).json({ error: "Authentication required." });
+    const requestId = parseInt(req.params.id, 10);
+    if (isNaN(requestId)) return res.status(400).json({ error: "Invalid request ID." });
+
+    db.get("SELECT * FROM trade_requests WHERE id = ?", [requestId], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: "Trade request not found." });
+        if (row.status !== 'IN_PROGRESS' && row.status !== 'COMPLETED') {
+            return res.status(400).json({ error: "Request is not currently claimed or in progress." });
+        }
+
+        const isClaimer = row.claimed_by_user_id === userId;
+        const isBuyer = row.user_id === userId;
+
+        if (!isClaimer && !isBuyer) {
+            return res.status(403).json({ error: "Only the claiming crafter or the requester who posted the bounty can unassign this claim." });
+        }
+
+        db.run(`
+            UPDATE trade_requests 
+            SET status = 'OPEN', claimed_by_user_id = NULL, claimed_by_handle = NULL, claimed_at = NULL, claim_expires_at = NULL
+            WHERE id = ?
+        `, [requestId], function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, message: "Claim unassigned. Request is now open again." });
+        });
+    });
+});
+
+/**
+ * PATCH /api/requests/:id/complete
+ * Claiming crafter marks that they have crafted/sent the items via C.O.D. in-game mail.
+ */
+app.patch("/api/requests/:id/complete", async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) return res.status(401).json({ error: "Authentication required." });
+    const requestId = parseInt(req.params.id, 10);
+    if (isNaN(requestId)) return res.status(400).json({ error: "Invalid request ID." });
+
+    db.get("SELECT * FROM trade_requests WHERE id = ?", [requestId], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: "Trade request not found." });
+        if (row.status !== 'IN_PROGRESS') {
+            return res.status(400).json({ error: `Cannot mark as completed. Current status is ${row.status}.` });
+        }
+        if (row.claimed_by_user_id !== userId) {
+            return res.status(403).json({ error: "Only the crafter who claimed this order can mark it as completed." });
+        }
+
+        db.run(`
+            UPDATE trade_requests 
+            SET status = 'COMPLETED'
+            WHERE id = ?
+        `, [requestId], function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, message: "Order marked as completed! Awaiting buyer confirmation." });
+        });
+    });
+});
+
+/**
+ * PATCH /api/requests/:id/fulfill
+ * Strictly restricted to the buyer who created the request to confirm delivery and close the order.
+ */
+app.patch("/api/requests/:id/fulfill", async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) return res.status(401).json({ error: "Authentication required." });
+    const requestId = parseInt(req.params.id, 10);
+    if (isNaN(requestId)) return res.status(400).json({ error: "Invalid request ID." });
+
+    db.get("SELECT * FROM trade_requests WHERE id = ?", [requestId], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: "Trade request not found." });
+        if (row.status === 'FULFILLED') {
+            return res.status(400).json({ error: "Request is already marked as fulfilled." });
+        }
+        if (row.user_id !== userId) {
+            return res.status(403).json({ error: "Only the buyer who posted this request can confirm delivery and close it." });
+        }
+
+        db.run(`
+            UPDATE trade_requests 
+            SET status = 'FULFILLED', fulfilled_at = CURRENT_TIMESTAMP
+            WHERE id = ?
+        `, [requestId], function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, message: "Order confirmed and closed! Thank you for trading." });
+        });
+    });
+});
+
+/**
+ * DELETE /api/requests/:id
+ * Cancels and deletes an open trade request by its creator.
+ */
+app.delete("/api/requests/:id", async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) return res.status(401).json({ error: "Authentication required." });
+    const requestId = parseInt(req.params.id, 10);
+    if (isNaN(requestId)) return res.status(400).json({ error: "Invalid request ID." });
+
+    db.get("SELECT * FROM trade_requests WHERE id = ?", [requestId], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: "Trade request not found." });
+        if (row.user_id !== userId) {
+            return res.status(403).json({ error: "You can only cancel your own trade requests." });
+        }
+        if (row.status === 'FULFILLED') {
+            return res.status(400).json({ error: "Cannot cancel an already fulfilled request." });
+        }
+
+        db.run("DELETE FROM trade_requests WHERE id = ?", [requestId], function(err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, message: "Trade request cancelled and removed." });
+        });
+    });
 });
 
 const server = app.listen(PORT, () => {
