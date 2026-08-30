@@ -866,6 +866,20 @@ async function runTests() {
         }
         console.log("   Order claim state machine verified (Status: IN_PROGRESS, 24h timer set)!");
 
+        // User 1 (buyer) unassigns the claim back to OPEN
+        const buyerUnassignRes = await httpPatch(`/api/requests/${testRequestId}/unclaim`, {}, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (buyerUnassignRes.status !== 200 || !buyerUnassignRes.data.success) {
+            throw new Error(`Expected 200 on buyer unassign claim, got ${JSON.stringify(buyerUnassignRes.data)}`);
+        }
+        console.log("   Buyer unassign claim verified (Status returned to OPEN)!");
+
+        // User 2 re-claims to proceed with lifecycle test
+        await httpPatch(`/api/requests/${testRequestId}/claim`, {}, {
+            'Authorization': `Bearer ${user2BypassRes.data.token}`
+        });
+
         console.log("\n52. Testing PATCH /api/requests/:id/complete & buyer-only /fulfill...");
         // User 2 (claiming crafter) marks completed/sent
         const crafterCompleteRes = await httpPatch(`/api/requests/${testRequestId}/complete`, {}, {

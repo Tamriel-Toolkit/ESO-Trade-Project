@@ -394,13 +394,22 @@ export function RequestCard({
               )}
 
               {isOwner && !isClaimedByMe && (
-                <button
-                  onClick={() => onFulfill(request.id)}
-                  className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow"
-                >
-                  <Check className="size-3.5" />
-                  <span>Confirm & Close</span>
-                </button>
+                <>
+                  <button
+                    onClick={() => onFulfill(request.id)}
+                    className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow"
+                  >
+                    <Check className="size-3.5" />
+                    <span>Confirm & Close</span>
+                  </button>
+                  <button
+                    onClick={() => onUnclaim(request.id)}
+                    className="py-2 px-3 bg-[#161620] hover:bg-amber-950/30 border border-[#2a2c33] hover:border-amber-500/40 text-amber-300 hover:text-amber-200 font-cinzel text-xs uppercase transition-all cursor-pointer"
+                    title="Unassign this claimer and open request back to the public board"
+                  >
+                    Unassign
+                  </button>
+                </>
               )}
 
               {isClaimedByMe && (
@@ -417,13 +426,22 @@ export function RequestCard({
           {request.status === "COMPLETED" && (
             <div className="flex items-center gap-1.5">
               {isOwner ? (
-                <button
-                  onClick={() => onFulfill(request.id)}
-                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-500 text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow"
-                >
-                  <Check className="size-3.5" />
-                  <span>Confirm Delivery & Close Order</span>
-                </button>
+                <>
+                  <button
+                    onClick={() => onFulfill(request.id)}
+                    className="flex-1 py-2 bg-emerald-600 hover:bg-emerald-500 text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow"
+                  >
+                    <Check className="size-3.5" />
+                    <span>Confirm Delivery & Close Order</span>
+                  </button>
+                  <button
+                    onClick={() => onUnclaim(request.id)}
+                    className="py-2 px-3 bg-[#161620] hover:bg-amber-950/30 border border-[#2a2c33] hover:border-amber-500/40 text-amber-300 hover:text-amber-200 font-cinzel text-xs uppercase transition-all cursor-pointer"
+                    title="Unassign crafter and reopen request"
+                  >
+                    Unassign
+                  </button>
+                </>
               ) : isClaimedByMe ? (
                 <>
                   <div className="flex-1 py-2 bg-blue-950/30 border border-blue-500/30 text-blue-300 font-cinzel font-bold text-xs uppercase tracking-wider text-center flex items-center justify-center gap-1.5">

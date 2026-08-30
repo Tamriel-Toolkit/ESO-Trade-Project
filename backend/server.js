@@ -4281,7 +4281,8 @@ app.patch("/api/requests/:id/claim", async (req, res) => {
 
 /**
  * PATCH /api/requests/:id/unclaim
- * Releases an in-progress claim back to OPEN status.
+ * Releases an in-progress or completed claim back to OPEN status.
+ * Can be triggered by the claiming crafter OR the requester/buyer who created the request.
  */
 app.patch("/api/requests/:id/unclaim", async (req, res) => {
     const userId = await getAuthUserId(req);
@@ -4292,16 +4293,15 @@ app.patch("/api/requests/:id/unclaim", async (req, res) => {
     db.get("SELECT * FROM trade_requests WHERE id = ?", [requestId], (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
         if (!row) return res.status(404).json({ error: "Trade request not found." });
-        if (row.status !== 'IN_PROGRESS') {
-            return res.status(400).json({ error: "Request is not in progress." });
+        if (row.status !== 'IN_PROGRESS' && row.status !== 'COMPLETED') {
+            return res.status(400).json({ error: "Request is not currently claimed or in progress." });
         }
 
         const isClaimer = row.claimed_by_user_id === userId;
         const isBuyer = row.user_id === userId;
-        const isExpired = row.claim_expires_at && new Date(row.claim_expires_at) < new Date();
 
-        if (!isClaimer && (!isBuyer || !isExpired)) {
-            return res.status(403).json({ error: "Only the claiming crafter (or the buyer after the 24h timer expires) can release this claim." });
+        if (!isClaimer && !isBuyer) {
+            return res.status(403).json({ error: "Only the claiming crafter or the requester who posted the bounty can unassign this claim." });
         }
 
         db.run(`
@@ -4310,7 +4310,7 @@ app.patch("/api/requests/:id/unclaim", async (req, res) => {
             WHERE id = ?
         `, [requestId], function(err) {
             if (err) return res.status(500).json({ error: err.message });
-            res.json({ success: true, message: "Claim released. Request is now open again." });
+            res.json({ success: true, message: "Claim unassigned. Request is now open again." });
         });
     });
 });
