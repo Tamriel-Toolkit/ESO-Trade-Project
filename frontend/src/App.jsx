@@ -7,6 +7,7 @@ import Marketplace from './pages/Marketplace.jsx';
 import CharacterManager from './pages/CharacterManager.jsx';
 import BuildExplorer from './pages/BuildExplorer.jsx';
 import TraitTracker from './pages/TraitTracker.jsx';
+import RequestBoard from './pages/RequestBoard.jsx';
 import NotFound from './pages/NotFound.jsx';
 import './App.css';
 
@@ -19,6 +20,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/login" element={<Login />} />
             <Route path="/marketplace" element={<Marketplace />} />
+            <Route path="/requests" element={<RequestBoard />} />
             <Route path="/builds" element={<BuildExplorer />} />
             <Route path="/traits" element={<TraitTracker />} />
             <Route path="/characters" element={<CharacterManager />} />
