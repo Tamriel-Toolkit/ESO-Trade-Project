@@ -12,11 +12,12 @@ import {
   Coins, 
   RefreshCw, 
   User, 
-  Sparkles,
-  X,
-  ChevronLeft,
-  ChevronRight,
-  Layers
+  Sparkles, 
+  Package,
+  X, 
+  ChevronLeft, 
+  ChevronRight, 
+  Layers 
 } from "lucide-react";
 import { 
   fetchTradeRequests, 
