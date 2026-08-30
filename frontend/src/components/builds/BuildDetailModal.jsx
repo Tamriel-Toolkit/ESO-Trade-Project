@@ -148,30 +148,32 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose, onBuil
         const weaponType = (itemObj.weapon_type || "").toLowerCase();
 
         if (weight) {
-            params.set("category", "Armor");
+            params.set("category", "Apparel");
             if (weight === "Light") params.set("subcategory", "Light Armor");
             else if (weight === "Medium") params.set("subcategory", "Medium Armor");
             else if (weight === "Heavy") params.set("subcategory", "Heavy Armor");
         } else if (itemType.includes("dagger") || weaponType === "dagger") {
-            params.set("category", "Weapon");
+            params.set("category", "Weapons");
             params.set("subcategory", "Dagger");
         } else if (itemType.includes("bow") || weaponType === "bow") {
-            params.set("category", "Weapon");
+            params.set("category", "Weapons");
             params.set("subcategory", "Bow");
         } else if (itemType.includes("staff") || weaponType.includes("staff")) {
-            params.set("category", "Weapon");
+            params.set("category", "Weapons");
             params.set("subcategory", itemType.includes("resto") ? "Restoration Staff" : "Destruction Staff");
         } else if (itemType.includes("axe") || weaponType.includes("axe")) {
-            params.set("category", "Weapon");
-            params.set("subcategory", itemType.includes("two") ? "Two Handed Axe" : "Axe");
+            params.set("category", "Weapons");
+            params.set("subcategory", itemType.includes("two") ? "Two-Handed Axe" : "One-Handed Axe");
         } else if (itemType.includes("sword") || weaponType.includes("sword")) {
-            params.set("category", "Weapon");
-            params.set("subcategory", itemType.includes("two") ? "Two Handed Sword" : "Sword");
+            params.set("category", "Weapons");
+            params.set("subcategory", itemType.includes("two") ? "Two-Handed Sword" : "One-Handed Sword");
         } else if (itemType.includes("mace") || weaponType.includes("mace")) {
-            params.set("category", "Weapon");
-            params.set("subcategory", itemType.includes("two") ? "Two Handed Mace" : "Mace");
+            params.set("category", "Weapons");
+            params.set("subcategory", itemType.includes("two") ? "Two-Handed Mace" : "One-Handed Mace");
         } else if (itemType.includes("ring") || itemType.includes("neck") || itemType.includes("jewelry")) {
-            params.set("category", "Other");
+            params.set("category", "Jewelry");
+            if (itemType.includes("neck")) params.set("subcategory", "Necklace");
+            else if (itemType.includes("ring")) params.set("subcategory", "Ring");
         }
 
         navigate(`/marketplace?${params.toString()}`);

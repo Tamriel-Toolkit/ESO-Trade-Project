@@ -88,15 +88,20 @@ const MAJOR_TRADE_HUBS = [
   { name: "Skingrad (West Weald)", location: "West Weald" }
 ];
 
-// Popular ESO Trade Search Staples
+// Popular ESO Trade Filter Presets (Structured filters — zero manual text search input)
 const POPULAR_SEARCH_PRESETS = [
-  { label: "Dreugh Wax", search: "Dreugh Wax" },
-  { label: "Tempering Alloy", search: "Tempering Alloy" },
-  { label: "Rosin", search: "Rosin" },
-  { label: "Perfect Roe", search: "Perfect Roe" },
-  { label: "Kuta", search: "Kuta" },
-  { label: "Aetherial Dust", search: "Aetherial Dust" },
-  { label: "Order's Wrath", search: "Order's Wrath" }
+  { label: "Gold Tempers", category: "Materials", subcategory: "Upgrade Temper", rarity: "5" },
+  { label: "Clothier Mats", category: "Materials", subcategory: "Clothier" },
+  { label: "Blacksmith Mats", category: "Materials", subcategory: "Blacksmithing" },
+  { label: "Woodworking Mats", category: "Materials", subcategory: "Woodworking" },
+  { label: "Alchemy Reagents", category: "Materials", subcategory: "Alchemy" },
+  { label: "Enchanting Runes", category: "Materials", subcategory: "Enchanting" },
+  { label: "Provisioning Mats", category: "Materials", subcategory: "Provisioning" },
+  { label: "Jewelry Crafting", category: "Materials", subcategory: "Jewelry Crafting" },
+  { label: "Crafting Motifs", category: "Consumables", subcategory: "Motif" },
+  { label: "Master Writs", category: "Consumables", subcategory: "Master Writ" },
+  { label: "Furnishing Plans", category: "Consumables", subcategory: "Recipe / Plan" },
+  { label: "Glyphs", category: "Glyphs" }
 ];
 
 const formatLastSeen = (timestamp) => {
@@ -386,21 +391,43 @@ function Marketplace() {
         </div>
       </div>
 
-      {/* Popular ESO Item Preset Search Chips */}
+      {/* Popular ESO Item Preset Filter Chips */}
       <div className="mb-6 flex flex-wrap items-center gap-1.5 text-xs text-[#a89f91]">
         <span className="font-cinzel text-[#c5a059] font-bold uppercase tracking-wider text-[11px] mr-1">Popular Trades:</span>
-        {POPULAR_SEARCH_PRESETS.map((preset) => (
-          <button
-            key={preset.label}
-            onClick={() => {
-              setSearchQuery(preset.search);
-              setCurrentPage(1);
-            }}
-            className="px-2 py-0.5 bg-[#121218] border border-[#2a2c33] hover:border-[#c5a059]/40 text-[11px] font-mono text-[#d4af37] transition-colors"
-          >
-            {preset.label}
-          </button>
-        ))}
+        {POPULAR_SEARCH_PRESETS.map((preset) => {
+          const isActive = 
+            selectedCategory === (preset.category || "") &&
+            selectedSubcategory === (preset.subcategory || "") &&
+            selectedRarity === (preset.rarity || "") &&
+            !searchQuery;
+
+          return (
+            <button
+              key={preset.label}
+              onClick={() => {
+                if (isActive) {
+                  // Toggle off
+                  setSelectedCategory("");
+                  setSelectedSubcategory("");
+                  setSelectedRarity("");
+                } else {
+                  setSelectedCategory(preset.category || "");
+                  setSelectedSubcategory(preset.subcategory || "");
+                  setSelectedRarity(preset.rarity || "");
+                }
+                setSearchQuery(""); // Zero manual text search input
+                setCurrentPage(1);
+              }}
+              className={`px-2 py-0.5 border text-[11px] font-mono transition-all cursor-pointer ${
+                isActive
+                  ? "bg-[#c5a059] text-black font-bold border-[#c5a059] shadow"
+                  : "bg-[#121218] border-[#2a2c33] hover:border-[#c5a059]/40 text-[#d4af37]"
+              }`}
+            >
+              {preset.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Control Bar: Search & Select Filters */}

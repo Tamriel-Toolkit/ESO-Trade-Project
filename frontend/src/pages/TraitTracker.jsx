@@ -145,49 +145,55 @@ export function getMarketplaceUrlForTrait(craftingType, equipmentType, traitName
     const craftLower = (craftingType || "").toLowerCase();
 
     if (craftLower.includes("blacksmith")) {
-        if (["axe", "mace", "sword", "dagger"].includes(eqLower)) {
-            params.set("category", "Weapon");
-            params.set("subcategory", equipmentType);
+        if (["axe", "mace", "sword"].includes(eqLower)) {
+            params.set("category", "Weapons");
+            params.set("subcategory", `One-Handed ${equipmentType}`);
+        } else if (eqLower === "dagger") {
+            params.set("category", "Weapons");
+            params.set("subcategory", "Dagger");
         } else if (eqLower === "battle axe") {
-            params.set("category", "Weapon");
-            params.set("subcategory", "Two Handed Axe");
+            params.set("category", "Weapons");
+            params.set("subcategory", "Two-Handed Axe");
         } else if (eqLower === "maul") {
-            params.set("category", "Weapon");
-            params.set("subcategory", "Two Handed Mace");
+            params.set("category", "Weapons");
+            params.set("subcategory", "Two-Handed Mace");
         } else if (eqLower === "greatsword") {
-            params.set("category", "Weapon");
-            params.set("subcategory", "Two Handed Sword");
+            params.set("category", "Weapons");
+            params.set("subcategory", "Two-Handed Sword");
         } else {
             // Heavy Armor pieces (Cuirass, Helm, Pauldrons, Gauntlets, Girdle, Greaves, Sabatons)
-            params.set("category", "Armor");
+            params.set("category", "Apparel");
             params.set("subcategory", "Heavy Armor");
         }
     } else if (craftLower.includes("clothier")) {
         if (["robe", "jerkin", "hat", "epaulets", "gloves", "sash", "breeches", "shoes"].includes(eqLower)) {
-            params.set("category", "Armor");
+            params.set("category", "Apparel");
             params.set("subcategory", "Light Armor");
         } else {
             // Medium Armor pieces (Jack, Helmet, Arm Cops, Bracers, Belt, Guards, Boots)
-            params.set("category", "Armor");
+            params.set("category", "Apparel");
             params.set("subcategory", "Medium Armor");
         }
     } else if (craftLower.includes("woodwork")) {
         if (eqLower === "bow") {
-            params.set("category", "Weapon");
+            params.set("category", "Weapons");
             params.set("subcategory", "Bow");
         } else if (eqLower.includes("staff") || eqLower.includes("staves")) {
             if (eqLower.includes("restoration") || eqLower.includes("resto")) {
-                params.set("category", "Weapon");
+                params.set("category", "Weapons");
                 params.set("subcategory", "Restoration Staff");
             } else {
-                params.set("category", "Weapon");
+                params.set("category", "Weapons");
                 params.set("subcategory", "Destruction Staff");
             }
         } else if (eqLower === "shield") {
-            params.set("category", "Armor");
+            params.set("category", "Apparel");
+            params.set("subcategory", "Shield");
         }
     } else if (craftLower.includes("jewelry")) {
-        params.set("category", "Other");
+        params.set("category", "Jewelry");
+        if (eqLower === "necklace") params.set("subcategory", "Necklace");
+        else if (eqLower === "ring") params.set("subcategory", "Ring");
     }
 
     return `/marketplace?${params.toString()}`;
