@@ -164,7 +164,7 @@ function Marketplace() {
   const [savedSearches, setSavedSearches] = useState([]);
   const [savedSearchesLoading, setSavedSearchesLoading] = useState(false);
   const [savedSearchesMutating, setSavedSearchesMutating] = useState(false);
-  const [savedSearchMessage, setSavedSearchMessage] = useState(null);
+  const [savedSearchError, setSavedSearchError] = useState("");
   const [savedSearchDrawerOpen, setSavedSearchDrawerOpen] = useState(false);
   const [savedSearchRunId, setSavedSearchRunId] = useState(0);
 
@@ -231,7 +231,7 @@ function Marketplace() {
     let isActive = true;
     if (!user?.id) {
       setSavedSearches([]);
-      setSavedSearchMessage(null);
+      setSavedSearchError("");
       return undefined;
     }
 
@@ -241,7 +241,7 @@ function Marketplace() {
       if (result.success) {
         setSavedSearches(result.saved_searches || []);
       } else {
-        setSavedSearchMessage({ type: "error", text: result.error || "Unable to load saved searches." });
+        setSavedSearchError(result.error || "Unable to load saved searches.");
       }
       setSavedSearchesLoading(false);
     });
@@ -341,7 +341,7 @@ function Marketplace() {
     }
 
     setSavedSearchesMutating(true);
-    setSavedSearchMessage(null);
+    setSavedSearchError("");
     const trimmedName = name.trim();
     const hasActiveCriteria = Boolean(
       currentSavedSearchFilters.search ||
@@ -367,17 +367,11 @@ function Marketplace() {
         setSelectedItem(null);
         setSavedSearchRunId((current) => current + 1);
       }
-      setSavedSearchMessage({
-        type: "success",
-        text: !hasActiveCriteria
-          ? `Saved and searched for “${result.saved_search.name}”.`
-          : `Saved “${result.saved_search.name}”.`,
-      });
       setSavedSearchesMutating(false);
       return true;
     }
 
-    setSavedSearchMessage({ type: "error", text: result.error || "Unable to save this search." });
+    setSavedSearchError(result.error || "Unable to save this search.");
     setSavedSearchesMutating(false);
     return false;
   };
@@ -411,23 +405,18 @@ function Marketplace() {
     setSelectedItem(null);
     setSavedSearchRunId((current) => current + 1);
     setSavedSearchDrawerOpen(false);
-    setSavedSearchMessage({ type: "success", text: `Applied “${savedSearch.name}”.` });
   };
 
   const handleToggleSavedSearchPin = async (savedSearch) => {
     setSavedSearchesMutating(true);
-    setSavedSearchMessage(null);
+    setSavedSearchError("");
     const result = await setSavedSearchPinned(savedSearch.id, !savedSearch.is_pinned);
     if (result.success && result.saved_search) {
       setSavedSearches((current) => current
         .map((search) => search.id === savedSearch.id ? result.saved_search : search)
         .sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned) || b.id - a.id));
-      setSavedSearchMessage({
-        type: "success",
-        text: `${result.saved_search.is_pinned ? "Pinned" : "Unpinned"} “${result.saved_search.name}”.`,
-      });
     } else {
-      setSavedSearchMessage({ type: "error", text: result.error || "Unable to update this saved search." });
+      setSavedSearchError(result.error || "Unable to update this saved search.");
     }
     setSavedSearchesMutating(false);
   };
@@ -435,13 +424,12 @@ function Marketplace() {
   const handleDeleteSavedSearch = async (savedSearch) => {
     if (!window.confirm(`Delete the saved search “${savedSearch.name}”?`)) return;
     setSavedSearchesMutating(true);
-    setSavedSearchMessage(null);
+    setSavedSearchError("");
     const result = await deleteSavedSearch(savedSearch.id);
     if (result.success) {
       setSavedSearches((current) => current.filter((search) => search.id !== savedSearch.id));
-      setSavedSearchMessage({ type: "success", text: `Deleted “${savedSearch.name}”.` });
     } else {
-      setSavedSearchMessage({ type: "error", text: result.error || "Unable to delete this saved search." });
+      setSavedSearchError(result.error || "Unable to delete this saved search.");
     }
     setSavedSearchesMutating(false);
   };
@@ -451,7 +439,7 @@ function Marketplace() {
     searches: savedSearches,
     isLoading: savedSearchesLoading,
     isMutating: savedSearchesMutating,
-    message: savedSearchMessage,
+    error: savedSearchError,
     onSave: handleSaveSearch,
     onApply: handleApplySavedSearch,
     onTogglePin: handleToggleSavedSearchPin,

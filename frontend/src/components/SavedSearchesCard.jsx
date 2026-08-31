@@ -5,9 +5,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 function describeFilters(filters = {}, fallbackSearch = "") {
-  const scope = [filters.platform, filters.server, "Live listings"]
-    .filter(Boolean)
-    .join(" · ");
   const details = [
     filters.search && `“${filters.search}”`,
     filters.category,
@@ -18,14 +15,11 @@ function describeFilters(filters = {}, fallbackSearch = "") {
     filters.deals_only && "Deals only",
   ].filter(Boolean);
 
-  return {
-    scope,
-    details: details.length
-      ? details.slice(0, 3).join(" · ")
-      : fallbackSearch
-        ? `“${fallbackSearch}”`
-        : "All active listings",
-  };
+  return details.length
+    ? details.slice(0, 3).join(" · ")
+    : fallbackSearch
+      ? `“${fallbackSearch}”`
+      : "All active listings";
 }
 
 export function PinnedSearchChips({ searches, onApply }) {
@@ -59,7 +53,7 @@ export default function SavedSearchesCard({
   searches,
   isLoading,
   isMutating,
-  message,
+  error,
   onSave,
   onApply,
   onTogglePin,
@@ -149,16 +143,12 @@ export default function SavedSearchesCard({
               </Button>
             </form>
 
-            {message?.text && (
+            {error && (
               <p
-                role="status"
-                className={`border px-2.5 py-2 text-[11px] ${
-                  message.type === "error"
-                    ? "border-red-900/60 bg-red-950/30 text-red-300"
-                    : "border-emerald-900/60 bg-emerald-950/30 text-emerald-300"
-                }`}
+                role="alert"
+                className="border border-red-900/60 bg-red-950/30 px-2.5 py-2 text-[11px] text-red-300"
               >
-                {message.text}
+                {error}
               </p>
             )}
 
@@ -193,8 +183,7 @@ export default function SavedSearchesCard({
                             className="min-w-0 flex-1 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c5a059]/50"
                           >
                             <span className="block truncate text-xs font-semibold text-[#e0d8c3]">{search.name}</span>
-                            <span className="mt-1 block text-[10px] font-mono uppercase tracking-wide text-[#c5a059]">{description.scope}</span>
-                            <span className="mt-1 block truncate text-[10px] text-[#8a8275]">{description.details}</span>
+                            <span className="mt-1 block truncate text-[10px] text-[#8a8275]">{description}</span>
                           </button>
                           <div className="flex shrink-0 items-center gap-1">
                             <Button
