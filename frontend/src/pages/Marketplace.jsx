@@ -5,19 +5,16 @@ import {
   Tag,
   Store,
   MapPin,
-  TrendingUp,
   Sparkles,
   Zap,
-  Info,
   Trash2,
-  ChevronRight,
-  Filter,
   Layers,
   Copy,
   Check,
   DollarSign,
   Compass,
-  Clock
+  Clock,
+  Bookmark
 } from "lucide-react";
 
 import {
@@ -48,12 +45,32 @@ import {
 
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/ui/navbar";
+import SavedSearchesCard, { PinnedSearchChips } from "@/components/SavedSearchesCard";
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/context/AuthContext";
-import { fetchTaxonomy, fetchMarketListings, fetchMarketPrices, extractLiveListings, clearAllListings } from "@/api/api";
+import {
+  fetchTaxonomy,
+  fetchMarketListings,
+  extractLiveListings,
+  clearAllListings,
+  fetchSavedSearches,
+  createSavedSearch,
+  setSavedSearchPinned,
+  deleteSavedSearch
+} from "@/api/api";
 import { cleanEsoText, renderEsoFormattedText, getEsoIconUrl } from "@/lib/utils";
 
 const DEAL_THRESHOLD = 1.2;
+const LISTING_SORT_VALUES = new Set([
+  "value_index",
+  "trait_asc",
+  "trait_desc",
+  "rarity_desc",
+  "rarity_asc",
+  "price_asc",
+  "price_desc",
+  "newest",
+]);
 
 const RARITY_MAP = {
   1: { label: "Normal", color: "border-gray-600 text-gray-300 bg-gray-900/40" },
@@ -124,13 +141,12 @@ const formatLastSeen = (timestamp) => {
 };
 
 function Marketplace() {
-  const { serverLocation, platform } = useTheme();
+  const { serverLocation, setServerLocation, platform, setPlatform } = useTheme();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
   // State Management
-  const [viewMode, setViewMode] = useState(searchParams.get("view") || "prices");
   const [taxonomy, setTaxonomy] = useState({});
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get("category") || "");
   const [selectedSubcategory, setSelectedSubcategory] = useState(searchParams.get("subcategory") || "");
@@ -139,9 +155,18 @@ function Marketplace() {
   const [selectedHubLocation, setSelectedHubLocation] = useState(searchParams.get("location") || "");
   const [selectedMaxAge, setSelectedMaxAge] = useState("");
   const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
-  const [sortOption, setSortOption] = useState(searchParams.get("sort") || "value_index");
+  const [sortOption, setSortOption] = useState(() => {
+    const requestedSort = searchParams.get("sort");
+    return LISTING_SORT_VALUES.has(requestedSort) ? requestedSort : "value_index";
+  });
   const [dealsOnly, setDealsOnly] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [savedSearches, setSavedSearches] = useState([]);
+  const [savedSearchesLoading, setSavedSearchesLoading] = useState(false);
+  const [savedSearchesMutating, setSavedSearchesMutating] = useState(false);
+  const [savedSearchError, setSavedSearchError] = useState("");
+  const [savedSearchDrawerOpen, setSavedSearchDrawerOpen] = useState(false);
+  const [savedSearchRunId, setSavedSearchRunId] = useState(0);
 
   // Sync URL search parameters on change
   useEffect(() => {
@@ -149,14 +174,12 @@ function Marketplace() {
     const t = searchParams.get("trait");
     const cat = searchParams.get("category");
     const subcat = searchParams.get("subcategory");
-    const vm = searchParams.get("view");
     const srt = searchParams.get("sort");
     if (q !== null && q !== undefined) setSearchQuery(q);
     if (t !== null && t !== undefined) setSelectedTrait(t);
     if (cat !== null && cat !== undefined) setSelectedCategory(cat);
     if (subcat !== null && subcat !== undefined) setSelectedSubcategory(subcat);
-    if (vm === "listings" || vm === "prices") setViewMode(vm);
-    if (srt !== null && srt !== undefined) setSortOption(srt);
+    if (srt !== null && srt !== undefined && LISTING_SORT_VALUES.has(srt)) setSortOption(srt);
     setCurrentPage(1);
   }, [searchParams]);
 
@@ -177,6 +200,66 @@ function Marketplace() {
     });
   }, []);
 
+  const currentSavedSearchFilters = useMemo(() => ({
+    server: serverLocation,
+    platform,
+    view: "listings",
+    search: searchQuery,
+    category: selectedCategory,
+    subcategory: selectedSubcategory,
+    trait: selectedTrait,
+    rarity: selectedRarity,
+    location: selectedHubLocation,
+    max_age: selectedMaxAge,
+    sort: sortOption,
+    deals_only: dealsOnly,
+  }), [
+    serverLocation,
+    platform,
+    searchQuery,
+    selectedCategory,
+    selectedSubcategory,
+    selectedTrait,
+    selectedRarity,
+    selectedHubLocation,
+    selectedMaxAge,
+    sortOption,
+    dealsOnly,
+  ]);
+
+  useEffect(() => {
+    let isActive = true;
+    if (!user?.id) {
+      setSavedSearches([]);
+      setSavedSearchError("");
+      return undefined;
+    }
+
+    setSavedSearchesLoading(true);
+    fetchSavedSearches().then((result) => {
+      if (!isActive) return;
+      if (result.success) {
+        setSavedSearches(result.saved_searches || []);
+      } else {
+        setSavedSearchError(result.error || "Unable to load saved searches.");
+      }
+      setSavedSearchesLoading(false);
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!savedSearchDrawerOpen) return undefined;
+    const handleEscape = (event) => {
+      if (event.key === "Escape") setSavedSearchDrawerOpen(false);
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [savedSearchDrawerOpen]);
+
   // Fetch Market Data when filters/server/page change
   useEffect(() => {
     setIsLoading(true);
@@ -196,23 +279,21 @@ function Marketplace() {
       ...(sortOption && { sort: sortOption }),
     };
 
-    if (viewMode === "listings") {
-      if (dealsOnly) params.min_value_index = DEAL_THRESHOLD;
-      fetchMarketListings(params).then((res) => {
+    if (dealsOnly) params.min_value_index = DEAL_THRESHOLD;
+    let isActive = true;
+    fetchMarketListings(params).then((res) => {
+      if (isActive) {
         setItemsData(res.listings || []);
         setTotalItems(res.total || 0);
         setIsLoading(false);
-      });
-    } else {
-      fetchMarketPrices(params).then((res) => {
-        setItemsData(res.items || []);
-        setTotalItems(res.total || 0);
-        setIsLoading(false);
-      });
-    }
+      }
+    });
+
+    return () => {
+      isActive = false;
+    };
   }, [
     serverLocation,
-    viewMode,
     selectedCategory,
     selectedSubcategory,
     selectedTrait,
@@ -222,7 +303,8 @@ function Marketplace() {
     searchQuery,
     sortOption,
     dealsOnly,
-    currentPage
+    currentPage,
+    savedSearchRunId,
   ]);
 
   // Derived subcategories list based on selected category
@@ -246,10 +328,123 @@ function Marketplace() {
     setSelectedHubLocation("");
     setSelectedMaxAge("");
     setSearchQuery("");
-    setSortOption(viewMode === "listings" ? "value_index" : "suggested_desc");
+    setSortOption("value_index");
     setDealsOnly(false);
     setCurrentPage(1);
     setSelectedItem(null);
+  };
+
+  const handleSaveSearch = async (name) => {
+    if (!user) {
+      navigate('/login', { state: { from: { pathname: '/marketplace' } } });
+      return false;
+    }
+
+    setSavedSearchesMutating(true);
+    setSavedSearchError("");
+    const trimmedName = name.trim();
+    const hasActiveCriteria = Boolean(
+      currentSavedSearchFilters.search ||
+      currentSavedSearchFilters.category ||
+      currentSavedSearchFilters.subcategory ||
+      currentSavedSearchFilters.trait ||
+      currentSavedSearchFilters.rarity ||
+      currentSavedSearchFilters.location ||
+      currentSavedSearchFilters.max_age ||
+      currentSavedSearchFilters.deals_only ||
+      currentSavedSearchFilters.sort !== "value_index"
+    );
+    const filtersToSave = {
+      ...currentSavedSearchFilters,
+      search: hasActiveCriteria ? currentSavedSearchFilters.search : trimmedName,
+    };
+    const result = await createSavedSearch(trimmedName, filtersToSave);
+    if (result.success && result.saved_search) {
+      setSavedSearches((current) => [result.saved_search, ...current]);
+      if (!hasActiveCriteria) {
+        setSearchQuery(trimmedName);
+        setCurrentPage(1);
+        setSelectedItem(null);
+        setSavedSearchRunId((current) => current + 1);
+      }
+      setSavedSearchesMutating(false);
+      return true;
+    }
+
+    setSavedSearchError(result.error || "Unable to save this search.");
+    setSavedSearchesMutating(false);
+    return false;
+  };
+
+  const handleApplySavedSearch = (savedSearch) => {
+    const filters = savedSearch.filter_params || {};
+    const hasStoredCriteria = Boolean(
+      filters.search ||
+      filters.category ||
+      filters.subcategory ||
+      filters.trait ||
+      filters.rarity ||
+      filters.location ||
+      filters.max_age ||
+      filters.deals_only ||
+      (filters.sort && filters.sort !== "value_index" && filters.sort !== "suggested_desc")
+    );
+    const nextSearch = filters.search || (hasStoredCriteria ? "" : savedSearch.name);
+    setServerLocation(filters.server === "EU" ? "EU" : "NA");
+    setPlatform(["PC", "Xbox", "PlayStation"].includes(filters.platform) ? filters.platform : "PC");
+    setSearchQuery(nextSearch);
+    setSelectedCategory(filters.category || "");
+    setSelectedSubcategory(filters.subcategory || "");
+    setSelectedTrait(filters.trait || "");
+    setSelectedRarity(filters.rarity || "");
+    setSelectedHubLocation(filters.location || "");
+    setSelectedMaxAge(filters.max_age || "");
+    setSortOption(LISTING_SORT_VALUES.has(filters.sort) ? filters.sort : "value_index");
+    setDealsOnly(filters.deals_only === true);
+    setCurrentPage(1);
+    setSelectedItem(null);
+    setSavedSearchRunId((current) => current + 1);
+    setSavedSearchDrawerOpen(false);
+  };
+
+  const handleToggleSavedSearchPin = async (savedSearch) => {
+    setSavedSearchesMutating(true);
+    setSavedSearchError("");
+    const result = await setSavedSearchPinned(savedSearch.id, !savedSearch.is_pinned);
+    if (result.success && result.saved_search) {
+      setSavedSearches((current) => current
+        .map((search) => search.id === savedSearch.id ? result.saved_search : search)
+        .sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned) || b.id - a.id));
+    } else {
+      setSavedSearchError(result.error || "Unable to update this saved search.");
+    }
+    setSavedSearchesMutating(false);
+  };
+
+  const handleDeleteSavedSearch = async (savedSearch) => {
+    if (!window.confirm(`Delete the saved search “${savedSearch.name}”?`)) return;
+    setSavedSearchesMutating(true);
+    setSavedSearchError("");
+    const result = await deleteSavedSearch(savedSearch.id);
+    if (result.success) {
+      setSavedSearches((current) => current.filter((search) => search.id !== savedSearch.id));
+    } else {
+      setSavedSearchError(result.error || "Unable to delete this saved search.");
+    }
+    setSavedSearchesMutating(false);
+  };
+
+  const savedSearchesCardProps = {
+    user,
+    searches: savedSearches,
+    isLoading: savedSearchesLoading,
+    isMutating: savedSearchesMutating,
+    error: savedSearchError,
+    onSave: handleSaveSearch,
+    onApply: handleApplySavedSearch,
+    onTogglePin: handleToggleSavedSearchPin,
+    onDelete: handleDeleteSavedSearch,
+    onLogin: () => navigate('/login', { state: { from: { pathname: '/marketplace' } } }),
   };
 
   const handleClearListings = async () => {
@@ -286,7 +481,7 @@ function Marketplace() {
           <div>
             <h1 className="font-cinzel text-2xl md:text-3xl font-extrabold tracking-wide text-[#e0d8c3] flex items-center gap-2 uppercase">
               <Store className="size-7 text-[#c5a059]" />
-              <span>Live Trading House & Price Index</span>
+              <span>Live Guild Trader Listings</span>
             </h1>
             <p className="text-[#a89f91] text-xs md:text-sm mt-1">
               Real-time market analytics, active guild trader listings, and deal intelligence for{" "}
@@ -311,38 +506,9 @@ function Marketplace() {
               </EsoTooltip>
             )}
 
-            {/* View Mode Toggle */}
-            <div className="flex items-center gap-1 bg-[#0a0a0d] p-1 border border-[#2a2c33]">
-              <Button
-                variant={viewMode === "listings" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => {
-                  setViewMode("listings");
-                  setSortOption("value_index");
-                  setCurrentPage(1);
-                }}
-                className={`rounded-none gap-1.5 text-xs font-cinzel font-semibold uppercase cursor-pointer ${
-                  viewMode === "listings" ? "bg-[#c5a059] text-[#0a0a0d] hover:bg-[#d4af37]" : "text-[#a89f91] hover:text-[#e0d8c3]"
-                }`}
-              >
-                <Tag className="size-3.5" />
-                <span>Active Listings {viewMode === "listings" ? `(${totalItems})` : ""}</span>
-              </Button>
-              <Button
-                variant={viewMode === "prices" ? "default" : "ghost"}
-                size="sm"
-                onClick={() => {
-                  setViewMode("prices");
-                  setSortOption("suggested_desc");
-                  setCurrentPage(1);
-                }}
-                className={`rounded-none gap-1.5 text-xs font-cinzel font-semibold uppercase cursor-pointer ${
-                  viewMode === "prices" ? "bg-[#c5a059] text-[#0a0a0d] hover:bg-[#d4af37]" : "text-[#a89f91] hover:text-[#e0d8c3]"
-                }`}
-              >
-                <TrendingUp className="size-3.5" />
-                <span>Catalog Price Index {viewMode === "prices" ? `(${totalItems.toLocaleString()})` : ""}</span>
-              </Button>
+            <div className="flex h-9 items-center gap-2 border border-[#c5a059]/50 bg-[#c5a059]/10 px-4 text-xs font-cinzel font-semibold uppercase tracking-wider text-[#d4af37]">
+              <Tag className="size-3.5" />
+              <span>Active Listings ({totalItems.toLocaleString()})</span>
             </div>
           </div>
         </div>
@@ -363,9 +529,6 @@ function Marketplace() {
                 onChange={(e) => {
                   const loc = e.target.value;
                   setSelectedHubLocation(loc);
-                  if (loc && viewMode !== "listings") {
-                    setViewMode("listings");
-                  }
                   setCurrentPage(1);
                 }}
                 className="w-full bg-[#0a0a0d] border-[#2a2c33] text-[#e0d8c3] text-xs h-9"
@@ -580,25 +743,23 @@ function Marketplace() {
         </NativeSelect>
 
         {/* Time Since Last Seen NativeSelect */}
-        {viewMode === "listings" && (
-          <NativeSelect
-            value={selectedMaxAge}
-            onChange={(e) => {
-              setSelectedMaxAge(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full bg-[#0a0a0d] border-[#2a2c33] text-[#e0d8c3]"
-          >
-            <NativeSelectOption value="">Last Seen: Any Time</NativeSelectOption>
-            <NativeSelectOptGroup label="Scan Recency Scale">
-              <NativeSelectOption value="1">⏱️ Last 24 Hours</NativeSelectOption>
-              <NativeSelectOption value="3">⏱️ Last 3 Days</NativeSelectOption>
-              <NativeSelectOption value="7">⏱️ Last 7 Days</NativeSelectOption>
-              <NativeSelectOption value="14">⏱️ Last 14 Days</NativeSelectOption>
-              <NativeSelectOption value="30">⏱️ Last 30 Days</NativeSelectOption>
-            </NativeSelectOptGroup>
-          </NativeSelect>
-        )}
+        <NativeSelect
+          value={selectedMaxAge}
+          onChange={(e) => {
+            setSelectedMaxAge(e.target.value);
+            setCurrentPage(1);
+          }}
+          className="w-full bg-[#0a0a0d] border-[#2a2c33] text-[#e0d8c3]"
+        >
+          <NativeSelectOption value="">Last Seen: Any Time</NativeSelectOption>
+          <NativeSelectOptGroup label="Scan Recency Scale">
+            <NativeSelectOption value="1">⏱️ Last 24 Hours</NativeSelectOption>
+            <NativeSelectOption value="3">⏱️ Last 3 Days</NativeSelectOption>
+            <NativeSelectOption value="7">⏱️ Last 7 Days</NativeSelectOption>
+            <NativeSelectOption value="14">⏱️ Last 14 Days</NativeSelectOption>
+            <NativeSelectOption value="30">⏱️ Last 30 Days</NativeSelectOption>
+          </NativeSelectOptGroup>
+        </NativeSelect>
 
         {/* Sort Option NativeSelect */}
         <NativeSelect
@@ -610,49 +771,50 @@ function Marketplace() {
           className="w-full bg-[#0a0a0d] border-[#2a2c33] text-[#e0d8c3]"
         >
           <NativeSelectOptGroup label="Sort By">
-            {viewMode === "listings" ? (
-              <>
-                <NativeSelectOption value="value_index">🔥 Best Value Deals</NativeSelectOption>
-                <NativeSelectOption value="trait_asc">Trait: A → Z</NativeSelectOption>
-                <NativeSelectOption value="trait_desc">Trait: Z → A</NativeSelectOption>
-                <NativeSelectOption value="rarity_desc">Rarity: Legendary → Normal</NativeSelectOption>
-                <NativeSelectOption value="rarity_asc">Rarity: Normal → Legendary</NativeSelectOption>
-                <NativeSelectOption value="price_asc">Price: Low to High</NativeSelectOption>
-                <NativeSelectOption value="price_desc">Price: High to Low</NativeSelectOption>
-                <NativeSelectOption value="newest">Recently Discovered</NativeSelectOption>
-              </>
-            ) : (
-              <>
-                <NativeSelectOption value="suggested_desc">Suggested Price: High to Low</NativeSelectOption>
-                <NativeSelectOption value="rarity_desc">Rarity: Legendary → Normal</NativeSelectOption>
-                <NativeSelectOption value="rarity_asc">Rarity: Normal → Legendary</NativeSelectOption>
-                <NativeSelectOption value="price_asc">Suggested Price: Low to High</NativeSelectOption>
-                <NativeSelectOption value="name_asc">Item Name (A-Z)</NativeSelectOption>
-              </>
-            )}
+            <NativeSelectOption value="value_index">🔥 Best Value Deals</NativeSelectOption>
+            <NativeSelectOption value="trait_asc">Trait: A → Z</NativeSelectOption>
+            <NativeSelectOption value="trait_desc">Trait: Z → A</NativeSelectOption>
+            <NativeSelectOption value="rarity_desc">Rarity: Legendary → Normal</NativeSelectOption>
+            <NativeSelectOption value="rarity_asc">Rarity: Normal → Legendary</NativeSelectOption>
+            <NativeSelectOption value="price_asc">Price: Low to High</NativeSelectOption>
+            <NativeSelectOption value="price_desc">Price: High to Low</NativeSelectOption>
+            <NativeSelectOption value="newest">Recently Discovered</NativeSelectOption>
           </NativeSelectOptGroup>
         </NativeSelect>
       </div>
 
+      {user && (
+        <PinnedSearchChips searches={savedSearches} onApply={handleApplySavedSearch} />
+      )}
+
       {/* Filter Quick Tags & Deals Toggle */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <div className="flex items-center gap-2">
-          {viewMode === "listings" && (
-            <Button
-              variant={dealsOnly ? "default" : "outline"}
-              size="sm"
-              onClick={() => {
-                setDealsOnly(!dealsOnly);
-                setCurrentPage(1);
-              }}
-              className={`rounded-none gap-1.5 font-semibold text-xs border ${
-                dealsOnly ? "bg-[#c5a059] text-[#0a0a0d] border-[#c5a059]" : "border-[#c5a059]/40 text-[#d4af37] bg-[#161620]"
-              }`}
-            >
-              <Sparkles className="size-3.5 text-[#c5a059]" />
-              <span>Only Bargain Deals (1.2x+ Value)</span>
-            </Button>
-          )}
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setSavedSearchDrawerOpen(true)}
+            className="rounded-none border-[#c5a059]/40 bg-[#161620] text-[#d4af37] lg:hidden"
+          >
+            <Bookmark className="size-3.5" />
+            Saved Searches{savedSearches.length ? ` (${savedSearches.length})` : ""}
+          </Button>
+
+          <Button
+            variant={dealsOnly ? "default" : "outline"}
+            size="sm"
+            onClick={() => {
+              setDealsOnly(!dealsOnly);
+              setCurrentPage(1);
+            }}
+            className={`rounded-none gap-1.5 font-semibold text-xs border ${
+              dealsOnly ? "bg-[#c5a059] text-[#0a0a0d] border-[#c5a059]" : "border-[#c5a059]/40 text-[#d4af37] bg-[#161620]"
+            }`}
+          >
+            <Sparkles className="size-3.5 text-[#c5a059]" />
+            <span>Only Bargain Deals (1.2x+ Value)</span>
+          </Button>
 
           {(selectedCategory || selectedSubcategory || selectedTrait || selectedRarity || selectedHubLocation || selectedMaxAge || searchQuery || dealsOnly) && (
             <Button
@@ -673,9 +835,30 @@ function Marketplace() {
         </div>
       </div>
 
+      {savedSearchDrawerOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Saved searches">
+          <button
+            type="button"
+            onClick={() => setSavedSearchDrawerOpen(false)}
+            aria-label="Close saved searches"
+            className="absolute inset-0 cursor-default bg-black/75 backdrop-blur-sm"
+          />
+          <aside className="absolute inset-y-0 left-0 w-[min(90vw,24rem)] overflow-y-auto border-r border-[#c5a059]/40 bg-[#0a0a0d] p-3 shadow-2xl">
+            <SavedSearchesCard
+              {...savedSearchesCardProps}
+              onClose={() => setSavedSearchDrawerOpen(false)}
+            />
+          </aside>
+        </div>
+      )}
+
       {/* Main Grid & Detail Sidebar Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-        {/* Listings / Prices Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+        <aside className="hidden lg:col-span-1 lg:block lg:self-start lg:sticky lg:top-4">
+          <SavedSearchesCard {...savedSearchesCardProps} />
+        </aside>
+
+        {/* Active Listings Grid */}
         <div className={selectedItem ? "lg:col-span-2 space-y-4" : "lg:col-span-3 space-y-4"}>
           {isLoading ? (
             <div className="eso-card flex flex-col items-center justify-center p-12 text-center">
@@ -684,67 +867,40 @@ function Marketplace() {
             </div>
           ) : itemsData.length === 0 ? (
             <div className="eso-card flex flex-col items-center justify-center p-12 text-center">
-              {viewMode === "listings" ? (
-                <>
-                  <Store className="size-12 text-[#c5a059]/60 mb-3" />
-                  <h3 className="font-cinzel text-xl font-bold text-[#e0d8c3] mb-1">
-                    {searchQuery ? `No Active Listings Found for "${searchQuery}"` : "No Guild Trader Scans Logged"}
-                  </h3>
-                  <p className="text-xs text-[#a89f91] max-w-lg mb-4 leading-relaxed">
-                    {searchQuery
-                      ? `Click below to trigger a live search scan across ESO guild traders for "${searchQuery}".`
-                      : "Synthetic listings have been purged. You can view all 155,476 authentic market price statistics in the Catalog Price Index, or run python data-pipeline/parse_saved_variables.py to load your in-game TTC addon scans."}
-                  </p>
-                  <div className="flex flex-wrap items-center justify-center gap-3">
-                    {searchQuery && (
-                      <Button
-                        variant="default"
-                        onClick={async () => {
-                          setIsLoading(true);
-                          const res = await extractLiveListings(searchQuery, serverLocation);
-                          if (res.listings) {
-                            setItemsData(res.listings);
-                            setTotalItems(res.count || res.listings.length);
-                          }
-                          setIsLoading(false);
-                        }}
-                        className="rounded-none gap-2 font-cinzel font-bold bg-[#c5a059] text-[#0a0a0d] hover:bg-[#d4af37]"
-                      >
-                        <Zap className="size-4" />
-                        <span>Fetch Live Market Scans for "{searchQuery}"</span>
-                      </Button>
-                    )}
-                    <Button
-                      variant={searchQuery ? "outline" : "default"}
-                      onClick={() => {
-                        setViewMode("prices");
-                        setSortOption("suggested_desc");
-                        setCurrentPage(1);
-                      }}
-                      className="rounded-none gap-2 font-cinzel font-bold border-[#c5a059]/40 bg-[#161620] text-[#e0d8c3] hover:border-[#c5a059]"
-                    >
-                      <TrendingUp className="size-4 text-[#c5a059]" />
-                      <span>Switch to Catalog Price Index (155,476 Items)</span>
-                    </Button>
-                    {(selectedCategory || selectedSubcategory || selectedTrait || selectedRarity || selectedHubLocation || searchQuery) && (
-                      <Button variant="outline" size="sm" onClick={handleResetFilters} className="rounded-none">
-                        Clear Filters
-                      </Button>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <Info className="size-10 text-[#8a8275] mb-2" />
-                  <h3 className="font-cinzel text-lg font-bold text-[#e0d8c3] mb-1">No catalog entries found</h3>
-                  <p className="text-xs text-[#a89f91] max-w-md mb-4">
-                    Try adjusting your search keywords, category filters, or switching servers in the top navbar.
-                  </p>
-                  <Button variant="outline" size="sm" onClick={handleResetFilters} className="rounded-none">
-                    Clear All Filters
+              <Store className="size-12 text-[#c5a059]/60 mb-3" />
+              <h3 className="font-cinzel text-xl font-bold text-[#e0d8c3] mb-1">
+                {searchQuery ? `No Active Listings Found for "${searchQuery}"` : "No Guild Trader Scans Logged"}
+              </h3>
+              <p className="text-xs text-[#a89f91] max-w-lg mb-4 leading-relaxed">
+                {searchQuery
+                  ? `Click below to trigger a live search scan across ESO guild traders for "${searchQuery}".`
+                  : "No authentic guild trader listings match these filters yet. Load in-game ESOTrade scans or adjust the filters to search the active listing feed."}
+              </p>
+              <div className="flex flex-wrap items-center justify-center gap-3">
+                {searchQuery && (
+                  <Button
+                    variant="default"
+                    onClick={async () => {
+                      setIsLoading(true);
+                      const res = await extractLiveListings(searchQuery, serverLocation);
+                      if (res.listings) {
+                        setItemsData(res.listings);
+                        setTotalItems(res.count || res.listings.length);
+                      }
+                      setIsLoading(false);
+                    }}
+                    className="rounded-none gap-2 font-cinzel font-bold bg-[#c5a059] text-[#0a0a0d] hover:bg-[#d4af37]"
+                  >
+                    <Zap className="size-4" />
+                    <span>Fetch Live Market Scans for "{searchQuery}"</span>
                   </Button>
-                </>
-              )}
+                )}
+                {(selectedCategory || selectedSubcategory || selectedTrait || selectedRarity || selectedHubLocation || searchQuery) && (
+                  <Button variant="outline" size="sm" onClick={handleResetFilters} className="rounded-none">
+                    Clear Filters
+                  </Button>
+                )}
+              </div>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 gap-4">
@@ -812,66 +968,49 @@ function Marketplace() {
                     </CardHeader>
 
                     <CardContent className="p-4 pt-2">
-                      {viewMode === "listings" ? (
-                        <div className="space-y-2 text-xs">
-                          <div className="flex items-center justify-between border-t border-[#2a2c33]/40 pt-2">
-                            <div className="flex items-center gap-1.5">
-                              <span className="text-[#a89f91]">Unit Price:</span>
-                              <span className="bg-[#161620] text-[#d4af37] font-mono font-bold px-1.5 py-0.5 text-[10px] border border-[#2a2c33]">
-                                x{item.quantity || 1}/stack
-                              </span>
-                            </div>
-                            <div className="text-right">
-                              <span className="font-bold text-base text-[#c5a059] block font-mono">
-                                {formatGold(item.price)}
-                                <span className="text-[10px] text-[#8a8275] font-normal ml-0.5">/ea</span>
-                              </span>
-                              <span className="text-[10px] text-[#8a8275] block font-mono">
-                                Total/stack: {formatGold((item.price || 0) * (item.quantity || 1))}
-                              </span>
-                            </div>
+                      <div className="space-y-2 text-xs">
+                        <div className="flex items-center justify-between border-t border-[#2a2c33]/40 pt-2">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[#a89f91]">Unit Price:</span>
+                            <span className="bg-[#161620] text-[#d4af37] font-mono font-bold px-1.5 py-0.5 text-[10px] border border-[#2a2c33]">
+                              x{item.quantity || 1}/stack
+                            </span>
                           </div>
-
-                          {/* Smart Seller Inventory & Stacks Badge */}
-                          <div className="flex items-center justify-between text-xs bg-[#0a0a0d] border border-[#2a2c33] px-2.5 py-1.5 mt-2">
-                            <div className="flex items-center gap-1.5 font-semibold text-[#d4af37]">
-                              <Layers className="size-3.5 text-[#c5a059] shrink-0" />
-                              <span>
-                                {(item.active_stacks || 1) > 1
-                                  ? `📦 ${item.active_stacks} Stacks Available (${((item.quantity || 1) * item.active_stacks).toLocaleString()} total)`
-                                  : `1 Stack Available (${item.quantity || 1} total)`}
-                              </span>
-                            </div>
-                            <EsoTooltip content={`Seller Account: ${item.seller_name || "@Unknown"}`} side="top">
-                              <span className="font-mono text-[#a89f91] text-[11px] truncate max-w-[110px] cursor-default">
-                                {item.seller_name || "@Unknown"}
-                              </span>
-                            </EsoTooltip>
-                          </div>
-
-                          <div className="flex items-center justify-between">
-                            <span className="text-[#a89f91]">Suggested Value:</span>
-                            <span className="font-medium text-[#d4af37] font-mono">
-                              {formatGold(item.suggested_price)}
+                          <div className="text-right">
+                            <span className="font-bold text-base text-[#c5a059] block font-mono">
+                              {formatGold(item.price)}
+                              <span className="text-[10px] text-[#8a8275] font-normal ml-0.5">/ea</span>
+                            </span>
+                            <span className="text-[10px] text-[#8a8275] block font-mono">
+                              Total/stack: {formatGold((item.price || 0) * (item.quantity || 1))}
                             </span>
                           </div>
                         </div>
-                      ) : (
-                        <div className="space-y-1.5 text-xs border-t border-[#2a2c33]/40 pt-2 font-mono">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[#a89f91] font-sans">Suggested Price:</span>
-                            <span className="font-bold text-[#c5a059]">{formatGold(item.suggested_price)}</span>
+
+                        {/* Smart Seller Inventory & Stacks Badge */}
+                        <div className="flex items-center justify-between text-xs bg-[#0a0a0d] border border-[#2a2c33] px-2.5 py-1.5 mt-2">
+                          <div className="flex items-center gap-1.5 font-semibold text-[#d4af37]">
+                            <Layers className="size-3.5 text-[#c5a059] shrink-0" />
+                            <span>
+                              {(item.active_stacks || 1) > 1
+                                ? `📦 ${item.active_stacks} Stacks Available (${((item.quantity || 1) * item.active_stacks).toLocaleString()} total)`
+                                : `1 Stack Available (${item.quantity || 1} total)`}
+                            </span>
                           </div>
-                          <div className="flex items-center justify-between text-[#8a8275]">
-                            <span className="font-sans">Avg Market Price:</span>
-                            <span>{formatGold(item.avg_price)}</span>
-                          </div>
-                          <div className="flex items-center justify-between text-[11px] text-[#8a8275]">
-                            <span className="font-sans">Price Range:</span>
-                            <span>{formatGold(item.min_price)} - {formatGold(item.max_price)}</span>
-                          </div>
+                          <EsoTooltip content={`Seller Account: ${item.seller_name || "@Unknown"}`} side="top">
+                            <span className="font-mono text-[#a89f91] text-[11px] truncate max-w-[110px] cursor-default">
+                              {item.seller_name || "@Unknown"}
+                            </span>
+                          </EsoTooltip>
                         </div>
-                      )}
+
+                        <div className="flex items-center justify-between">
+                          <span className="text-[#a89f91]">Suggested Value:</span>
+                          <span className="font-medium text-[#d4af37] font-mono">
+                            {formatGold(item.suggested_price)}
+                          </span>
+                        </div>
+                      </div>
 
                       {/* Prominent Guild Trader Name, Location, & Last Seen Marker */}
                       <div className="flex items-center justify-between text-[11px] text-[#8a8275] pt-2 mt-2 border-t border-[#2a2c33]/40 gap-1">

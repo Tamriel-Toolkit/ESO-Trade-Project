@@ -14,6 +14,7 @@ erDiagram
     USER ||--o{ WATCHLIST : tracks
     USER ||--o{ TRADE_REQUEST : initiates
     USER ||--o{ ACTIVITY_LOG : generates
+    USER ||--o{ SAVED_SEARCH : saves
 
     CHARACTER ||--o{ KNOWLEDGE : "character-specific"
     
@@ -33,6 +34,15 @@ erDiagram
         string discord_id
         string email
         boolean is_anonymized
+        timestamp created_at
+    }
+
+    SAVED_SEARCH {
+        integer id PK
+        integer user_id FK
+        string name
+        text filter_params "JSON filter snapshot"
+        boolean is_pinned
         timestamp created_at
     }
 
@@ -173,6 +183,15 @@ erDiagram
     - `created_at`: Creation timestamp.
     - `expires_at`: ISO timestamp indicating session expiration (default TTL: 7 days).
     - Indexes: `idx_sessions_expires_at`, `idx_sessions_user_id`.
+
+### 2.7. Marketplace Saved Searches
+- **`saved_searches`**: Private, account-owned Marketplace filter presets in the active SQLite runtime.
+    - `user_id`: Foreign key referencing `users(id)` with `ON DELETE CASCADE`.
+    - `name`: User-facing preset name, validated to 1–80 characters by the API.
+    - `filter_params`: JSON text containing only the supported Marketplace filter keys.
+    - `is_pinned`: SQLite boolean (`0` or `1`) used to surface one-click pinned filters.
+    - `created_at`: Preset creation timestamp.
+    - Index: `idx_saved_searches_user` on `(user_id, is_pinned)` for account-scoped sidebar retrieval.
 
 ## 3. Scalability & Logic
 

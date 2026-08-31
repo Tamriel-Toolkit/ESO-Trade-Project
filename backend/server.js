@@ -217,6 +217,21 @@ function initializeDatabaseSchema() {
         db.run("CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);");
         db.run("CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);");
 
+        db.run(`
+            CREATE TABLE IF NOT EXISTS saved_searches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                filter_params TEXT NOT NULL,
+                is_pinned INTEGER NOT NULL DEFAULT 0 CHECK(is_pinned IN (0, 1)),
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE
+            );
+        `, (err) => {
+            if (err) console.error("Error creating 'saved_searches' table:", err.message);
+        });
+        db.run("CREATE INDEX IF NOT EXISTS idx_saved_searches_user ON saved_searches(user_id, is_pinned);");
+
         if (isDevMode) {
             const seedBlakeToken = process.env.BLAKE_API_TOKEN || crypto.randomBytes(16).toString("hex");
             const seedDemoToken = process.env.DEMO_API_TOKEN || crypto.randomBytes(16).toString("hex");
@@ -2611,6 +2626,197 @@ app.get("/api/auth/me", async (req, res) => {
         const user = await dbGet(`SELECT id, username, email, eso_handle, role, api_token, created_at FROM users WHERE id = ?;`, [userId]);
         if (!user) return res.status(404).json({ error: "User not found." });
         res.json({ success: true, user });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ============================================================================
+// AUTHENTICATED MARKETPLACE SAVED SEARCH PRESETS
+// ============================================================================
+
+const SAVED_SEARCH_FILTER_KEYS = new Set([
+    "server",
+    "platform",
+    "view",
+    "search",
+    "category",
+    "subcategory",
+    "trait",
+    "rarity",
+    "location",
+    "max_age",
+    "sort",
+    "deals_only"
+]);
+
+function normalizeSavedSearchFilters(rawFilters) {
+    let filters = rawFilters;
+    if (typeof filters === "string") {
+        try {
+            filters = JSON.parse(filters);
+        } catch {
+            return null;
+        }
+    }
+
+    if (!filters || typeof filters !== "object" || Array.isArray(filters)) {
+        return null;
+    }
+
+    const normalized = {};
+    for (const [key, value] of Object.entries(filters)) {
+        if (!SAVED_SEARCH_FILTER_KEYS.has(key)) continue;
+
+        if (key === "deals_only") {
+            normalized[key] = value === true;
+            continue;
+        }
+
+        if (typeof value !== "string") continue;
+        normalized[key] = value.trim().slice(0, 160);
+    }
+
+    if (normalized.server && !["NA", "EU"].includes(normalized.server)) return null;
+    if (normalized.platform && !["PC", "Xbox", "PlayStation"].includes(normalized.platform)) return null;
+    if (normalized.view && !["listings", "prices"].includes(normalized.view)) return null;
+
+    return normalized;
+}
+
+function formatSavedSearch(row) {
+    let filterParams = {};
+    try {
+        filterParams = JSON.parse(row.filter_params);
+    } catch {
+        filterParams = {};
+    }
+
+    return {
+        ...row,
+        is_pinned: Boolean(row.is_pinned),
+        filter_params: filterParams
+    };
+}
+
+/**
+ * GET /api/saved-searches
+ * Returns only the authenticated user's saved Marketplace filters.
+ */
+app.get("/api/saved-searches", async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) return res.status(401).json({ error: "Authentication required to view saved searches." });
+
+    try {
+        const rows = await dbAll(`
+            SELECT id, user_id, name, filter_params, is_pinned, created_at
+            FROM saved_searches
+            WHERE user_id = ?
+            ORDER BY is_pinned DESC, created_at DESC, id DESC;
+        `, [userId]);
+        res.json({ success: true, saved_searches: rows.map(formatSavedSearch) });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * POST /api/saved-searches
+ * Stores a validated snapshot of the authenticated user's Marketplace filters.
+ */
+app.post("/api/saved-searches", async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) return res.status(401).json({ error: "Authentication required to save searches." });
+
+    const body = req.body || {};
+    const name = typeof body.name === "string" ? body.name.trim() : "";
+    const filterParams = normalizeSavedSearchFilters(body.filter_params);
+    if (!name || name.length > 80) {
+        return res.status(400).json({ error: "Saved search name must be between 1 and 80 characters." });
+    }
+    if (!filterParams) {
+        return res.status(400).json({ error: "filter_params must be a valid Marketplace filter object." });
+    }
+
+    const serializedFilters = JSON.stringify(filterParams);
+    if (serializedFilters.length > 4000) {
+        return res.status(400).json({ error: "Saved search filters exceed the 4,000 character limit." });
+    }
+
+    try {
+        const result = await dbRun(`
+            INSERT INTO saved_searches (user_id, name, filter_params)
+            VALUES (?, ?, ?);
+        `, [userId, name, serializedFilters]);
+        const row = await dbGet(`
+            SELECT id, user_id, name, filter_params, is_pinned, created_at
+            FROM saved_searches
+            WHERE id = ? AND user_id = ?;
+        `, [result.lastID, userId]);
+        res.status(201).json({ success: true, saved_search: formatSavedSearch(row) });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * PATCH /api/saved-searches/:id/pin
+ * Toggles pinned state, or applies an explicit boolean state when supplied.
+ */
+app.patch("/api/saved-searches/:id/pin", async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) return res.status(401).json({ error: "Authentication required to pin saved searches." });
+
+    const searchId = Number(req.params.id);
+    if (!Number.isInteger(searchId) || searchId <= 0) {
+        return res.status(400).json({ error: "Invalid saved search ID." });
+    }
+
+    try {
+        const existing = await dbGet(
+            "SELECT id, is_pinned FROM saved_searches WHERE id = ? AND user_id = ?;",
+            [searchId, userId]
+        );
+        if (!existing) return res.status(404).json({ error: "Saved search not found." });
+
+        const nextPinned = typeof req.body?.is_pinned === "boolean"
+            ? (req.body.is_pinned ? 1 : 0)
+            : (existing.is_pinned ? 0 : 1);
+        await dbRun(
+            "UPDATE saved_searches SET is_pinned = ? WHERE id = ? AND user_id = ?;",
+            [nextPinned, searchId, userId]
+        );
+        const row = await dbGet(`
+            SELECT id, user_id, name, filter_params, is_pinned, created_at
+            FROM saved_searches
+            WHERE id = ? AND user_id = ?;
+        `, [searchId, userId]);
+        res.json({ success: true, saved_search: formatSavedSearch(row) });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
+ * DELETE /api/saved-searches/:id
+ * Deletes a preset only when it belongs to the authenticated user.
+ */
+app.delete("/api/saved-searches/:id", async (req, res) => {
+    const userId = await getAuthUserId(req);
+    if (!userId) return res.status(401).json({ error: "Authentication required to delete saved searches." });
+
+    const searchId = Number(req.params.id);
+    if (!Number.isInteger(searchId) || searchId <= 0) {
+        return res.status(400).json({ error: "Invalid saved search ID." });
+    }
+
+    try {
+        const result = await dbRun(
+            "DELETE FROM saved_searches WHERE id = ? AND user_id = ?;",
+            [searchId, userId]
+        );
+        if (result.changes === 0) return res.status(404).json({ error: "Saved search not found." });
+        res.json({ success: true, message: "Saved search deleted." });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
