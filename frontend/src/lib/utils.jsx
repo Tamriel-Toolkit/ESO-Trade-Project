@@ -95,35 +95,18 @@ export function renderEsoFormattedText(text) {
 }
 
 /**
- * Normalizes ESO item icon paths and URLs:
- * 1. Converts DirectDraw Surface texture (.dds) paths to web-friendly .png URLs.
- * 2. Prepends official UESP CDN domain if given relative in-game path (/esoui/art/icons/...).
- * 3. Handles empty, null, or undefined values gracefully.
+ * Convert an ESO source icon path into the backend's same-origin cached endpoint.
  */
 export function getEsoIconUrl(rawIcon) {
   if (!rawIcon || typeof rawIcon !== "string") return null;
 
-  let icon = rawIcon.trim();
+  const icon = rawIcon.trim();
   if (!icon) return null;
 
-  // Replace .dds / .DDS with .png for browser rendering
-  icon = icon.replace(/\.dds$/i, ".png");
-
-  // If it's already an absolute HTTP/HTTPS URL, return normalized URL
-  if (icon.startsWith("http://") || icon.startsWith("https://")) {
-    return icon;
-  }
-
-  // If it starts with /esoui/ or esoui/, prefix with UESP CDN
-  if (icon.startsWith("/esoui/")) {
-    return `https://esoicons.uesp.net${icon}`;
-  }
-  if (icon.startsWith("esoui/")) {
-    return `https://esoicons.uesp.net/${icon}`;
-  }
-  if (icon.startsWith("/")) {
-    return `https://esoicons.uesp.net/esoui/art/icons${icon}`;
-  }
-
-  return `https://esoicons.uesp.net/esoui/art/icons/${icon}`;
+  const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
+  const pathOnly = icon.split(/[?#]/, 1)[0];
+  const sourceFilename = pathOnly.split("/").filter(Boolean).pop() || "";
+  const filename = sourceFilename.replace(/\.dds$/i, ".png");
+  const safeFilename = /^[A-Za-z0-9_-]+\.png$/.test(filename) ? filename : "gear_generic.png";
+  return `${apiBase}/api/icons/${encodeURIComponent(safeFilename)}`;
 }

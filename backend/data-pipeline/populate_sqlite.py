@@ -1,206 +1,109 @@
-import sqlite3
+#!/usr/bin/env python3
+"""Safely upsert the UESP master item catalog into the application database."""
+
+import argparse
 import json
 import os
-import sys
+import sqlite3
 import time
 
-def populate_database():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    json_path = os.path.abspath(os.path.join(script_dir, "..", "exports", "items.json"))
-    db_path = os.path.abspath(os.path.join(script_dir, "..", "exports", "eso_catalog.db"))
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+DEFAULT_JSON_PATH = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "exports", "items.json"))
+DEFAULT_DB_PATH = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "exports", "eso_catalog.db"))
+
+
+def catalog_row(item):
+    metadata = item.get("metadata") or {}
+    set_data = metadata.get("set") or {}
+    icon_url = item.get("icon_url")
+    return (
+        int(item["game_item_id"]),
+        item.get("name") or f"ESO Item {item['game_item_id']}",
+        item.get("category"),
+        item.get("subcategory"),
+        int(item.get("rarity") or 1),
+        item.get("item_type"),
+        set_data.get("name"),
+        icon_url,
+        json.dumps(metadata, ensure_ascii=False),
+        icon_url,
+    )
+
+
+def populate_database(json_path=DEFAULT_JSON_PATH, db_path=DEFAULT_DB_PATH):
+    if not os.path.exists(json_path):
+        raise FileNotFoundError(f"Catalog export not found: {json_path}. Run fetch_and_ingest.py first.")
 
     print(f"Reading catalog data from {json_path}...")
-    if not os.path.exists(json_path):
-        print(f"Error: {json_path} not found. Please run fetch_and_ingest.py first.")
-        sys.exit(1)
+    with open(json_path, "r", encoding="utf-8") as catalog_file:
+        items = json.load(catalog_file)
 
-    with open(json_path, "r", encoding="utf-8") as f:
-        items = json.load(f)
+    if not isinstance(items, list):
+        raise ValueError("Catalog export must contain a JSON array.")
 
-    total_items = len(items)
-    print(f"Loaded {total_items} items. Connecting to SQLite database at {db_path}...")
+    os.makedirs(os.path.dirname(db_path), exist_ok=True)
+    connection = sqlite3.connect(db_path)
+    connection.execute("PRAGMA foreign_keys = ON;")
+    connection.execute("PRAGMA busy_timeout = 5000;")
 
-    # Connect to SQLite (creates the file if it does not exist)
-    conn = sqlite3.connect(db_path)
-    conn.execute("PRAGMA foreign_keys = ON;")
-    cursor = conn.cursor()
+    started_at = time.time()
+    try:
+        connection.execute("""
+            CREATE TABLE IF NOT EXISTS items (
+                game_item_id INTEGER PRIMARY KEY,
+                name TEXT NOT NULL,
+                category TEXT,
+                subcategory TEXT,
+                rarity INTEGER DEFAULT 1,
+                type TEXT,
+                set_name TEXT,
+                icon TEXT,
+                metadata TEXT,
+                icon_url TEXT
+            );
+        """)
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_items_name ON items(name);")
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);")
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_items_subcategory ON items(subcategory);")
+        connection.execute("CREATE INDEX IF NOT EXISTS idx_items_set_name ON items(set_name);")
 
-    # Drop existing table if any
-    cursor.execute("DROP TABLE IF EXISTS items;")
+        upsert_sql = """
+            INSERT INTO items (
+                game_item_id, name, category, subcategory, rarity,
+                type, set_name, icon, metadata, icon_url
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(game_item_id) DO UPDATE SET
+                name = excluded.name,
+                category = excluded.category,
+                subcategory = excluded.subcategory,
+                rarity = excluded.rarity,
+                type = excluded.type,
+                set_name = excluded.set_name,
+                icon = excluded.icon,
+                metadata = excluded.metadata,
+                icon_url = excluded.icon_url;
+        """
 
-    # Create the items table matching the PostgreSQL schema column taxonomy
-    cursor.execute("""
-    CREATE TABLE items (
-        id TEXT PRIMARY KEY,
-        game_item_id INTEGER UNIQUE,
-        name TEXT,
-        item_type TEXT,
-        category TEXT,
-        subcategory TEXT,
-        rarity INTEGER,
-        icon_url TEXT,
-        metadata TEXT
-    );
-    """)
+        connection.execute("BEGIN IMMEDIATE;")
+        batch_size = 5000
+        for offset in range(0, len(items), batch_size):
+            batch = [catalog_row(item) for item in items[offset:offset + batch_size]]
+            connection.executemany(upsert_sql, batch)
+            print(f"  Upserted {min(offset + len(batch), len(items))}/{len(items)} items...")
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
 
-    # Create characters and knowledge tables
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS characters (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE NOT NULL,
-        class TEXT,
-        level INTEGER,
-        is_master_crafter INTEGER DEFAULT 0,
-        last_sync_at TEXT DEFAULT CURRENT_TIMESTAMP
-    );
-    """)
+    print(f"Safely upserted {len(items)} catalog items in {time.time() - started_at:.2f} seconds.")
 
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS knowledge (
-        character_id INTEGER,
-        game_item_id INTEGER,
-        is_known INTEGER DEFAULT 1,
-        learned_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (character_id, game_item_id),
-        FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
-        FOREIGN KEY (game_item_id) REFERENCES items(game_item_id) ON DELETE CASCADE
-    );
-    """)
-
-    # Create remaining Phase 2 tables
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS item_prices (
-        game_item_id INTEGER,
-        server TEXT,
-        avg_price INTEGER,
-        min_price INTEGER,
-        max_price INTEGER,
-        suggested_price INTEGER,
-        last_updated TEXT DEFAULT CURRENT_TIMESTAMP,
-        PRIMARY KEY (game_item_id, server),
-        FOREIGN KEY (game_item_id) REFERENCES items(game_item_id) ON DELETE CASCADE
-    );
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS guild_trader_listings (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        game_item_id INTEGER,
-        server TEXT,
-        price INTEGER,
-        quantity INTEGER,
-        guild_name TEXT,
-        location TEXT,
-        expires_at TEXT,
-        discovered_at TEXT DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (game_item_id) REFERENCES items(game_item_id) ON DELETE CASCADE
-    );
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS user_inventory (
-        character_id INTEGER,
-        game_item_id INTEGER,
-        quantity INTEGER DEFAULT 1,
-        PRIMARY KEY (character_id, game_item_id),
-        FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
-        FOREIGN KEY (game_item_id) REFERENCES items(game_item_id) ON DELETE CASCADE
-    );
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS watchlists (
-        character_id INTEGER,
-        game_item_id INTEGER,
-        target_price INTEGER,
-        is_notified INTEGER DEFAULT 0,
-        PRIMARY KEY (character_id, game_item_id),
-        FOREIGN KEY (character_id) REFERENCES characters(id) ON DELETE CASCADE,
-        FOREIGN KEY (game_item_id) REFERENCES items(game_item_id) ON DELETE CASCADE
-    );
-    """)
-
-    # Create indexes and TTL purge triggers
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_listings_game_item_id ON guild_trader_listings(game_item_id);")
-    cursor.execute("CREATE INDEX IF NOT EXISTS idx_listings_expires_at ON guild_trader_listings(expires_at);")
-    cursor.execute("""
-        CREATE TRIGGER IF NOT EXISTS trg_purge_expired_listings_insert
-        AFTER INSERT ON guild_trader_listings
-        WHEN NEW.expires_at IS NOT NULL AND datetime(NEW.expires_at) < datetime('now')
-        BEGIN
-            DELETE FROM guild_trader_listings WHERE id = NEW.id;
-        END;
-    """)
-    cursor.execute("""
-        CREATE TRIGGER IF NOT EXISTS trg_purge_expired_listings_update
-        AFTER UPDATE OF expires_at ON guild_trader_listings
-        WHEN NEW.expires_at IS NOT NULL AND datetime(NEW.expires_at) < datetime('now')
-        BEGIN
-            DELETE FROM guild_trader_listings WHERE id = NEW.id;
-        END;
-    """)
-
-    # Create helper function to generate uuid-like strings or use sequential keys since SQLite doesn't have native UUIDs
-    # ZeniMax game_item_id is unique, so we can use "item_ID" as the text PK id
-    print("Populating database...")
-    start_time = time.time()
-
-    # Prepare batch insert
-    insert_query = """
-    INSERT INTO items (id, game_item_id, name, item_type, category, subcategory, rarity, icon_url, metadata)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?);
-    """
-
-    batch_size = 5000
-    batch = []
-    inserted_count = 0
-
-    for item in items:
-        game_id = item["game_item_id"]
-        # Generate clean string PK, e.g., 'item-000120000'
-        uuid_id = f"item-{game_id:09d}"
-        
-        row = (
-            uuid_id,
-            game_id,
-            item["name"],
-            item["item_type"],
-            item["category"],
-            item["subcategory"],
-            item["rarity"],
-            item["icon_url"],
-            json.dumps(item["metadata"], ensure_ascii=False)
-        )
-        batch.append(row)
-
-        if len(batch) >= batch_size:
-            cursor.executemany(insert_query, batch)
-            inserted_count += len(batch)
-            print(f"   Inserted {inserted_count}/{total_items} items...")
-            batch = []
-
-    # Insert remaining records
-    if batch:
-        cursor.executemany(insert_query, batch)
-        inserted_count += len(batch)
-
-    # Commit changes and create indexes for performance
-    print("Creating indexes on search columns...")
-    cursor.execute("CREATE INDEX idx_game_item_id ON items(game_item_id);")
-    cursor.execute("CREATE INDEX idx_category ON items(category);")
-    cursor.execute("CREATE INDEX idx_subcategory ON items(subcategory);")
-    cursor.execute("CREATE INDEX idx_item_type ON items(item_type);")
-    
-    conn.commit()
-    elapsed = time.time() - start_time
-    print(f"\nSuccessfully populated database in {elapsed:.2f} seconds!")
-
-    # Verify database count
-    cursor.execute("SELECT count(*) FROM items;")
-    db_count = cursor.fetchone()[0]
-    print(f"Verification: SQLite database table 'items' contains {db_count} records.")
-
-    conn.close()
 
 if __name__ == "__main__":
-    populate_database()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input", default=DEFAULT_JSON_PATH, help="Path to the UESP catalog JSON export.")
+    parser.add_argument("--db", default=DEFAULT_DB_PATH, help="Path to the SQLite application database.")
+    args = parser.parse_args()
+    populate_database(os.path.abspath(args.input), os.path.abspath(args.db))

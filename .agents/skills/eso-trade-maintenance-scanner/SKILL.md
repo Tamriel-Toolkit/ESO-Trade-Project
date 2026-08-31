@@ -29,7 +29,7 @@ Use this skill whenever asked to "audit the codebase", "scan for bugs or technic
 
 When evaluating the codebase, verify that all systems strictly comply with [`.agents/AGENTS.md`](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/AGENTS.md):
 
-1. **100% Data Authenticity**: Synthetic or hallucinated listings/guild names (e.g. `Möad Mërchants`) are strictly forbidden. All price and listing data must originate from official TTC `PriceTableNA.lua` archives, in-game `ESOTrade` addon scans, or Playwright web extractions.
+1. **100% Data Authenticity**: Synthetic or hallucinated listings/guild names are strictly forbidden. Static catalog data comes from UESP; live listing observations come only from native `ESOTrade` addon scans.
 2. **Search Criteria Guarantee**: If an active guild trader listing exists in the database, any user searching via name or category filter MUST be able to view it instantly.
 3. **ZOS TOS Compliance**: The in-game Lua addon (`ESOTrade.lua`) must strictly use official ESO API hooks (`EVENT_TRADING_HOUSE_RESPONSE_RECEIVED`). No memory manipulation, DLL injection, or direct network calls inside Lua.
 4. **Data Pipeline Integrity**: The catalog consists of 155,476 authentic items from UESP. Dynamic queries must use parameterized SQL (`?` placeholders).
@@ -46,7 +46,7 @@ Perform systematic static analysis and code reviews across the five key subsyste
   - Verify session token expiration, revocation on `/api/auth/logout`, and bcrypt password hashing.
   - Check for broken access control / IDOR (e.g., mutating endpoints silently defaulting to `userId = 1` or unauthenticated deletes).
 - **Mutating Endpoint Guards**:
-  - Verify that all data synchronization (`/api/prices/sync`, `/api/listings/sync`, `/api/characters/sync`, `/api/inventory/sync`, `/api/watchlist`) enforce authentication headers.
+  - Verify that all data synchronization (`/api/listings/sync`, `/api/characters/sync`, `/api/inventory/sync`, `/api/watchlist`) enforce authentication headers.
   - Check that development debugging endpoints (`/api/dev/*`) are strictly disabled in production.
 - **Error Handling & Process Stability**:
   - Check for missing `pyProcess.on("error")` event listeners on spawned child processes.
@@ -54,15 +54,15 @@ Perform systematic static analysis and code reviews across the five key subsyste
   - Check for Express error handling middleware (`app.use((err, req, res, next) => ...)`).
 - **Network & Middleware Configuration**:
   - Verify `dotenv` initialization at server startup.
-  - Check rate limiting coverage across high-frequency and CPU-intensive scraping endpoints.
+  - Check rate limiting coverage across high-frequency upload endpoints.
   - Check for HTTP security headers (`helmet`), `trust proxy` configuration, and CORS origin restrictions.
 
 ### 2. Python Data Pipeline (`backend/data-pipeline/*.py`)
-- **Parsing & Lua Extractions** (`parse_esotrade_addon.py`, `live_trader_extractor.py`):
+- **Parsing & Lua Extractions** (`parse_esotrade_addon.py`):
   - Check for regex parsing gaps on jewelry traits, weapon enchantments, quality ranks, and set names.
   - Look for silent exception swallowing (`except Exception: pass`) that hides network or parser failures.
   - Verify that SSL certificate verification is enabled on outbound network requests (`verify=True`).
-- **Filesystem Daemon & Synchronization** (`watcher.py`, `auto_live_ingest.py`):
+- **Filesystem Daemon & Synchronization** (`watcher.py`):
   - Check for race conditions when `SavedVariables/ESOTrade.lua` is being written concurrently by ESO.
   - Verify backoff and retry logic on API upload failures (`POST /api/market/upload-scans`).
   - Verify that auth tokens are passed via HTTP headers rather than URL query parameters.

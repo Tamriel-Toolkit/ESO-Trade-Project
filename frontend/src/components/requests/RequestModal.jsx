@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { 
   X, 
   Hammer, 
@@ -6,15 +6,14 @@ import {
   Search, 
   Coins, 
   Sparkles, 
-  AlertCircle, 
-  Check, 
-  ShieldAlert,
+  AlertCircle,
   Loader2,
   Package
 } from "lucide-react";
 import { createTradeRequest, fetchCraftableSets, apiFetch } from "../../api/api";
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "@/components/theme-provider";
+import { getEsoIconUrl } from "@/lib/utils";
 
 function getItemSetName(item, setsList = []) {
   if (!item) return null;
@@ -150,7 +149,6 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
 
   // Financials & Delivery
   const [offeredGold, setOfferedGold] = useState("");
-  const [suggestedPrice, setSuggestedPrice] = useState(0);
   const [deliveryNotes, setDeliveryNotes] = useState("");
   const [inGameHandle, setInGameHandle] = useState("");
 
@@ -191,34 +189,6 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
-
-  // Fetch suggested market price when item is selected
-  useEffect(() => {
-    if (!selectedItem) {
-      setSuggestedPrice(0);
-      return;
-    }
-
-    const fetchPrice = async () => {
-      try {
-        const res = await apiFetch(
-          `/api/market/prices?search=${encodeURIComponent(selectedItem.name)}&server=${server}&limit=1`
-        );
-        if (res.ok) {
-          const data = await res.json();
-          if (data.items && data.items.length > 0) {
-            setSuggestedPrice(data.items[0].suggested_price || 0);
-          } else {
-            setSuggestedPrice(0);
-          }
-        }
-      } catch (e) {
-        console.error("Price check failed:", e);
-      }
-    };
-
-    fetchPrice();
-  }, [selectedItem, server]);
 
   if (!isOpen) return null;
 
@@ -315,7 +285,6 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
         level_req: levelType === "CP160" ? 50 : 50,
         cp_req: levelType === "CP160" ? 160 : 0,
         offered_gold_price: gold,
-        suggested_price: suggestedPrice,
         delivery_notes: deliveryNotes.trim()
       };
 
@@ -382,7 +351,7 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
                 <div className="flex items-center gap-3">
                   <div className="size-11 bg-black/50 border border-[#2a2c33] p-1 flex items-center justify-center shrink-0">
                     {selectedItem.icon_url ? (
-                      <img src={selectedItem.icon_url} alt="" className="size-full object-contain" />
+                      <img src={getEsoIconUrl(selectedItem.icon_url)} alt="" className="size-full object-contain" />
                     ) : (
                       <Package className="size-5 text-[#c5a059]" />
                     )}
@@ -442,7 +411,7 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
                       >
                         <div className="flex items-center gap-2.5">
                           <img
-                            src={item.icon_url}
+                            src={getEsoIconUrl(item.icon_url)}
                             alt=""
                             className="size-7 object-contain bg-black/40 p-0.5 border border-[#2a2c33]"
                             onError={(e) => { e.target.style.display = "none"; }}
@@ -659,11 +628,6 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
                 <span className="font-mono text-xl font-extrabold text-[#e6c278] block">
                   {((parseInt(offeredGold, 10) || 0) * (quantity || 1)).toLocaleString()}g
                 </span>
-                {suggestedPrice > 0 && (
-                  <span className="text-[10px] text-muted-foreground font-mono">
-                    TTC Suggested: {(suggestedPrice * (quantity || 1)).toLocaleString()}g
-                  </span>
-                )}
               </div>
             </div>
           </div>

@@ -5,16 +5,13 @@ import {
   Clock, 
   Check, 
   X, 
-  Copy, 
-  ExternalLink, 
-  AlertCircle, 
-  ShieldAlert, 
-  Sparkles,
+  Copy,
   Coins,
   User,
   MessageSquare
 } from "lucide-react";
 import { EsoTooltip } from "../ui/tooltip";
+import { getEsoIconUrl } from "@/lib/utils";
 
 const RARITY_COLORS = {
   1: "border-gray-500 text-gray-300",
@@ -101,32 +98,8 @@ export function RequestCard({
   const rarityClass = RARITY_COLORS[quality] || RARITY_COLORS[1];
   const rarityBg = RARITY_BG[quality] || RARITY_BG[1];
 
-  // Price Guidance Calculation
   const offeredGold = request.offered_gold_price || 0;
-  const suggestedPrice = request.current_suggested_price || request.suggested_price || 0;
   const totalPrice = offeredGold * (request.quantity || 1);
-  const totalSuggested = suggestedPrice * (request.quantity || 1);
-
-  let priceIndicator = null;
-  if (suggestedPrice > 0 && offeredGold > 0) {
-    const ratio = offeredGold / suggestedPrice;
-    if (ratio >= 1.25) {
-      priceIndicator = {
-        label: `High Bounty (+${Math.round((ratio - 1) * 100)}%)`,
-        className: "text-emerald-400 bg-emerald-950/40 border-emerald-500/30"
-      };
-    } else if (ratio <= 0.6) {
-      priceIndicator = {
-        label: "Low Offer",
-        className: "text-red-400 bg-red-950/40 border-red-500/30"
-      };
-    } else {
-      priceIndicator = {
-        label: "Fair Market Offer",
-        className: "text-[#c5a059] bg-[#c5a059]/10 border-[#c5a059]/30"
-      };
-    }
-  }
 
   return (
     <div className="bg-[#121218] border border-[#2a2c33] hover:border-[#c5a059]/50 transition-all flex flex-col justify-between relative overflow-hidden shadow-lg group">
@@ -194,7 +167,7 @@ export function RequestCard({
           <div className={`size-12 rounded-none border-2 shrink-0 flex items-center justify-center p-1 ${rarityClass} ${rarityBg}`}>
             {request.icon_url ? (
               <img
-                src={request.icon_url}
+                src={getEsoIconUrl(request.icon_url)}
                 alt={request.item_name}
                 className="size-full object-contain"
                 onError={(e) => {
@@ -274,22 +247,7 @@ export function RequestCard({
             </div>
           </div>
 
-          {priceIndicator && (
-            <span className={`px-2 py-0.5 border text-[10px] font-cinzel font-bold uppercase tracking-wider ${priceIndicator.className}`}>
-              {priceIndicator.label}
-            </span>
-          )}
         </div>
-
-        {/* Suggested Market Price Callout */}
-        {suggestedPrice > 0 && (
-          <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-1 border-t border-[#2a2c33]/50">
-            <span>TTC Suggested Value:</span>
-            <span className="font-mono text-[#a89f91]">
-              {(totalSuggested || 0).toLocaleString()}g
-            </span>
-          </div>
-        )}
 
         {/* Buyer & Claim Info */}
         <div className="pt-2 border-t border-[#2a2c33] flex flex-col gap-1.5 text-xs">

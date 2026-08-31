@@ -247,7 +247,7 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
         total_price = int(price_m.group(1)) if price_m else None
         qty = int(qty_m.group(1)) if qty_m else 1
         guild = guild_m.group(1).strip() if guild_m else "Local Guild Trader"
-        location = loc_m.group(1).strip() if loc_m else "Tamriel Trader Kiosk"
+        location = loc_m.group(1).strip() if loc_m else "Guild Trader"
         seller = seller_m.group(1).strip() if seller_m else "@Unknown"
         level = int(level_m.group(1)) if level_m else 1
         quality = int(qual_m.group(1)) if qual_m else 1
@@ -362,7 +362,7 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                     item_name = COALESCE(excluded.item_name, item_name),
                     active_stacks = excluded.active_stacks,
                     discovered_at = CURRENT_TIMESTAMP,
-                    location = CASE WHEN excluded.location != 'Tamriel Trader Kiosk' AND excluded.location != 'Guild Trader' THEN excluded.location ELSE location END,
+                    location = CASE WHEN excluded.location != 'Guild Trader' THEN excluded.location ELSE location END,
                     expires_at = COALESCE(excluded.expires_at, expires_at);
             """, (item["game_item_id"], item.get("item_name"), server, item.get("seller_name", "@Unknown"), item["price"], item["quantity"], item.get("active_stacks", 1), item["guild_name"], item["location"], item["level"], item["quality"], item["trait_id"], item["expires_at"]))
             affected_ids.add(item["game_item_id"])
@@ -546,34 +546,6 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                             })
                     if synced_traits_count > 0:
                         print(f"Synced {synced_traits_count} trait research records for '{player_name}'!")
-
-        # Recalculate real-time market prices
-        for item_id in affected_ids:
-            cursor.execute("""
-                SELECT price
-                FROM guild_trader_listings
-                WHERE game_item_id = ? AND server = ? AND price > 0
-                ORDER BY price ASC;
-            """, (item_id, server))
-            rows = cursor.fetchall()
-            if rows:
-                prices = [r[0] for r in rows]
-                min_p = prices[0]
-                max_p = prices[-1]
-                valid_p = [p for p in prices if p <= max(min_p * 3.5, 100)]
-                trimmed_avg = int(sum(valid_p) / len(valid_p))
-
-                cursor.execute("""
-                    INSERT INTO item_prices (game_item_id, server, min_price, max_price, avg_price, suggested_price, last_updated)
-                    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                    ON CONFLICT(game_item_id, server) DO UPDATE SET
-                        min_price = excluded.min_price,
-                        max_price = excluded.max_price,
-                        avg_price = excluded.avg_price,
-                        suggested_price = excluded.suggested_price,
-                        last_updated = CURRENT_TIMESTAMP;
-                """, (item_id, server, min_p, max_p, trimmed_avg, trimmed_avg))
-        conn.commit()
 
         # Push to central server API endpoint in 500-item chunks
         batch_size = 500

@@ -2,6 +2,8 @@
 backend/exports/items.json
 backend/exports/*.db
 backend/exports/*.db*
+backend/exports/icon-cache/*
+!backend/exports/icon-cache/.gitkeep
 *.bak
 
 # Ignore Node dependencies
@@ -18,4 +20,3 @@ node_modules/
 Thumbs.db
 __pycache__/
 *.pyc
-

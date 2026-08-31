@@ -29,7 +29,7 @@ Use this skill whenever asked to "find new feature ideas", "scan for UX/UI impro
 
 All feature proposals must strictly obey the core engineering rules in [`.agents/AGENTS.md`](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/AGENTS.md):
 
-1. **100% Data Authenticity**: Never propose synthetic, hallucinated, or placeholder market data generation. Every feature must use authentic TTC archives, crowdsourced in-game addon scans, or Playwright web extractions.
+1. **100% Data Authenticity**: Never propose synthetic, hallucinated, or placeholder market data generation. Static catalog features use UESP metadata; live market features use native ESOTrade addon scans or explicit user-entered gold values.
 2. **Search Criteria Guarantee**: If a listing exists in the database, users searching via name or category filters must discover it instantly.
 3. **ZOS TOS Compliance**: The in-game Lua addon (`ESOTrade.lua`) must only use official, read-only ESO API hooks (`EVENT_TRADING_HOUSE_RESPONSE_RECEIVED`). No memory injection, direct network calls in Lua, or automation of gameplay actions.
 4. **Security & Parameterized SQL**: Dynamic queries must use parameterized SQL (`?` placeholders). Never propose unparameterized string concatenation for queries.
@@ -46,7 +46,7 @@ Systematically explore opportunities across four core pillars:
   - Undervalued items alerting and "Sniping" feeds for fast-selling items.
   - Price deviation sparklines and historical price trend charts (7d, 30d, 90d).
 - **Guild Trader Geography & Routing**:
-  - Interactive Tamriel Trader Hub Map (Grahtwood, Deshaan, Stormhaven, Vvardenfell, Craglorn).
+  - Interactive ESO Guild Trader Hub Map (Grahtwood, Deshaan, Stormhaven, Vvardenfell, Craglorn).
   - Location-based shopping lists ("What should I buy while visiting Rawl'kha?").
   - Kiosk price heatmaps identifying the cheapest trading hubs for specific item types.
 - **Want-To-Buy (WTB) & Want-To-Sell (WTS) Commerce**:
