@@ -4,8 +4,8 @@ import { Bookmark, LogIn, Pin, Plus, Search, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-function describeFilters(filters = {}) {
-  const scope = [filters.platform, filters.server, filters.view === "listings" ? "Listings" : "Prices"]
+function describeFilters(filters = {}, fallbackSearch = "") {
+  const scope = [filters.platform, filters.server, "Live listings"]
     .filter(Boolean)
     .join(" · ");
   const details = [
@@ -20,7 +20,11 @@ function describeFilters(filters = {}) {
 
   return {
     scope,
-    details: details.length ? details.slice(0, 3).join(" · ") : "All marketplace items",
+    details: details.length
+      ? details.slice(0, 3).join(" · ")
+      : fallbackSearch
+        ? `“${fallbackSearch}”`
+        : "All active listings",
   };
 }
 
@@ -121,16 +125,19 @@ export default function SavedSearchesCard({
           <>
             <form onSubmit={handleSubmit} className="space-y-2">
               <label htmlFor={nameInputId} className="text-[10px] font-cinzel font-bold uppercase tracking-widest text-[#a89f91]">
-                Save current filters
+                Save filters or item search
               </label>
               <input
                 id={nameInputId}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 maxLength={80}
-                placeholder="e.g. Vivec gold tempers"
+                placeholder="Item or preset name (e.g. lockpick)"
                 className="h-9 w-full rounded-none border border-[#2a2c33] bg-[#0a0a0d] px-3 text-xs text-[#e0d8c3] outline-none placeholder:text-[#625d55] focus:border-[#c5a059] focus:ring-2 focus:ring-[#c5a059]/20"
               />
+              <p className="text-[10px] leading-relaxed text-[#625d55]">
+                With no filters selected, this name becomes the live item search.
+              </p>
               <Button
                 type="submit"
                 size="sm"
@@ -176,7 +183,7 @@ export default function SavedSearchesCard({
               ) : (
                 <ul className="max-h-[28rem] space-y-2 overflow-y-auto pr-1">
                   {searches.map((search) => {
-                    const description = describeFilters(search.filter_params);
+                    const description = describeFilters(search.filter_params, search.name);
                     return (
                       <li key={search.id} className="border border-[#2a2c33] bg-[#0a0a0d] p-3 hover:border-[#c5a059]/50">
                         <div className="flex items-start justify-between gap-2">
