@@ -943,7 +943,85 @@ async function runTests() {
         }
         console.log(`   Requests feed query verified: ${feedRes.data.requests.length} requests returned!`);
 
-        console.log("\nAll 54 API endpoint test suites passed successfully!");
+        console.log("\n55. Testing authenticated saved-search lifecycle and ownership guards...");
+        const unauthSavedSearches = await httpGet('/api/saved-searches');
+        if (unauthSavedSearches.status !== 401) {
+            throw new Error(`Expected 401 for unauthenticated saved searches, got ${unauthSavedSearches.status}`);
+        }
+
+        const invalidSavedSearch = await httpPost('/api/saved-searches', {
+            name: "",
+            filter_params: { server: "NA" }
+        }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
+        if (invalidSavedSearch.status !== 400) {
+            throw new Error(`Expected 400 for unnamed saved search, got ${invalidSavedSearch.status}`);
+        }
+
+        const createSavedSearchRes = await httpPost('/api/saved-searches', {
+            name: "Vivec gold tempers",
+            filter_params: {
+                server: "NA",
+                platform: "PC",
+                view: "listings",
+                category: "Materials",
+                subcategory: "Upgrade Temper",
+                location: "Vvardenfell",
+                deals_only: true,
+                unsupported_filter: "must not persist"
+            }
+        }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
+        if (createSavedSearchRes.status !== 201 || !createSavedSearchRes.data.saved_search?.id) {
+            throw new Error(`Expected 201 creating saved search, got ${JSON.stringify(createSavedSearchRes.data)}`);
+        }
+        const savedSearchId = createSavedSearchRes.data.saved_search.id;
+        if (createSavedSearchRes.data.saved_search.filter_params.unsupported_filter !== undefined) {
+            throw new Error("Saved-search filter allowlist did not remove an unsupported key.");
+        }
+
+        const ownerSavedSearches = await httpGet('/api/saved-searches', {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (ownerSavedSearches.status !== 200 || ownerSavedSearches.data.saved_searches.length !== 1) {
+            throw new Error(`Owner could not retrieve saved search: ${JSON.stringify(ownerSavedSearches.data)}`);
+        }
+
+        const otherUserSavedSearches = await httpGet('/api/saved-searches', {
+            'Authorization': `Bearer ${user2BypassRes.data.token}`
+        });
+        if (otherUserSavedSearches.status !== 200 || otherUserSavedSearches.data.saved_searches.length !== 0) {
+            throw new Error(`Saved searches leaked across accounts: ${JSON.stringify(otherUserSavedSearches.data)}`);
+        }
+
+        const forbiddenPin = await httpPatch(`/api/saved-searches/${savedSearchId}/pin`, { is_pinned: true }, {
+            'Authorization': `Bearer ${user2BypassRes.data.token}`
+        });
+        if (forbiddenPin.status !== 404) {
+            throw new Error(`Expected 404 when another account pins a saved search, got ${forbiddenPin.status}`);
+        }
+
+        const pinSavedSearchRes = await httpPatch(`/api/saved-searches/${savedSearchId}/pin`, { is_pinned: true }, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (pinSavedSearchRes.status !== 200 || pinSavedSearchRes.data.saved_search?.is_pinned !== true) {
+            throw new Error(`Owner could not pin saved search: ${JSON.stringify(pinSavedSearchRes.data)}`);
+        }
+
+        const forbiddenSavedSearchDelete = await httpDelete(`/api/saved-searches/${savedSearchId}`, {
+            'Authorization': `Bearer ${user2BypassRes.data.token}`
+        });
+        if (forbiddenSavedSearchDelete.status !== 404) {
+            throw new Error(`Expected 404 when another account deletes a saved search, got ${forbiddenSavedSearchDelete.status}`);
+        }
+
+        const deleteSavedSearchRes = await httpDelete(`/api/saved-searches/${savedSearchId}`, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (deleteSavedSearchRes.status !== 200 || !deleteSavedSearchRes.data.success) {
+            throw new Error(`Owner could not delete saved search: ${JSON.stringify(deleteSavedSearchRes.data)}`);
+        }
+        console.log("   Saved-search create/list/pin/delete behavior and cross-account isolation verified!");
+
+        console.log("\nAll 55 API endpoint test suites passed successfully!");
     } catch (err) {
         console.error("API test failed:", err);
         process.exitCode = 1;

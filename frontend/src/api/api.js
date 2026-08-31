@@ -162,6 +162,54 @@ export async function purgeExpiredListings() {
 }
 
 // ============================================================================
+// AUTHENTICATED MARKETPLACE SAVED SEARCHES
+// ============================================================================
+
+export async function fetchSavedSearches() {
+    try {
+        const response = await apiFetch('/api/saved-searches');
+        return await safeJsonResponse(response, 'Unable to load saved searches.');
+    } catch (error) {
+        return { success: false, saved_searches: [], error: error.message };
+    }
+}
+
+export async function createSavedSearch(name, filterParams) {
+    try {
+        const response = await apiFetch('/api/saved-searches', {
+            method: 'POST',
+            body: JSON.stringify({ name, filter_params: filterParams })
+        });
+        return await safeJsonResponse(response, 'Unable to save this search.');
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function setSavedSearchPinned(searchId, isPinned) {
+    try {
+        const response = await apiFetch(`/api/saved-searches/${searchId}/pin`, {
+            method: 'PATCH',
+            body: JSON.stringify({ is_pinned: isPinned })
+        });
+        return await safeJsonResponse(response, 'Unable to update this saved search.');
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+export async function deleteSavedSearch(searchId) {
+    try {
+        const response = await apiFetch(`/api/saved-searches/${searchId}`, {
+            method: 'DELETE'
+        });
+        return await safeJsonResponse(response, 'Unable to delete this saved search.');
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+}
+
+// ============================================================================
 // AUTHENTICATION & DEV ACCOUNTS API HELPERS
 // ============================================================================
 

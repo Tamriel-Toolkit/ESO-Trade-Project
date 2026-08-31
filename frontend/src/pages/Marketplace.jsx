@@ -10,14 +10,13 @@ import {
   Zap,
   Info,
   Trash2,
-  ChevronRight,
-  Filter,
   Layers,
   Copy,
   Check,
   DollarSign,
   Compass,
-  Clock
+  Clock,
+  Bookmark
 } from "lucide-react";
 
 import {
@@ -48,9 +47,20 @@ import {
 
 import { useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/ui/navbar";
+import SavedSearchesCard, { PinnedSearchChips } from "@/components/SavedSearchesCard";
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/context/AuthContext";
-import { fetchTaxonomy, fetchMarketListings, fetchMarketPrices, extractLiveListings, clearAllListings } from "@/api/api";
+import {
+  fetchTaxonomy,
+  fetchMarketListings,
+  fetchMarketPrices,
+  extractLiveListings,
+  clearAllListings,
+  fetchSavedSearches,
+  createSavedSearch,
+  setSavedSearchPinned,
+  deleteSavedSearch
+} from "@/api/api";
 import { cleanEsoText, renderEsoFormattedText, getEsoIconUrl } from "@/lib/utils";
 
 const DEAL_THRESHOLD = 1.2;
@@ -124,7 +134,7 @@ const formatLastSeen = (timestamp) => {
 };
 
 function Marketplace() {
-  const { serverLocation, platform } = useTheme();
+  const { serverLocation, setServerLocation, platform, setPlatform } = useTheme();
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -142,6 +152,11 @@ function Marketplace() {
   const [sortOption, setSortOption] = useState(searchParams.get("sort") || "value_index");
   const [dealsOnly, setDealsOnly] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [savedSearches, setSavedSearches] = useState([]);
+  const [savedSearchesLoading, setSavedSearchesLoading] = useState(false);
+  const [savedSearchesMutating, setSavedSearchesMutating] = useState(false);
+  const [savedSearchMessage, setSavedSearchMessage] = useState(null);
+  const [savedSearchDrawerOpen, setSavedSearchDrawerOpen] = useState(false);
 
   // Sync URL search parameters on change
   useEffect(() => {
@@ -176,6 +191,67 @@ function Marketplace() {
       if (data) setTaxonomy(data);
     });
   }, []);
+
+  const currentSavedSearchFilters = useMemo(() => ({
+    server: serverLocation,
+    platform,
+    view: viewMode,
+    search: searchQuery,
+    category: selectedCategory,
+    subcategory: selectedSubcategory,
+    trait: selectedTrait,
+    rarity: selectedRarity,
+    location: selectedHubLocation,
+    max_age: selectedMaxAge,
+    sort: sortOption,
+    deals_only: dealsOnly,
+  }), [
+    serverLocation,
+    platform,
+    viewMode,
+    searchQuery,
+    selectedCategory,
+    selectedSubcategory,
+    selectedTrait,
+    selectedRarity,
+    selectedHubLocation,
+    selectedMaxAge,
+    sortOption,
+    dealsOnly,
+  ]);
+
+  useEffect(() => {
+    let isActive = true;
+    if (!user?.id) {
+      setSavedSearches([]);
+      setSavedSearchMessage(null);
+      return undefined;
+    }
+
+    setSavedSearchesLoading(true);
+    fetchSavedSearches().then((result) => {
+      if (!isActive) return;
+      if (result.success) {
+        setSavedSearches(result.saved_searches || []);
+      } else {
+        setSavedSearchMessage({ type: "error", text: result.error || "Unable to load saved searches." });
+      }
+      setSavedSearchesLoading(false);
+    });
+
+    return () => {
+      isActive = false;
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (!savedSearchDrawerOpen) return undefined;
+    const handleEscape = (event) => {
+      if (event.key === "Escape") setSavedSearchDrawerOpen(false);
+    };
+    window.addEventListener("keydown", handleEscape);
+    return () => window.removeEventListener("keydown", handleEscape);
+  }, [savedSearchDrawerOpen]);
 
   // Fetch Market Data when filters/server/page change
   useEffect(() => {
@@ -250,6 +326,93 @@ function Marketplace() {
     setDealsOnly(false);
     setCurrentPage(1);
     setSelectedItem(null);
+  };
+
+  const handleSaveSearch = async (name) => {
+    if (!user) {
+      navigate('/login', { state: { from: { pathname: '/marketplace' } } });
+      return false;
+    }
+
+    setSavedSearchesMutating(true);
+    setSavedSearchMessage(null);
+    const result = await createSavedSearch(name.trim(), currentSavedSearchFilters);
+    if (result.success && result.saved_search) {
+      setSavedSearches((current) => [result.saved_search, ...current]);
+      setSavedSearchMessage({ type: "success", text: `Saved “${result.saved_search.name}”.` });
+      setSavedSearchesMutating(false);
+      return true;
+    }
+
+    setSavedSearchMessage({ type: "error", text: result.error || "Unable to save this search." });
+    setSavedSearchesMutating(false);
+    return false;
+  };
+
+  const handleApplySavedSearch = (savedSearch) => {
+    const filters = savedSearch.filter_params || {};
+    const nextView = filters.view === "listings" ? "listings" : "prices";
+    setServerLocation(filters.server === "EU" ? "EU" : "NA");
+    setPlatform(["PC", "Xbox", "PlayStation"].includes(filters.platform) ? filters.platform : "PC");
+    setViewMode(nextView);
+    setSearchQuery(filters.search || "");
+    setSelectedCategory(filters.category || "");
+    setSelectedSubcategory(filters.subcategory || "");
+    setSelectedTrait(filters.trait || "");
+    setSelectedRarity(filters.rarity || "");
+    setSelectedHubLocation(filters.location || "");
+    setSelectedMaxAge(filters.max_age || "");
+    setSortOption(filters.sort || (nextView === "listings" ? "value_index" : "suggested_desc"));
+    setDealsOnly(nextView === "listings" && filters.deals_only === true);
+    setCurrentPage(1);
+    setSelectedItem(null);
+    setSavedSearchDrawerOpen(false);
+    setSavedSearchMessage({ type: "success", text: `Applied “${savedSearch.name}”.` });
+  };
+
+  const handleToggleSavedSearchPin = async (savedSearch) => {
+    setSavedSearchesMutating(true);
+    setSavedSearchMessage(null);
+    const result = await setSavedSearchPinned(savedSearch.id, !savedSearch.is_pinned);
+    if (result.success && result.saved_search) {
+      setSavedSearches((current) => current
+        .map((search) => search.id === savedSearch.id ? result.saved_search : search)
+        .sort((a, b) => Number(b.is_pinned) - Number(a.is_pinned) || b.id - a.id));
+      setSavedSearchMessage({
+        type: "success",
+        text: `${result.saved_search.is_pinned ? "Pinned" : "Unpinned"} “${result.saved_search.name}”.`,
+      });
+    } else {
+      setSavedSearchMessage({ type: "error", text: result.error || "Unable to update this saved search." });
+    }
+    setSavedSearchesMutating(false);
+  };
+
+  const handleDeleteSavedSearch = async (savedSearch) => {
+    if (!window.confirm(`Delete the saved search “${savedSearch.name}”?`)) return;
+    setSavedSearchesMutating(true);
+    setSavedSearchMessage(null);
+    const result = await deleteSavedSearch(savedSearch.id);
+    if (result.success) {
+      setSavedSearches((current) => current.filter((search) => search.id !== savedSearch.id));
+      setSavedSearchMessage({ type: "success", text: `Deleted “${savedSearch.name}”.` });
+    } else {
+      setSavedSearchMessage({ type: "error", text: result.error || "Unable to delete this saved search." });
+    }
+    setSavedSearchesMutating(false);
+  };
+
+  const savedSearchesCardProps = {
+    user,
+    searches: savedSearches,
+    isLoading: savedSearchesLoading,
+    isMutating: savedSearchesMutating,
+    message: savedSearchMessage,
+    onSave: handleSaveSearch,
+    onApply: handleApplySavedSearch,
+    onTogglePin: handleToggleSavedSearchPin,
+    onDelete: handleDeleteSavedSearch,
+    onLogin: () => navigate('/login', { state: { from: { pathname: '/marketplace' } } }),
   };
 
   const handleClearListings = async () => {
@@ -634,9 +797,24 @@ function Marketplace() {
         </NativeSelect>
       </div>
 
+      {user && (
+        <PinnedSearchChips searches={savedSearches} onApply={handleApplySavedSearch} />
+      )}
+
       {/* Filter Quick Tags & Deals Toggle */}
       <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setSavedSearchDrawerOpen(true)}
+            className="rounded-none border-[#c5a059]/40 bg-[#161620] text-[#d4af37] lg:hidden"
+          >
+            <Bookmark className="size-3.5" />
+            Saved Searches{savedSearches.length ? ` (${savedSearches.length})` : ""}
+          </Button>
+
           {viewMode === "listings" && (
             <Button
               variant={dealsOnly ? "default" : "outline"}
@@ -673,8 +851,29 @@ function Marketplace() {
         </div>
       </div>
 
+      {savedSearchDrawerOpen && (
+        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Saved searches">
+          <button
+            type="button"
+            onClick={() => setSavedSearchDrawerOpen(false)}
+            aria-label="Close saved searches"
+            className="absolute inset-0 cursor-default bg-black/75 backdrop-blur-sm"
+          />
+          <aside className="absolute inset-y-0 left-0 w-[min(90vw,24rem)] overflow-y-auto border-r border-[#c5a059]/40 bg-[#0a0a0d] p-3 shadow-2xl">
+            <SavedSearchesCard
+              {...savedSearchesCardProps}
+              onClose={() => setSavedSearchDrawerOpen(false)}
+            />
+          </aside>
+        </div>
+      )}
+
       {/* Main Grid & Detail Sidebar Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
+        <aside className="hidden lg:col-span-1 lg:block lg:self-start lg:sticky lg:top-4">
+          <SavedSearchesCard {...savedSearchesCardProps} />
+        </aside>
+
         {/* Listings / Prices Grid */}
         <div className={selectedItem ? "lg:col-span-2 space-y-4" : "lg:col-span-3 space-y-4"}>
           {isLoading ? (
