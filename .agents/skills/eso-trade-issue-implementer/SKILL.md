@@ -31,16 +31,10 @@ ESO-Trade-Project/
 │
 ├── backend/data-pipeline/     # Python ingestion scripts
 │   ├── fetch_and_ingest.py    # UESP API → items.json (master catalog)
-│   ├── populate_sqlite.py     # items.json → SQLite `items` table
-│   ├── fetch_market_data.py   # TTC Lua archives → `item_prices` table
-│   ├── live_trader_extractor.py  # Playwright scraper → `guild_trader_listings`
+│   ├── populate_sqlite.py     # items.json → safe SQLite `items` upserts
 │   ├── parse_esotrade_addon.py   # Native addon SavedVariables → DB + API sync
-│   ├── parse_saved_variables.py  # Legacy TTC SavedVariables → DB
-│   ├── auto_live_ingest.py    # Automated TTC zip download + ingest
-│   ├── watcher.py             # File-watching daemon (triggers parsers on change)
-│   ├── purge_synthetic_listings.py  # Data authenticity enforcer
+│   ├── watcher.py             # Watches only ESOTrade.lua
 │   ├── validate_items.py      # JSON schema validator
-│   ├── debug_diag.py          # Diagnostic regex parser tester
 │   ├── test_api_endpoints.js  # Integration tests (4 GET endpoints)
 │   ├── test_db_queries.py     # DB validation queries
 │   └── requirements.txt       # Python deps (requests, playwright, etc.)
@@ -83,7 +77,7 @@ These rules come from `.agents/AGENTS.md` and override everything else:
 
 1. **100% Data Authenticity**: NEVER create synthetic listings, fake guild
    names, placeholder market data, or mock price generators. Every row in
-   `guild_trader_listings` and `item_prices` must trace to a real ESO source.
+   Every `guild_trader_listings` row must trace to a native ESOTrade addon scan.
 
 2. **Search Criteria Guarantee**: If a listing exists in the DB, a user
    searching by name or category filter MUST find it. Never silently drop
@@ -94,9 +88,10 @@ These rules come from `.agents/AGENTS.md` and override everything else:
    DLL injection, no direct network calls inside Lua. All network I/O
    happens via `watcher.py` on the desktop side.
 
-4. **Data Pipeline Integrity**: The catalog is 155,476 items from UESP.
-   Price data comes from official TTC `PriceTableNA.lua` archives.
-   Live listings come from in-game addon scans or Playwright web scraping.
+4. **Data Pipeline Integrity**: The catalog is 155,476 items from UESP and
+   contains static item identity, taxonomy, set metadata, and source icon paths.
+   Live listings come only from native ESOTrade addon scans. Browser icon
+   requests must go through the backend cache endpoint.
 
 ---
 
@@ -111,7 +106,6 @@ These rules come from `.agents/AGENTS.md` and override everything else:
 | `characters` | `id` (auto) | user_id, name, class, level, alliance, master_crafter_unlocked | `server.js` |
 | `knowledge` | (character_id, game_item_id) | is_known, learned_at | `server.js` |
 | `character_gear` | `id` (auto) | character_id, slot_id, item_name, quality, trait_id, set_name | `server.js` |
-| `item_prices` | (game_item_id, server) | avg_price, min_price, max_price, suggested_price | `server.js` |
 | `guild_trader_listings` | `id` (auto) | game_item_id, server, seller_name, price, quantity, guild_name, location, quality | `server.js` |
 | `watchlists` | (character_id, game_item_id) | target_price | `server.js` |
 | `user_inventory` | — | character_id, game_item_id, quantity | `server.js` |
@@ -393,4 +387,3 @@ Before completing an issue resolution turn, verify ALL of the following:
 - [ ] **Dedicated Git Branch created and pushed to `origin`**
 - [ ] **Draft Pull Request created on GitHub (`draft: true`) with issue linked**
 - [ ] **Master Tracking Issue #35 updated on GitHub with latest PR and unblocked status**
-

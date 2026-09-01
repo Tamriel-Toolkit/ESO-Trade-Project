@@ -109,29 +109,15 @@ export async function fetchMarketListings(params = {}) {
     }
 }
 
-export async function fetchMarketPrices(params = {}) {
+export async function fetchCatalogItems(params = {}) {
     try {
         const query = new URLSearchParams(params).toString();
-        const response = await apiFetch(`/api/market/prices?${query}`);
+        const response = await apiFetch(`/api/items?${query}`);
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         return await response.json();
     } catch (error) {
-        console.error('Error fetching market prices:', error);
+        console.error('Error fetching catalog items:', error);
         return { total: 0, items: [] };
-    }
-}
-
-export async function extractLiveListings(search, server = 'NA') {
-    try {
-        const response = await apiFetch('/api/market/listings/extract', {
-            method: 'POST',
-            body: JSON.stringify({ search, server })
-        });
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        return await response.json();
-    } catch (error) {
-        console.error('Error extracting live listings:', error);
-        return { success: false, count: 0, listings: [] };
     }
 }
 

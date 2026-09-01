@@ -138,12 +138,11 @@ async function runTests() {
         const taxRes = await httpGet('/api/taxonomy');
         console.log(`   Status: ${taxRes.status}, Categories found: ${Object.keys(taxRes.data).length}`);
 
-        console.log("\n2. Testing GET /api/market/prices?server=NA&limit=3...");
-        const priceRes = await httpGet('/api/market/prices?server=NA&limit=3');
-        console.log(`   Status: ${priceRes.status}, Total matches: ${priceRes.data.total}, Sample items returned: ${priceRes.data.items.length}`);
-        if (priceRes.data.items.length > 0) {
-            const item = priceRes.data.items[0];
-            console.log(`   Sample: '${item.item_name}' - Suggested: ${item.suggested_price}g (Avg: ${item.avg_price}g)`);
+        console.log("\n2. Testing full catalog route...");
+        const catalogRes = await httpGet('/api/items?limit=3');
+        console.log(`   Status: ${catalogRes.status}, Total catalog items: ${catalogRes.data.total}, Sample items returned: ${catalogRes.data.items.length}`);
+        if (catalogRes.status !== 200 || !Array.isArray(catalogRes.data.items)) {
+            throw new Error("Catalog route did not return an item collection.");
         }
 
         console.log("\n3. Testing GET /api/market/listings?server=NA&limit=3...");
@@ -151,12 +150,21 @@ async function runTests() {
         console.log(`   Status: ${listingRes.status}, Total matches: ${listingRes.data.total}, Sample listings returned: ${listingRes.data.listings.length}`);
         if (listingRes.data.listings.length > 0) {
             const l = listingRes.data.listings[0];
-            console.log(`   Sample Listing: '${l.item_name}' - Price: ${l.price}g | Suggested: ${l.suggested_price}g | Value Index: ${l.value_index.toFixed(2)}x | Guild: ${l.guild_name}`);
+            console.log(`   Sample Listing: '${l.item_name}' - Price: ${l.price}g | Observed average: ${l.observed_avg_price}g | Value Index: ${l.value_index.toFixed(2)}x | Guild: ${l.guild_name}`);
         }
 
         console.log("\n4. Testing GET /api/items?limit=2...");
         const itemsRes = await httpGet('/api/items?limit=2');
         console.log(`   Status: ${itemsRes.status}, Total catalog items: ${itemsRes.data.total}`);
+        const sampleIcon = itemsRes.data.items[0]?.icon_url || '/esoui/art/icons/gear_generic.dds';
+        const iconFilename = sampleIcon.split('/').pop().replace(/\.dds$/i, '.png');
+        const iconRes = await httpGet(`/api/icons/${iconFilename}`);
+        if (iconRes.status !== 200 || !String(iconRes.headers['content-type']).startsWith('image/')) {
+            throw new Error(`Local icon route failed with status ${iconRes.status}`);
+        }
+        if (!String(iconRes.headers['cache-control']).includes('max-age=')) {
+            throw new Error('Local icon response is missing cache headers.');
+        }
 
         console.log("\n5. Testing POST /api/market/listings/purge-expired...");
         const purgeRes = await httpPost('/api/market/listings/purge-expired');
@@ -168,7 +176,7 @@ async function runTests() {
         console.log("\n6. Testing POST /api/auth/register (bcrypt salted hashing)...");
         const testUser = {
             username: `BcryptTester_${Date.now()}`,
-            email: `tester_${Date.now()}@tamriel.trade`,
+            email: `tester_${Date.now()}@example.test`,
             password: "SecurePassword123!",
             eso_handle: `@BcryptTester`
         };
@@ -465,14 +473,9 @@ async function runTests() {
         }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
         const securedCharId = syncCharRes.data.character.id;
 
-        console.log("\n25. Testing POST /api/prices/sync authentication (expect 401 unauth, 200 auth)...");
-        const unauthPrices = await httpPost('/api/prices/sync', [{ game_item_id: 1129, avg_price: 500 }]);
-        if (unauthPrices.status !== 401) throw new Error(`Expected 401 for unauth prices/sync, got ${unauthPrices.status}`);
-        const authPrices = await httpPost('/api/prices/sync', [{ game_item_id: 1129, avg_price: 500 }], {
-            'Authorization': `Bearer ${bypassRes.data.token}`
-        });
-        if (authPrices.status !== 200) throw new Error(`Expected 200 for auth prices/sync, got ${authPrices.status}`);
-        console.log("   Prices sync auth & mutation verified!");
+        console.log("\n25. Testing retired aggregate sync route is unavailable...");
+        const retiredAggregateSync = await httpPost('/api/prices/sync', []);
+        if (retiredAggregateSync.status !== 404) throw new Error(`Expected 404 for retired aggregate sync route, got ${retiredAggregateSync.status}`);
 
         console.log("\n26. Testing POST /api/listings/sync authentication (expect 401 unauth, 200 auth)...");
         const unauthListings = await httpPost('/api/listings/sync', { server: "NA", listings: [] });
@@ -548,13 +551,12 @@ async function runTests() {
         if (authDelWatch.status !== 200) throw new Error(`Expected 200 for auth watchlist delete, got ${authDelWatch.status}`);
         console.log("   Watchlist delete auth & IDOR protection verified!");
 
-        console.log("\n32. Testing POST /api/market/listings/extract child process & input validation...");
-        const emptyExtract = await httpPost('/api/market/listings/extract', {});
-        if (emptyExtract.status !== 400) throw new Error(`Expected 400 for empty extract request, got ${emptyExtract.status}`);
-        const validExtract = await httpPost('/api/market/listings/extract', { search: "Mother's Sorrow", server: "NA" });
-        if (validExtract.status !== 200) throw new Error(`Expected 200 for valid extract request, got ${validExtract.status}`);
-        if (!validExtract.data.success) throw new Error(`Expected success=true from extract endpoint`);
-        console.log("   Scraper child process execution & validation verified without server crash!");
+        console.log("\n32. Testing retired market routes are unavailable...");
+        const retiredPriceRoute = await httpGet('/api/market/prices');
+        if (retiredPriceRoute.status !== 404) throw new Error(`Expected 404 for retired price route, got ${retiredPriceRoute.status}`);
+        const retiredExtractionRoute = await httpPost('/api/market/listings/extract', {});
+        if (retiredExtractionRoute.status !== 404) throw new Error(`Expected 404 for retired extraction route, got ${retiredExtractionRoute.status}`);
+        console.log("   Retired market routes verified unavailable without affecting server health!");
 
         console.log("\n33. Testing Helmet HTTP security headers...");
         const taxonomyRes = await httpGet('/api/taxonomy');

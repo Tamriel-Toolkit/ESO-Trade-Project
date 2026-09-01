@@ -112,7 +112,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose, onBuil
 
     const handleCopyZoneCommand = (zone, listings) => {
         const itemNames = listings.map(l => l.item_name).slice(0, 3).join(", ");
-        const text = `/say [Tamriel Trade Hub] Shopping at ${zone}: Looking for ${itemNames}`;
+        const text = `/say [ESO Trade Hub] Shopping at ${zone}: Looking for ${itemNames}`;
         navigator.clipboard.writeText(text);
         setCopiedZone(zone);
         setTimeout(() => setCopiedZone(null), 2500);

@@ -103,19 +103,68 @@ const batchUploadLimiter = rateLimit({
     message: { error: "Too many batch upload requests. Please slow down." }
 });
 
-const scraperLimiter = rateLimit({
-    windowMs: 5 * 60 * 1000, // 5 minutes
-    limit: 5, // 5 extraction requests per 5 minutes per IP
-    standardHeaders: true,
-    legacyHeaders: true,
-    skip: () => process.env.NODE_ENV === "test",
-    message: { error: "Scraper extraction rate limit exceeded. Please wait before triggering another live scan." }
-});
-
-let isScraperRunning = false;
-
 app.use("/api/", generalLimiter);
 app.use("/api/auth/", authLimiter);
+
+const iconCacheDirectory = path.join(__dirname, "exports", "icon-cache");
+const iconFallbackPath = path.join(__dirname, "assets", "item-icon-fallback.svg");
+const iconDownloads = new Map();
+const safeIconFilename = /^[A-Za-z0-9_-]+\.png$/;
+
+async function cacheCatalogIcon(filename) {
+    const cachedPath = path.join(iconCacheDirectory, filename);
+    try {
+        await fs.promises.access(cachedPath, fs.constants.R_OK);
+        return cachedPath;
+    } catch (_err) {
+        // Download below when the cache does not contain this icon yet.
+    }
+
+    if (!iconDownloads.has(filename)) {
+        const download = (async () => {
+            await fs.promises.mkdir(iconCacheDirectory, { recursive: true });
+            const sourceUrl = `https://esoicons.uesp.net/esoui/art/icons/${filename}`;
+            const response = await fetch(sourceUrl, { signal: AbortSignal.timeout(10000) });
+            const contentType = response.headers.get("content-type") || "";
+            if (!response.ok || !contentType.toLowerCase().startsWith("image/")) {
+                throw new Error(`Icon source returned HTTP ${response.status}.`);
+            }
+
+            const bytes = Buffer.from(await response.arrayBuffer());
+            if (bytes.length === 0 || bytes.length > 2 * 1024 * 1024) {
+                throw new Error("Icon response was empty or exceeded the 2 MB limit.");
+            }
+
+            const temporaryPath = `${cachedPath}.${process.pid}.${Date.now()}.tmp`;
+            await fs.promises.writeFile(temporaryPath, bytes, { flag: "wx" });
+            await fs.promises.rename(temporaryPath, cachedPath);
+            return cachedPath;
+        })().finally(() => iconDownloads.delete(filename));
+        iconDownloads.set(filename, download);
+    }
+
+    return iconDownloads.get(filename);
+}
+
+app.get("/api/icons/:filename", async (req, res) => {
+    const filename = req.params.filename;
+    if (!safeIconFilename.test(filename)) {
+        return res.status(400).json({ error: "Invalid icon filename." });
+    }
+
+    try {
+        const cachedPath = await cacheCatalogIcon(filename);
+        res.set("Cross-Origin-Resource-Policy", "cross-origin");
+        res.set("Cache-Control", "public, max-age=2592000, immutable");
+        return res.type("png").sendFile(cachedPath);
+    } catch (err) {
+        console.warn(`Using the local icon fallback for ${filename}: ${err.message}`);
+        res.set("Cross-Origin-Resource-Policy", "cross-origin");
+        res.set("Cache-Control", "public, max-age=300");
+        return res.type("svg").sendFile(iconFallbackPath);
+    }
+});
+
 // Database connection
 const dbPath = process.env.DB_PATH || path.join(__dirname, "exports", "eso_catalog.db");
 const db = new sqlite3.Database(dbPath, (err) => {
@@ -314,26 +363,6 @@ function initializeDatabaseSchema() {
         });
 
         db.run(`
-            CREATE TABLE IF NOT EXISTS item_prices (
-                game_item_id INTEGER,
-                server TEXT,
-                avg_price INTEGER,
-                min_price INTEGER,
-                max_price INTEGER,
-                suggested_price INTEGER,
-                last_updated TEXT DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (game_item_id, server),
-                FOREIGN KEY (game_item_id) REFERENCES items(game_item_id) ON DELETE CASCADE
-            );
-        `, (err) => {
-            if (err) {
-                console.error("Error creating 'item_prices' table:", err.message);
-            } else {
-                console.log("'item_prices' table initialized successfully.");
-            }
-        });
-
-        db.run(`
             CREATE TABLE IF NOT EXISTS guild_trader_listings (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 game_item_id INTEGER,
@@ -393,21 +422,18 @@ function initializeDatabaseSchema() {
             else console.log("'watchlists' table initialized successfully.");
         });
 
-        // Seed starter prices & listings (for clean test/CI environments)
-        db.run(`
-            INSERT OR IGNORE INTO item_prices (game_item_id, server, avg_price, min_price, max_price, suggested_price)
-            VALUES 
-                (97218, 'NA', 130000, 100000, 150000, 130000),
-                (97227, 'NA', 45000, 35000, 60000, 45000),
-                (150001, 'NA', 36, 20, 50, 36);
-        `);
+        // Remove the retired aggregate-price store while preserving native scan listings.
+        db.run("DROP TABLE IF EXISTS item_prices;");
 
-        db.run(`
-            INSERT OR IGNORE INTO guild_trader_listings (game_item_id, server, seller_name, price, quantity, active_stacks, guild_name, location, level, quality, trait_id)
-            VALUES 
-                (150001, 'NA', '@TraderJoe', 22, 1, 1, 'Scourge Alliance', 'Mournhold, Deshaan', 1, 2, 0),
-                (97227, 'NA', '@MageGuildMaster', 42000, 1, 1, 'Tamriel Merchants', 'Elden Root, Grahtwood', 50, 5, 3);
-        `);
+        // Deterministic fixtures are isolated to the automated test environment.
+        if (nodeEnv === "test") {
+            db.run(`
+                INSERT OR IGNORE INTO guild_trader_listings (game_item_id, server, seller_name, price, quantity, active_stacks, guild_name, location, level, quality, trait_id)
+                VALUES
+                    (150001, 'NA', '@TestSeller', 22, 1, 1, 'Test Trading Guild', 'Mournhold, Deshaan', 1, 2, 0),
+                    (97227, 'NA', '@TestSeller', 42000, 1, 1, 'Test Trading Guild', 'Elden Root, Grahtwood', 50, 5, 3);
+            `);
+        }
 
         // Migration columns for existing databases
         db.run("ALTER TABLE guild_trader_listings ADD COLUMN seller_name TEXT DEFAULT '@Unknown';", (err) => {});
@@ -504,57 +530,6 @@ function initializeDatabaseSchema() {
             else console.log("'character_trait_research' table initialized successfully.");
         });
 
-        // Check if trade_requests table needs 'COMPLETED' status constraint migration
-        db.get("SELECT sql FROM sqlite_master WHERE type='table' AND name='trade_requests'", (err, row) => {
-            if (row && row.sql && !row.sql.includes("'COMPLETED'")) {
-                console.log("Migrating trade_requests table to include 'COMPLETED' status constraint...");
-                db.serialize(() => {
-                    db.run("PRAGMA foreign_keys = OFF;");
-                    db.run("ALTER TABLE trade_requests RENAME TO _trade_requests_old;");
-                    db.run(`
-                        CREATE TABLE trade_requests (
-                            id INTEGER PRIMARY KEY AUTOINCREMENT,
-                            user_id INTEGER,
-                            request_type TEXT NOT NULL CHECK(request_type IN ('CRAFTING', 'WTB')),
-                            server TEXT NOT NULL DEFAULT 'NA' CHECK(server IN ('NA', 'EU')),
-                            buyer_character_id INTEGER,
-                            buyer_display_handle TEXT NOT NULL,
-                            game_item_id INTEGER NOT NULL,
-                            item_name TEXT NOT NULL,
-                            category TEXT,
-                            subcategory TEXT,
-                            quantity INTEGER DEFAULT 1,
-                            quality INTEGER DEFAULT 1 CHECK(quality BETWEEN 1 AND 5),
-                            trait_id INTEGER DEFAULT 0,
-                            trait_name TEXT,
-                            style_id INTEGER DEFAULT 0,
-                            style_name TEXT,
-                            set_name TEXT,
-                            level_req INTEGER DEFAULT 50,
-                            cp_req INTEGER DEFAULT 160,
-                            offered_gold_price INTEGER NOT NULL CHECK(offered_gold_price > 0),
-                            suggested_price INTEGER DEFAULT 0,
-                            delivery_notes TEXT,
-                            status TEXT NOT NULL DEFAULT 'OPEN' CHECK(status IN ('OPEN', 'IN_PROGRESS', 'COMPLETED', 'FULFILLED', 'CANCELLED', 'EXPIRED')),
-                            claimed_by_user_id INTEGER,
-                            claimed_by_handle TEXT,
-                            claimed_at TEXT,
-                            claim_expires_at TEXT,
-                            fulfilled_at TEXT,
-                            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                            expires_at TEXT NOT NULL,
-                            FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL,
-                            FOREIGN KEY (claimed_by_user_id) REFERENCES users(id) ON DELETE SET NULL,
-                            FOREIGN KEY (game_item_id) REFERENCES items(game_item_id)
-                        );
-                    `);
-                    db.run("INSERT INTO trade_requests SELECT * FROM _trade_requests_old;");
-                    db.run("DROP TABLE _trade_requests_old;");
-                    db.run("PRAGMA foreign_keys = ON;");
-                });
-            }
-        });
-
         // Structured Public Crafting & WTB Request Board Table
         db.run(`
             CREATE TABLE IF NOT EXISTS trade_requests (
@@ -578,7 +553,6 @@ function initializeDatabaseSchema() {
                 level_req INTEGER DEFAULT 50,
                 cp_req INTEGER DEFAULT 160,
                 offered_gold_price INTEGER NOT NULL CHECK(offered_gold_price > 0),
-                suggested_price INTEGER DEFAULT 0,
                 delivery_notes TEXT,
                 status TEXT NOT NULL DEFAULT 'OPEN' CHECK(status IN ('OPEN', 'IN_PROGRESS', 'COMPLETED', 'FULFILLED', 'CANCELLED', 'EXPIRED')),
                 claimed_by_user_id INTEGER,
@@ -594,7 +568,9 @@ function initializeDatabaseSchema() {
             );
         `, (err) => {
             if (err) console.error("Error creating 'trade_requests' table:", err.message);
-            else console.log("'trade_requests' table initialized successfully.");
+            else {
+                console.log("'trade_requests' table initialized successfully.");
+            }
         });
 
         // Drop old indexes and create robust seller compound unique index
@@ -636,9 +612,9 @@ function initializeDatabaseSchema() {
 }
 
 /**
- * Standard TTC Category order & query builders for backwards/forwards compatibility.
+ * Standard catalog category order and compatibility query builders.
  */
-const TTC_CATEGORY_ORDER = [
+const CATALOG_CATEGORY_ORDER = [
     "Weapons",
     "Apparel",
     "Jewelry",
@@ -695,7 +671,7 @@ function buildSubcategoryCondition(prefix, subcategory, conditions, params) {
 /**
  * GET /api/taxonomy
  * Returns all unique categories and subcategories currently in the database
- * matching the official Tamriel Trade Centre (TTC) standard categorization.
+ * using the normalized catalog categorization.
  */
 app.get("/api/taxonomy", (req, res) => {
     const query = "SELECT DISTINCT category, subcategory FROM items WHERE category IS NOT NULL ORDER BY category, subcategory;";
@@ -705,8 +681,8 @@ app.get("/api/taxonomy", (req, res) => {
         }
 
         const taxonomy = {};
-        // Seed categories in standard TTC ordering
-        TTC_CATEGORY_ORDER.forEach(cat => {
+        // Seed categories in the stable catalog order.
+        CATALOG_CATEGORY_ORDER.forEach(cat => {
             taxonomy[cat] = [];
         });
 
@@ -767,7 +743,7 @@ app.get("/api/items", (req, res) => {
         query += whereClause;
     }
 
-    query += " LIMIT ? OFFSET ?";
+    query += " ORDER BY name COLLATE NOCASE ASC LIMIT ? OFFSET ?";
     const queryParams = [...params, limit, offset];
 
     // Count total matches for pagination indicators
@@ -880,14 +856,14 @@ setTimeout(purgeExpiredListings, 2000);
 app.get("/api/status", async (req, res) => {
     try {
         const listingRow = await dbGet("SELECT COUNT(*) as count, MAX(discovered_at) as latest_scan FROM guild_trader_listings");
-        const priceRow = await dbGet("SELECT COUNT(*) as count FROM item_prices");
+        const catalogRow = await dbGet("SELECT COUNT(*) as count FROM items");
         const charRow = await dbGet("SELECT MAX(last_sync_at) as latest_char_sync FROM characters");
         
         res.json({
             success: true,
             status: "online",
             active_listings: listingRow ? listingRow.count : 0,
-            catalog_prices: priceRow ? priceRow.count : 0,
+            catalog_items: catalogRow ? catalogRow.count : 0,
             latest_scan_at: listingRow?.latest_scan || charRow?.latest_char_sync || null
         });
     } catch (err) {
@@ -1256,70 +1232,6 @@ app.get("/api/character/:character_id", async (req, res) => {
 });
 
 /**
- * POST /api/prices/sync
- * Batch upserts item prices. Runs in a transaction with chunked inserts.
- */
-app.post("/api/prices/sync", async (req, res) => {
-    const userId = await getAuthUserId(req);
-    if (!userId) {
-        return res.status(401).json({ error: "Authentication required to sync market prices." });
-    }
-
-    const prices = req.body;
-    if (!Array.isArray(prices)) {
-        return res.status(400).json({ error: "Expected an array of price objects." });
-    }
-    if (prices.length > 2000) {
-        return res.status(400).json({ error: "Batch size exceeds maximum limit of 2,000 price records per request." });
-    }
-
-    try {
-        await dbRun("BEGIN IMMEDIATE TRANSACTION");
-
-        const chunkSize = 150; // 150 items * 6 parameters = 900 parameters
-        for (let i = 0; i < prices.length; i += chunkSize) {
-            const chunk = prices.slice(i, i + chunkSize);
-            const placeholders = chunk.map(() => "(?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)").join(", ");
-            const sql = `
-                INSERT INTO item_prices (game_item_id, server, avg_price, min_price, max_price, suggested_price, last_updated)
-                VALUES ${placeholders}
-                ON CONFLICT(game_item_id, server) DO UPDATE SET
-                    avg_price = excluded.avg_price,
-                    min_price = excluded.min_price,
-                    max_price = excluded.max_price,
-                    suggested_price = excluded.suggested_price,
-                    last_updated = excluded.last_updated;
-            `;
-
-            const params = [];
-            chunk.forEach(item => {
-                params.push(
-                    parseInt(item.game_item_id, 10),
-                    item.server || "NA",
-                    item.avg_price ? parseInt(item.avg_price, 10) : null,
-                    item.min_price ? parseInt(item.min_price, 10) : null,
-                    item.max_price ? parseInt(item.max_price, 10) : null,
-                    item.suggested_price ? parseInt(item.suggested_price, 10) : null
-                );
-            });
-
-            await dbRun(sql, params);
-        }
-
-        await dbRun("COMMIT");
-        res.json({ success: true, count: prices.length });
-    } catch (err) {
-        try {
-            await dbRun("ROLLBACK");
-        } catch (rollbackErr) {
-            console.error("Rollback failed:", rollbackErr.message);
-        }
-        console.error("Error syncing prices:", err.message);
-        res.status(500).json({ error: err.message });
-    }
-});
-
-/**
  * POST /api/listings/sync
  * Batch upserts active guild trader listings (clear out-of-date listings first).
  */
@@ -1512,12 +1424,23 @@ app.get("/api/listings/personalized/:character_id", async (req, res) => {
                 i.subcategory AS item_subcategory,
                 i.rarity AS item_rarity,
                 i.metadata AS item_metadata,
-                ip.suggested_price,
-                ip.avg_price,
-                CASE WHEN gtl.price > 0 THEN CAST(ip.suggested_price AS REAL) / gtl.price ELSE 0 END AS value_index
+                obs.observed_min_price,
+                obs.observed_max_price,
+                obs.observed_avg_price,
+                obs.observed_listing_count,
+                CASE WHEN gtl.price > 0 THEN CAST(obs.observed_avg_price AS REAL) / gtl.price ELSE 0 END AS value_index
             FROM guild_trader_listings gtl
             JOIN items i ON gtl.game_item_id = i.game_item_id
-            LEFT JOIN item_prices ip ON gtl.game_item_id = ip.game_item_id AND gtl.server = ip.server
+            LEFT JOIN (
+                SELECT game_item_id, server,
+                       MIN(price) AS observed_min_price,
+                       MAX(price) AS observed_max_price,
+                       ROUND(AVG(price)) AS observed_avg_price,
+                       COUNT(*) AS observed_listing_count
+                FROM guild_trader_listings
+                WHERE price > 0
+                GROUP BY game_item_id, server
+            ) obs ON gtl.game_item_id = obs.game_item_id AND gtl.server = obs.server
             WHERE gtl.server = ? AND gtl.game_item_id NOT IN (
                 SELECT game_item_id 
                 FROM knowledge 
@@ -1550,7 +1473,7 @@ app.get("/api/listings/personalized/:character_id", async (req, res) => {
 
 /**
  * GET /api/watchlist/:character_id
- * Get all watchlisted items for a character, along with current average pricing.
+ * Get watchlisted items with current native listing observations.
  */
 app.get("/api/watchlist/:character_id", async (req, res) => {
     const characterId = parseInt(req.params.character_id, 10);
@@ -1575,11 +1498,22 @@ app.get("/api/watchlist/:character_id", async (req, res) => {
                 i.subcategory AS item_subcategory,
                 i.rarity AS item_rarity,
                 i.metadata AS item_metadata,
-                ip.avg_price,
-                ip.suggested_price
+                obs.observed_min_price,
+                obs.observed_max_price,
+                obs.observed_avg_price,
+                obs.observed_listing_count
             FROM watchlists w
             JOIN items i ON w.game_item_id = i.game_item_id
-            LEFT JOIN item_prices ip ON w.game_item_id = ip.game_item_id
+            LEFT JOIN (
+                SELECT game_item_id,
+                       MIN(price) AS observed_min_price,
+                       MAX(price) AS observed_max_price,
+                       ROUND(AVG(price)) AS observed_avg_price,
+                       COUNT(*) AS observed_listing_count
+                FROM guild_trader_listings
+                WHERE price > 0
+                GROUP BY game_item_id
+            ) obs ON w.game_item_id = obs.game_item_id
             WHERE w.character_id = ?;
         `;
         const rows = await dbAll(query, [characterId]);
@@ -1857,133 +1791,11 @@ const TRAIT_NAME_TO_IDS = {
     "harmony": [32]
 };
 
-/**
- * GET /api/market/prices
- * Query market prices joined with item metadata.
- * Supports filtering by search, category, subcategory, trait, server, min/max price.
- */
-app.get("/api/market/prices", async (req, res) => {
-    let { search, category, subcategory, rarity, trait, server, min_price, max_price, limit, offset, sort } = req.query;
-
-    limit = Math.min(parseInt(limit, 10) || 20, 100);
-    offset = Math.max(parseInt(offset, 10) || 0, 0);
-    const targetServer = server || "NA";
-
-    const conditions = ["ip.server = ?"];
-    const params = [targetServer];
-
-    if (search) {
-        conditions.push("i.name LIKE ?");
-        params.push(`%${search}%`);
-    }
-    if (category) {
-        buildCategoryCondition("i", category, conditions, params);
-    }
-    if (subcategory) {
-        buildSubcategoryCondition("i", subcategory, conditions, params);
-    }
-    if (rarity) {
-        conditions.push("i.rarity = ?");
-        params.push(parseInt(rarity, 10));
-    }
-    if (trait) {
-        const traitStr = trait.toString().trim();
-        const traitKey = traitStr.toLowerCase();
-        const matchedIds = TRAIT_NAME_TO_IDS[traitKey] || (!isNaN(parseInt(traitStr, 10)) ? [parseInt(traitStr, 10)] : []);
-        if (matchedIds.length > 0) {
-            const placeholders = matchedIds.map(() => '?').join(', ');
-            conditions.push(`(json_extract(i.metadata, '$.trait_id') IN (${placeholders}) OR json_extract(i.metadata, '$.trait') LIKE ? OR i.name LIKE ?)`);
-            params.push(...matchedIds, `%${traitStr}%`, `%${traitStr}%`);
-        } else {
-            conditions.push("(json_extract(i.metadata, '$.trait') LIKE ? OR i.name LIKE ?)");
-            params.push(`%${traitStr}%`, `%${traitStr}%`);
-        }
-    }
-    if (min_price) {
-        conditions.push("ip.suggested_price >= ?");
-        params.push(parseInt(min_price, 10));
-    }
-    if (max_price) {
-        conditions.push("ip.suggested_price <= ?");
-        params.push(parseInt(max_price, 10));
-    }
-
-    const whereClause = " WHERE " + conditions.join(" AND ");
-    
-    let orderBy = "ORDER BY ip.suggested_price DESC";
-    if (sort === "rarity_desc") orderBy = "ORDER BY i.rarity DESC, ip.suggested_price DESC";
-    if (sort === "rarity_asc") orderBy = "ORDER BY i.rarity ASC, ip.suggested_price ASC";
-    if (sort === "price_asc") orderBy = "ORDER BY ip.suggested_price ASC";
-    if (sort === "name_asc") orderBy = "ORDER BY i.name ASC";
-    if (sort === "avg_price_desc") orderBy = "ORDER BY ip.avg_price DESC";
-
-    try {
-        const countQuery = `
-            SELECT COUNT(*) as total
-            FROM item_prices ip
-            JOIN items i ON ip.game_item_id = i.game_item_id
-            ${whereClause}
-        `;
-        const countResult = await dbGet(countQuery, params);
-        const total = countResult ? countResult.total : 0;
-
-        const query = `
-            SELECT 
-                ip.game_item_id,
-                ip.server,
-                ip.avg_price,
-                ip.min_price,
-                ip.max_price,
-                ip.suggested_price,
-                ip.last_updated,
-                i.name AS item_name,
-                i.icon_url AS item_icon,
-                i.category AS item_category,
-                i.subcategory AS item_subcategory,
-                i.rarity AS item_rarity,
-                i.metadata AS item_metadata,
-                gtl.guild_name,
-                gtl.location,
-                gtl.price,
-                gtl.quantity
-            FROM item_prices ip
-            JOIN items i ON ip.game_item_id = i.game_item_id
-            LEFT JOIN (
-                SELECT game_item_id, server, guild_name, location, price, quantity,
-                       ROW_NUMBER() OVER(PARTITION BY game_item_id, server ORDER BY discovered_at DESC) as rn
-                FROM guild_trader_listings
-            ) gtl ON ip.game_item_id = gtl.game_item_id AND ip.server = gtl.server AND gtl.rn = 1
-            ${whereClause}
-            ${orderBy}
-            LIMIT ? OFFSET ?;
-        `;
-        const rows = await dbAll(query, [...params, limit, offset]);
-
-        const items = rows.map(row => {
-            try {
-                row.item_metadata = JSON.parse(row.item_metadata);
-            } catch (e) {
-                row.item_metadata = {};
-            }
-            return row;
-        });
-
-        res.json({
-            total,
-            limit,
-            offset,
-            server: targetServer,
-            items
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
 
 /**
  * GET /api/market/listings
- * Query active guild trader listings joined with item metadata and suggested prices.
- * Calculates value_index (suggested_price / price).
+ * Query native guild trader observations joined with item metadata.
+ * Calculates value_index from the average of observed listing prices.
  * Supports filtering by search, category, subcategory, rarity, trait, location, server, price range.
  * Supports sorting by value_index, rarity, price, newest, trait.
  */
@@ -2034,7 +1846,7 @@ app.get("/api/market/listings", async (req, res) => {
         params.push(parseInt(max_price, 10));
     }
     if (min_value_index) {
-        conditions.push("(CASE WHEN gtl.price > 0 THEN CAST(ip.suggested_price AS REAL) / gtl.price ELSE 0 END) >= ?");
+        conditions.push("(CASE WHEN gtl.price > 0 THEN CAST(obs.observed_avg_price AS REAL) / gtl.price ELSE 0 END) >= ?");
         params.push(parseFloat(min_value_index));
     }
     if (max_age) {
@@ -2062,7 +1874,13 @@ app.get("/api/market/listings", async (req, res) => {
             SELECT COUNT(*) as total
             FROM guild_trader_listings gtl
             JOIN items i ON gtl.game_item_id = i.game_item_id
-            LEFT JOIN item_prices ip ON gtl.game_item_id = ip.game_item_id AND gtl.server = ip.server
+            LEFT JOIN (
+                SELECT game_item_id, server,
+                       ROUND(AVG(price)) AS observed_avg_price
+                FROM guild_trader_listings
+                WHERE price > 0
+                GROUP BY game_item_id, server
+            ) obs ON gtl.game_item_id = obs.game_item_id AND gtl.server = obs.server
             ${whereClause}
         `;
         const countResult = await dbGet(countQuery, params);
@@ -2090,12 +1908,23 @@ app.get("/api/market/listings", async (req, res) => {
                 i.subcategory AS item_subcategory,
                 COALESCE(gtl.quality, i.rarity, 1) AS item_rarity,
                 i.metadata AS item_metadata,
-                ip.suggested_price,
-                ip.avg_price,
-                CASE WHEN gtl.price > 0 AND ip.suggested_price > 0 THEN CAST(ip.suggested_price AS REAL) / gtl.price ELSE 0 END AS value_index
+                obs.observed_min_price,
+                obs.observed_max_price,
+                obs.observed_avg_price,
+                obs.observed_listing_count,
+                CASE WHEN gtl.price > 0 AND obs.observed_avg_price > 0 THEN CAST(obs.observed_avg_price AS REAL) / gtl.price ELSE 0 END AS value_index
             FROM guild_trader_listings gtl
             JOIN items i ON gtl.game_item_id = i.game_item_id
-            LEFT JOIN item_prices ip ON gtl.game_item_id = ip.game_item_id AND gtl.server = ip.server
+            LEFT JOIN (
+                SELECT game_item_id, server,
+                       MIN(price) AS observed_min_price,
+                       MAX(price) AS observed_max_price,
+                       ROUND(AVG(price)) AS observed_avg_price,
+                       COUNT(*) AS observed_listing_count
+                FROM guild_trader_listings
+                WHERE price > 0
+                GROUP BY game_item_id, server
+            ) obs ON gtl.game_item_id = obs.game_item_id AND gtl.server = obs.server
             ${whereClause}
             ${orderBy}
             LIMIT ? OFFSET ?;
@@ -2124,85 +1953,6 @@ app.get("/api/market/listings", async (req, res) => {
     }
 });
 
-/**
- * POST /api/market/listings/extract
- * Triggers live extraction for a requested item name from TTC web portal.
- */
-app.post("/api/market/listings/extract", scraperLimiter, async (req, res) => {
-    const { search, server } = req.body;
-    if (!search || typeof search !== "string" || search.trim().length === 0) {
-        return res.status(400).json({ error: "search parameter is required." });
-    }
-
-    if (isScraperRunning) {
-        return res.status(409).json({
-            error: "A live market extraction job is already in progress. Please wait for it to complete.",
-            success: false
-        });
-    }
-
-    isScraperRunning = true;
-    const targetServer = server || "NA";
-    const { spawn } = require("child_process");
-    let hasResponded = false;
-
-    try {
-        const pyScript = path.join(__dirname, "data-pipeline", "live_trader_extractor.py");
-        const pyProcess = spawn("python", [pyScript, "--limit", "5"], {
-            env: process.env
-        });
-
-        pyProcess.on("error", (err) => {
-            isScraperRunning = false;
-            console.error(`[Scraper Error]: Failed to spawn child process: ${err.message}`);
-            if (!hasResponded) {
-                hasResponded = true;
-                res.status(500).json({
-                    error: `Failed to execute scraper process: ${err.message}`,
-                    success: false
-                });
-            }
-        });
-
-        pyProcess.on("close", async (code) => {
-            isScraperRunning = false;
-            if (hasResponded) return;
-            hasResponded = true;
-
-            console.log(`Live extraction process finished with code ${code}`);
-            try {
-                const query = `
-                    SELECT 
-                        gtl.id AS listing_id, gtl.game_item_id, gtl.server, gtl.price, gtl.quantity,
-                        gtl.guild_name, gtl.location, gtl.expires_at, gtl.discovered_at,
-                        COALESCE(gtl.item_name, i.name) AS item_name, i.icon_url AS item_icon, i.category AS item_category,
-                        i.subcategory AS item_subcategory, COALESCE(gtl.quality, i.rarity, 1) AS item_rarity, i.metadata AS item_metadata,
-                        ip.suggested_price, ip.avg_price,
-                        CASE WHEN gtl.price > 0 THEN CAST(ip.suggested_price AS REAL) / gtl.price ELSE 0 END AS value_index
-                    FROM guild_trader_listings gtl
-                    JOIN items i ON gtl.game_item_id = i.game_item_id
-                    LEFT JOIN item_prices ip ON gtl.game_item_id = ip.game_item_id AND gtl.server = ip.server
-                    WHERE gtl.server = ? AND (i.name LIKE ? OR gtl.item_name LIKE ?)
-                    ORDER BY value_index DESC, gtl.price ASC;
-                `;
-                const rows = await dbAll(query, [targetServer, `%${search}%`, `%${search}%`]);
-                const listings = rows.map(r => {
-                    try { r.item_metadata = JSON.parse(r.item_metadata); } catch(e) { r.item_metadata = {}; }
-                    return r;
-                });
-                res.json({ success: true, count: listings.length, listings });
-            } catch (queryErr) {
-                res.status(500).json({ error: queryErr.message });
-            }
-        });
-    } catch (err) {
-        isScraperRunning = false;
-        if (!hasResponded) {
-            hasResponded = true;
-            res.status(500).json({ error: err.message });
-        }
-    }
-});
 
 /**
  * POST /api/market/upload-scans
@@ -2266,7 +2016,7 @@ app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
                         item_name = COALESCE(excluded.item_name, item_name),
                         active_stacks = excluded.active_stacks,
                         discovered_at = CURRENT_TIMESTAMP,
-                        location = CASE WHEN excluded.location != 'Tamriel Trader Kiosk' AND excluded.location != 'Guild Trader' THEN excluded.location ELSE location END,
+                        location = CASE WHEN excluded.location != 'Guild Trader' THEN excluded.location ELSE location END,
                         expires_at = COALESCE(excluded.expires_at, expires_at);
                 `, [game_item_id, displayName, targetServer, sellerHandle, unitPrice, stackQty, stacksCount, guild_name, location || "Guild Trader", level || 1, quality || 1, trait_id || 0, expires_at || null]);
                 insertedCount++;
@@ -2285,44 +2035,11 @@ app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
             }
         }
 
-        // Continuously recalculate real-time market prices for affected items with trimmed outlier filtering
-        if (affectedItemIds.size > 0) {
-            for (const itemId of affectedItemIds) {
-                const rows = await dbAll(`
-                    SELECT price
-                    FROM guild_trader_listings
-                    WHERE game_item_id = ? AND server = ? AND price > 0
-                    ORDER BY price ASC;
-                `, [itemId, targetServer]);
-
-                if (rows && rows.length > 0) {
-                    const prices = rows.map(r => r.price);
-                    const minPrice = prices[0];
-                    const maxPrice = prices[prices.length - 1];
-                    
-                    // Filter out listings > 3.5x min (or 100g cutoff) to strip outlier joke listings
-                    const validPrices = prices.filter(p => p <= Math.max(minPrice * 3.5, 100));
-                    const trimmedAvg = Math.round(validPrices.reduce((a, b) => a + b, 0) / validPrices.length);
-
-                    await dbRun(`
-                        INSERT INTO item_prices (game_item_id, server, min_price, max_price, avg_price, suggested_price, last_updated)
-                        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                        ON CONFLICT(game_item_id, server) DO UPDATE SET
-                            min_price = excluded.min_price,
-                            max_price = excluded.max_price,
-                            avg_price = excluded.avg_price,
-                            suggested_price = excluded.suggested_price,
-                            last_updated = CURRENT_TIMESTAMP;
-                    `, [itemId, targetServer, minPrice, maxPrice, trimmedAvg, trimmedAvg]);
-                }
-            }
-        }
-
         res.json({
             success: true,
-            message: `Successfully ingested ${insertedCount} crowdsourced listings & recalculated dynamic prices for ${affectedItemIds.size} items!`,
+            message: `Successfully ingested ${insertedCount} native listings for ${affectedItemIds.size} items.`,
             count: insertedCount,
-            recalculated_items: affectedItemIds.size
+            observed_items: affectedItemIds.size
         });
     } catch (err) {
         console.error("Error in upload-scans:", err.message);
@@ -2351,7 +2068,7 @@ app.post("/api/market/listings/purge-expired", async (req, res) => {
 if (isDevMode) {
     /**
      * POST /api/market/dev/clear-listings
-     * Dev endpoint to clear all listings and item prices from database (strictly requires admin authorization).
+     * Dev endpoint to clear all native listings from the database (strictly requires admin authorization).
      */
     app.post("/api/market/dev/clear-listings", async (req, res) => {
         const authUserId = await getAuthUserId(req);
@@ -2362,10 +2079,9 @@ if (isDevMode) {
 
         try {
             await dbRun("DELETE FROM guild_trader_listings;");
-            await dbRun("DELETE FROM item_prices;");
             res.json({
                 success: true,
-                message: "Successfully cleared all market listings and price entries."
+                message: "Successfully cleared all native market listings."
             });
         } catch (err) {
             res.status(500).json({ error: err.message });
@@ -2679,7 +2395,7 @@ function normalizeSavedSearchFilters(rawFilters) {
 
     if (normalized.server && !["NA", "EU"].includes(normalized.server)) return null;
     if (normalized.platform && !["PC", "Xbox", "PlayStation"].includes(normalized.platform)) return null;
-    if (normalized.view && !["listings", "prices"].includes(normalized.view)) return null;
+    if (normalized.view && !["listings", "catalog"].includes(normalized.view)) return null;
 
     return normalized;
 }
@@ -3647,7 +3363,7 @@ app.get("/api/builds/:id/diff/:character_id", async (req, res) => {
 
 /**
  * GET /api/builds/:id/deals
- * Queries active guild trader listings for tradeable missing build pieces and calculates TTC discounts.
+ * Queries native guild trader observations for tradeable missing build pieces.
  */
 app.get("/api/builds/:id/deals", async (req, res) => {
     const buildId = req.params.id;
@@ -3696,10 +3412,14 @@ app.get("/api/builds/:id/deals", async (req, res) => {
             const listingsQuery = `
                 SELECT 
                     g.*,
-                    p.avg_price as ttc_avg_price,
-                    p.suggested_price as ttc_suggested_price
+                    obs.observed_avg_price
                 FROM guild_trader_listings g
-                LEFT JOIN item_prices p ON g.game_item_id = p.game_item_id AND g.server = p.server
+                LEFT JOIN (
+                    SELECT game_item_id, server, ROUND(AVG(price)) AS observed_avg_price
+                    FROM guild_trader_listings
+                    WHERE price > 0
+                    GROUP BY game_item_id, server
+                ) obs ON g.game_item_id = obs.game_item_id AND g.server = obs.server
                 WHERE g.server = ? 
                   AND (g.item_name LIKE ? OR g.item_name LIKE ?)
                 ORDER BY g.price ASC
@@ -3709,8 +3429,8 @@ app.get("/api/builds/:id/deals", async (req, res) => {
             const rawListings = await dbAll(listingsQuery, [server, `%${cleanSetName}%`, `%${item.item_name}%`]);
 
             const mappedListings = rawListings.map((l) => {
-                const suggested = l.ttc_suggested_price || l.ttc_avg_price || l.price;
-                const discount = suggested > 0 ? Math.round(((suggested - l.price) / suggested) * 100) : 0;
+                const observedAverage = l.observed_avg_price || l.price;
+                const discount = observedAverage > 0 ? Math.round(((observedAverage - l.price) / observedAverage) * 100) : 0;
                 let dealBadge = "fair";
                 if (discount >= 40) dealBadge = "steal";
                 else if (discount >= 15) dealBadge = "great";
@@ -3735,7 +3455,7 @@ app.get("/api/builds/:id/deals", async (req, res) => {
                     location: l.location,
                     seller_name: l.seller_name,
                     quality: l.quality,
-                    ttc_suggested_price: suggested,
+                    observed_avg_price: observedAverage,
                     discount_percent: discount,
                     deal_badge: dealBadge
                 };
@@ -4064,19 +3784,16 @@ app.get("/api/characters/:id/trait-matches", async (req, res) => {
                     gtl.id as listing_id,
                     gtl.game_item_id,
                     COALESCE(gtl.item_name, i.name) as item_name,
-                    REPLACE(COALESCE(i.icon_url, 'https://esoicons.uesp.net/esoui/art/icons/gear_generic.png'), '.dds', '.png') as icon_url,
+                    COALESCE(i.icon_url, '/esoui/art/icons/gear_generic.dds') as icon_url,
                     gtl.price,
                     gtl.quantity,
                     gtl.guild_name,
                     gtl.location,
                     gtl.seller_name,
                     gtl.quality,
-                    gtl.server,
-                    ip.suggested_price,
-                    ip.avg_price
+                    gtl.server
                 FROM guild_trader_listings gtl
                 JOIN items i ON i.game_item_id = gtl.game_item_id
-                LEFT JOIN item_prices ip ON ip.game_item_id = gtl.game_item_id AND ip.server = gtl.server
                 WHERE gtl.server = ?
                   AND gtl.trait_id = ?
                   AND (
@@ -4310,14 +4027,53 @@ app.get("/api/requests", (req, res) => {
     const countQuery = `SELECT COUNT(*) as total FROM trade_requests tr ${whereClause}`;
     const dataQuery = `
         SELECT 
-            tr.*,
+            tr.id,
+            tr.user_id,
+            tr.request_type,
+            tr.server,
+            tr.buyer_character_id,
+            tr.buyer_display_handle,
+            tr.game_item_id,
+            tr.item_name,
+            tr.category,
+            tr.subcategory,
+            tr.quantity,
+            tr.quality,
+            tr.trait_id,
+            tr.trait_name,
+            tr.style_id,
+            tr.style_name,
+            tr.set_name,
+            tr.level_req,
+            tr.cp_req,
+            tr.offered_gold_price,
+            tr.delivery_notes,
+            tr.status,
+            tr.claimed_by_user_id,
+            tr.claimed_by_handle,
+            tr.claimed_at,
+            tr.claim_expires_at,
+            tr.fulfilled_at,
+            tr.created_at,
+            tr.expires_at,
             i.icon_url,
             i.rarity as item_rarity,
-            COALESCE(ip.suggested_price, tr.suggested_price, 0) as current_suggested_price,
-            COALESCE(ip.avg_price, 0) as current_avg_price
+            obs.observed_min_price,
+            obs.observed_max_price,
+            obs.observed_avg_price,
+            obs.observed_listing_count
         FROM trade_requests tr
         LEFT JOIN items i ON i.game_item_id = tr.game_item_id
-        LEFT JOIN item_prices ip ON ip.game_item_id = tr.game_item_id AND ip.server = tr.server
+        LEFT JOIN (
+            SELECT game_item_id, server,
+                   MIN(price) AS observed_min_price,
+                   MAX(price) AS observed_max_price,
+                   ROUND(AVG(price)) AS observed_avg_price,
+                   COUNT(*) AS observed_listing_count
+            FROM guild_trader_listings
+            WHERE price > 0
+            GROUP BY game_item_id, server
+        ) obs ON obs.game_item_id = tr.game_item_id AND obs.server = tr.server
         ${whereClause}
         ${orderBy}
         LIMIT ? OFFSET ?
@@ -4368,7 +4124,6 @@ app.post("/api/requests", async (req, res) => {
         level_req,
         cp_req,
         offered_gold_price,
-        suggested_price,
         delivery_notes
     } = req.body;
 
@@ -4402,8 +4157,8 @@ app.post("/api/requests", async (req, res) => {
                 user_id, request_type, server, buyer_character_id, buyer_display_handle,
                 game_item_id, item_name, category, subcategory, quantity, quality,
                 trait_id, trait_name, style_id, style_name, set_name, level_req, cp_req,
-                offered_gold_price, suggested_price, delivery_notes, status, expires_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)
+                offered_gold_price, delivery_notes, status, expires_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)
         `;
 
         db.run(insertQuery, [
@@ -4425,8 +4180,7 @@ app.post("/api/requests", async (req, res) => {
             set_name || null,
             parseInt(level_req, 10) || 50, 
             parseInt(cp_req, 10) || 160, 
-            goldPrice, 
-            parseInt(suggested_price, 10) || 0, 
+            goldPrice,
             delivery_notes ? delivery_notes.trim() : null, 
             expiresAt
         ], function(err) {
@@ -4644,4 +4398,3 @@ process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
 module.exports = { app, server, gracefulShutdown };
-

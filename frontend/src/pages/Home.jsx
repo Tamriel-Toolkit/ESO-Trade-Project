@@ -27,7 +27,7 @@ function CategoryCard({ category }) {
         </div>
       </CardHeader>
       <CardContent className="p-4 text-xs text-[#a89f91] flex items-center justify-between">
-        <span>Authentic TTC Market Metrics</span>
+        <span>UESP Catalog & Native Listings</span>
         <Link
           to={`/marketplace?category=${encodeURIComponent(category)}`}
           className="font-cinzel text-[11px] font-bold text-[#c5a059] hover:underline uppercase tracking-wider flex items-center gap-1"
@@ -78,7 +78,7 @@ function Home() {
             <div className="eso-divider max-w-md mx-auto my-3"></div>
 
             <p className="text-sm md:text-base text-[#a89f91] max-w-2xl mx-auto leading-relaxed">
-              Real-time market analytics, active guild trader market scans, and 155,476 authentic price index records direct from Tamriel's trading guilds.
+              A complete ESO item catalog, locally served item icons, and native guild trader observations captured by the ESOTrade addon.
             </p>
 
             {/* Quick Action Navigation */}
@@ -105,7 +105,7 @@ function Home() {
           <div className="eso-card p-5 text-center space-y-1 border-b-2 border-b-[#c5a059]">
             <TrendingUp className="size-6 text-[#c5a059] mx-auto mb-2" />
             <h3 className="font-cinzel text-lg font-bold text-[#e0d8c3]">155,476 Items</h3>
-            <p className="text-xs text-[#a89f91]">Catalog market price stats imported directly from official TTC PriceTableNA archives.</p>
+            <p className="text-xs text-[#a89f91]">Item identity, taxonomy, set metadata, and source icon paths ingested from UESP.</p>
           </div>
 
           <div className="eso-card p-5 text-center space-y-1 border-b-2 border-b-[#c5a059]">
