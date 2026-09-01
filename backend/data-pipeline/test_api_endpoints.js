@@ -175,6 +175,7 @@ function testDbRun(sql, params = []) {
     return new Promise((resolve, reject) => {
         const testDb = new sqlite3.Database(EPHEMERAL_DB, (openErr) => {
             if (openErr) return reject(openErr);
+            testDb.configure('busyTimeout', 5000);
             testDb.run(sql, params, function(runErr) {
                 const result = { lastID: this.lastID, changes: this.changes };
                 testDb.close((closeErr) => {
@@ -191,6 +192,7 @@ function testDbAll(sql, params = []) {
     return new Promise((resolve, reject) => {
         const testDb = new sqlite3.Database(EPHEMERAL_DB, (openErr) => {
             if (openErr) return reject(openErr);
+            testDb.configure('busyTimeout', 5000);
             testDb.all(sql, params, (queryErr, rows) => {
                 testDb.close((closeErr) => {
                     if (queryErr) reject(queryErr);
