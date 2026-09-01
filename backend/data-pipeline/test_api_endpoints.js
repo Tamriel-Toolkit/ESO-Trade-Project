@@ -1,26 +1,84 @@
 const fs = require('fs');
 const http = require('http');
+const crypto = require('crypto');
 const { spawn } = require('child_process');
 const path = require('path');
+const sqlite3 = require('sqlite3').verbose();
 
 const PORT = 5002;
 const SERVER_PATH = path.join(__dirname, '..', 'server.js');
 const EPHEMERAL_DB = process.env.DB_PATH || path.join(__dirname, `scratch_test_${Date.now()}.db`);
+const PREMIGRATION_LEGACY_USER_ID = 90;
+const PREMIGRATION_LEGACY_PASSWORD = 'PreMigrationLegacy123!';
 
 console.log("Starting temporary test server on port " + PORT + " with sandbox DB: " + path.basename(EPHEMERAL_DB) + "...");
 
-const serverProcess = spawn('node', [SERVER_PATH], {
-    env: { ...process.env, PORT: PORT, DB_PATH: EPHEMERAL_DB, NODE_ENV: process.env.NODE_ENV || 'test', ENABLE_DEV_ENDPOINTS: 'true' },
-    stdio: 'pipe'
-});
+let serverProcess = null;
 
-serverProcess.stdout.on('data', (data) => {
-    // console.log(`[Server]: ${data}`);
-});
+function startTestServer() {
+    const child = spawn('node', [SERVER_PATH], {
+        env: { ...process.env, PORT: PORT, DB_PATH: EPHEMERAL_DB, NODE_ENV: process.env.NODE_ENV || 'test', ENABLE_DEV_ENDPOINTS: 'true' },
+        stdio: 'pipe'
+    });
 
-serverProcess.stderr.on('data', (data) => {
-    console.error(`[Server Error]: ${data}`);
-});
+    child.stdout.on('data', (data) => {
+        // console.log(`[Server]: ${data}`);
+    });
+
+    child.stderr.on('data', (data) => {
+        console.error(`[Server Error]: ${data}`);
+    });
+
+    return child;
+}
+
+function seedPreMigrationLegacyAccount() {
+    if (process.env.DB_PATH) return Promise.resolve();
+
+    return new Promise((resolve, reject) => {
+        const seedDb = new sqlite3.Database(EPHEMERAL_DB, (openErr) => {
+            if (openErr) return reject(openErr);
+
+            const legacyHash = crypto.createHash('sha256').update(PREMIGRATION_LEGACY_PASSWORD).digest('hex');
+            seedDb.serialize(() => {
+                seedDb.run(`
+                    CREATE TABLE users (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        username TEXT UNIQUE NOT NULL,
+                        email TEXT UNIQUE NOT NULL,
+                        password_hash TEXT NOT NULL,
+                        eso_handle TEXT,
+                        api_token TEXT UNIQUE,
+                        role TEXT DEFAULT 'user',
+                        created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                    );
+                `);
+                seedDb.run(`
+                    CREATE TABLE sessions (
+                        token TEXT PRIMARY KEY,
+                        user_id INTEGER NOT NULL,
+                        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                        expires_at TEXT NOT NULL,
+                        FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                    );
+                `);
+                seedDb.run(`
+                    INSERT INTO users (id, username, email, password_hash, eso_handle, api_token, role)
+                    VALUES (?, 'PreMigrationLegacy', 'premigration@example.test', ?, '@PreMigrationLegacy', 'premigration_api_token', 'user');
+                `, [PREMIGRATION_LEGACY_USER_ID, legacyHash]);
+                seedDb.run(`
+                    INSERT INTO sessions (token, user_id, expires_at)
+                    VALUES ('premigration_session_token', ?, ?);
+                `, [PREMIGRATION_LEGACY_USER_ID, new Date(Date.now() + 60 * 60 * 1000).toISOString()]);
+            });
+
+            seedDb.close((closeErr) => {
+                if (closeErr) reject(closeErr);
+                else resolve();
+            });
+        });
+    });
+}
 
 function httpGet(path, headers = {}) {
     return new Promise((resolve, reject) => {
@@ -113,7 +171,41 @@ function httpPatch(path, body = {}, headers = {}) {
     });
 }
 
+function testDbRun(sql, params = []) {
+    return new Promise((resolve, reject) => {
+        const testDb = new sqlite3.Database(EPHEMERAL_DB, (openErr) => {
+            if (openErr) return reject(openErr);
+            testDb.run(sql, params, function(runErr) {
+                const result = { lastID: this.lastID, changes: this.changes };
+                testDb.close((closeErr) => {
+                    if (runErr) reject(runErr);
+                    else if (closeErr) reject(closeErr);
+                    else resolve(result);
+                });
+            });
+        });
+    });
+}
+
+function testDbAll(sql, params = []) {
+    return new Promise((resolve, reject) => {
+        const testDb = new sqlite3.Database(EPHEMERAL_DB, (openErr) => {
+            if (openErr) return reject(openErr);
+            testDb.all(sql, params, (queryErr, rows) => {
+                testDb.close((closeErr) => {
+                    if (queryErr) reject(queryErr);
+                    else if (closeErr) reject(closeErr);
+                    else resolve(rows);
+                });
+            });
+        });
+    });
+}
+
 async function runTests() {
+    await seedPreMigrationLegacyAccount();
+    serverProcess = startTestServer();
+
     // Poll server health up to 10 seconds for robust startup across all runner environments
     let serverReady = false;
     for (let attempt = 0; attempt < 20; attempt++) {
@@ -134,6 +226,38 @@ async function runTests() {
     let createdUserId = null;
 
     try {
+        if (!process.env.DB_PATH) {
+            console.log("\n0. Testing pre-migration legacy-account audit and disablement...");
+            let migratedLegacyRows = [];
+            for (let attempt = 0; attempt < 20; attempt++) {
+                migratedLegacyRows = await testDbAll(
+                    "SELECT id, password_hash, api_token FROM users WHERE id = ?;",
+                    [PREMIGRATION_LEGACY_USER_ID]
+                );
+                if (migratedLegacyRows[0] && /^\$2[aby]\$/.test(migratedLegacyRows[0].password_hash)) break;
+                await new Promise(r => setTimeout(r, 100));
+            }
+            const migratedLegacy = migratedLegacyRows[0];
+            if (!migratedLegacy || !/^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(migratedLegacy.password_hash)) {
+                throw new Error("Pre-existing legacy account was not replaced with a disabled bcrypt credential.");
+            }
+            if (migratedLegacy.api_token !== null) {
+                throw new Error("Pre-existing legacy account API token was not revoked.");
+            }
+            const migratedSessions = await testDbAll("SELECT token FROM sessions WHERE user_id = ?;", [PREMIGRATION_LEGACY_USER_ID]);
+            if (migratedSessions.length !== 0) {
+                throw new Error("Pre-existing legacy account sessions were not revoked.");
+            }
+            const migratedLegacyLogin = await httpPost('/api/auth/login', {
+                usernameOrEmail: 'PreMigrationLegacy',
+                password: PREMIGRATION_LEGACY_PASSWORD
+            });
+            if (migratedLegacyLogin.status !== 401) {
+                throw new Error(`Pre-migration legacy password returned status ${migratedLegacyLogin.status}, expected 401`);
+            }
+            console.log("   Legacy account credential, sessions, and API token were invalidated without rehashing unknown plaintext.");
+        }
+
         console.log("\n1. Testing GET /api/taxonomy...");
         const taxRes = await httpGet('/api/taxonomy');
         console.log(`   Status: ${taxRes.status}, Categories found: ${Object.keys(taxRes.data).length}`);
@@ -226,15 +350,47 @@ async function runTests() {
             throw new Error(`Auth /me failed with status ${meRes.status}`);
         }
 
-        console.log("\n10. Testing Legacy SHA-256 account login & automatic bcrypt migration...");
-        const legacyLoginRes = await httpPost('/api/auth/login', {
-            usernameOrEmail: "Blake",
-            password: "password123"
-        });
-        console.log(`   Status: ${legacyLoginRes.status}, User: @${legacyLoginRes.data.user?.username}`);
-        if (legacyLoginRes.status !== 200 || !legacyLoginRes.data.token) {
-            throw new Error(`Legacy user login failed with status ${legacyLoginRes.status}`);
+        console.log("\n9b. Testing development fixtures use bcrypt-only credentials...");
+        const fixtureHashes = await testDbAll("SELECT id, password_hash FROM users WHERE id IN (1, 2) ORDER BY id;");
+        const bcryptHashPattern = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
+        if (fixtureHashes.length !== 2 || fixtureHashes.some((row) => !bcryptHashPattern.test(row.password_hash))) {
+            throw new Error("Development fixtures were not created or reset with valid bcrypt hashes.");
         }
+        console.log("   Blake and Demo fixtures both use valid bcrypt hashes.");
+
+        console.log("\n10. Testing rejection of a legacy SHA-256 credential and its existing tokens...");
+        const legacyPassword = "LegacyPassword123!";
+        const legacyHash = crypto.createHash("sha256").update(legacyPassword).digest("hex");
+        const legacyApiToken = `legacy_api_${crypto.randomBytes(12).toString("hex")}`;
+        const legacyUsername = `LegacyTester_${Date.now()}`;
+        const legacyUser = await testDbRun(`
+            INSERT INTO users (username, email, password_hash, eso_handle, api_token, role)
+            VALUES (?, ?, ?, ?, ?, 'user');
+        `, [legacyUsername, `legacy_${Date.now()}@example.test`, legacyHash, '@LegacyTester', legacyApiToken]);
+        const legacySessionToken = `legacy_session_${crypto.randomBytes(12).toString("hex")}`;
+        await testDbRun(
+            "INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?);",
+            [legacySessionToken, legacyUser.lastID, new Date(Date.now() + 60 * 60 * 1000).toISOString()]
+        );
+
+        const legacyLoginRes = await httpPost('/api/auth/login', {
+            usernameOrEmail: legacyUsername,
+            password: legacyPassword
+        });
+        if (legacyLoginRes.status !== 401) {
+            throw new Error(`Legacy SHA-256 credential returned status ${legacyLoginRes.status}, expected 401`);
+        }
+
+        const legacySessionRes = await httpGet('/api/auth/me', { 'Authorization': `Bearer ${legacySessionToken}` });
+        if (legacySessionRes.status !== 401) {
+            throw new Error(`Legacy account session returned status ${legacySessionRes.status}, expected 401`);
+        }
+
+        const legacyApiTokenRes = await httpGet('/api/auth/me', { 'Authorization': `Bearer ${legacyApiToken}` });
+        if (legacyApiTokenRes.status !== 401) {
+            throw new Error(`Legacy account API token returned status ${legacyApiTokenRes.status}, expected 401`);
+        }
+        console.log("   Legacy password, session, and API token authentication were all rejected.");
 
         console.log("\n11. Testing GET /api/auth/me with invalid/unauthorized token (expect 401)...");
         const badTokenRes = await httpGet('/api/auth/me', { 'Authorization': 'Bearer bogus-random-token-xyz' });
@@ -1023,12 +1179,12 @@ async function runTests() {
         }
         console.log("   Saved-search create/list/pin/delete behavior and cross-account isolation verified!");
 
-        console.log("\nAll 55 API endpoint test suites passed successfully!");
+        console.log("\nAll 55 API endpoint suites plus bcrypt migration regressions passed successfully!");
     } catch (err) {
         console.error("API test failed:", err);
         process.exitCode = 1;
     } finally {
-        serverProcess.kill();
+        if (serverProcess) serverProcess.kill();
         // Give server process a brief moment to release file lock before unlinking test DB
         setTimeout(() => {
             try {
