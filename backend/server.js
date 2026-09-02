@@ -27,6 +27,26 @@ const { seedCuratedMetaBuilds } = require("./curated_builds");
 const app = express();
 const PORT = process.env.PORT || 5001;
 
+const BCRYPT_SALT_ROUNDS = 12;
+const BCRYPT_HASH_PATTERN = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
+
+function hashPassword(password) {
+    return bcrypt.hashSync(password || "", BCRYPT_SALT_ROUNDS);
+}
+
+function isBcryptHash(storedHash) {
+    return typeof storedHash === "string" && BCRYPT_HASH_PATTERN.test(storedHash);
+}
+
+function verifyPassword(password, storedHash) {
+    if (!password || !isBcryptHash(storedHash)) return false;
+    try {
+        return bcrypt.compareSync(password, storedHash);
+    } catch {
+        return false;
+    }
+}
+
 // Developer & Testing Environment Flag (defaults to 'development' if NODE_ENV is unset)
 const nodeEnv = process.env.NODE_ENV || "development";
 const isDevMode = (nodeEnv === "development" || nodeEnv === "test" || process.env.ENABLE_DEV_ENDPOINTS === "true") && process.env.NODE_ENV !== "production";
@@ -185,6 +205,81 @@ const db = new sqlite3.Database(dbPath, (err) => {
 });
 
 /**
+ * Reports and disables accounts whose stored credential is not bcrypt.
+ * The report intentionally excludes password hashes, API tokens, and email addresses.
+ */
+function scheduleLegacyPasswordRemediation() {
+    db.all(`
+        SELECT id, username, role, created_at, password_hash
+        FROM users
+        ORDER BY id ASC;
+    `, [], (auditErr, rows) => {
+        if (auditErr) {
+            console.error("[AUTH MIGRATION] Failed to inventory non-bcrypt accounts:", auditErr.message);
+            return;
+        }
+
+        const legacyAccounts = rows.filter((row) => !isBcryptHash(row.password_hash));
+        const safeReport = legacyAccounts.map(({ id, username, role, created_at }) => ({
+            id,
+            username,
+            role,
+            created_at
+        }));
+        console.log(`[AUTH MIGRATION] Pre-migration report: ${safeReport.length} non-bcrypt account(s).`, safeReport);
+
+        if (legacyAccounts.length === 0) return;
+
+        // The two built-in development fixtures are reset to bcrypt by the next
+        // queued schema step. Every other legacy account is explicitly disabled.
+        const accountsToDisable = isDevMode
+            ? legacyAccounts.filter((account) => ![1, 2].includes(account.id))
+            : legacyAccounts;
+        if (accountsToDisable.length === 0) return;
+
+        const accountIds = accountsToDisable.map((account) => account.id);
+        const placeholders = accountIds.map(() => "?").join(", ");
+        const disabledPasswordHash = hashPassword(crypto.randomBytes(32).toString("hex"));
+
+        const rollback = (migrationErr) => {
+            db.run("ROLLBACK;", (rollbackErr) => {
+                if (rollbackErr) {
+                    console.error("[AUTH MIGRATION] Rollback failed:", rollbackErr.message);
+                }
+                console.error("[AUTH MIGRATION] Failed to disable non-bcrypt accounts:", migrationErr.message);
+            });
+        };
+
+        db.run("BEGIN IMMEDIATE TRANSACTION;", (beginErr) => {
+            if (beginErr) {
+                console.error("[AUTH MIGRATION] Failed to start legacy-account remediation:", beginErr.message);
+                return;
+            }
+
+            db.run(`DELETE FROM sessions WHERE user_id IN (${placeholders});`, accountIds, (sessionErr) => {
+                if (sessionErr) return rollback(sessionErr);
+
+                db.run(`
+                    UPDATE users
+                    SET password_hash = ?, api_token = NULL
+                    WHERE id IN (${placeholders});
+                `, [disabledPasswordHash, ...accountIds], function(updateErr) {
+                    if (updateErr) return rollback(updateErr);
+
+                    const disabledCount = this.changes;
+                    db.run("COMMIT;", (commitErr) => {
+                        if (commitErr) return rollback(commitErr);
+                        console.warn(
+                            `[AUTH MIGRATION] Disabled ${disabledCount} non-bcrypt account(s), revoked their sessions and API tokens, and invalidated their credentials pending a controlled password reset.`
+                        );
+                    });
+                });
+            });
+        });
+    });
+}
+
+/**
  * Initialize characters and knowledge tables if they do not exist
  */
 function initializeDatabaseSchema() {
@@ -281,17 +376,22 @@ function initializeDatabaseSchema() {
         });
         db.run("CREATE INDEX IF NOT EXISTS idx_saved_searches_user ON saved_searches(user_id, is_pinned);");
 
+        scheduleLegacyPasswordRemediation();
+
         if (isDevMode) {
             const seedBlakeToken = process.env.BLAKE_API_TOKEN || crypto.randomBytes(16).toString("hex");
             const seedDemoToken = process.env.DEMO_API_TOKEN || crypto.randomBytes(16).toString("hex");
+            const seedBlakePasswordHash = hashPassword(crypto.randomBytes(32).toString("hex"));
+            const seedDemoPasswordHash = hashPassword(crypto.randomBytes(32).toString("hex"));
             db.run(`
                 INSERT INTO users (id, username, email, password_hash, eso_handle, api_token, role)
                 VALUES 
-                    (1, 'Blake', 'blake@esotrade.local', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', '@Blake', ?, 'admin'),
-                    (2, 'Demo', 'demo@esotrade.local', 'ef92b778bafe771e89245b89ecbc08a44a4e166c06659911881f383d4473e94f', '@Demo', ?, 'user')
+                    (1, 'Blake', 'blake@esotrade.local', ?, '@Blake', ?, 'admin'),
+                    (2, 'Demo', 'demo@esotrade.local', ?, '@Demo', ?, 'user')
                 ON CONFLICT(id) DO UPDATE SET
-                    username = excluded.username;
-            `, [seedBlakeToken, seedDemoToken]);
+                    username = excluded.username,
+                    password_hash = excluded.password_hash;
+            `, [seedBlakePasswordHash, seedBlakeToken, seedDemoPasswordHash, seedDemoToken]);
         }
 
 
@@ -2092,27 +2192,6 @@ if (isDevMode) {
 // ============================================================================
 // AUTHENTICATION & DEVELOPER BYPASS ENDPOINTS
 // ============================================================================
-const BCRYPT_SALT_ROUNDS = 12;
-
-function hashPassword(password) {
-    return bcrypt.hashSync(password || "", BCRYPT_SALT_ROUNDS);
-}
-
-function verifyPassword(password, storedHash) {
-    if (!password || !storedHash) return false;
-    // Check if the stored hash is a bcrypt hash
-    if (storedHash.startsWith("$2a$") || storedHash.startsWith("$2b$") || storedHash.startsWith("$2y$")) {
-        try {
-            return bcrypt.compareSync(password, storedHash);
-        } catch {
-            return false;
-        }
-    }
-    // Legacy fallback: unsalted SHA-256 hash comparison
-    const legacyHash = crypto.createHash("sha256").update(password).digest("hex");
-    return storedHash === legacyHash;
-}
-
 const SESSION_TTL_HOURS = parseInt(process.env.SESSION_TTL_HOURS, 10) || (24 * 7); // Default: 7 days
 
 async function createSession(userId, ttlHours = SESSION_TTL_HOURS) {
@@ -2168,16 +2247,19 @@ async function getAuthUserId(req) {
 
     try {
         const session = await dbGet(
-            `SELECT user_id, expires_at FROM sessions WHERE token = ? AND datetime(expires_at) > datetime('now');`,
+            `SELECT s.user_id, s.expires_at, u.password_hash
+             FROM sessions s
+             JOIN users u ON u.id = s.user_id
+             WHERE s.token = ? AND datetime(s.expires_at) > datetime('now');`,
             [token]
         );
-        if (session) {
+        if (session && isBcryptHash(session.password_hash)) {
             return session.user_id;
         }
 
         // Support direct api_token lookup (for background sync / addon / scripts)
-        const apiKeyUser = await dbGet(`SELECT id FROM users WHERE api_token = ?;`, [token]);
-        if (apiKeyUser) {
+        const apiKeyUser = await dbGet(`SELECT id, password_hash FROM users WHERE api_token = ?;`, [token]);
+        if (apiKeyUser && isBcryptHash(apiKeyUser.password_hash)) {
             return apiKeyUser.id;
         }
 
@@ -2278,13 +2360,6 @@ app.post("/api/auth/login", async (req, res) => {
         const isMatch = verifyPassword(password, user.password_hash);
         if (!isMatch) {
             return res.status(401).json({ error: "Invalid username/email or password." });
-        }
-
-        // If user was stored with legacy SHA-256 hash, transparently migrate to bcrypt
-        if (!user.password_hash.startsWith("$2a$") && !user.password_hash.startsWith("$2b$") && !user.password_hash.startsWith("$2y$")) {
-            const upgradedHash = hashPassword(password);
-            await dbRun(`UPDATE users SET password_hash = ? WHERE id = ?;`, [upgradedHash, user.id]);
-            console.log(`[AUTH] Seamlessly upgraded password hash to bcrypt for user @${user.username} (ID: ${user.id})`);
         }
 
         const userPayload = {
