@@ -29,4 +29,10 @@ Or continuously watch the standard ESO SavedVariables locations:
 python3 data-pipeline/watcher.py
 ```
 
+Set `ESOTRADE_AUTH_TOKEN` to the current API token before starting the watcher
+when remote API synchronization is required. Without it, native data is still
+written to the local SQLite database, but authenticated API pushes are skipped.
+The watcher records the parser's post-import auto-clear write and waits for the
+next genuine ESO SavedVariables update instead of processing its own write.
+
 Only `ESOTrade.lua` is accepted for live listing observations. Aggregates such as observed minimum, maximum, average, and count are calculated from `guild_trader_listings` at query time.

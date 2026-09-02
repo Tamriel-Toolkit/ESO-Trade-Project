@@ -47,6 +47,30 @@ def ingest(path):
         print(f"Native parser exited with status {result.returncode}.")
 
 
+def process_saved_variables_change(path, last_mtimes, ingest_func=ingest):
+    """Ingest one external file change and ignore any write made by the parser."""
+    try:
+        modified_at = os.stat(path).st_mtime_ns
+    except FileNotFoundError:
+        last_mtimes.pop(path, None)
+        return False
+
+    if last_mtimes.get(path) == modified_at:
+        return False
+
+    last_mtimes[path] = modified_at
+    try:
+        ingest_func(path)
+    finally:
+        # parse_esotrade_addon.py may clear the Scans table after a successful
+        # import. Record that post-ingestion write so it cannot trigger a loop.
+        try:
+            last_mtimes[path] = os.stat(path).st_mtime_ns
+        except FileNotFoundError:
+            last_mtimes.pop(path, None)
+    return True
+
+
 def start_watching(poll_interval=2, purge_interval=PURGE_INTERVAL_SECONDS):
     print("======================================================")
     print("=== ESOTrade SavedVariables Watcher ===")
@@ -64,12 +88,7 @@ def start_watching(poll_interval=2, purge_interval=PURGE_INTERVAL_SECONDS):
                 last_purge_time = current_time
 
             for saved_variables_path in WATCH_PATHS:
-                if not os.path.exists(saved_variables_path):
-                    continue
-                modified_at = os.path.getmtime(saved_variables_path)
-                if saved_variables_path not in last_mtimes or modified_at > last_mtimes[saved_variables_path]:
-                    last_mtimes[saved_variables_path] = modified_at
-                    ingest(saved_variables_path)
+                process_saved_variables_change(saved_variables_path, last_mtimes)
 
             time.sleep(poll_interval)
     except KeyboardInterrupt:
