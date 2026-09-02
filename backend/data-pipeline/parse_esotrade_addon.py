@@ -12,6 +12,7 @@ import re
 import sqlite3
 import json
 import time
+import urllib.error
 import urllib.request
 import ssl
 
@@ -143,6 +144,8 @@ def reset_esotrade_scans_on_disk(file_path):
             idx += 1
 
         if depth == 0:
+            if not content[brace_start + 1:idx - 1].strip():
+                return False
             new_content = content[:brace_start] + "{}" + content[idx:]
             with open(file_path, "w", encoding="utf-8") as f:
                 f.write(new_content)
@@ -151,6 +154,18 @@ def reset_esotrade_scans_on_disk(file_path):
     except Exception as e:
         print(f"[ESOTrade Auto-Clear Warning] Could not reset Scans in {os.path.basename(file_path)}: {e}")
     return False
+
+
+def report_api_error(operation, error):
+    """Report actionable API failures without exposing authentication tokens."""
+    if isinstance(error, urllib.error.HTTPError) and error.code == 401:
+        print(f"  [Notice] {operation} skipped: API token is missing or unauthorized. "
+              "Set a current ESOTRADE_AUTH_TOKEN before restarting the watcher.")
+    elif isinstance(error, urllib.error.HTTPError) and error.code == 429:
+        print(f"  [Notice] {operation} skipped: API rate limit reached. "
+              "Wait for the limit to reset before restarting the watcher.")
+    else:
+        print(f"  [Notice] {operation} skipped: {error}")
 
 def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
     sv_file = file_path or find_esotrade_savedvars()
@@ -161,6 +176,8 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
     print(f"Reading custom ESOTrade SavedVariables from: {sv_file}...")
     with open(sv_file, "r", encoding="utf-8", errors="ignore") as f:
         content = f.read()
+
+    auth_token = os.environ.get("ESOTRADE_AUTH_TOKEN")
 
     # Extract Scanner Character Metadata Header
     m_name = re.search(r'\["PlayerName"\]\s*=\s*"([^"]+)"', content)
@@ -549,7 +566,8 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
 
         # Push to central server API endpoint in 500-item chunks
         batch_size = 500
-        for b_idx in range(0, len(listings), batch_size):
+        listing_batches = range(0, len(listings), batch_size) if auth_token else ()
+        for b_idx in listing_batches:
             chunk = listings[b_idx:b_idx + batch_size]
             try:
                 payload = {
@@ -561,10 +579,10 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                     "player_alliance": player_alliance,
                     "master_crafter": master_crafter
                 }
-                auth_token = os.environ.get("ESOTRADE_AUTH_TOKEN")
-                headers = {"Content-Type": "application/json"}
-                if auth_token:
-                    headers["Authorization"] = f"Bearer {auth_token}"
+                headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {auth_token}"
+                }
                 req = urllib.request.Request(
                     f"{server_url}/api/market/upload-scans",
                     data=json.dumps(payload).encode('utf-8'),
@@ -574,7 +592,7 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                     res_data = json.loads(r.read().decode('utf-8'))
                     print(f"  [API Batch {b_idx//batch_size + 1}] Pushed {len(chunk)} items ({res_data.get('message')})")
             except Exception as e:
-                print(f"  [Notice] API Push Batch {b_idx//batch_size + 1} skipped:", e)
+                report_api_error(f"API Push Batch {b_idx//batch_size + 1}", e)
 
         # Parse Gear loadout if exported by ESOTrade.lua (for API push)
         gear_items = []
@@ -653,16 +671,16 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                             "weapon_power": int(pow_m.group(1)) if pow_m else 0
                         })
 
-        if gear_items and player_name:
+        if gear_items and player_name and auth_token:
             try:
                 gear_payload = {
                     "character_name": player_name,
                     "gear": gear_items
                 }
-                auth_token = os.environ.get("ESOTRADE_AUTH_TOKEN")
-                headers = {"Content-Type": "application/json"}
-                if auth_token:
-                    headers["Authorization"] = f"Bearer {auth_token}"
+                headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {auth_token}"
+                }
                 g_req = urllib.request.Request(
                     f"{server_url}/api/characters/upload-gear",
                     data=json.dumps(gear_payload).encode('utf-8'),
@@ -672,18 +690,18 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                     g_data = json.loads(g_res.read().decode('utf-8'))
                     print(f"  [API Gear Sync] Synced {len(gear_items)} equipped gear slots for {player_name}!")
             except Exception as ge:
-                print("  [Notice] API Gear Push skipped:", ge)
+                report_api_error("API Gear Push", ge)
 
-        if trait_items and player_name:
+        if trait_items and player_name and auth_token:
             try:
                 traits_payload = {
                     "character_name": player_name,
                     "traits": trait_items
                 }
-                auth_token = os.environ.get("ESOTRADE_AUTH_TOKEN")
-                headers = {"Content-Type": "application/json"}
-                if auth_token:
-                    headers["Authorization"] = f"Bearer {auth_token}"
+                headers = {
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {auth_token}"
+                }
                 t_req = urllib.request.Request(
                     f"{server_url}/api/characters/upload-traits",
                     data=json.dumps(traits_payload).encode('utf-8'),
@@ -693,7 +711,11 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                     t_data = json.loads(t_res.read().decode('utf-8'))
                     print(f"  [API Trait Sync] Synced {len(trait_items)} trait nodes for {player_name}!")
             except Exception as te:
-                print("  [Notice] API Trait Push skipped:", te)
+                report_api_error("API Trait Push", te)
+
+        if not auth_token and (listings or gear_items or trait_items):
+            print("  [Notice] Remote API sync skipped: ESOTRADE_AUTH_TOKEN is not configured. "
+                  "Local SQLite synchronization completed.")
 
         print(f"SUCCESS! Ingested {len(listings)} custom ESOTrade listings into database!")
 

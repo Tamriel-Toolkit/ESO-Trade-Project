@@ -63,6 +63,11 @@ jobs:
         run: |
           python test_db_queries.py
 
+      - name: Run Watcher Feedback Loop Regression Tests
+        working-directory: backend/data-pipeline
+        run: |
+          python test_watcher.py
+
   frontend-build:
     name: Frontend Production Build
     runs-on: ubuntu-latest
