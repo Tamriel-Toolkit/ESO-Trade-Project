@@ -167,6 +167,23 @@ def report_api_error(operation, error):
     else:
         print(f"  [Notice] {operation} skipped: {error}")
 
+
+def commit_local_sync(connection):
+    """Commit parsed native data atomically, rolling back on SQLite failure."""
+    try:
+        connection.commit()
+    except sqlite3.Error as error:
+        try:
+            connection.rollback()
+        except sqlite3.Error as rollback_error:
+            raise RuntimeError(
+                f"Local SQLite commit failed and rollback also failed: {rollback_error}"
+            ) from error
+        raise RuntimeError(
+            "Local SQLite synchronization failed; ESOTrade Scans were retained for retry."
+        ) from error
+
+
 def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
     sv_file = file_path or find_esotrade_savedvars()
     if not sv_file or not os.path.exists(sv_file):
@@ -221,6 +238,9 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
 
     conn = sqlite3.connect(DEFAULT_DB_PATH)
     cursor = conn.cursor()
+    local_sync_messages = []
+    synced_gear_count = 0
+    synced_traits_count = 0
     cursor.execute("SELECT game_item_id FROM items")
     valid_ids = set(row[0] for row in cursor.fetchall())
 
@@ -398,7 +418,9 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
         """, (player_name, player_class_name, player_level, player_alliance, master_crafter))
         alliance_map = {1: "Aldmeri Dominion", 2: "Ebonheart Pact", 3: "Daggerfall Covenant"}
         alliance_str = alliance_map.get(player_alliance, "Aldmeri Dominion")
-        print(f"Synced character '{player_name}' ({player_class_name}, Lvl {player_level}, Alliance: {alliance_str}) to roster!")
+        local_sync_messages.append(
+            f"Synced character '{player_name}' ({player_class_name}, Lvl {player_level}, Alliance: {alliance_str}) to roster!"
+        )
 
         # Sync character equipped gear loadout to character_gear table
         cursor.execute("SELECT id FROM characters WHERE name = ?", (player_name,))
@@ -486,7 +508,9 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                         """, (char_id, slot_id, item_id, item_name, item_link, quality, trait_id, set_name, enchant_text, item_icon, trait_name, trait_desc, armor_rating, weapon_power))
                         synced_gear_count += 1
                 if synced_gear_count > 0:
-                    print(f"Synced {synced_gear_count} equipped gear items to character '{player_name}' loadout!")
+                    local_sync_messages.append(
+                        f"Synced {synced_gear_count} equipped gear items to character '{player_name}' loadout!"
+                    )
 
             # Sync character trait research if present
             trait_items = []
@@ -562,7 +586,17 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                                 "completes_at": completes_at
                             })
                     if synced_traits_count > 0:
-                        print(f"Synced {synced_traits_count} trait research records for '{player_name}'!")
+                        local_sync_messages.append(
+                            f"Synced {synced_traits_count} trait research records for '{player_name}'!"
+                        )
+
+        try:
+            commit_local_sync(conn)
+        except RuntimeError:
+            conn.close()
+            raise
+        for message in local_sync_messages:
+            print(message)
 
         # Push to central server API endpoint in 500-item chunks
         batch_size = 500
@@ -714,13 +748,24 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                 report_api_error("API Trait Push", te)
 
         if not auth_token and (listings or gear_items or trait_items):
-            print("  [Notice] Remote API sync skipped: ESOTRADE_AUTH_TOKEN is not configured. "
-                  "Local SQLite synchronization completed.")
+            print("  [Local sync] Data is committed to the local application database. "
+                  "No duplicate API push was attempted because ESOTRADE_AUTH_TOKEN is not configured.")
 
-        print(f"SUCCESS! Ingested {len(listings)} custom ESOTrade listings into database!")
+    if not player_name:
+        try:
+            commit_local_sync(conn)
+        except RuntimeError:
+            conn.close()
+            raise
 
-        # Automated SavedVariables Disk Flush: Cleanly reset Scans = {} in ESOTrade.lua on disk
-        reset_esotrade_scans_on_disk(sv_file)
+    print(
+        "SUCCESS! Local SQLite sync committed "
+        f"(listings={len(listings)}, characters={1 if player_name else 0}, "
+        f"gear_items={synced_gear_count}, trait_records={synced_traits_count})."
+    )
+
+    # Only clear native scans after the local transaction is durably committed.
+    reset_esotrade_scans_on_disk(sv_file)
 
     conn.close()
     return len(listings)
