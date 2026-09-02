@@ -4,6 +4,11 @@ const crypto = require('crypto');
 const { spawn } = require('child_process');
 const path = require('path');
 const sqlite3 = require('sqlite3').verbose();
+const {
+    createSchemaMigrationRunner,
+    isExpectedDuplicateColumnError,
+    rollbackTransaction
+} = require('../database_helpers');
 
 const PORT = 5002;
 const SERVER_PATH = path.join(__dirname, '..', 'server.js');
@@ -204,7 +209,99 @@ function testDbAll(sql, params = []) {
     });
 }
 
+function closeDatabase(database) {
+    return new Promise((resolve, reject) => {
+        database.close((closeErr) => {
+            if (closeErr) reject(closeErr);
+            else resolve();
+        });
+    });
+}
+
+async function testDatabaseFailureHandling() {
+    console.log("\n0a. Testing migration idempotency and failure diagnostics...");
+    const migrationDb = new sqlite3.Database(':memory:');
+    const infoMessages = [];
+    const errorMessages = [];
+    const failures = [];
+    const logger = {
+        info: (message) => infoMessages.push(message),
+        error: (message) => errorMessages.push(message)
+    };
+    const runMigration = createSchemaMigrationRunner(migrationDb, {
+        logger,
+        onUnexpectedError: (failure) => failures.push(failure)
+    });
+
+    try {
+        await runMigration(
+            'migration-probe.create-column',
+            'CREATE TABLE migration_probe (existing_column INTEGER);'
+        );
+        const duplicateResult = await runMigration(
+            'migration-probe.add-existing-column',
+            'ALTER TABLE migration_probe ADD COLUMN existing_column INTEGER;',
+            { allowDuplicateColumn: true }
+        );
+        if (duplicateResult.status !== 'already-applied' || failures.length !== 0) {
+            throw new Error(`Expected matching duplicate column to be idempotent, got ${JSON.stringify(duplicateResult)}`);
+        }
+        if (!infoMessages.some((message) => message.includes('migration-probe.add-existing-column') && message.includes('existing_column'))) {
+            throw new Error('Expected duplicate-column migration to emit a named idempotency diagnostic.');
+        }
+        const mismatchedDuplicate = Object.assign(
+            new Error('SQLITE_ERROR: duplicate column name: unrelated_column'),
+            { code: 'SQLITE_ERROR', errno: 1 }
+        );
+        if (isExpectedDuplicateColumnError(
+            mismatchedDuplicate,
+            'ALTER TABLE migration_probe ADD COLUMN existing_column INTEGER;'
+        )) {
+            throw new Error('A duplicate-column error for the wrong column was incorrectly suppressed.');
+        }
+
+        const failureResult = await runMigration(
+            'migration-probe.missing-table',
+            'ALTER TABLE missing_migration_probe ADD COLUMN new_column TEXT;',
+            { allowDuplicateColumn: true }
+        );
+        if (failureResult.status !== 'failed' || failures.length !== 1) {
+            throw new Error(`Expected unexpected migration failure to be reported, got ${JSON.stringify(failureResult)}`);
+        }
+        const unexpectedLog = errorMessages.find((message) => message.includes('migration-probe.missing-table')) || '';
+        if (!unexpectedLog.includes('code=SQLITE_ERROR') || !unexpectedLog.includes('Statement: ALTER TABLE missing_migration_probe')) {
+            throw new Error(`Unexpected migration diagnostic lacked SQLite or statement context: ${unexpectedLog}`);
+        }
+
+        const rollbackLogs = [];
+        const originalError = Object.assign(new Error('request write failed'), { code: 'SQLITE_CONSTRAINT', errno: 19 });
+        const rollbackError = Object.assign(new Error('database is locked'), { code: 'SQLITE_BUSY', errno: 5 });
+        const rollbackSucceeded = await rollbackTransaction(
+            async () => { throw rollbackError; },
+            'Regression test transaction',
+            originalError,
+            { error: (message) => rollbackLogs.push(message) }
+        );
+        if (rollbackSucceeded || rollbackLogs.length !== 1) {
+            throw new Error('Rollback failure was not reported exactly once.');
+        }
+        const rollbackLog = rollbackLogs[0];
+        if (!rollbackLog.includes('Regression test transaction')
+            || !rollbackLog.includes('SQLITE_CONSTRAINT')
+            || !rollbackLog.includes('request write failed')
+            || !rollbackLog.includes('SQLITE_BUSY')
+            || !rollbackLog.includes('database is locked')) {
+            throw new Error(`Rollback diagnostic did not preserve both errors: ${rollbackLog}`);
+        }
+    } finally {
+        await closeDatabase(migrationDb);
+    }
+
+    console.log("   Duplicate columns remain idempotent; unexpected migrations and rollback failures retain full context.");
+}
+
 async function runTests() {
+    await testDatabaseFailureHandling();
     await seedPreMigrationLegacyAccount();
     serverProcess = startTestServer();
 
@@ -1181,7 +1278,7 @@ async function runTests() {
         }
         console.log("   Saved-search create/list/pin/delete behavior and cross-account isolation verified!");
 
-        console.log("\nAll 55 API endpoint suites plus bcrypt migration regressions passed successfully!");
+        console.log("\nAll 55 API endpoint suites plus bcrypt, schema-migration, and rollback regressions passed successfully!");
     } catch (err) {
         console.error("API test failed:", err);
         process.exitCode = 1;
