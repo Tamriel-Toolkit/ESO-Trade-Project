@@ -1,5 +1,5 @@
 -- ============================================================================
--- ESO Trade Addon v1.6.1 (Attribute-Aware Native In-Game Kiosk & Gear Scanner)
+-- ESO Trade Addon v1.6.2 (Attribute-Aware Native In-Game Kiosk & Gear Scanner)
 -- Captures 100% real Item ID, Level, Quality, Trait, Guild, Location, and Equipped Gear.
 -- ============================================================================
 
@@ -68,6 +68,56 @@ local function NormalizeTradingHouseUid(uid)
         return ""
     end
     return normalizedUid
+end
+
+-- Rebuild an in-memory UID lookup after login or /reloadui. This also compacts
+-- repeated UID-bearing entries that may already be present in SavedVariables.
+-- Legacy entries without an identity are unsafe to count because the old event
+-- handler may have captured the same visible page more than once.
+local function RebuildTradingHouseScanIndex()
+    local compactedScans = {}
+    local positionsByUid = {}
+    local discardedLegacyScanCount = 0
+
+    for _, scan in ipairs(ESOTradeVars.Scans or {}) do
+        local uid = scan and scan.UID and tostring(scan.UID) or ""
+        if uid ~= "" and uid ~= "0" then
+            local existingPosition = positionsByUid[uid]
+            if existingPosition then
+                compactedScans[existingPosition] = scan
+            else
+                table.insert(compactedScans, scan)
+                positionsByUid[uid] = #compactedScans
+            end
+        else
+            discardedLegacyScanCount = discardedLegacyScanCount + 1
+        end
+    end
+
+    ESOTradeVars.Scans = compactedScans
+    ESOTrade.scanPositionsByUid = positionsByUid
+    return discardedLegacyScanCount
+end
+
+-- Store each real guild-trader listing once. A repeated callback or reload can
+-- refresh the observation, but cannot create another stack for the same UID.
+local function StoreTradingHouseScan(scan)
+    ESOTrade.scanPositionsByUid = ESOTrade.scanPositionsByUid or {}
+
+    local uid = scan and scan.UID or ""
+    if uid == "" or uid == "0" then
+        return nil
+    end
+
+    local existingPosition = ESOTrade.scanPositionsByUid[uid]
+    if existingPosition then
+        ESOTradeVars.Scans[existingPosition] = scan
+        return false
+    end
+
+    table.insert(ESOTradeVars.Scans, scan)
+    ESOTrade.scanPositionsByUid[uid] = #ESOTradeVars.Scans
+    return true
 end
 
 -- Export equipped gear loadout for the active character
@@ -189,6 +239,13 @@ end
 
 -- Callback: Fired when Trading House (Guild Trader) search/browse data arrives from ESO server
 local function OnTradingHouseResponse(eventCode, responseType, result)
+    -- Text/name lookup, purchase, post, and listings-management responses can
+    -- arrive while the previous search page remains readable. Only consume a
+    -- successfully completed search response or that stale page is duplicated.
+    if responseType ~= TRADING_HOUSE_RESULT_SEARCH_PENDING or result ~= TRADING_HOUSE_RESULT_SUCCESS then
+        return
+    end
+
     local numItemsOnPage, currentPage, hasMorePages = GetTradingHouseSearchResultsInfo()
     if not numItemsOnPage or numItemsOnPage <= 0 then return end
 
@@ -213,6 +270,8 @@ local function OnTradingHouseResponse(eventCode, responseType, result)
 
     local now = GetTimeStamp()
     local newScanCount = 0
+    local refreshedScanCount = 0
+    local skippedScanCount = 0
 
     for i = 1, numItemsOnPage do
         local itemLink = GetTradingHouseSearchResultItemLink(i)
@@ -224,7 +283,7 @@ local function OnTradingHouseResponse(eventCode, responseType, result)
                 itemQuality = quality or 1
             end
             
-            table.insert(ESOTradeVars.Scans, {
+            local scan = {
                 UID      = NormalizeTradingHouseUid(uid),
                 ItemId   = itemId,
                 Link     = itemLink,
@@ -239,13 +298,24 @@ local function OnTradingHouseResponse(eventCode, responseType, result)
                 Location = locationName,
                 Scanner  = GetUnitName("player") or "Hero",
                 Time     = now
-            })
-            newScanCount = newScanCount + 1
+            }
+
+            local storeResult = StoreTradingHouseScan(scan)
+            if storeResult == true then
+                newScanCount = newScanCount + 1
+            elseif storeResult == false then
+                refreshedScanCount = refreshedScanCount + 1
+            else
+                skippedScanCount = skippedScanCount + 1
+            end
         end
     end
 
-    if newScanCount > 0 then
-        d("|c00FF00[ESOTrade]|r Automatically Scanned & Logged " .. newScanCount .. " active listings from '" .. guildName .. "' (" .. locationName .. ")!")
+    if newScanCount > 0 or refreshedScanCount > 0 then
+        d("|c00FF00[ESOTrade]|r Captured " .. (newScanCount + refreshedScanCount) .. " active listings from '" .. guildName .. "' (" .. newScanCount .. " new, " .. refreshedScanCount .. " refreshed).")
+    end
+    if skippedScanCount > 0 then
+        d("|cFFFF00[ESOTrade]|r Skipped " .. skippedScanCount .. " result(s) without a stable listing UID to prevent false stack counts.")
     end
 end
 
@@ -266,6 +336,11 @@ local function OnAddOnLoaded(eventCode, addOnName)
     if addOnName ~= ESOTrade.name then return end
     EVENT_MANAGER:UnregisterForEvent(ESOTrade.name, EVENT_ADD_ON_LOADED)
 
+    local discardedLegacyScanCount = RebuildTradingHouseScanIndex()
+    if discardedLegacyScanCount > 0 then
+        d("|cFFFF00[ESOTrade]|r Removed " .. discardedLegacyScanCount .. " legacy scan record(s) without listing UIDs. Revisit the trader to capture clean results.")
+    end
+
     -- Register for Trading House response event
     EVENT_MANAGER:RegisterForEvent(ESOTrade.name, EVENT_TRADING_HOUSE_RESPONSE_RECEIVED, OnTradingHouseResponse)
 
@@ -276,6 +351,7 @@ local function OnAddOnLoaded(eventCode, addOnName)
         if option == "clear" or option == "reset" then
             local count = #(ESOTradeVars.Scans or {})
             ESOTradeVars.Scans = {}
+            ESOTrade.scanPositionsByUid = {}
             d("|c00FF00[ESOTrade]|r Cleared " .. count .. " scanned items from SavedVariables memory.")
         elseif option == "status" then
             local count = #(ESOTradeVars.Scans or {})
@@ -317,7 +393,7 @@ local function OnAddOnLoaded(eventCode, addOnName)
     EVENT_MANAGER:RegisterForEvent(ESOTrade.name, EVENT_SMITHING_TRAIT_RESEARCH_COMPLETED, RefreshCharacterData)
     EVENT_MANAGER:RegisterForEvent(ESOTrade.name, EVENT_SMITHING_TRAIT_RESEARCH_STARTED, RefreshCharacterData)
 
-    d("|c00FF00[ESOTrade Addon v1.6.1 Loaded]|r Automatic metadata, gear & trait research sync active for character '" .. (ESOTradeVars.PlayerName or "Hero") .. "' on " .. (GetWorldName() or "NA"))
+    d("|c00FF00[ESOTrade Addon v1.6.2 Loaded]|r Automatic metadata, gear & trait research sync active for character '" .. (ESOTradeVars.PlayerName or "Hero") .. "' on " .. (GetWorldName() or "NA"))
 end
 
 EVENT_MANAGER:RegisterForEvent(ESOTrade.name, EVENT_ADD_ON_LOADED, OnAddOnLoaded)

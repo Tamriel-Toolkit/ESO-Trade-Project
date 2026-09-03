@@ -15,13 +15,22 @@ import watcher
 
 
 class WatcherFeedbackLoopTests(unittest.TestCase):
-    def test_listing_uids_keep_identical_stack_counts_idempotent(self):
+    def test_listing_uids_keep_three_identical_stack_counts_idempotent(self):
         addon_path = os.path.abspath(os.path.join(
             os.path.dirname(__file__), "..", "..", "addon", "ESOTrade", "ESOTrade.lua"
         ))
         with open(addon_path, "r", encoding="utf-8") as addon_file:
             addon_source = addon_file.read()
         self.assertIn("UID      = NormalizeTradingHouseUid(uid)", addon_source)
+        handler_source = addon_source[
+            addon_source.index("local function OnTradingHouseResponse"):addon_source.index("local function RefreshCharacterData")
+        ]
+        self.assertLess(
+            handler_source.index("responseType ~= TRADING_HOUSE_RESULT_SEARCH_PENDING"),
+            handler_source.index("GetTradingHouseSearchResultsInfo()")
+        )
+        self.assertIn("result ~= TRADING_HOUSE_RESULT_SUCCESS", handler_source)
+        self.assertIn("StoreTradingHouseScan(scan)", handler_source)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             saved_variables = os.path.join(temp_dir, "ESOTrade.lua")
@@ -52,10 +61,14 @@ class WatcherFeedbackLoopTests(unittest.TestCase):
 
             scan_time = int(time.time())
             scan_rows = []
-            for index, uid in enumerate(("listing-uid-1", "listing-uid-2", "listing-uid-1", "listing-uid-2"), 1):
+            repeated_search_page = (
+                "listing-uid-1", "listing-uid-2", "listing-uid-3",
+                "listing-uid-1", "listing-uid-2", "listing-uid-3",
+            )
+            for index, uid in enumerate(repeated_search_page, 1):
                 scan_rows.append(
                     f'        [{index}] = {{ ["UID"] = "{uid}", ["ItemId"] = 123, '
-                    f'["Name"] = "Identical Stack Item", ["Price"] = 200, ["Qty"] = 2, '
+                    f'["Name"] = "Tide-Born Feathers", ["Price"] = 210000, ["Qty"] = 100, '
                     f'["Guild"] = "Regression Test Guild", ["Seller"] = "@StackSeller", '
                     f'["Location"] = "Regression Trader", ["Level"] = 50, ["Quality"] = 4, '
                     f'["Trait"] = 3, ["Time"] = {scan_time} }},\n'
@@ -83,7 +96,7 @@ class WatcherFeedbackLoopTests(unittest.TestCase):
                     FROM guild_trader_listings
                     WHERE game_item_id = 123
                 """).fetchone()
-            self.assertEqual((2, 2), row)
+            self.assertEqual((100, 3), row)
 
     def test_parser_does_not_rewrite_an_empty_scans_table(self):
         with tempfile.TemporaryDirectory() as temp_dir:
