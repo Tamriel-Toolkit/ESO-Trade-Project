@@ -5,6 +5,7 @@ import io
 import os
 import sqlite3
 import tempfile
+import time
 import unittest
 from contextlib import closing
 from unittest import mock
@@ -14,6 +15,89 @@ import watcher
 
 
 class WatcherFeedbackLoopTests(unittest.TestCase):
+    def test_listing_uids_keep_three_identical_stack_counts_idempotent(self):
+        addon_path = os.path.abspath(os.path.join(
+            os.path.dirname(__file__), "..", "..", "addon", "ESOTrade", "ESOTrade.lua"
+        ))
+        with open(addon_path, "r", encoding="utf-8") as addon_file:
+            addon_source = addon_file.read()
+        self.assertIn("UID      = NormalizeTradingHouseUid(uid)", addon_source)
+        handler_source = addon_source[
+            addon_source.index("local function OnTradingHouseResponse"):addon_source.index("local function RefreshCharacterData")
+        ]
+        self.assertLess(
+            handler_source.index("responseType ~= TRADING_HOUSE_RESULT_SEARCH_PENDING"),
+            handler_source.index("GetTradingHouseSearchResultsInfo()")
+        )
+        self.assertIn("result ~= TRADING_HOUSE_RESULT_SUCCESS", handler_source)
+        self.assertIn("StoreTradingHouseScan(scan)", handler_source)
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            saved_variables = os.path.join(temp_dir, "ESOTrade.lua")
+            database = os.path.join(temp_dir, "eso_catalog.db")
+            with closing(sqlite3.connect(database)) as connection:
+                connection.executescript("""
+                    CREATE TABLE items (game_item_id INTEGER PRIMARY KEY);
+                    INSERT INTO items (game_item_id) VALUES (123);
+                    CREATE TABLE guild_trader_listings (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        game_item_id INTEGER,
+                        item_name TEXT,
+                        server TEXT,
+                        seller_name TEXT,
+                        price INTEGER,
+                        quantity INTEGER,
+                        active_stacks INTEGER,
+                        guild_name TEXT,
+                        location TEXT,
+                        level INTEGER,
+                        quality INTEGER,
+                        trait_id INTEGER,
+                        expires_at TEXT,
+                        discovered_at TEXT,
+                        UNIQUE(game_item_id, server, guild_name, seller_name, price, quantity, level, quality, trait_id)
+                    );
+                """)
+
+            scan_time = int(time.time())
+            scan_rows = []
+            repeated_search_page = (
+                "listing-uid-1", "listing-uid-2", "listing-uid-3",
+                "listing-uid-1", "listing-uid-2", "listing-uid-3",
+            )
+            for index, uid in enumerate(repeated_search_page, 1):
+                scan_rows.append(
+                    f'        [{index}] = {{ ["UID"] = "{uid}", ["ItemId"] = 123, '
+                    f'["Name"] = "Tide-Born Feathers", ["Price"] = 210000, ["Qty"] = 100, '
+                    f'["Guild"] = "Regression Test Guild", ["Seller"] = "@StackSeller", '
+                    f'["Location"] = "Regression Trader", ["Level"] = 50, ["Quality"] = 4, '
+                    f'["Trait"] = 3, ["Time"] = {scan_time} }},\n'
+                )
+            content = (
+                'ESOTrade_SavedVariables = {\n'
+                '    ["Server"] = "NA",\n'
+                '    ["Scans"] = {\n'
+                + ''.join(scan_rows)
+                + '    },\n'
+                '}\n'
+            )
+
+            with mock.patch.dict(os.environ, {"ESOTRADE_AUTH_TOKEN": ""}), \
+                    mock.patch.object(parse_esotrade_addon, "DEFAULT_DB_PATH", database), \
+                    mock.patch("sys.stdout", io.StringIO()):
+                for _ in range(2):
+                    with open(saved_variables, "w", encoding="utf-8") as handle:
+                        handle.write(content)
+                    self.assertEqual(1, parse_esotrade_addon.parse_and_sync_esotrade(saved_variables))
+
+            with closing(sqlite3.connect(database)) as verification:
+                row = verification.execute("""
+                    SELECT quantity, active_stacks
+                    FROM guild_trader_listings
+                    WHERE game_item_id = 123
+                """).fetchone()
+            self.assertEqual((100, 3), row)
+
     def test_parser_does_not_rewrite_an_empty_scans_table(self):
         with tempfile.TemporaryDirectory() as temp_dir:
             saved_variables = os.path.join(temp_dir, "ESOTrade.lua")

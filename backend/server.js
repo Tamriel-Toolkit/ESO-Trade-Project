@@ -24,8 +24,10 @@ const bcrypt = require("bcryptjs");
 const { rateLimit } = require("express-rate-limit");
 const sqlite3 = require("sqlite3").verbose();
 const { seedCuratedMetaBuilds } = require("./curated_builds");
+const { createSchemaMigrationRunner, rollbackTransaction } = require("./database_helpers");
 const app = express();
 const PORT = process.env.PORT || 5001;
+let server = null;
 
 const BCRYPT_SALT_ROUNDS = 12;
 const BCRYPT_HASH_PATTERN = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
@@ -190,6 +192,7 @@ const dbPath = process.env.DB_PATH || path.join(__dirname, "exports", "eso_catal
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         console.error("Error connecting to the database:", err.message);
+        process.exit(1);
     } else {
         console.log("Connected to the SQLite database at:", dbPath);
         // Explicitly enable Foreign Key constraints
@@ -203,6 +206,33 @@ const db = new sqlite3.Database(dbPath, (err) => {
         initializeDatabaseSchema();
     }
 });
+
+const schemaMigrationFailures = [];
+const runSchemaMigration = createSchemaMigrationRunner(db, {
+    onUnexpectedError: (failure) => schemaMigrationFailures.push(failure)
+});
+
+function abortStartupForSchemaFailures() {
+    const failedNames = schemaMigrationFailures.map((failure) => failure.name).join(", ");
+    console.error(
+        `[DB SCHEMA] Startup aborted after ${schemaMigrationFailures.length} unexpected migration failure(s): ${failedNames}.`
+    );
+
+    const closeDatabaseAndExit = () => {
+        db.close((closeErr) => {
+            if (closeErr) {
+                console.error(`[DB SCHEMA] Failed to close SQLite after migration failure: ${closeErr.message}`);
+            }
+            process.exit(1);
+        });
+    };
+
+    if (server && server.listening) {
+        server.close(closeDatabaseAndExit);
+    } else {
+        closeDatabaseAndExit();
+    }
+}
 
 /**
  * Reports and disables accounts whose stored credential is not bcrypt.
@@ -242,10 +272,7 @@ function scheduleLegacyPasswordRemediation() {
         const disabledPasswordHash = hashPassword(crypto.randomBytes(32).toString("hex"));
 
         const rollback = (migrationErr) => {
-            db.run("ROLLBACK;", (rollbackErr) => {
-                if (rollbackErr) {
-                    console.error("[AUTH MIGRATION] Rollback failed:", rollbackErr.message);
-                }
+            rollbackTransaction(dbRun, "Legacy-account remediation", migrationErr).finally(() => {
                 console.error("[AUTH MIGRATION] Failed to disable non-bcrypt accounts:", migrationErr.message);
             });
         };
@@ -300,9 +327,9 @@ function initializeDatabaseSchema() {
         `, (err) => {
             if (err) console.error("Error creating 'items' table:", err.message);
         });
-        db.run("ALTER TABLE items ADD COLUMN set_name TEXT;", () => {});
-        db.run("ALTER TABLE items ADD COLUMN type TEXT;", () => {});
-        db.run("ALTER TABLE items ADD COLUMN icon TEXT;", () => {});
+        runSchemaMigration("items.add-set-name", "ALTER TABLE items ADD COLUMN set_name TEXT;", { allowDuplicateColumn: true });
+        runSchemaMigration("items.add-type", "ALTER TABLE items ADD COLUMN type TEXT;", { allowDuplicateColumn: true });
+        runSchemaMigration("items.add-icon", "ALTER TABLE items ADD COLUMN icon TEXT;", { allowDuplicateColumn: true });
         db.run("CREATE INDEX IF NOT EXISTS idx_items_name ON items(name);");
         db.run("CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);");
         db.run("CREATE INDEX IF NOT EXISTS idx_items_set_name ON items(set_name);");
@@ -413,9 +440,9 @@ function initializeDatabaseSchema() {
             else console.log("'characters' table initialized successfully.");
         });
 
-        db.run("ALTER TABLE characters ADD COLUMN user_id INTEGER DEFAULT 1;", () => {});
-        db.run("ALTER TABLE characters ADD COLUMN alliance INTEGER DEFAULT 1;", () => {});
-        db.run("ALTER TABLE characters ADD COLUMN master_crafter_unlocked INTEGER DEFAULT 0;", () => {});
+        runSchemaMigration("characters.add-user-id", "ALTER TABLE characters ADD COLUMN user_id INTEGER DEFAULT 1;", { allowDuplicateColumn: true });
+        runSchemaMigration("characters.add-alliance", "ALTER TABLE characters ADD COLUMN alliance INTEGER DEFAULT 1;", { allowDuplicateColumn: true });
+        runSchemaMigration("characters.add-master-crafter-unlocked", "ALTER TABLE characters ADD COLUMN master_crafter_unlocked INTEGER DEFAULT 0;", { allowDuplicateColumn: true });
 
         db.run(`
             CREATE TABLE IF NOT EXISTS knowledge (
@@ -452,15 +479,16 @@ function initializeDatabaseSchema() {
                 UNIQUE(character_id, slot_id)
             );
         `, (err) => {
-            db.run("ALTER TABLE character_gear ADD COLUMN item_icon TEXT", () => {});
-            db.run("ALTER TABLE character_gear ADD COLUMN trait_name TEXT", () => {});
-            db.run("ALTER TABLE character_gear ADD COLUMN trait_description TEXT", () => {});
-            db.run("ALTER TABLE character_gear ADD COLUMN armor_rating INTEGER DEFAULT 0", () => {});
-            db.run("ALTER TABLE character_gear ADD COLUMN weapon_power INTEGER DEFAULT 0", () => {});
-            db.run("UPDATE items SET icon_url = REPLACE(icon_url, '.dds', '.png') WHERE icon_url LIKE '%.dds'", () => {});
-            db.run("UPDATE character_gear SET item_icon = REPLACE(item_icon, '.dds', '.png') WHERE item_icon LIKE '%.dds'", () => {});
-            console.log("'character_gear' table initialized successfully.");
+            if (err) console.error("Error creating 'character_gear' table:", err.message);
+            else console.log("'character_gear' table initialized successfully.");
         });
+        runSchemaMigration("character-gear.add-item-icon", "ALTER TABLE character_gear ADD COLUMN item_icon TEXT", { allowDuplicateColumn: true });
+        runSchemaMigration("character-gear.add-trait-name", "ALTER TABLE character_gear ADD COLUMN trait_name TEXT", { allowDuplicateColumn: true });
+        runSchemaMigration("character-gear.add-trait-description", "ALTER TABLE character_gear ADD COLUMN trait_description TEXT", { allowDuplicateColumn: true });
+        runSchemaMigration("character-gear.add-armor-rating", "ALTER TABLE character_gear ADD COLUMN armor_rating INTEGER DEFAULT 0", { allowDuplicateColumn: true });
+        runSchemaMigration("character-gear.add-weapon-power", "ALTER TABLE character_gear ADD COLUMN weapon_power INTEGER DEFAULT 0", { allowDuplicateColumn: true });
+        runSchemaMigration("items.normalize-icon-extension", "UPDATE items SET icon_url = REPLACE(icon_url, '.dds', '.png') WHERE icon_url LIKE '%.dds'");
+        runSchemaMigration("character-gear.normalize-icon-extension", "UPDATE character_gear SET item_icon = REPLACE(item_icon, '.dds', '.png') WHERE item_icon LIKE '%.dds'");
 
         db.run(`
             CREATE TABLE IF NOT EXISTS guild_trader_listings (
@@ -490,7 +518,7 @@ function initializeDatabaseSchema() {
         });
 
         // Ensure item_name column exists for dynamic in-game item naming
-        db.run(`ALTER TABLE guild_trader_listings ADD COLUMN item_name TEXT`, () => {});
+        runSchemaMigration("guild-trader-listings.add-item-name", "ALTER TABLE guild_trader_listings ADD COLUMN item_name TEXT", { allowDuplicateColumn: true });
 
         db.run(`
             CREATE TABLE IF NOT EXISTS user_inventory (
@@ -536,11 +564,11 @@ function initializeDatabaseSchema() {
         }
 
         // Migration columns for existing databases
-        db.run("ALTER TABLE guild_trader_listings ADD COLUMN seller_name TEXT DEFAULT '@Unknown';", (err) => {});
-        db.run("ALTER TABLE guild_trader_listings ADD COLUMN active_stacks INTEGER DEFAULT 1;", (err) => {});
-        db.run("ALTER TABLE guild_trader_listings ADD COLUMN level INTEGER DEFAULT 1;", (err) => {});
-        db.run("ALTER TABLE guild_trader_listings ADD COLUMN quality INTEGER DEFAULT 1;", (err) => {});
-        db.run("ALTER TABLE guild_trader_listings ADD COLUMN trait_id INTEGER DEFAULT 0;", (err) => {});
+        runSchemaMigration("guild-trader-listings.add-seller-name", "ALTER TABLE guild_trader_listings ADD COLUMN seller_name TEXT DEFAULT '@Unknown';", { allowDuplicateColumn: true });
+        runSchemaMigration("guild-trader-listings.add-active-stacks", "ALTER TABLE guild_trader_listings ADD COLUMN active_stacks INTEGER DEFAULT 1;", { allowDuplicateColumn: true });
+        runSchemaMigration("guild-trader-listings.add-level", "ALTER TABLE guild_trader_listings ADD COLUMN level INTEGER DEFAULT 1;", { allowDuplicateColumn: true });
+        runSchemaMigration("guild-trader-listings.add-quality", "ALTER TABLE guild_trader_listings ADD COLUMN quality INTEGER DEFAULT 1;", { allowDuplicateColumn: true });
+        runSchemaMigration("guild-trader-listings.add-trait-id", "ALTER TABLE guild_trader_listings ADD COLUMN trait_id INTEGER DEFAULT 0;", { allowDuplicateColumn: true });
 
         // Builds, Build Items & User Saved Builds Schema
         db.run(`
@@ -587,13 +615,11 @@ function initializeDatabaseSchema() {
             );
         `, (err) => {
             if (err) console.error("Error creating 'build_items' table:", err.message);
-            else {
-                console.log("'build_items' table initialized successfully.");
-                db.run("ALTER TABLE build_items ADD COLUMN item_icon TEXT", () => {});
-                db.run("ALTER TABLE build_items ADD COLUMN armor_weight TEXT", () => {});
-                db.run("ALTER TABLE build_items ADD COLUMN weapon_type TEXT", () => {});
-            }
+            else console.log("'build_items' table initialized successfully.");
         });
+        runSchemaMigration("build-items.add-item-icon", "ALTER TABLE build_items ADD COLUMN item_icon TEXT", { allowDuplicateColumn: true });
+        runSchemaMigration("build-items.add-armor-weight", "ALTER TABLE build_items ADD COLUMN armor_weight TEXT", { allowDuplicateColumn: true });
+        runSchemaMigration("build-items.add-weapon-type", "ALTER TABLE build_items ADD COLUMN weapon_type TEXT", { allowDuplicateColumn: true });
 
         db.run(`
             CREATE TABLE IF NOT EXISTS user_saved_builds (
@@ -708,6 +734,21 @@ function initializeDatabaseSchema() {
                 DELETE FROM guild_trader_listings WHERE id = NEW.id;
             END;
         `);
+
+        // This sentinel runs after every queued schema statement. Unexpected
+        // migration failures are fatal so the API never serves a partial schema.
+        db.run("SELECT 1;", (finalizeErr) => {
+            if (finalizeErr) {
+                console.error(`[DB SCHEMA] Finalization check failed: ${finalizeErr.message}`);
+                schemaMigrationFailures.push({ name: "schema.finalization", error: finalizeErr });
+            }
+            if (schemaMigrationFailures.length > 0) {
+                abortStartupForSchemaFailures();
+            } else {
+                console.log("[DB SCHEMA] Schema initialization completed successfully.");
+                startServer();
+            }
+        });
     });
 }
 
@@ -1059,11 +1100,7 @@ app.post("/api/characters/sync", async (req, res) => {
         await dbRun("COMMIT");
         res.json({ success: true, character_id: characterId });
     } catch (err) {
-        try {
-            await dbRun("ROLLBACK");
-        } catch (rollbackErr) {
-            console.error("Rollback failed:", rollbackErr.message);
-        }
+        await rollbackTransaction(dbRun, "POST /api/characters/sync", err);
         console.error("Error syncing character:", err.message);
         res.status(500).json({ error: err.message });
     }
@@ -1213,7 +1250,8 @@ app.post("/api/characters/upload-gear", batchUploadLimiter, async (req, res) => 
 
         res.json({ success: true, character_id: characterId, slots_updated: gear.length });
     } catch (err) {
-        try { await dbRun("ROLLBACK"); } catch (rErr) {}
+        await rollbackTransaction(dbRun, "POST /api/characters/upload-gear", err);
+        console.error("Error uploading character gear:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
@@ -1281,7 +1319,8 @@ app.post("/api/characters/upload-traits", batchUploadLimiter, async (req, res) =
 
         res.json({ success: true, character_id: characterId, traits_updated: traits.length });
     } catch (err) {
-        try { await dbRun("ROLLBACK"); } catch (rErr) {}
+        await rollbackTransaction(dbRun, "POST /api/characters/upload-traits", err);
+        console.error("Error uploading character traits:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
@@ -1388,11 +1427,7 @@ app.post("/api/listings/sync", async (req, res) => {
         await dbRun("COMMIT");
         res.json({ success: true, count: listings.length });
     } catch (err) {
-        try {
-            await dbRun("ROLLBACK");
-        } catch (rollbackErr) {
-            console.error("Rollback failed:", rollbackErr.message);
-        }
+        await rollbackTransaction(dbRun, "POST /api/listings/sync", err);
         console.error("Error syncing listings:", err.message);
         res.status(500).json({ error: err.message });
     }
@@ -1460,11 +1495,7 @@ app.post("/api/inventory/sync", async (req, res) => {
         await dbRun("COMMIT");
         res.json({ success: true, count: inventory.length });
     } catch (err) {
-        try {
-            await dbRun("ROLLBACK");
-        } catch (rollbackErr) {
-            console.error("Rollback failed:", rollbackErr.message);
-        }
+        await rollbackTransaction(dbRun, "POST /api/inventory/sync", err);
         console.error("Error syncing inventory:", err.message);
         res.status(500).json({ error: err.message });
     }
@@ -3308,7 +3339,8 @@ app.post("/api/builds", async (req, res) => {
         await dbRun("COMMIT");
         res.json({ success: true, build_id: buildId, message: "Custom build saved successfully." });
     } catch (err) {
-        await dbRun("ROLLBACK");
+        await rollbackTransaction(dbRun, "POST /api/builds", err);
+        console.error("Error creating custom build:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
@@ -3818,7 +3850,8 @@ app.post("/api/characters/:id/traits", async (req, res) => {
             message: `Successfully updated ${traitUpdates.length} trait(s).`
         });
     } catch (err) {
-        await dbRun("ROLLBACK").catch(() => {});
+        await rollbackTransaction(dbRun, "POST /api/characters/:id/traits", err);
+        console.error("Error updating character traits:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
@@ -4439,14 +4472,17 @@ app.delete("/api/requests/:id", async (req, res) => {
     });
 });
 
-const server = app.listen(PORT, () => {
-    console.log(`Server is running on port ${PORT}`);
-});
+function startServer() {
+    if (server) return server;
+    server = app.listen(PORT, () => {
+        console.log(`Server is running on port ${PORT}`);
+    });
+    return server;
+}
 
 const gracefulShutdown = (signal) => {
     console.log(`\n[API SERVER] Received ${signal}. Starting graceful shutdown...`);
-    server.close(() => {
-        console.log("[API SERVER] HTTP server closed.");
+    const closeDatabase = () => {
         if (db) {
             db.close((err) => {
                 if (err) {
@@ -4460,7 +4496,16 @@ const gracefulShutdown = (signal) => {
         } else {
             process.exit(0);
         }
-    });
+    };
+
+    if (server) {
+        server.close(() => {
+            console.log("[API SERVER] HTTP server closed.");
+            closeDatabase();
+        });
+    } else {
+        closeDatabase();
+    }
 
     // Fallback if shutdown hangs after 5 seconds
     setTimeout(() => {
@@ -4472,4 +4517,8 @@ const gracefulShutdown = (signal) => {
 process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 
-module.exports = { app, server, gracefulShutdown };
+module.exports = {
+    app,
+    get server() { return server; },
+    gracefulShutdown
+};
