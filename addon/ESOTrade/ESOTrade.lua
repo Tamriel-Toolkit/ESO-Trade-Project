@@ -1,5 +1,5 @@
 -- ============================================================================
--- ESO Trade Addon v1.6 (Attribute-Aware Native In-Game Kiosk & Gear Scanner)
+-- ESO Trade Addon v1.6.1 (Attribute-Aware Native In-Game Kiosk & Gear Scanner)
 -- Captures 100% real Item ID, Level, Quality, Trait, Guild, Location, and Equipped Gear.
 -- ============================================================================
 
@@ -50,6 +50,24 @@ local function ParseItemLinkAttributes(itemLink)
     local parsedTrait = tonumber(trait) or 0
 
     return parsedId, parsedLevel, parsedQuality, parsedTrait
+end
+
+-- Preserve ESO's stable per-listing identity so repeated trading-house response
+-- events can be distinguished from genuinely separate identical stacks.
+local function NormalizeTradingHouseUid(uid)
+    if uid == nil then return "" end
+
+    local normalizedUid
+    if Id64ToString then
+        normalizedUid = Id64ToString(uid)
+    else
+        normalizedUid = tostring(uid)
+    end
+
+    if not normalizedUid or normalizedUid == "" or normalizedUid == "0" then
+        return ""
+    end
+    return normalizedUid
 end
 
 -- Export equipped gear loadout for the active character
@@ -207,6 +225,7 @@ local function OnTradingHouseResponse(eventCode, responseType, result)
             end
             
             table.insert(ESOTradeVars.Scans, {
+                UID      = NormalizeTradingHouseUid(uid),
                 ItemId   = itemId,
                 Link     = itemLink,
                 Name     = name,
@@ -298,7 +317,7 @@ local function OnAddOnLoaded(eventCode, addOnName)
     EVENT_MANAGER:RegisterForEvent(ESOTrade.name, EVENT_SMITHING_TRAIT_RESEARCH_COMPLETED, RefreshCharacterData)
     EVENT_MANAGER:RegisterForEvent(ESOTrade.name, EVENT_SMITHING_TRAIT_RESEARCH_STARTED, RefreshCharacterData)
 
-    d("|c00FF00[ESOTrade Addon v1.6 Loaded]|r Automatic metadata, gear & trait research sync active for character '" .. (ESOTradeVars.PlayerName or "Hero") .. "' on " .. (GetWorldName() or "NA"))
+    d("|c00FF00[ESOTrade Addon v1.6.1 Loaded]|r Automatic metadata, gear & trait research sync active for character '" .. (ESOTradeVars.PlayerName or "Hero") .. "' on " .. (GetWorldName() or "NA"))
 end
 
 EVENT_MANAGER:RegisterForEvent(ESOTrade.name, EVENT_ADD_ON_LOADED, OnAddOnLoaded)

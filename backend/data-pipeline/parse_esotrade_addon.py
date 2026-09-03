@@ -336,15 +336,19 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
             session_cluster_items.append(item)
 
     # Step 4: UID Set Deduplication & Grouping within the Session Cluster Window
-    seen_uids_in_session = set()
+    uid_positions_in_session = {}
     unique_items_in_session = []
 
     for item in session_cluster_items:
         uid = item["uid"]
-        if uid and uid != "":
-            if uid in seen_uids_in_session:
-                continue # Skip duplicate re-searched UID within the session cluster
-            seen_uids_in_session.add(uid)
+        if uid and uid != "0":
+            existing_position = uid_positions_in_session.get(uid)
+            if existing_position is not None:
+                # A response callback may repeat the same result page. Replace
+                # the older observation without increasing the stack count.
+                unique_items_in_session[existing_position] = item
+                continue
+            uid_positions_in_session[uid] = len(unique_items_in_session)
         unique_items_in_session.append(item)
 
     # Step 5: Group unique items by seller listing key to compute active_stacks
