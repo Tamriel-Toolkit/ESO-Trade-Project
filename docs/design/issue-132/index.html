@@ -1,0 +1,287 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Visual directions · Issue 132 · Tamriel Trade Hub</title>
+    <style>
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: #d3d6d4;
+        color: #202827;
+        font:
+          14px/1.5 system-ui,
+          sans-serif;
+      }
+      button,
+      select {
+        font: inherit;
+      }
+      button {
+        cursor: pointer;
+      }
+      a {
+        color: inherit;
+      }
+      header {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: #fafbf8;
+        border-bottom: 1px solid #bec7c2;
+        padding: 14px 26px;
+        display: flex;
+        gap: 22px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      .review-title {
+        min-width: 190px;
+      }
+      .review-title strong {
+        display: block;
+        font-size: 15px;
+      }
+      .review-title small {
+        color: #52615c;
+      }
+      .controls {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+      button,
+      select,
+      .open-link {
+        border: 1px solid #adbab2;
+        padding: 8px 13px;
+        border-radius: 5px;
+        background: transparent;
+        color: #263f35;
+        text-decoration: none;
+      }
+      button[aria-pressed="true"] {
+        background: #263f35;
+        color: #fff;
+        border-color: #263f35;
+      }
+      button:focus-visible,
+      select:focus-visible,
+      a:focus-visible {
+        outline: 3px solid #8d5b22;
+        outline-offset: 3px;
+      }
+      label {
+        color: #46594f;
+        font-size: 12px;
+      }
+      .viewport {
+        margin-left: auto;
+      }
+      .description {
+        padding: 13px 26px;
+        background: #e9ece6;
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        align-items: center;
+      }
+      .description p {
+        margin: 0;
+      }
+      .description strong {
+        font-weight: 600;
+      }
+      .description small {
+        font-size: 12px;
+        color: #3b5146;
+      }
+      .stage {
+        padding: 24px 18px;
+      }
+      iframe {
+        display: block;
+        border: 0;
+        margin: auto;
+        background: #eee;
+        width: 100%;
+        height: calc(100vh - 210px);
+        min-height: 700px;
+        box-shadow: 0 8px 30px #15231c26;
+        transition: width 150ms ease;
+      }
+      iframe.mobile {
+        width: 390px;
+        max-width: 100%;
+      }
+      .note {
+        padding: 6px 26px 20px;
+        margin: 0;
+        font-size: 12px;
+        color: #354d40;
+      }
+      .open-link {
+        padding: 5px 10px;
+        font-size: 12px;
+        white-space: nowrap;
+      }
+      @media (max-width: 700px) {
+        header {
+          padding: 12px 16px;
+          gap: 12px;
+        }
+        .review-title {
+          width: 100%;
+        }
+        .viewport {
+          margin-left: 0;
+        }
+        .description {
+          padding: 12px 16px;
+          align-items: start;
+          flex-direction: column;
+          gap: 7px;
+        }
+        .stage {
+          padding: 12px 0;
+        }
+        iframe {
+          min-height: 900px;
+        }
+        .note {
+          padding: 10px 16px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        iframe {
+          transition: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="review-title">
+        <strong>Tamriel Trade Hub / Design review</strong
+        ><small>Issue #132 · Direction approval</small>
+      </div>
+      <div class="controls" aria-label="Visual direction">
+        <button data-direction="ledger" aria-pressed="true">
+          A · Guild Ledger
+        </button>
+        <button data-direction="atlas" aria-pressed="false">
+          B · Obsidian Atlas
+        </button>
+      </div>
+      <div class="controls">
+        <label for="page">Screen</label
+        ><select id="page">
+          <option value="home">Home</option>
+          <option value="marketplace">Marketplace</option>
+          <option value="characters">Characters</option>
+        </select>
+      </div>
+      <div class="controls viewport">
+        <label for="viewport">Width</label
+        ><select id="viewport">
+          <option value="desktop">Full width</option>
+          <option value="mobile">Mobile · 390px</option>
+        </select>
+      </div>
+    </header>
+    <section class="description">
+      <p>
+        <strong id="direction-name">Guild Ledger.</strong>
+        <span id="direction-copy"
+          >Warm, editorial, precise. Stone-colored pages, dark navigation, ruled
+          trading rows.</span
+        ><br /><small
+          >Reference snapshots only. No production styling or behavior has
+          changed.</small
+        >
+      </p>
+      <a
+        class="open-link"
+        id="open-preview"
+        href="ledger.html?screen=home"
+        target="_blank"
+        rel="noopener"
+        >Open full preview ↗</a
+      >
+    </section>
+    <main class="stage">
+      <iframe
+        id="preview"
+        src="ledger.html?screen=home"
+        title="Guild Ledger visual concept"
+      ></iframe>
+    </main>
+    <p class="note">
+      Explore the three screens, select a listing, search reference items, and
+      compare mobile layouts. Some controls demonstrate appearance only and
+      explicitly say so. The upper review controls are not part of the proposed
+      app.
+    </p>
+    <script>
+      let direction = "ledger";
+      const descriptions = {
+        ledger: [
+          "Guild Ledger.",
+          "Warm, editorial, precise. Stone-colored pages, dark navigation, ruled trading rows.",
+        ],
+        atlas: [
+          "Obsidian Atlas.",
+          "Dark, spatial, considered. Engraved geometry, cool stone, and measured brass accents.",
+        ],
+      };
+      function update() {
+        const url =
+          direction + ".html?screen=" + document.getElementById("page").value;
+        document.getElementById("preview").src = url;
+        document.getElementById("preview").title =
+          descriptions[direction][0] + " visual concept";
+        document.getElementById("open-preview").href = url;
+        document.getElementById("direction-name").textContent =
+          descriptions[direction][0];
+        document.getElementById("direction-copy").textContent =
+          descriptions[direction][1];
+      }
+      document.querySelectorAll("[data-direction]").forEach((button) =>
+        button.addEventListener("click", () => {
+          direction = button.dataset.direction;
+          document
+            .querySelectorAll("[data-direction]")
+            .forEach((node) =>
+              node.setAttribute("aria-pressed", String(node === button)),
+            );
+          update();
+        }),
+      );
+      document.getElementById("page").addEventListener("change", update);
+      window.addEventListener("message", (event) => {
+        if (
+          event.origin !== location.origin ||
+          event.source !== document.getElementById("preview").contentWindow ||
+          event.data?.type !== "design-review-screen"
+        )
+          return;
+        const screen = event.data.screen;
+        if (!["home", "marketplace", "characters"].includes(screen)) return;
+        document.getElementById("page").value = screen;
+        document.getElementById("open-preview").href =
+          direction + ".html?screen=" + screen;
+      });
+      document
+        .getElementById("viewport")
+        .addEventListener("change", (event) =>
+          document
+            .getElementById("preview")
+            .classList.toggle("mobile", event.target.value === "mobile"),
+        );
+    </script>
+  </body>
+</html>
