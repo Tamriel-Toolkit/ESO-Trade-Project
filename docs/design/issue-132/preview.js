@@ -2,6 +2,8 @@
 (() => {
   "use strict";
   const data = window.REVIEW_DATA;
+  const itemArt = document.body.dataset.itemArt === "true";
+  const iconData = window.REVIEW_ICONS;
   const $ = (selector) => document.querySelector(selector);
   const $$ = (selector) => [...document.querySelectorAll(selector)];
   const state = {
@@ -30,6 +32,23 @@
     const node = element("span", className);
     node.append(element("strong", "", strong), element("small", "", small));
     return node;
+  }
+  function gameIcon(filename, className) {
+    const frame = element("span", className);
+    const img = element("img");
+    img.src =
+      "/api/icons/" + encodeURIComponent(filename || "item-icon-fallback.svg");
+    img.alt = "";
+    img.addEventListener(
+      "error",
+      () => {
+        img.src = "/api/icons/item-icon-fallback.svg";
+      },
+      { once: true },
+    );
+    frame.setAttribute("aria-hidden", "true");
+    frame.append(img);
+    return frame;
   }
   function announce(message) {
     let node = $("[data-announcement]");
@@ -141,17 +160,19 @@
           `View ${item.name}, ${gold(item.price)} each`,
         );
         const identity = element("span", "item-identity");
-        const icon = element(
-          "span",
-          "item-icon",
-          item.category === "Jewelry"
-            ? "◇"
-            : item.category === "Materials"
-              ? "⌁"
-              : item.category === "Furnishings"
-                ? "⌂"
-                : "▤",
-        );
+        const icon = itemArt
+          ? gameIcon(iconData.listings[item.name], "item-icon")
+          : element(
+              "span",
+              "item-icon",
+              item.category === "Jewelry"
+                ? "◇"
+                : item.category === "Materials"
+                  ? "⌁"
+                  : item.category === "Furnishings"
+                    ? "⌂"
+                    : "▤",
+            );
         icon.setAttribute("aria-hidden", "true");
         const copy = element("span", "item-copy");
         copy.append(
@@ -195,6 +216,8 @@
         .filter((item) => !item.bar || item.bar === state.bar)
         .forEach((item) => {
           const row = element("div", "gear-row");
+          if (itemArt)
+            row.append(gameIcon(iconData.gear[item.slot], "gear-icon"));
           row.append(
             element("span", "slot-label", item.slot),
             cell(
@@ -215,6 +238,10 @@
     const content = $("[data-detail-content]");
     if (!dialog || !content) return;
     content.replaceChildren();
+    if (itemArt)
+      content.append(
+        gameIcon(iconData.listings[item.name], "detail-item-icon"),
+      );
     const heading = element("h2", "", item.name);
     heading.id = "detail-title";
     dialog.setAttribute("aria-labelledby", "detail-title");
@@ -262,6 +289,34 @@
       const button = element("button", "category-link");
       button.type = "button";
       button.dataset.filterCategory = category;
+      if (itemArt) {
+        const categoryIcons = {
+          Weapons: "Sword",
+          Apparel: "Shield",
+          Jewelry: "Gem",
+          Consumables: "FlaskConical",
+          Materials: "Layers",
+          Glyphs: "ScrollText",
+          Furnishings: "Armchair",
+          Miscellaneous: "Package",
+        };
+        const svg = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "svg",
+        );
+        svg.classList.add("ui-icon");
+        svg.setAttribute("aria-hidden", "true");
+        const use = document.createElementNS(
+          "http://www.w3.org/2000/svg",
+          "use",
+        );
+        use.setAttribute(
+          "href",
+          "assets/ui-icons.svg#" + categoryIcons[category],
+        );
+        svg.append(use);
+        button.append(svg);
+      }
       button.append(
         element("span", "category-index", String(index + 1).padStart(2, "0")),
         element("span", "category-name", category),

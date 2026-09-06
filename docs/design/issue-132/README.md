@@ -1,10 +1,32 @@
 # Issue #132 — Visual direction review
 
-Phase 1 of [#132](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/132): two distinct visual directions for Tamriel Trade Hub, using the same historical reference data across Home, Marketplace, and Characters. These are isolated, interactive composition samples—not a completed application restyle.
+Phase 1 of [#132](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/132): three visual directions for Tamriel Trade Hub, using the same historical reference data across Home, Marketplace, and Characters. These are isolated, interactive composition samples—not a completed application restyle.
 
-**Owner approval is required before broad implementation.** Review both directions on desktop and mobile, then record the selected direction or an explicitly defined combination in #132. The concept PR does not close #132. Its remaining application-wide acceptance criteria and rollout work stay open.
+**Owner approval is required before broad implementation.** C is the latest direction; A/B remain available for comparison. Record the selected direction or an explicitly defined combination in #132 after desktop/mobile review. The concept PR does not close #132. Its remaining application-wide acceptance criteria and rollout work stay open.
 
-## The decision
+## Latest direction: C — Gilded Exchange
+
+Owner feedback on A/B was that they felt too generic and insufficiently like a fantasy marketplace. The requested correction was to preserve the current app's darker, golden-yellow ESO identity and its icons. C responds to that feedback; it is not yet an approved direction. “Gilded Exchange” is a review label, not a new product name.
+
+- **Palette:** charcoal canvas `#111214`, deeper recesses `#0b0c0e`, stone-like surfaces `#19191b` / `#202022`, parchment text `#efe5cf`, readable muted text `#afa797`, and golden-yellow `#e6c15a`. Gold signals identity, selection, and price rather than coloring every sentence.
+- **Typography:** the app's existing Cinzel family for the wordmark and restrained fantasy headings; sans-serif item names, labels, controls, and numerals for quick reading. Cinzel is self-hosted in this preview, with no browser font-service requests.
+- **Craft details:** narrow inset metal frames, small clipped-corner details, an active-navigation diamond, and an arched merchandise display. These are code-native composition details, not a new logo, item artwork, or game mechanic.
+- **Home:** a concise marketplace introduction beside existing item artwork, followed by a compact category grid. The decorative item display does not imply recommendations, featured inventory, or new functionality.
+- **Marketplace:** compact two-column offers on desktop and one column on mobile; original item art, clear unit price and stack total, observed quantity, seller, guild, location, and observation date. Existing controls remain represented. Narrow layouts reduce redundant heading space without hiding refinements or trading information.
+- **Characters:** the current Necromancer class icon and Ebonheart crest, a clear selected-character identity, and original equipment icons alongside readable gear names. Both weapon bars remain inspectable.
+- **Interaction:** short gold/surface/focus feedback and native controls; no looping effects or new gestures. This remains a read-only concept with the same limitations as A/B.
+
+The reusable signature is **charcoal-and-gold metalwork, recognizable ESO item art, Cinzel identity, and aligned trading information**. Extend it to Requests and My Orders with stable specification/price/action groups; Builds with readable equipment and set lists; forms with one quiet dark surface and persistent labels; and the trait matrix with clear row/column labels and textual state indicators. Keep intricate framing in major composition boundaries, not around every field or badge. #104 will define production tokens after approval.
+
+| C sample    | Desktop                                                      | Mobile                                            |
+| ----------- | ------------------------------------------------------------ | ------------------------------------------------- |
+| Home        | [Gilded Exchange](previews/exchange-home-desktop.png)        | [390px](previews/exchange-home-mobile.png)        |
+| Marketplace | [Gilded Exchange](previews/exchange-marketplace-desktop.png) | [390px](previews/exchange-marketplace-mobile.png) |
+| Characters  | [Gilded Exchange](previews/exchange-characters-desktop.png)  | [390px](previews/exchange-characters-mobile.png)  |
+
+[Open C on Marketplace](http://127.0.0.1:5132/?direction=exchange&screen=marketplace) with the preview server running.
+
+## Earlier directions: A / B
 
 Both directions retain an ESO-inspired atmosphere through restrained serif typography, engraved linework, and a considered material palette. Neither relies on copying the game's interface, adding ornamental panels around every element, or making all text gold and uppercase. The intended hierarchy is task first, useful context second, decoration last; this is a design intention, not a measured usability result.
 
@@ -39,7 +61,7 @@ Approval should state the chosen palette, typography, ornament style, and densit
 
 The repeatable signatures are the **masthead/document rhythm, indexed ledger rules, and aligned price columns** in A; and the **diamond selection marker, engraved geometry, and spatial equipment grouping** in B. Ornament belongs in the opening composition or character illustration, not behind form text, in every result row, or across a research matrix. Keep the existing product name; these direction names are review labels, not a rebrand or new logo proposal.
 
-For implementation, use short 120–200ms color/surface transitions. Selection must retain a visible mark without motion. Keyboard focus uses an offset outline; pending, error, success, and copied states retain explicit text and stable control dimensions. Preserve native control semantics and current modal workflows, restore focus after closing, and never make important information hover-only. No looping glows, card levitation, decorative loading delays, or new gestures. #104 will consolidate the chosen rules into production tokens and primitives; these two isolated stylesheets must not become competing production themes.
+For implementation, use short 120–200ms color/surface transitions. Selection must retain a visible mark without motion. Keyboard focus uses an offset outline; pending, error, success, and copied states retain explicit text and stable control dimensions. Preserve native control semantics and current modal workflows, restore focus after closing, and never make important information hover-only. No looping glows, card levitation, decorative loading delays, or new gestures. #104 will consolidate the chosen rules into production tokens and primitives; the isolated concept stylesheets must not become competing production themes.
 
 ## Run and compare
 
@@ -49,9 +71,9 @@ From the repository root, start the dependency-free, loopback-only preview serve
 node docs/design/issue-132/serve.cjs
 ```
 
-Open [the comparison harness](http://127.0.0.1:5132). Use the A/B buttons, screen selector, and full-width/390px selector to compare like-for-like views. **Open full preview** removes the surrounding comparison frame. The upper review controls are review tooling, not proposed application UI. Stop the server with `Ctrl+C`.
+Open [the comparison harness](http://127.0.0.1:5132). C is selected by default. Use the A/B/C buttons, screen selector, and full-width/390px selector to compare like-for-like views. **Open full preview** removes the surrounding comparison frame. The upper review controls are review tooling, not proposed application UI. Stop the server with `Ctrl+C`.
 
-The shared preview demonstrates screen navigation, reference-item search and category filtering, listing details, weapon-bar selection, and Marketplace state samples. Controls that only demonstrate appearance are identified as read-only or preview-only. They must not be interpreted as implemented application handlers. The server only serves an explicit allowlist of preview assets; it provides no application API.
+The shared preview demonstrates screen navigation, reference-item search and category filtering, listing details, weapon-bar selection, and Marketplace state samples. Controls that only demonstrate appearance are identified as read-only or preview-only. They must not be interpreted as implemented application handlers. The server serves an explicit allowlist of preview assets, including copied static icons through `/api/icons/:filename`; it provides no business API, proxy, authentication, or persistence.
 
 Run the included local checks with:
 
@@ -63,13 +85,14 @@ These checks cover reference-data invariants, the shared preview contract, and i
 
 ## Data and asset boundaries
 
-`fixtures.js` contains a read-only snapshot captured on **5 September 2026** from existing local SQLite records: nine listing groups observed on **3 September 2026**, one synced character, and twelve recorded equipment entries across both weapon bars. The same records power both directions. They are historical examples, not current availability, generated market activity, or a replacement data source.
+`fixtures.js` contains a read-only snapshot captured on **5 September 2026** from existing local SQLite records: nine listing groups observed on **3 September 2026**, one synced character, and twelve recorded equipment entries across both weapon bars. The same records power all three directions. They are historical examples, not current availability, generated market activity, or a replacement data source.
 
 The Tide-Born Feathers example deliberately preserves the distinction between **2,100g per item**, **100 items per stack**, **210,000g per stack**, and **three stacks / 300 items**. A visual redesign must not change those meanings or the underlying listing aggregation.
 
-- No application API requests, authentication integration, browser storage, or database writes are performed by the preview.
+- No business API requests, authentication integration, browser storage, or database writes are performed by the preview. Icon requests read only the allowlisted static copies; they cannot fetch upstream or populate a cache.
 - No production files, routes, application styles, handlers, or data pipelines are changed by this concept package.
-- Generic category symbols are visual placeholders for missing reference icon assets, not fabricated item artwork. Production item icons must continue to use the existing backend icon-cache pipeline.
+- A/B retain their earlier generic category symbols for comparison. C uses the original cached item/equipment images through the local `/api/icons/:filename` path, with mappings and provenance in [the icon manifest](assets/icon-manifest.json). Twelve unique PNGs were verified byte-for-byte against the existing cache. Eight of nine listing groups and all twelve gear entries have their exact cached artwork. **Firelogs, Flaming** has no cached image, so it deliberately uses the existing backend missing-image fallback, not substitute artwork. Production icon delivery is unchanged.
+- C retains the existing Lucide icon family and project Ebonheart crest. Lucide's license is retained in [LUCIDE-LICENSE.txt](assets/LUCIDE-LICENSE.txt). The Cinzel Latin 400/600 WOFF2 assets come from `@fontsource/cinzel@5.3.0`, with the upstream [OFL license](assets/Cinzel-OFL.txt). Existing game artwork remains its original owner's property; the manifest records provenance, not a new license grant.
 - The compass, contours, and character linework are code-native decorative illustrations. The abstract atlas is not a game map, route planner, or location feature; the figure is not a newly proposed equipment interaction.
 - No credentials, tokens, or private account-contact fields are included. Listing seller handles and character details are reference-record content.
 
@@ -105,13 +128,13 @@ All remain unchecked in this concept phase:
 
 The checklist describes delivery coverage, not new functionality or a replacement priority queue. GitHub tracking issue #35 remains authoritative for execution status and dependencies.
 
-## Verification record — 5 September 2026
+## Verification record — 5–6 September 2026
 
-- `node --test docs/design/issue-132/preview.test.cjs`: **5 passed**. Includes eight principal text/palette pairs at a minimum 4.5:1 contrast ratio, reference-price/quantity invariants, and asset/behavior isolation checks. This is not a complete rendered contrast audit.
-- Headless system Chrome, isolated browser context: **36 screen/viewport checks passed** across both directions, all three screens, 360/390/768/1024/1440px widths, plus a short 720×450 effective viewport at 2× device scale. No page-level horizontal overflow or JavaScript errors were found in those runs.
+- `node --test docs/design/issue-132/preview.test.cjs`: **8 passed**. Includes eleven principal text/palette pairs at a minimum 4.5:1 contrast ratio, reference-price/quantity invariants, harness deep-link/message validation, exact icon mappings, and asset/behavior isolation checks. This is not a complete rendered contrast audit.
+- Headless system Chrome, isolated browser context: **54 screen/viewport checks passed** across three directions, all three screens, 360/390/768/1024/1440px widths, plus a short 720×450 effective viewport at 2× device scale. No page-level horizontal overflow or JavaScript errors were found in those runs.
 - Keyboard activation, modal background focus exclusion, Escape/return focus, search, all eight category choices, reset, Home-to-category context, both weapon bars, and loading/empty/error samples passed. The iframe comparison controls remain synchronized after navigation within a concept.
 - Reduced-motion check found no running animations in the short-viewport samples. Dialog close actions remain reachable there. The server rejects non-GET/HEAD requests and files outside its allowlist; browser checks found no remote requests or mutation calls.
-- Twelve desktop/mobile concept captures were generated and visually inspected; three original owner-supplied screenshots are retained for comparison. Early category-layout, glyph-contrast, filter visibility, and weapon-bar inconsistencies were corrected during review.
+- Eighteen desktop/mobile concept captures were generated and visually inspected across the review rounds; three original owner-supplied screenshots are retained for comparison. Earlier category-layout, glyph-contrast, filter visibility, and weapon-bar inconsistencies were corrected. C's review also reduced oversized home artwork, raised small metadata sizes, and compacted the mobile trading header. Browser checks confirm C's original icons and the known fallback load locally.
 - Unmodified production frontend: `npm run build` **passed**, with existing chunk-size and mixed static/dynamic API-import warnings. `npm run lint` **fails at baseline** on the conditional `useEffect` in `frontend/src/components/dev/DevAccountModal.jsx:95`, plus existing warnings. Frontend content matches the base commit; this documentation-only PR does not modify that component or fix unrelated lint errors.
 
 Optional browser verification (requires Playwright and system Chrome, separate from application dependencies):
@@ -122,7 +145,7 @@ Optional browser verification (requires Playwright and system Chrome, separate f
 node docs/design/issue-132/browser-check.cjs
 ```
 
-Limitations: no owner first-impression/usability session, screen-reader audit, manual browser-menu 200% zoom check, other-browser certification, full production-state coverage, or final owner approval has occurred. The 2× effective-viewport check is not claimed as a manual browser zoom test. These remain part of the approved-direction implementation and final review; no umbrella acceptance checkbox is marked complete by this artifact.
+Owner feedback on A/B is recorded above; C awaits review. Limitations: no measured usability test, screen-reader audit, manual browser-menu 200% zoom check, other-browser certification, full production-state coverage, or final owner approval has occurred. The 2× effective-viewport check is not claimed as a manual browser zoom test. These remain part of the approved-direction implementation and final review; no umbrella acceptance checkbox is marked complete by this artifact.
 
 ### Captures
 

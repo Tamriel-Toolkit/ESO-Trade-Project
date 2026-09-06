@@ -1,0 +1,446 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Gilded Exchange · Tamriel Trade Hub</title>
+    <link rel="stylesheet" href="exchange.css" />
+    <script src="fixtures.js" defer></script>
+    <script src="icon-data.js" defer></script>
+    <script src="preview.js" defer></script>
+  </head>
+  <body data-concept="Gilded Exchange" data-item-art="true">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <aside class="review-toolbar" aria-label="Design review controls">
+      <a href="index.html?direction=exchange">← Compare concepts</a
+      ><span
+        ><strong>C</strong> Gilded Exchange
+        <span class="review-context"
+          >· Design preview, not the live app</span
+        ></span
+      ><label
+        >Listing state
+        <select data-state>
+          <option value="populated">Populated</option>
+          <option value="loading">Loading</option>
+          <option value="empty">Empty</option>
+          <option value="error">Error</option>
+        </select></label
+      >
+    </aside>
+    <header class="site-header">
+      <div class="header-inner">
+        <button
+          class="wordmark"
+          data-go="home"
+          aria-label="Tamriel Trade Hub home"
+        >
+          <span class="eso-mark">ESO</span
+          ><span class="brand-name">Tamriel <small>Trade Hub</small></span>
+        </button>
+        <nav class="main-navigation" aria-label="Main navigation">
+          <button data-go="home">Home</button
+          ><button data-go="marketplace">Marketplace</button
+          ><button data-preview-only>
+            Requests
+            <svg class="ui-icon small" aria-hidden="true">
+              <use href="assets/ui-icons.svg#ChevronDown" />
+            </svg></button
+          ><button data-preview-only>Builds</button
+          ><button data-go="characters">
+            Characters
+            <svg class="ui-icon small" aria-hidden="true">
+              <use href="assets/ui-icons.svg#ChevronDown" />
+            </svg>
+          </button>
+        </nav>
+        <div class="header-tools">
+          <button data-preview-only aria-label="Settings">
+            <svg class="ui-icon" aria-hidden="true">
+              <use href="assets/ui-icons.svg#Settings" />
+            </svg></button
+          ><button class="account" data-preview-only aria-label="Account menu">
+            <svg class="ui-icon" aria-hidden="true">
+              <use href="assets/ui-icons.svg#User" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+    <main id="main" tabindex="-1">
+      <section
+        class="page home-page"
+        data-screen="home"
+        aria-labelledby="home-title"
+      >
+        <div class="home-opening">
+          <div class="intro-copy">
+            <p class="eyebrow">
+              <svg class="ui-icon" aria-hidden="true">
+                <use href="assets/ui-icons.svg#Store" />
+              </svg>
+              The Elder Scrolls Online
+            </p>
+            <h1 id="home-title">The guild<br /><span>marketplace.</span></h1>
+            <p class="intro-description">
+              Equipment, materials, and rare finds.<br />Discover what Tamriel's
+              traders have to offer.
+            </p>
+            <div class="intro-actions">
+              <button class="button-primary" data-go="marketplace">
+                <svg class="ui-icon" aria-hidden="true">
+                  <use href="assets/ui-icons.svg#Store" />
+                </svg>
+                Browse marketplace
+                <svg class="ui-icon small" aria-hidden="true">
+                  <use href="assets/ui-icons.svg#ArrowRight" />
+                </svg></button
+              ><button class="text-link" data-go="characters">
+                Your characters
+                <svg class="ui-icon small" aria-hidden="true">
+                  <use href="assets/ui-icons.svg#ChevronRight" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="wares-display" aria-hidden="true">
+            <div class="display-arch"></div>
+            <div class="display-orbit"></div>
+            <span class="display-heading">Arms · Materials · Rarities</span>
+            <div class="display-item display-left">
+              <img src="/api/icons/gear_breton_ring_a.png" alt="" /><span
+                >Jewelry</span
+              >
+            </div>
+            <div class="display-item display-center">
+              <img src="/api/icons/gear_argonian_staff_d.png" alt="" /><span
+                >Weapons</span
+              >
+            </div>
+            <div class="display-item display-right">
+              <img
+                src="/api/icons/styleitemicon_u46_solsticeargonians.png"
+                alt=""
+              /><span>Materials</span>
+            </div>
+            <div class="display-plinth"></div>
+            <span class="display-footnote"
+              >A world of wares. One place to look.</span
+            >
+          </div>
+        </div>
+        <section class="category-section" aria-labelledby="categories-title">
+          <div class="section-heading">
+            <h2 id="categories-title">
+              <svg class="ui-icon" aria-hidden="true">
+                <use href="assets/ui-icons.svg#Layers" />
+              </svg>
+              Browse the market
+            </h2>
+            <span>Eight categories. Every adventure.</span>
+          </div>
+          <div data-categories class="category-grid"></div>
+        </section>
+        <div class="home-context">
+          <div>
+            <svg class="ui-icon" aria-hidden="true">
+              <use href="assets/ui-icons.svg#ScrollText" />
+            </svg>
+            <p>
+              <strong>155,476 catalog items</strong
+              ><span>Explore the ESO item catalog.</span>
+            </p>
+          </div>
+          <div>
+            <svg class="ui-icon" aria-hidden="true">
+              <use href="assets/ui-icons.svg#Store" />
+            </svg>
+            <p>
+              <strong>Seen at guild traders</strong
+              ><span>Shared by players. Availability may change.</span>
+            </p>
+          </div>
+          <button data-go="characters">
+            <svg class="ui-icon" aria-hidden="true">
+              <use href="assets/ui-icons.svg#Shield" />
+            </svg>
+            <p>
+              <strong>Your characters, equipped</strong
+              ><span>Roster, gear, and trait research.</span>
+            </p>
+            <svg class="ui-icon small" aria-hidden="true">
+              <use href="assets/ui-icons.svg#ChevronRight" />
+            </svg>
+          </button>
+        </div>
+      </section>
+      <section
+        class="page market-page"
+        data-screen="marketplace"
+        aria-labelledby="market-title"
+        hidden
+      >
+        <header class="page-heading">
+          <div class="heading-main">
+            <div class="heading-emblem">
+              <svg class="ui-icon" aria-hidden="true">
+                <use href="assets/ui-icons.svg#Store" />
+              </svg>
+            </div>
+            <div>
+              <p class="eyebrow">PC · North America</p>
+              <h1 id="market-title">Marketplace</h1>
+              <p>Find the item. Compare the offers. Visit the trader.</p>
+            </div>
+          </div>
+          <div class="market-tabs" aria-label="Marketplace views">
+            <button class="selected" data-preview-only>Guild traders</button
+            ><button data-preview-only>Item catalog</button>
+          </div>
+        </header>
+        <div class="market-workspace">
+          <aside class="saved-panel" aria-labelledby="saved-title">
+            <h2 id="saved-title">
+              <svg class="ui-icon" aria-hidden="true">
+                <use href="assets/ui-icons.svg#Bookmark" />
+              </svg>
+              Saved searches
+            </h2>
+            <button class="saved-search" data-saved-search="tide">
+              <span>tide</span
+              ><svg class="ui-icon small" aria-hidden="true">
+                <use href="assets/ui-icons.svg#ChevronRight" />
+              </svg></button
+            ><label for="saved-name">Search name</label
+            ><input id="saved-name" placeholder="Name this search" /><button
+              class="button-secondary save-button"
+              data-preview-only
+            >
+              Save search
+            </button>
+            <p class="aside-note">Keep a search for your next trader visit.</p>
+            <div class="saved-footer">
+              <svg class="ui-icon" aria-hidden="true">
+                <use href="assets/ui-icons.svg#Clock" />
+              </svg>
+              <p>Listings reflect the last observation, not live stock.</p>
+            </div>
+          </aside>
+          <div class="market-main">
+            <form
+              class="market-refinements"
+              role="search"
+              onsubmit="return false"
+            >
+              <div class="search-row">
+                <label class="search-field"
+                  ><svg class="ui-icon" aria-hidden="true">
+                    <use href="assets/ui-icons.svg#Search" /></svg
+                  ><span class="sr-only">Search items</span
+                  ><input
+                    type="search"
+                    data-search
+                    placeholder="Search items by name"
+                    autocomplete="off" /></label
+                ><label class="category-field"
+                  ><span class="sr-only">Category</span
+                  ><select data-category>
+                    <option value="">All categories</option>
+                  </select></label
+                >
+              </div>
+              <div class="filter-fields">
+                <label
+                  >Trading hub<select data-preview-only>
+                    <option>All trading hubs</option>
+                  </select></label
+                ><label
+                  >Popular trades<select data-preview-only>
+                    <option>All trades</option>
+                  </select></label
+                ><label
+                  >Subcategory<select data-preview-only>
+                    <option>All subcategories</option>
+                  </select></label
+                ><label
+                  >Trait<select data-preview-only>
+                    <option>All traits</option>
+                  </select></label
+                ><label
+                  >Quality<select data-preview-only>
+                    <option>Any quality</option>
+                  </select></label
+                ><label
+                  >Last seen<select data-preview-only>
+                    <option>Any time</option>
+                  </select></label
+                >
+              </div>
+            </form>
+            <div class="results-toolbar">
+              <span class="result-count"
+                ><strong data-count>9</strong> listings
+                <small>Reference sample</small></span
+              ><label class="deals-control"
+                ><input type="checkbox" data-preview-only /> Deals only
+                <small>1.2× value</small></label
+              ><button class="clear-link" data-clear>Clear filters</button
+              ><label class="sort-control"
+                ><span>Sort by</span
+                ><select data-preview-only>
+                  <option>Best value</option>
+                  <option>Newest first</option>
+                </select></label
+              >
+            </div>
+            <div class="listing-grid" data-listings></div>
+            <div class="market-bottom">
+              <p class="reference-note">
+                Historical reference: search and category work in this preview.
+                Other controls show styling only.
+              </p>
+              <nav class="pagination" aria-label="Results pages">
+                <button disabled>Previous</button
+                ><span aria-current="page">1</span
+                ><button disabled>Next</button>
+              </nav>
+            </div>
+          </div>
+        </div>
+      </section>
+      <section
+        class="page characters-page"
+        data-screen="characters"
+        aria-labelledby="characters-title"
+        hidden
+      >
+        <header class="page-heading">
+          <div class="heading-main">
+            <div class="heading-emblem">
+              <svg class="ui-icon" aria-hidden="true">
+                <use href="assets/ui-icons.svg#Users" />
+              </svg>
+            </div>
+            <div>
+              <p class="eyebrow">Your account</p>
+              <h1 id="characters-title">Characters</h1>
+              <p>Your roster, equipment, and crafting progress.</p>
+            </div>
+          </div>
+          <button class="button-primary" data-preview-only>
+            + Add character
+          </button>
+        </header>
+        <div class="character-workspace">
+          <aside class="roster-panel">
+            <h2>Your roster</h2>
+            <button class="roster-entry selected" data-preview-only>
+              <svg class="ui-icon class-icon" aria-hidden="true">
+                <use href="assets/ui-icons.svg#Skull" /></svg
+              ><span
+                ><strong data-character-name>Character</strong
+                ><small
+                  ><span data-character-class>Class</span> ·
+                  <span data-character-level>Level</span></small
+                ></span
+              ></button
+            ><button class="research-link" data-preview-only>
+              <svg class="ui-icon" aria-hidden="true">
+                <use href="assets/ui-icons.svg#Sparkles" />
+              </svg>
+              Trait research
+              <svg class="ui-icon small" aria-hidden="true">
+                <use href="assets/ui-icons.svg#ChevronRight" />
+              </svg>
+            </button>
+            <p class="reference-note">
+              Saved character profile, shown for design review.
+            </p>
+          </aside>
+          <article class="character-profile" aria-labelledby="profile-name">
+            <header class="profile-banner">
+              <div class="pact-crest" aria-hidden="true">
+                <svg
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path
+                    d="M12 2L4 5v6c0 5.55 3.84 10.74 8 12 4.16-1.26 8-6.45 8-12V5l-8-3z"
+                    fill="rgba(185,28,28,.15)"
+                    stroke="#ef4444"
+                  />
+                  <path
+                    d="M12 5c-2 1.5-4 2-5 4 2 0 3.5 1 4 3 .5-2 2-3 4-3-1-2-1-2.5-3-4z"
+                    fill="#f87171"
+                    stroke="#ef4444"
+                    stroke-width=".5"
+                  />
+                  <path
+                    d="M9 13c1.5 2 2 4 3 5 1-1 1.5-3 3-5-2 0-3.5-1-4-2.5C10.5 12 9.5 13 9 13z"
+                    fill="#b91c1c"
+                  />
+                  <circle cx="12" cy="9.5" r="1.2" fill="#ef4444" />
+                </svg>
+              </div>
+              <div>
+                <p class="eyebrow" data-character-alliance>Alliance</p>
+                <h2 id="profile-name" data-character-name>Character</h2>
+                <p class="character-facts">
+                  <svg class="ui-icon small class-icon" aria-hidden="true">
+                    <use href="assets/ui-icons.svg#Skull" /></svg
+                  ><span data-character-class>Class</span
+                  ><span class="separator">/</span
+                  ><span data-character-level>Level</span>
+                </p>
+              </div>
+              <span class="profile-level" aria-hidden="true"
+                >50<small>Level</small></span
+              >
+            </header>
+            <div class="equipment-heading">
+              <h3>
+                <svg class="ui-icon" aria-hidden="true">
+                  <use href="assets/ui-icons.svg#Shield" />
+                </svg>
+                Equipment
+              </h3>
+              <div class="weapon-tabs" aria-label="Weapon bar">
+                <button class="active" data-bar="front" aria-pressed="true">
+                  Front bar</button
+                ><button data-bar="back" aria-pressed="false">Back bar</button>
+              </div>
+            </div>
+            <div class="equipment-grid" data-gear></div>
+            <footer class="equipment-footer">
+              <svg class="ui-icon small" aria-hidden="true">
+                <use href="assets/ui-icons.svg#Clock" />
+              </svg>
+              Last synced <span data-character-synced>3 September 2026</span>
+            </footer>
+          </article>
+        </div>
+      </section>
+    </main>
+    <footer class="site-footer">
+      <span class="footer-brand">Tamriel Trade Hub</span
+      ><span>An independent companion for The Elder Scrolls Online.</span
+      ><a href="index.html?direction=exchange">Concept C · Design review</a>
+    </footer>
+    <dialog id="item-detail" aria-labelledby="detail-title">
+      <div class="dialog-top">
+        <span>Guild trader listing</span
+        ><button data-close aria-label="Close listing details">
+          <svg class="ui-icon" aria-hidden="true">
+            <use href="assets/ui-icons.svg#X" />
+          </svg>
+        </button>
+      </div>
+      <div data-detail-content></div>
+    </dialog>
+  </body>
+</html>

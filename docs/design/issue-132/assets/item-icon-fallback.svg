@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Item icon unavailable">
+  <rect width="64" height="64" rx="6" fill="#0a0a0d"/>
+  <path d="M12 12h40v40H12z" fill="#161620" stroke="#c5a059" stroke-width="2"/>
+  <path d="m20 43 9-12 6 7 5-6 7 11H20Z" fill="#c5a059" opacity=".7"/>
+  <circle cx="41" cy="23" r="4" fill="#e0d8c3" opacity=".8"/>
+</svg>

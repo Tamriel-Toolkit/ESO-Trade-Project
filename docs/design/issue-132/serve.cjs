@@ -11,11 +11,30 @@ const allowed = new Set([
   "atlas.css",
   "fixtures.js",
   "preview.js",
+  "exchange.html",
+  "exchange.css",
+  "icon-data.js",
+  "assets/ui-icons.svg",
+  "assets/cinzel-latin-400-normal.woff2",
+  "assets/cinzel-latin-600-normal.woff2",
+]);
+const manifest = JSON.parse(
+  fs.readFileSync(path.join(root, "assets/icon-manifest.json"), "utf8"),
+);
+const icons = new Set([
+  manifest.fallback.filename,
+  ...manifest.listings
+    .filter((item) => item.cached)
+    .map((item) => item.filename),
+  ...manifest.gear.map((item) => item.filename),
 ]);
 const types = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
   ".js": "text/javascript; charset=utf-8",
+  ".png": "image/png",
+  ".svg": "image/svg+xml",
+  ".woff2": "font/woff2",
 };
 http
   .createServer((request, response) => {
@@ -24,10 +43,14 @@ http
       response.end();
       return;
     }
-    const filename =
+    let filename =
       new URL(request.url, "http://localhost").pathname.slice(1) ||
       "index.html";
-    if (!allowed.has(filename)) {
+    const iconName = filename.startsWith("api/icons/")
+      ? filename.slice("api/icons/".length)
+      : null;
+    if (iconName && icons.has(iconName)) filename = "assets/" + iconName;
+    else if (!allowed.has(filename)) {
       response.writeHead(404);
       response.end("Not found");
       return;

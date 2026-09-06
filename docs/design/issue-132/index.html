@@ -170,11 +170,14 @@
         ><small>Issue #132 · Direction approval</small>
       </div>
       <div class="controls" aria-label="Visual direction">
-        <button data-direction="ledger" aria-pressed="true">
+        <button data-direction="ledger" aria-pressed="false">
           A · Guild Ledger
         </button>
         <button data-direction="atlas" aria-pressed="false">
           B · Obsidian Atlas
+        </button>
+        <button data-direction="exchange" aria-pressed="true">
+          C · Gilded Exchange
         </button>
       </div>
       <div class="controls">
@@ -195,10 +198,10 @@
     </header>
     <section class="description">
       <p>
-        <strong id="direction-name">Guild Ledger.</strong>
+        <strong id="direction-name">Gilded Exchange.</strong>
         <span id="direction-copy"
-          >Warm, editorial, precise. Stone-colored pages, dark navigation, ruled
-          trading rows.</span
+          >An ESO guild marketplace in charcoal and golden yellow. Original item
+          icons, crafted borders, and a clear trading hierarchy.</span
         ><br /><small
           >Reference snapshots only. No production styling or behavior has
           changed.</small
@@ -207,7 +210,7 @@
       <a
         class="open-link"
         id="open-preview"
-        href="ledger.html?screen=home"
+        href="exchange.html?screen=home"
         target="_blank"
         rel="noopener"
         >Open full preview ↗</a
@@ -216,8 +219,8 @@
     <main class="stage">
       <iframe
         id="preview"
-        src="ledger.html?screen=home"
-        title="Guild Ledger visual concept"
+        src="exchange.html?screen=home"
+        title="Gilded Exchange visual concept"
       ></iframe>
     </main>
     <p class="note">
@@ -227,7 +230,6 @@
       app.
     </p>
     <script>
-      let direction = "ledger";
       const descriptions = {
         ledger: [
           "Guild Ledger.",
@@ -237,7 +239,27 @@
           "Obsidian Atlas.",
           "Dark, spatial, considered. Engraved geometry, cool stone, and measured brass accents.",
         ],
+        exchange: [
+          "Gilded Exchange.",
+          "An ESO guild marketplace in charcoal and golden yellow. Original item icons, crafted borders, and a clear trading hierarchy.",
+        ],
       };
+      const screens = ["home", "marketplace", "characters"];
+      const params = new URLSearchParams(location.search);
+      let direction = Object.hasOwn(descriptions, params.get("direction"))
+        ? params.get("direction")
+        : "exchange";
+      document.getElementById("page").value = screens.includes(
+        params.get("screen"),
+      )
+        ? params.get("screen")
+        : "home";
+      function syncReviewUrl() {
+        const url = new URL(location.href);
+        url.searchParams.set("direction", direction);
+        url.searchParams.set("screen", document.getElementById("page").value);
+        history.replaceState(null, "", url);
+      }
       function update() {
         const url =
           direction + ".html?screen=" + document.getElementById("page").value;
@@ -249,15 +271,19 @@
           descriptions[direction][0];
         document.getElementById("direction-copy").textContent =
           descriptions[direction][1];
+        document
+          .querySelectorAll("[data-direction]")
+          .forEach((button) =>
+            button.setAttribute(
+              "aria-pressed",
+              String(button.dataset.direction === direction),
+            ),
+          );
+        syncReviewUrl();
       }
       document.querySelectorAll("[data-direction]").forEach((button) =>
         button.addEventListener("click", () => {
           direction = button.dataset.direction;
-          document
-            .querySelectorAll("[data-direction]")
-            .forEach((node) =>
-              node.setAttribute("aria-pressed", String(node === button)),
-            );
           update();
         }),
       );
@@ -270,10 +296,11 @@
         )
           return;
         const screen = event.data.screen;
-        if (!["home", "marketplace", "characters"].includes(screen)) return;
+        if (!screens.includes(screen)) return;
         document.getElementById("page").value = screen;
         document.getElementById("open-preview").href =
           direction + ".html?screen=" + screen;
+        syncReviewUrl();
       });
       document
         .getElementById("viewport")
@@ -282,6 +309,7 @@
             .getElementById("preview")
             .classList.toggle("mobile", event.target.value === "mobile"),
         );
+      update();
     </script>
   </body>
 </html>
