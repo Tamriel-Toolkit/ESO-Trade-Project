@@ -1,42 +1,26 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Store, Shield, Sparkles, TrendingUp, ChevronRight, Layers, Award, Zap } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Store, Shield, Layers, Sword, Gem, FlaskConical, ScrollText, Armchair, Package, ChevronRight, ArrowRight } from "lucide-react";
 import Navbar from "../components/ui/navbar";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { getEsoIconUrl } from "@/lib/utils";
+import '../styles/home.css';
 
 async function fetchCategories() {
   const allCategories = await import("../api/api").then(module => module.default);
   return allCategories();
 }
 
+const categoryIcons = { Weapons: Sword, Apparel: Shield, Jewelry: Gem, Consumables: FlaskConical, Materials: Layers, Glyphs: ScrollText, Furnishings: Armchair, Miscellaneous: Package };
+
 function CategoryCard({ category }) {
-  return (
-    <Card className="eso-card rounded-none transition-all duration-200 hover:border-[#c5a059]/80 group">
-      <CardHeader className="p-4 pb-2 border-b border-[#2a2c33] bg-[#161620]/60">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="p-1.5 rounded-none bg-[#0a0a0d] border border-[#c5a059]/40 text-[#c5a059]">
-              <Layers className="size-4" />
-            </div>
-            <CardTitle className="font-cinzel text-base text-[#e0d8c3] group-hover:text-[#d4af37] transition-colors">
-              {category}
-            </CardTitle>
-          </div>
-          <ChevronRight className="size-4 text-[#8a8275] group-hover:text-[#c5a059] group-hover:translate-x-0.5 transition-all" />
-        </div>
-      </CardHeader>
-      <CardContent className="p-4 text-xs text-[#a89f91] flex items-center justify-between">
-        <span>UESP Catalog & Native Listings</span>
-        <Link
-          to={`/marketplace?category=${encodeURIComponent(category)}`}
-          className="font-cinzel text-[11px] font-bold text-[#c5a059] hover:underline uppercase tracking-wider flex items-center gap-1"
-        >
-          Explore <ChevronRight className="size-3" />
-        </Link>
-      </CardContent>
-    </Card>
-  );
+  const Icon = categoryIcons[category] || Layers;
+  return <Link to={`/marketplace?category=${encodeURIComponent(category)}`} className="exchange-category">
+    <Icon size={24} aria-hidden="true" /><span>{category}</span><ChevronRight size={16} aria-hidden="true" />
+  </Link>;
+}
+
+function DisplayItem({ icon, className, children }) {
+  return <div className={`exchange-display-item ${className}`}><img src={getEsoIconUrl(icon)} alt="" onError={(event) => { event.currentTarget.style.visibility = 'hidden'; }} /><span>{children}</span></div>;
 }
 
 function Home() {
@@ -52,101 +36,46 @@ function Home() {
     });
   }, []);
 
-  return (
-    <div className="min-h-screen bg-[#0a0a0d] text-[#e0d8c3] flex flex-col">
-      <Navbar />
-
-      {/* Main Content Body Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1 space-y-10">
-        {/* Grand Hero Marquee Card (Buffered with ornate framing) */}
-        <section className="relative p-8 md:p-14 bg-[#121218]/95 border border-[#c5a059]/40 shadow-2xl text-center overflow-hidden">
-          {/* Top Gold Accent Line */}
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#c5a059] to-transparent"></div>
-          {/* Subtle Background Accent Lines */}
-          <div className="absolute inset-0 bg-[radial-gradient(#c5a059_1px,transparent_1px)] [background-size:24px_24px] opacity-5 pointer-events-none"></div>
-
-          <div className="relative z-10 max-w-4xl mx-auto space-y-4">
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-none bg-[#c5a059]/10 border border-[#c5a059]/40 text-[#d4af37] text-xs font-cinzel tracking-widest uppercase">
-              <Sparkles className="size-3.5 text-[#c5a059]" />
-              ESO Trade Intelligence
-            </div>
-
-            <h1 className="font-cinzel text-3xl md:text-5xl font-extrabold text-[#e0d8c3] tracking-wide uppercase leading-tight">
-              Elder Scrolls Online <span className="text-[#c5a059]">Marketplace</span>
-            </h1>
-
-            <div className="eso-divider max-w-md mx-auto my-3"></div>
-
-            <p className="text-sm md:text-base text-[#a89f91] max-w-2xl mx-auto leading-relaxed">
-              A complete ESO item catalog, locally served item icons, and native guild trader observations captured by the ESOTrade addon.
-            </p>
-
-            {/* Quick Action Navigation */}
-            <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
-              <Link to="/marketplace">
-                <Button size="lg" className="rounded-none font-cinzel font-bold bg-[#c5a059] text-[#0a0a0d] hover:bg-[#d4af37] tracking-wider uppercase gap-2 shadow-lg cursor-pointer">
-                  <Store className="size-4" />
-                  Browse Marketplace
-                </Button>
-              </Link>
-
-              <Link to="/characters">
-                <Button size="lg" variant="outline" className="rounded-none font-cinzel font-semibold border-[#c5a059]/40 bg-[#161620] text-[#e0d8c3] hover:border-[#c5a059] hover:bg-[#1f1f2e] tracking-wider uppercase gap-2 cursor-pointer">
-                  <Award className="size-4 text-[#c5a059]" />
-                  Player Characters
-                </Button>
-              </Link>
-            </div>
+  return <div className="exchange-page">
+    <Navbar />
+    {/* Main Content Body Container */}
+    <main className="exchange-container exchange-home">
+      {/* Grand Hero Marquee Card: approved C composition with restrained framing. */}
+      <section className="exchange-home-opening">
+        <div className="exchange-intro">
+          <p className="exchange-eyebrow"><Store size={18} aria-hidden="true" />The Elder Scrolls Online</p>
+          <h1>The guild<br /><span>marketplace.</span></h1>
+          <p className="exchange-intro-description">Equipment, materials, and rare finds.<br />Discover what Tamriel's traders have to offer.</p>
+          {/* Quick Action Navigation */}
+          <div className="exchange-intro-actions">
+            <Link to="/marketplace" className="exchange-primary"><Store size={18} aria-hidden="true" />Browse marketplace<ArrowRight size={16} aria-hidden="true" /></Link>
+            <Link to="/characters" className="exchange-quiet">Your characters<ChevronRight size={16} aria-hidden="true" /></Link>
           </div>
-        </section>
-
-        {/* Feature Statistics Highlights */}
-        <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="eso-card p-5 text-center space-y-1 border-b-2 border-b-[#c5a059]">
-            <TrendingUp className="size-6 text-[#c5a059] mx-auto mb-2" />
-            <h3 className="font-cinzel text-lg font-bold text-[#e0d8c3]">155,476 Items</h3>
-            <p className="text-xs text-[#a89f91]">Item identity, taxonomy, set metadata, and source icon paths ingested from UESP.</p>
-          </div>
-
-          <div className="eso-card p-5 text-center space-y-1 border-b-2 border-b-[#c5a059]">
-            <Zap className="size-6 text-[#c5a059] mx-auto mb-2" />
-            <h3 className="font-cinzel text-lg font-bold text-[#e0d8c3]">Live Market Scans</h3>
-            <p className="text-xs text-[#a89f91]">Native in-game ESOTrade addon sync & automated Desktop watcher pipeline.</p>
-          </div>
-
-          <div className="eso-card p-5 text-center space-y-1 border-b-2 border-b-[#c5a059]">
-            <Shield className="size-6 text-[#c5a059] mx-auto mb-2" />
-            <h3 className="font-cinzel text-lg font-bold text-[#e0d8c3]">100% Authentic Data</h3>
-            <p className="text-xs text-[#a89f91]">No synthetic or hallucinated listings. ZOS TOS compliant trading house hooks.</p>
-          </div>
-        </section>
-
-        {/* Categories Grid Section */}
-        <section>
-          <div className="flex items-center justify-between mb-4 pb-2 border-b border-[#2a2c33]">
-            <h2 className="font-cinzel text-xl font-bold text-[#e0d8c3] tracking-wider uppercase flex items-center gap-2">
-              <Store className="size-5 text-[#c5a059]" />
-              Marketplace Categories
-            </h2>
-            <span className="text-xs text-[#8a8275] font-mono">{categories.length} Categories Registered</span>
-          </div>
-
-          {/* Categories Grid */}
-          {loading ? (
-            <div className="eso-card p-12 text-center text-[#8a8275] font-cinzel text-sm">
-              Loading Tamriel Market Taxonomy...
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {categories.map((category) => (
-                <CategoryCard key={category} category={category} />
-              ))}
-            </div>
-          )}
-        </section>
-      </main>
-    </div>
-  );
+        </div>
+        {/* Subtle background geometry and existing artwork are decorative, not recommendations. */}
+        <div className="exchange-wares" aria-hidden="true">
+          <div className="exchange-display-arch" /><div className="exchange-display-orbit" />
+          <span className="exchange-display-heading">Arms · Materials · Rarities</span>
+          <DisplayItem icon="gear_breton_ring_a.png" className="exchange-display-left">Jewelry</DisplayItem>
+          <DisplayItem icon="gear_argonian_staff_d.png" className="exchange-display-center">Weapons</DisplayItem>
+          <DisplayItem icon="styleitemicon_u46_solsticeargonians.png" className="exchange-display-right">Materials</DisplayItem>
+          <div className="exchange-display-plinth" />
+        </div>
+      </section>
+      {/* Categories Grid Section */}
+      <section aria-labelledby="categories-title">
+        <div className="exchange-home-section-heading"><h2 id="categories-title"><Layers size={22} aria-hidden="true" />Browse the market</h2><span>{categories.length} categories</span></div>
+        {/* Categories Grid */}
+        {loading ? <div className="exchange-state" role="status">Loading ESO Marketplace categories…</div> : <div className="exchange-category-grid">{categories.map(category => <CategoryCard key={category} category={category} />)}</div>}
+      </section>
+      {/* Feature Statistics Highlights */}
+      <section className="exchange-home-context" aria-label="About the marketplace">
+        <div><ScrollText size={22} aria-hidden="true" /><p><strong>155,476 catalog items</strong><span>Explore the ESO item catalog.</span></p></div>
+        <div><Store size={22} aria-hidden="true" /><p><strong>Seen at guild traders</strong><span>Shared by players. Availability may change.</span></p></div>
+        <Link to="/characters"><Shield size={22} aria-hidden="true" /><p><strong>Your characters, equipped</strong><span>Roster, gear, and trait research.</span></p><ChevronRight size={16} aria-hidden="true" /></Link>
+      </section>
+    </main>
+  </div>;
 }
 
 export default Home;

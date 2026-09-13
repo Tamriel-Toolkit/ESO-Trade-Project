@@ -1,0 +1,63 @@
+/* C — Gilded Exchange: owner-approved on 6 September 2026. */
+@font-face { font-family: Cinzel; font-style: normal; font-weight: 400; font-display: swap; src: url('/fonts/cinzel-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: Cinzel; font-style: normal; font-weight: 600 900; font-display: swap; src: url('/fonts/cinzel-latin-600-normal.woff2') format('woff2'); }
+
+:root {
+  --background: #111214;
+  --recess: #0b0c0e;
+  --foreground: #efe5cf;
+  --card: #19191b;
+  --card-foreground: #efe5cf;
+  --popover: #202022;
+  --popover-foreground: #efe5cf;
+  --primary: #e6c15a;
+  --primary-foreground: #171510;
+  --secondary: #202022;
+  --secondary-foreground: #efe5cf;
+  --muted: #202022;
+  --muted-foreground: #afa797;
+  --accent: #e6c15a;
+  --accent-foreground: #171510;
+  --destructive: #fb9292;
+  --border: #403c33;
+  --input: #8c806b;
+  --ring: #e6c15a;
+  --radius: 0;
+  --text: var(--muted-foreground);
+  --text-h: var(--foreground);
+  --bg: var(--background);
+  --code-bg: var(--recess);
+  --accent-bg: color-mix(in srgb, var(--primary) 10%, transparent);
+  --accent-border: color-mix(in srgb, var(--primary) 40%, transparent);
+  --sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  --heading: Cinzel, Georgia, serif;
+  --mono: ui-monospace, Consolas, monospace;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-recess: var(--recess);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --font-sans: var(--sans);
+  --font-heading: var(--heading);
+  --font-mono: var(--mono);
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { 
   X, 
   Hammer, 
@@ -14,6 +14,8 @@ import { createTradeRequest, fetchCraftableSets, apiFetch } from "../../api/api"
 import { useAuth } from "../../context/AuthContext";
 import { useTheme } from "@/components/theme-provider";
 import { getEsoIconUrl } from "@/lib/utils";
+import { useDialogFocus } from "@/hooks/useDialogFocus";
+import "@/styles/requests-builds.css";
 
 function getItemSetName(item, setsList = []) {
   if (!item) return null;
@@ -121,10 +123,12 @@ const QUALITIES = [
   { value: 2, label: "Fine (Green)", color: "text-emerald-400" },
   { value: 3, label: "Superior (Blue)", color: "text-blue-400" },
   { value: 4, label: "Epic (Purple)", color: "text-purple-400" },
-  { value: 5, label: "Legendary (Gold)", color: "text-[#e6c278]" }
+  { value: 5, label: "Legendary (Gold)", color: "text-primary" }
 ];
 
 export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated }) {
+  const searchRef = useRef(null);
+  const dialogRef = useDialogFocus(isOpen, onClose, searchRef);
   const { user } = useAuth();
   const { serverLocation } = useTheme();
 
@@ -303,37 +307,36 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-[#121218] border border-[#2a2c33] w-full max-w-2xl shadow-2xl relative overflow-hidden my-8">
+    <div className="exchange-modal-backdrop">
+      <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="request-modal-title" className="exchange-modal rb-modal max-w-2xl">
         {/* Gold Trim Accent Top */}
-        <div className="h-1 bg-gradient-to-r from-transparent via-[#c5a059] to-transparent w-full" />
+        <div className="h-px bg-primary/50" />
 
         {/* Modal Header */}
-        <div className="flex items-center justify-between p-5 border-b border-[#2a2c33] bg-[#0e0e13]">
+        <div className="exchange-modal-heading">
           <div className="flex items-center gap-2.5">
-            <ShoppingCart className="size-6 text-[#c5a059]" />
+            <ShoppingCart className="size-6 text-primary" />
             <div>
-              <h3 className="font-cinzel font-bold text-lg text-[#e0d8c3]">
-                Post Item Request
-              </h3>
-              <p className="text-xs text-muted-foreground">
-                Search an item below to dynamically configure custom crafted gear or bulk material requests.
+              <h2 id="request-modal-title">Post request</h2>
+              <p className="text-sm text-muted-foreground">
+                Choose an item, set your offer, and arrange delivery.
               </p>
             </div>
           </div>
 
           <button
             onClick={onClose}
-            className="p-1 text-muted-foreground hover:text-white transition-colors cursor-pointer"
+            className="exchange-close"
+            aria-label="Close request form"
           >
             <X className="size-5" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <form onSubmit={handleSubmit} className="p-6 space-y-5">
+        <form onSubmit={handleSubmit} className="rb-modal-body rb-request-form">
           {errorMsg && (
-            <div className="p-3 bg-red-950/40 border border-red-500/40 text-red-300 text-xs flex items-center gap-2">
+            <div role="alert" className="p-3 bg-red-950/40 border border-red-500/40 text-red-300 text-sm flex items-center gap-2">
               <AlertCircle className="size-4 shrink-0" />
               <span>{errorMsg}</span>
             </div>
@@ -341,37 +344,36 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
 
           {/* 1. Item Catalog Search (Primary Input) */}
           <div>
-            <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1.5 font-bold flex items-center justify-between">
-              <span>Target Item from Catalog</span>
-              <span className="text-[10px] text-[#c5a059] lowercase font-mono">155k+ authentic items</span>
+            <label htmlFor="request-item-search" className="text-sm text-muted-foreground block mb-1.5">
+              Item
             </label>
 
             {selectedItem ? (
-              <div className="p-3 bg-[#0e0e13] border border-[#c5a059] flex items-center justify-between gap-3 shadow-inner">
+              <div className="rb-selected-item">
                 <div className="flex items-center gap-3">
-                  <div className="size-11 bg-black/50 border border-[#2a2c33] p-1 flex items-center justify-center shrink-0">
+                  <div className="size-11 bg-black/50 border border-border p-1 flex items-center justify-center shrink-0">
                     {selectedItem.icon_url ? (
                       <img src={getEsoIconUrl(selectedItem.icon_url)} alt="" className="size-full object-contain" />
                     ) : (
-                      <Package className="size-5 text-[#c5a059]" />
+                      <Package className="size-5 text-primary" />
                     )}
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h4 className="font-cinzel font-bold text-sm text-[#e0d8c3]">
+                      <h4 className="font-sans font-bold text-sm text-foreground">
                         {selectedItem.name}
                       </h4>
                       {isGearItem ? (
-                        <span className="px-1.5 py-0.5 bg-[#c5a059]/20 border border-[#c5a059]/40 text-[#e6c278] text-[9px] font-cinzel font-bold uppercase">
-                          Craftable Gear
+                        <span className="px-1.5 py-0.5 bg-primary/20 border border-primary/40 text-primary text-xs font-sans font-bold">
+                          Gear request
                         </span>
                       ) : (
-                        <span className="px-1.5 py-0.5 bg-blue-950/40 border border-blue-500/40 text-blue-300 text-[9px] font-cinzel font-bold uppercase">
-                          Item / Mat
+                        <span className="px-1.5 py-0.5 bg-blue-950/40 border border-blue-500/40 text-blue-300 text-xs font-sans font-bold">
+                          Item request
                         </span>
                       )}
                     </div>
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-xs text-muted-foreground">
                       {selectedItem.category} {selectedItem.subcategory ? `• ${selectedItem.subcategory}` : ""}
                     </span>
                   </div>
@@ -380,9 +382,9 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
                 <button
                   type="button"
                   onClick={() => setSelectedItem(null)}
-                  className="px-2 py-1 bg-[#161620] hover:bg-red-950/40 border border-[#2a2c33] hover:border-red-500/40 text-xs text-muted-foreground hover:text-red-300 uppercase font-cinzel font-bold cursor-pointer transition-colors"
+                  className="px-2 py-1 bg-secondary hover:bg-red-950/40 border border-border hover:border-red-500/40 text-sm text-muted-foreground hover:text-red-300 font-sans font-bold cursor-pointer transition-colors"
                 >
-                  Change Item
+                  Change item
                 </button>
               </div>
             ) : (
@@ -390,45 +392,45 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
                 <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
+                  id="request-item-search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search catalog by name (e.g. Rubedite Cuirass, Dreugh Wax, Kuta, Mother's Sorrow)..."
-                  className="w-full pl-9 pr-8 py-2.5 bg-[#0e0e13] border border-[#2a2c33] text-xs text-[#e0d8c3] placeholder:text-muted-foreground font-cinzel focus:outline-none focus:border-[#c5a059]"
-                  autoFocus
+                  placeholder="Search the item catalog"
+                  className="w-full pl-9 pr-8 py-2.5 bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground font-sans focus:outline-none focus:border-primary"
+                  ref={searchRef}
                 />
                 {isSearching && (
-                  <Loader2 className="size-4 absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-[#c5a059]" />
+                  <Loader2 className="size-4 absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-primary" />
                 )}
 
                 {/* Search Dropdown Results */}
                 {searchResults.length > 0 && (
-                  <div className="absolute left-0 right-0 top-full mt-1 bg-[#121218] border border-[#2a2c33] max-h-60 overflow-y-auto z-20 shadow-2xl divide-y divide-[#2a2c33]/50">
+                  <div className="rb-catalog-results" aria-label="Catalog search results">
                     {searchResults.map((item) => (
-                      <div
+                      <button type="button"
                         key={item.game_item_id}
                         onClick={() => handleSelectItem(item)}
-                        className="p-2.5 hover:bg-[#1c1c26] flex items-center justify-between cursor-pointer transition-colors"
                       >
                         <div className="flex items-center gap-2.5">
                           <img
                             src={getEsoIconUrl(item.icon_url)}
                             alt=""
-                            className="size-7 object-contain bg-black/40 p-0.5 border border-[#2a2c33]"
+                            className="size-7 object-contain bg-black/40 p-0.5 border border-border"
                             onError={(e) => { e.target.style.display = "none"; }}
                           />
                           <div>
-                            <span className="font-cinzel text-xs text-[#e0d8c3] block font-bold">
+                            <span className="font-sans text-sm text-foreground block font-bold">
                               {item.name}
                             </span>
-                            <span className="text-[10px] text-muted-foreground">
+                            <span className="text-xs text-muted-foreground">
                               {item.category} • {item.subcategory || "Item"}
                             </span>
                           </div>
                         </div>
-                        <span className="text-[10px] font-mono text-[#c5a059]">
+                        <span className="text-xs tabular-nums text-primary">
                           ID: {item.game_item_id}
                         </span>
-                      </div>
+                      </button>
                     ))}
                   </div>
                 )}
@@ -440,39 +442,40 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
           {selectedItem && (
             isGearItem ? (
               /* Gear / Crafted Set Controls */
-              <div className="p-4 bg-[#0a0a0d] border border-[#2a2c33] space-y-4">
-                <div className="flex items-center gap-2 pb-2 border-b border-[#2a2c33]">
-                  <Hammer className="size-4 text-[#c5a059]" />
-                  <span className="text-xs font-cinzel font-bold uppercase tracking-wider text-[#e6c278]">
-                    Gear & Crafting Attributes
+              <div className="rb-form-section">
+                <div className="flex items-center gap-2 pb-2 border-b border-border">
+                  <Hammer className="size-4 text-primary" />
+                  <span className="text-sm font-sans font-bold tracking-normal text-primary">
+                    Equipment details
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   {/* If item is already part of a set, show badge and omit selector; otherwise show craftable set dropdown */}
                   {getItemSetName(selectedItem, craftableSets) ? (
-                    <div className="sm:col-span-2 p-2.5 bg-[#121218] border border-[#c5a059]/40 flex items-center justify-between shadow-inner">
+                    <div className="sm:col-span-2 p-2.5 bg-card border border-primary/40 flex items-center justify-between shadow-inner">
                       <div className="flex items-center gap-2">
-                        <Sparkles className="size-4 text-[#c5a059]" />
-                        <span className="text-xs font-cinzel text-[#e0d8c3]">
-                          Set Piece: <strong className="text-[#e6c278]">{getItemSetName(selectedItem, craftableSets)}</strong>
+                        <Sparkles className="size-4 text-primary" />
+                        <span className="text-sm font-sans text-foreground">
+                          Set Piece: <strong className="text-primary">{getItemSetName(selectedItem, craftableSets)}</strong>
                         </span>
                       </div>
-                      <span className="text-[10px] font-cinzel uppercase text-emerald-400 bg-emerald-950/40 px-2 py-0.5 border border-emerald-800/40 font-bold">
+                      <span className="text-xs font-sans text-emerald-400 bg-emerald-950/40 px-2 py-0.5 border border-emerald-800/40 font-bold">
                         Inherent Set Item
                       </span>
                     </div>
                   ) : (
                     <div className="sm:col-span-2">
-                      <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
-                        Craftable Set Name (Optional)
+                      <label className="text-sm font-sans text-muted-foreground block mb-1 font-bold">
+                        Crafted set (optional)
                       </label>
                       <select
                         value={selectedSet}
+                        aria-label="Crafted set"
                         onChange={(e) => setSelectedSet(e.target.value)}
-                        className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+                        className="w-full py-2 px-3 bg-card border border-border text-sm text-foreground font-sans focus:outline-none focus:border-primary"
                       >
-                        <option value="">No Set (Standard Crafted Base Item)</option>
+                        <option value="">No set</option>
                         {craftableSets.map((s) => (
                           <option key={s.name} value={s.name}>
                             {s.name} ({s.category || "Crafted"})
@@ -484,16 +487,17 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
 
                   {/* Trait Selector (Filtered to applicable item discipline) */}
                   <div>
-                    <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold flex items-center justify-between">
+                    <label className="text-sm font-sans text-muted-foreground block mb-1 font-bold flex items-center justify-between">
                       <span>Trait</span>
-                      <span className="text-[10px] text-[#c5a059] font-mono lowercase">
+                      <span className="text-xs text-primary tabular-nums lowercase">
                         {getApplicableTraits(selectedItem) === WEAPON_TRAITS ? "weapon traits" : getApplicableTraits(selectedItem) === JEWELRY_TRAITS ? "jewelry traits" : "armor traits"}
                       </span>
                     </label>
                     <select
                       value={selectedTrait}
+                      aria-label="Trait"
                       onChange={(e) => setSelectedTrait(e.target.value)}
-                      className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+                      className="w-full py-2 px-3 bg-card border border-border text-sm text-foreground font-sans focus:outline-none focus:border-primary"
                     >
                       {getApplicableTraits(selectedItem).map((t) => (
                         <option key={t} value={t}>{t}</option>
@@ -504,13 +508,14 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
                   {/* Style Motif Selector (Hidden for Jewelry) */}
                   {getApplicableTraits(selectedItem) !== JEWELRY_TRAITS && (
                     <div>
-                      <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
+                      <label className="text-sm font-sans text-muted-foreground block mb-1 font-bold">
                         Style Motif
                       </label>
                       <select
                         value={selectedStyle}
+                        aria-label="Style motif"
                         onChange={(e) => setSelectedStyle(e.target.value)}
-                        className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+                        className="w-full py-2 px-3 bg-card border border-border text-sm text-foreground font-sans focus:outline-none focus:border-primary"
                       >
                         {STYLES.map((st) => (
                           <option key={st} value={st}>{st}</option>
@@ -521,13 +526,14 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
 
                   {/* Quality Selector */}
                   <div>
-                    <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
+                    <label className="text-sm font-sans text-muted-foreground block mb-1 font-bold">
                       Target Quality
                     </label>
                     <select
                       value={selectedQuality}
+                      aria-label="Target quality"
                       onChange={(e) => setSelectedQuality(Number(e.target.value))}
-                      className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+                      className="w-full py-2 px-3 bg-card border border-border text-sm text-foreground font-sans focus:outline-none focus:border-primary"
                     >
                       {QUALITIES.map((q) => (
                         <option key={q.value} value={q.value}>{q.label}</option>
@@ -537,13 +543,14 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
 
                   {/* Level / CP */}
                   <div>
-                    <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
+                    <label className="text-sm font-sans text-muted-foreground block mb-1 font-bold">
                       Item Level
                     </label>
                     <select
                       value={levelType}
+                      aria-label="Item level"
                       onChange={(e) => setLevelType(e.target.value)}
-                      className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+                      className="w-full py-2 px-3 bg-card border border-border text-sm text-foreground font-sans focus:outline-none focus:border-primary"
                     >
                       <option value="CP160">Champion Point 160 (Max)</option>
                       <option value="CP150">Champion Point 150</option>
@@ -555,37 +562,39 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
               </div>
             ) : (
               /* Materials / Consumables / Items Controls */
-              <div className="p-4 bg-[#0a0a0d] border border-[#2a2c33] space-y-4">
-                <div className="flex items-center gap-2 pb-2 border-b border-[#2a2c33]">
+              <div className="rb-form-section">
+                <div className="flex items-center gap-2 pb-2 border-b border-border">
                   <ShoppingCart className="size-4 text-blue-400" />
-                  <span className="text-xs font-cinzel font-bold uppercase tracking-wider text-blue-300">
-                    Material / Item Quantity & Quality
+                  <span className="text-sm font-sans font-bold tracking-normal text-blue-300">
+                    Item details
                   </span>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
+                    <label className="text-sm font-sans text-muted-foreground block mb-1 font-bold">
                       Desired Quantity
                     </label>
                     <input
                       type="number"
+                      aria-label="Desired quantity"
                       min="1"
                       max="5000"
                       value={quantity}
                       onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value, 10) || 1))}
-                      className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-mono focus:outline-none focus:border-[#c5a059]"
+                      className="w-full py-2 px-3 bg-card border border-border text-sm text-foreground tabular-nums focus:outline-none focus:border-primary"
                     />
                   </div>
 
                   <div>
-                    <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
+                    <label className="text-sm font-sans text-muted-foreground block mb-1 font-bold">
                       Item Quality
                     </label>
                     <select
                       value={selectedQuality}
+                      aria-label="Item quality"
                       onChange={(e) => setSelectedQuality(Number(e.target.value))}
-                      className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+                      className="w-full py-2 px-3 bg-card border border-border text-sm text-foreground font-sans focus:outline-none focus:border-primary"
                     >
                       {QUALITIES.map((q) => (
                         <option key={q.value} value={q.value}>{q.label}</option>
@@ -598,23 +607,24 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
           )}
 
           {/* 3. Financials & Market Guidance */}
-          <div className="p-4 bg-[#0e0e13] border border-[#2a2c33] space-y-3">
+          <div className="p-4 bg-background border border-border space-y-3">
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
               <div className="flex-1">
-                <label className="text-xs font-cinzel uppercase text-[#c5a059] block mb-1 font-bold flex items-center gap-1">
+                <label className="text-sm font-sans text-primary block mb-1 font-bold flex items-center gap-1">
                   <Coins className="size-3.5" />
-                  Offered Gold Bounty (Per Unit)
+                  Gold offer per item
                 </label>
                 <div className="relative">
                   <input
                     type="number"
+                    aria-label="Gold offer per item"
                     min="1"
                     value={offeredGold}
                     onChange={(e) => setOfferedGold(e.target.value)}
                     placeholder="e.g. 25000"
-                    className="w-full py-2 px-3 bg-[#121218] border border-[#2a2c33] text-sm text-[#e6c278] font-mono font-bold focus:outline-none focus:border-[#c5a059]"
+                    className="w-full py-2 px-3 bg-card border border-border text-sm text-primary tabular-nums font-bold focus:outline-none focus:border-primary"
                   />
-                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-mono text-muted-foreground">
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm tabular-nums text-muted-foreground">
                     gold
                   </span>
                 </div>
@@ -622,10 +632,10 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
 
               {/* Total Calculation & Guidance */}
               <div className="sm:w-56 text-right">
-                <span className="text-[10px] uppercase font-cinzel text-muted-foreground block">
-                  Total Bounty Payout
+                <span className="text-xs font-sans text-muted-foreground block">
+                  Total offer
                 </span>
-                <span className="font-mono text-xl font-extrabold text-[#e6c278] block">
+                <span className="tabular-nums text-xl font-semibold text-primary block">
                   {((parseInt(offeredGold, 10) || 0) * (quantity || 1)).toLocaleString()}g
                 </span>
               </div>
@@ -635,55 +645,57 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
           {/* 4. In-Game Handle & Delivery Instructions */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
+              <label className="text-sm font-sans text-muted-foreground block mb-1 font-bold">
                 In-Game ESO Handle (@Handle)
               </label>
               <input
                 type="text"
+                aria-label="In-game ESO handle"
                 value={inGameHandle}
                 onChange={(e) => setInGameHandle(e.target.value)}
                 placeholder="@YourAccountHandle"
-                className="w-full py-2 px-3 bg-[#0e0e13] border border-[#2a2c33] text-xs text-[#e0d8c3] font-mono focus:outline-none focus:border-[#c5a059]"
+                className="w-full py-2 px-3 bg-background border border-border text-sm text-foreground tabular-nums focus:outline-none focus:border-primary"
               />
             </div>
 
             <div>
-              <label className="text-xs font-cinzel uppercase text-muted-foreground block mb-1 font-bold">
+              <label className="text-sm font-sans text-muted-foreground block mb-1 font-bold">
                 Optional Delivery Instructions
               </label>
               <input
                 type="text"
+                aria-label="Delivery instructions"
                 value={deliveryNotes}
                 onChange={(e) => setDeliveryNotes(e.target.value)}
                 placeholder="e.g. Please send C.O.D. by 8pm EST!"
-                className="w-full py-2 px-3 bg-[#0e0e13] border border-[#2a2c33] text-xs text-[#e0d8c3] placeholder:text-muted-foreground focus:outline-none focus:border-[#c5a059]"
+                className="w-full py-2 px-3 bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary"
               />
             </div>
           </div>
 
           {/* Footer CTA */}
-          <div className="pt-4 border-t border-[#2a2c33] flex items-center justify-end gap-3">
+          <div className="rb-modal-footer">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 bg-[#161620] hover:bg-[#1c1c26] border border-[#2a2c33] text-xs font-cinzel text-muted-foreground hover:text-white uppercase transition-colors cursor-pointer"
+              className="exchange-secondary"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={submitting || !selectedItem}
-              className="px-6 py-2 bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg flex items-center gap-1.5 disabled:opacity-50"
+              className="exchange-primary disabled:opacity-50"
             >
               {submitting ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  <span>Publishing Request...</span>
+                  <span>Publishing…</span>
                 </>
               ) : (
                 <>
                   <Sparkles className="size-4" />
-                  <span>Publish Trade Request</span>
+                  <span>Publish request</span>
                 </>
               )}
             </button>

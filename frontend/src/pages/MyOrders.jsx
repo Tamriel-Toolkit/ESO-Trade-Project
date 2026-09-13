@@ -5,17 +5,14 @@ import {
   Hammer, 
   ShoppingCart, 
   Search, 
-  Clock, 
   Check, 
   Coins, 
   RefreshCw, 
   User, 
-  Sparkles,
   X,
   ChevronLeft,
   ChevronRight,
-  LogIn,
-  AlertCircle
+  LogIn
 } from "lucide-react";
 import { 
   fetchTradeRequests, 
@@ -28,6 +25,7 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { RequestCard } from "../components/requests/RequestCard";
 import Navbar from "@/components/ui/navbar";
+import "@/styles/requests-builds.css";
 
 export function MyOrders() {
   const { user } = useAuth();
@@ -213,31 +211,30 @@ export function MyOrders() {
   const totalPages = Math.ceil(filteredRequests.length / pageSize) || 1;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0d] text-[#e0d8c3] flex flex-col font-sans selection:bg-[#c5a059] selection:text-black">
+    <div className="exchange-page exchange-orders">
       <Navbar />
 
       {/* Top Banner Header */}
-      <header className="border-b border-[#2a2c33] bg-[#121218]/90 backdrop-blur-md shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <header className="exchange-container">
+        <div className="exchange-page-heading">
           <div>
-            <h1 className="text-2xl md:text-3xl font-cinzel font-bold tracking-wider text-[#e0d8c3] flex items-center gap-2.5">
-              <Package className="size-7 text-[#c5a059]" />
-              <span>My Trade Orders & Claims</span>
-            </h1>
-            <p className="text-[#a89f91] text-xs md:text-sm mt-1">
-              Manage your posted WTB requests, track 24h crafter fulfillment timers, and complete deliveries.
+            <p className="exchange-eyebrow"><Package className="size-4" /> Your trading activity</p>
+            <h1>My orders & claims</h1>
+            <p className="text-muted-foreground text-sm md:text-sm mt-1">
+              Track your requests, claimed orders, and deliveries.
             </p>
           </div>
 
           {/* Controls: Megaserver & Link to Public Board */}
           <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
             {/* Server Selector */}
-            <div className="flex rounded-none border border-[#2a2c33] bg-[#0e0e13] p-0.5">
+            <div className="rb-server-toggle" aria-label="Megaserver">
               <button
                 onClick={() => { setServer("NA"); setCurrentPage(1); }}
-                className={`px-3 py-1.5 text-xs font-cinzel font-bold tracking-wider transition-all cursor-pointer ${
+                aria-pressed={server === "NA"}
+                className={`px-3 py-1.5 text-sm font-sans font-bold tracking-normal transition-all cursor-pointer ${
                   server === "NA"
-                    ? "bg-[#c5a059] text-black shadow font-extrabold"
+                    ? "bg-primary text-black shadow font-semibold"
                     : "text-muted-foreground hover:text-white"
                 }`}
               >
@@ -245,9 +242,10 @@ export function MyOrders() {
               </button>
               <button
                 onClick={() => { setServer("EU"); setCurrentPage(1); }}
-                className={`px-3 py-1.5 text-xs font-cinzel font-bold tracking-wider transition-all cursor-pointer ${
+                aria-pressed={server === "EU"}
+                className={`px-3 py-1.5 text-sm font-sans font-bold tracking-normal transition-all cursor-pointer ${
                   server === "EU"
-                    ? "bg-[#c5a059] text-black shadow font-extrabold"
+                    ? "bg-primary text-black shadow font-semibold"
                     : "text-muted-foreground hover:text-white"
                 }`}
               >
@@ -258,98 +256,98 @@ export function MyOrders() {
             {/* Navigation to Public Requests */}
             <Link
               to="/requests"
-              className="px-4 py-2 bg-[#161620] hover:bg-[#1f1f2e] border border-[#c5a059]/40 hover:border-[#c5a059] text-xs font-cinzel font-bold text-[#e6c278] hover:text-white uppercase tracking-wider transition-all flex items-center gap-1.5 shadow"
+              className="exchange-secondary"
             >
-              <ShoppingCart className="size-3.5 text-[#c5a059]" />
-              <span>Browse Public Requests →</span>
+              <ShoppingCart className="size-3.5 text-primary" />
+              <span>Browse requests →</span>
             </Link>
           </div>
         </div>
       </header>
 
       {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1 space-y-6">
+      <main className="exchange-container rb-page-content">
         {!user ? (
           /* Unauthenticated State */
-          <div className="py-20 text-center bg-[#121218] border border-[#2a2c33] p-8 max-w-xl mx-auto space-y-4 shadow-xl">
-            <User className="size-12 text-[#c5a059] mx-auto opacity-70" />
-            <h3 className="font-cinzel font-bold text-lg text-[#e0d8c3]">
-              Authentication Required
+          <div className="py-20 text-center bg-card border border-border p-8 max-w-xl mx-auto space-y-4 shadow-sm">
+            <User className="size-12 text-primary mx-auto opacity-70" />
+            <h3 className="font-sans font-bold text-lg text-foreground">
+              Sign in to view your orders
             </h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              Please log in or register to manage your custom crafting requests, claim open bounties, and track your in-game deliveries.
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Manage requests, claim orders, and track your in-game deliveries.
             </p>
             <div className="pt-2 flex items-center justify-center gap-3">
               <Link
                 to="/login"
-                className="px-5 py-2.5 bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-colors shadow flex items-center gap-1.5"
+                className="px-5 py-2.5 bg-primary hover:bg-[#f0d07a] text-black font-sans font-bold text-sm tracking-normal transition-colors shadow flex items-center gap-1.5"
               >
                 <LogIn className="size-4" />
-                <span>Log In / Register</span>
+                <span>Sign in or register</span>
               </Link>
               <Link
                 to="/requests"
-                className="px-4 py-2.5 bg-[#161620] hover:bg-[#1c1c26] border border-[#2a2c33] text-xs font-cinzel text-muted-foreground hover:text-white uppercase transition-colors"
+                className="px-4 py-2.5 bg-secondary hover:bg-[#292824] border border-border text-sm font-sans text-muted-foreground hover:text-white transition-colors"
               >
-                Browse Public Requests
+                Browse requests
               </Link>
             </div>
           </div>
         ) : (
           <>
             {/* User Stats Overview */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              <div className="p-4 bg-[#121218] border border-[#c5a059]/30 flex items-center gap-3 shadow">
-                <div className="size-10 bg-[#c5a059]/15 border border-[#c5a059]/40 flex items-center justify-center shrink-0">
-                  <ShoppingCart className="size-5 text-[#e6c278]" />
+            <div className="rb-stats rb-order-stats">
+              <div className="rb-stat">
+                <div className="rb-stat-icon">
+                  <ShoppingCart className="size-5 text-primary" />
                 </div>
                 <div>
-                  <span className="text-[10px] font-cinzel uppercase text-[#c5a059] block font-bold">
-                    Requests I Posted
+                  <span className="text-xs font-sans text-primary block font-bold">
+                    Posted
                   </span>
-                  <span className="font-mono text-xl font-bold text-white">
+                  <span className="tabular-nums text-xl font-bold text-white">
                     {loading ? "..." : (activePostedCount || 0)}
                   </span>
                 </div>
               </div>
 
-              <div className="p-4 bg-[#121218] border border-amber-500/30 flex items-center gap-3 shadow">
-                <div className="size-10 bg-amber-950/40 border border-amber-500/40 flex items-center justify-center shrink-0">
+              <div className="rb-stat">
+                <div className="rb-stat-icon">
                   <Hammer className="size-5 text-amber-400" />
                 </div>
                 <div>
-                  <span className="text-[10px] font-cinzel uppercase text-amber-400 block font-bold">
-                    Bounties I Claimed
+                  <span className="text-xs font-sans text-amber-400 block font-bold">
+                    Claimed
                   </span>
-                  <span className="font-mono text-xl font-bold text-white">
+                  <span className="tabular-nums text-xl font-bold text-white">
                     {loading ? "..." : (activeClaimedCount || 0)}
                   </span>
                 </div>
               </div>
 
-              <div className="p-4 bg-[#121218] border border-purple-500/30 flex items-center gap-3 shadow">
-                <div className="size-10 bg-purple-950/40 border border-purple-500/40 flex items-center justify-center shrink-0">
+              <div className="rb-stat">
+                <div className="rb-stat-icon">
                   <Check className="size-5 text-purple-400" />
                 </div>
                 <div>
-                  <span className="text-[10px] font-cinzel uppercase text-purple-400 block font-bold">
-                    Fulfilled Orders
+                  <span className="text-xs font-sans text-purple-400 block font-bold">
+                    Fulfilled
                   </span>
-                  <span className="font-mono text-xl font-bold text-white">
+                  <span className="tabular-nums text-xl font-bold text-white">
                     {loading ? "..." : (fulfilledCount || 0)}
                   </span>
                 </div>
               </div>
 
-              <div className="p-4 bg-[#121218] border border-emerald-500/30 flex items-center gap-3 shadow">
-                <div className="size-10 bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-center shrink-0">
+              <div className="rb-stat">
+                <div className="rb-stat-icon">
                   <Coins className="size-5 text-emerald-400" />
                 </div>
                 <div>
-                  <span className="text-[10px] font-cinzel uppercase text-emerald-400 block font-bold">
-                    Total Order Value
+                  <span className="text-xs font-sans text-emerald-400 block font-bold">
+                    Total order value
                   </span>
-                  <span className="font-mono text-xl font-bold text-[#e6c278]">
+                  <span className="tabular-nums text-xl font-bold text-primary">
                     {loading ? "..." : `${(totalGold || 0).toLocaleString()}g`}
                   </span>
                 </div>
@@ -357,79 +355,85 @@ export function MyOrders() {
             </div>
 
             {/* Filter Sub-Tabs */}
-            <div className="flex items-center justify-between border-b border-[#2a2c33] bg-[#0e0e13] px-2 overflow-x-auto gap-2">
-              <div className="flex items-center gap-1 py-2">
+            <div className="rb-section-heading rb-order-navigation">
+              <div className="rb-order-tabs" aria-label="Order views">
                 <button
                   onClick={() => { setSubTab("ALL"); setCurrentPage(1); }}
-                  className={`px-3.5 py-2 text-xs font-cinzel font-bold uppercase tracking-wider transition-all cursor-pointer shrink-0 ${
+                  aria-pressed={subTab === "ALL"}
+                  className={`px-3.5 py-2 text-sm font-sans font-bold tracking-normal transition-all cursor-pointer shrink-0 ${
                     subTab === "ALL"
-                      ? "bg-[#c5a059] text-black shadow-md font-extrabold"
-                      : "text-muted-foreground hover:text-[#e0d8c3] hover:bg-white/5"
+                      ? "bg-primary text-black shadow-md font-semibold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                   }`}
                 >
-                  All Activity ({activeOrdersCount})
+                  Active ({activeOrdersCount})
                 </button>
 
                 <button
                   onClick={() => { setSubTab("POSTED"); setCurrentPage(1); }}
-                  className={`px-3.5 py-2 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                  aria-pressed={subTab === "POSTED"}
+                  className={`px-3.5 py-2 text-sm font-sans font-bold tracking-normal transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
                     subTab === "POSTED"
-                      ? "bg-[#c5a059] text-black shadow-md font-extrabold"
-                      : "text-muted-foreground hover:text-[#e0d8c3] hover:bg-white/5"
+                      ? "bg-primary text-black shadow-md font-semibold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                   }`}
                 >
                   <ShoppingCart className="size-3.5" />
-                  My Posted Requests ({activePostedCount})
+                  Posted ({activePostedCount})
                 </button>
 
                 <button
                   onClick={() => { setSubTab("CLAIMED"); setCurrentPage(1); }}
-                  className={`px-3.5 py-2 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                  aria-pressed={subTab === "CLAIMED"}
+                  className={`px-3.5 py-2 text-sm font-sans font-bold tracking-normal transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
                     subTab === "CLAIMED"
-                      ? "bg-amber-600 text-white shadow-md font-extrabold"
-                      : "text-muted-foreground hover:text-[#e0d8c3] hover:bg-white/5"
+                      ? "bg-amber-600 text-white shadow-md font-semibold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                   }`}
                 >
                   <Hammer className="size-3.5" />
-                  My Claimed Orders ({activeClaimedCount})
+                  Claimed ({activeClaimedCount})
                 </button>
 
                 <button
                   onClick={() => { setSubTab("FULFILLED"); setCurrentPage(1); }}
-                  className={`px-3.5 py-2 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
+                  aria-pressed={subTab === "FULFILLED"}
+                  className={`px-3.5 py-2 text-sm font-sans font-bold tracking-normal transition-all flex items-center gap-1.5 cursor-pointer shrink-0 ${
                     subTab === "FULFILLED"
-                      ? "bg-purple-600 text-white shadow-md font-extrabold"
-                      : "text-muted-foreground hover:text-[#e0d8c3] hover:bg-white/5"
+                      ? "bg-purple-600 text-white shadow-md font-semibold"
+                      : "text-muted-foreground hover:text-foreground hover:bg-white/5"
                   }`}
                 >
                   <Check className="size-3.5" />
-                  Completed History ({fulfilledCount})
+                  Fulfilled ({fulfilledCount})
                 </button>
               </div>
 
               <Link
                 to="/requests"
-                className="text-xs font-cinzel text-[#c5a059] hover:underline hidden sm:flex items-center gap-1"
+                className="text-sm font-sans text-primary hover:underline hidden sm:flex items-center gap-1"
               >
-                <span>Browse Public Request Feed</span>
+                <span>Browse requests</span>
                 <span>→</span>
               </Link>
             </div>
 
             {/* Filter Search & Sort Bar */}
-            <div className="p-4 bg-[#121218] border border-[#2a2c33] shadow-lg flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3">
+            <div className="rb-order-filters exchange-panel" role="search" aria-label="Filter your orders">
               <div className="relative flex-1">
                 <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
                 <input
                   type="text"
+                  aria-label="Search your orders by item, set, or notes"
                   value={searchQuery}
                   onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-                  placeholder="Filter your orders by item name, set, or notes..."
-                  className="w-full pl-9 pr-8 py-2 bg-[#0e0e13] border border-[#2a2c33] text-xs text-[#e0d8c3] placeholder:text-muted-foreground font-cinzel focus:outline-none focus:border-[#c5a059]"
+                  placeholder="Item, set, or notes"
+                  className="w-full pl-9 pr-8 py-2 bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground font-sans focus:outline-none focus:border-primary"
                 />
                 {searchQuery && (
                   <button
                     onClick={() => { setSearchQuery(""); setCurrentPage(1); }}
+                    aria-label="Clear order search"
                     className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white cursor-pointer"
                   >
                     <X className="size-3.5" />
@@ -440,8 +444,9 @@ export function MyOrders() {
               <div className="sm:w-56">
                 <select
                   value={sortOption}
+                  aria-label="Sort your orders"
                   onChange={(e) => { setSortOption(e.target.value); setCurrentPage(1); }}
-                  className="w-full py-2 px-3 bg-[#0e0e13] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+                  className="w-full py-2 px-3 bg-background border border-border text-sm text-foreground font-sans focus:outline-none focus:border-primary"
                 >
                   <option value="newest">Newest First</option>
                   <option value="gold_desc">Highest Gold Bounty</option>
@@ -454,32 +459,32 @@ export function MyOrders() {
             {/* Orders Grid */}
             {loading ? (
               <div className="py-24 text-center space-y-3">
-                <RefreshCw className="size-8 animate-spin mx-auto text-[#c5a059]" />
-                <p className="text-xs font-cinzel text-muted-foreground uppercase tracking-wider">
-                  Loading Your Orders...
+                <RefreshCw className="size-8 animate-spin mx-auto text-primary" />
+                <p className="text-sm font-sans text-muted-foreground tracking-normal">
+                  Loading your orders…
                 </p>
               </div>
             ) : paginatedRequests.length === 0 ? (
-              <div className="py-16 text-center bg-[#121218] border border-[#2a2c33] p-8 max-w-xl mx-auto space-y-4 shadow-xl">
-                <Package className="size-12 text-[#c5a059] mx-auto opacity-70" />
-                <h3 className="font-cinzel font-bold text-lg text-[#e0d8c3]">
-                  No Orders in this View
+              <div className="py-16 text-center bg-card border border-border p-8 max-w-xl mx-auto space-y-4 shadow-sm">
+                <Package className="size-12 text-primary mx-auto opacity-70" />
+                <h3 className="font-sans font-bold text-lg text-foreground">
+                  No orders in this view
                 </h3>
-                <p className="text-xs text-muted-foreground leading-relaxed">
+                <p className="text-sm text-muted-foreground leading-relaxed">
                   You have not posted or claimed any orders matching this category yet.
                 </p>
                 <div className="pt-2 flex items-center justify-center gap-3">
                   <Link
                     to="/requests"
-                    className="px-5 py-2.5 bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-colors shadow flex items-center gap-1.5"
+                    className="px-5 py-2.5 bg-primary hover:bg-[#f0d07a] text-black font-sans font-bold text-sm tracking-normal transition-colors shadow flex items-center gap-1.5"
                   >
                     <ShoppingCart className="size-4" />
-                    <span>Browse Public Requests</span>
+                    <span>Browse requests</span>
                   </Link>
                 </div>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="rb-request-grid">
                 {paginatedRequests.map((req) => (
                   <RequestCard
                     key={req.id}
@@ -499,23 +504,25 @@ export function MyOrders() {
 
             {/* Pagination Bar */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between border-t border-[#2a2c33] pt-4 px-2">
-                <span className="text-xs text-muted-foreground font-cinzel">
-                  Page <strong className="text-white font-mono">{currentPage}</strong> of {totalPages}
+              <div className="flex items-center justify-between border-t border-border pt-4 px-2">
+                <span className="text-sm text-muted-foreground font-sans">
+                  Page <strong className="text-white tabular-nums">{currentPage}</strong> of {totalPages}
                 </span>
 
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    aria-label="Previous page"
                     disabled={currentPage === 1}
-                    className="p-1.5 bg-[#121218] border border-[#2a2c33] hover:border-[#c5a059] disabled:opacity-40 disabled:cursor-not-allowed text-xs font-cinzel cursor-pointer transition-colors"
+                    className="p-1.5 bg-card border border-border hover:border-primary disabled:opacity-40 disabled:cursor-not-allowed text-sm font-sans cursor-pointer transition-colors"
                   >
                     <ChevronLeft className="size-4" />
                   </button>
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    aria-label="Next page"
                     disabled={currentPage === totalPages}
-                    className="p-1.5 bg-[#121218] border border-[#2a2c33] hover:border-[#c5a059] disabled:opacity-40 disabled:cursor-not-allowed text-xs font-cinzel cursor-pointer transition-colors"
+                    className="p-1.5 bg-card border border-border hover:border-primary disabled:opacity-40 disabled:cursor-not-allowed text-sm font-sans cursor-pointer transition-colors"
                   >
                     <ChevronRight className="size-4" />
                   </button>

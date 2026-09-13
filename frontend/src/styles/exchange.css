@@ -1,0 +1,68 @@
+/* Shared composition, not a second set of page-level utility overrides. */
+.exchange-page { min-height: 100vh; display: flex; flex-direction: column; background: var(--background); color: var(--foreground); }
+.exchange-container { width: min(100%, 1440px); margin-inline: auto; padding-inline: clamp(16px, 3.1vw, 44px); }
+.exchange-page-heading { display: flex; align-items: center; justify-content: space-between; gap: 20px; flex-wrap: wrap; padding-block: 32px 24px; margin-bottom: 24px; border-bottom: 1px solid var(--border); }
+.exchange-page-heading h1 { font-family: var(--heading); font-size: clamp(26px, 2.6vw, 36px); font-weight: 400; letter-spacing: -.02em; }
+.exchange-page-heading p:not(.exchange-eyebrow) { color: var(--muted-foreground); font-size: 14px; margin-top: 8px; }
+.exchange-eyebrow { display: flex; align-items: center; gap: 8px; color: var(--primary); font-size: 12px; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; margin-bottom: 10px; }
+.exchange-panel { background: var(--card); border: 1px solid var(--border); min-width: 0; }
+.exchange-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.exchange-field { display: grid; gap: 6px; font-size: 12px; color: var(--muted-foreground); min-width: 0; }
+.exchange-field :is(input, select, textarea), .exchange-input { min-width: 0; width: 100%; min-height: 40px; padding: 9px 12px; border: 1px solid var(--input); background: var(--recess); color: var(--foreground); font-size: 14px; }
+.exchange-field input::placeholder, .exchange-input::placeholder { color: var(--muted-foreground); }
+.exchange-field :is(input, select, textarea):focus-visible { border-color: var(--primary); }
+.exchange-primary, .exchange-secondary, .exchange-quiet { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 10px 16px; font-size: 14px; font-weight: 600; border: 1px solid transparent; transition: color .16s, background-color .16s, border-color .16s; text-decoration: none; }
+.exchange-primary { background: var(--primary); color: var(--primary-foreground); border-color: var(--primary); box-shadow: inset 0 0 0 2px var(--primary), inset 0 0 0 3px #9e8139; }
+.exchange-primary:hover { background: #f0d07a; }
+.exchange-secondary { background: var(--card); color: var(--foreground); border-color: var(--input); }
+.exchange-secondary:hover, .exchange-quiet:hover { background: var(--secondary); border-color: var(--primary); }
+.exchange-quiet { color: var(--foreground); }
+.exchange-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; width: min(calc(100% - 32px), 1352px); margin: auto auto 0; padding-block: 24px; border-top: 1px solid var(--border); color: var(--muted-foreground); font-size: 12px; }
+.exchange-footer span:first-child { font-family: var(--heading); color: var(--primary); font-size: 14px; }
+.exchange-state { padding: 40px 24px; border: 1px solid var(--border); background: var(--card); text-align: center; color: var(--muted-foreground); font-size: 14px; }
+.exchange-state h2 { font-size: 20px; color: var(--foreground); margin-bottom: 8px; }
+.exchange-frame { position: relative; border: 1px solid var(--border); background: var(--card); }
+.exchange-frame::before, .exchange-frame::after { content: ''; width: 12px; height: 12px; border-color: var(--primary); pointer-events: none; position: absolute; }
+.exchange-frame::before { top: -1px; left: -1px; border-top: 2px solid; border-left: 2px solid; color: var(--primary); }
+.exchange-frame::after { bottom: -1px; right: -1px; border-bottom: 2px solid; border-right: 2px solid; color: var(--primary); }
+.exchange-modal-backdrop { position: fixed; inset: 0; z-index: 70; background: #000b; padding: 16px; display: flex; align-items: center; justify-content: center; }
+.exchange-modal { width: 100%; max-height: calc(100dvh - 32px); min-height: 0; overflow-y: auto; border: 1px solid var(--input); background: var(--card); color: var(--foreground); box-shadow: 0 24px 80px #0008; }
+.exchange-modal-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; padding: 20px 24px; border-bottom: 1px solid var(--border); }
+.exchange-modal-heading h2 { font-family: var(--heading); font-size: 24px; }
+.exchange-close { flex-shrink: 0; width: 40px; height: 40px; display: grid; place-items: center; background: var(--recess); border: 1px solid var(--input); }
+.exchange-close:hover { border-color: var(--primary); }
+.exchange-auth-backdrop { position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at top, #e6c15a08, transparent 65%); }
+.exchange-auth input { min-height: 44px; border-color: var(--input); font-size: 14px; }
+.exchange-auth label { font-size: 13px; font-weight: 500; }
+.exchange-auth form button[type=submit] { min-height: 44px; font-size: 14px; }
+.exchange-auth [data-slot=card-description] { font-size: 14px; }
+.exchange-dev input { min-height: 40px; border-color: var(--input); font-size: 14px; }
+.exchange-dev button { min-height: 36px; }
+.exchange-dev h2 { font-family: var(--heading); font-size: 22px; font-weight: 400; }
+.exchange-nav-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 88px; }
+.exchange-wordmark { font-family: var(--heading); }
+.exchange-brand-name { display: flex; flex-direction: column; font-size: 24px; line-height: 1.15; font-weight: 600; }
+.exchange-brand-name span { font-size: 13px; letter-spacing: .16em; font-weight: 400; color: var(--foreground); margin-top: 4px; }
+.exchange-nav-links > a, .exchange-nav-links > div > button { min-height: 44px; background: transparent; font-size: 14px; font-weight: 400; padding-inline: 12px; position: relative; }
+.exchange-nav-links > a.border-primary::after, .exchange-nav-links > div > button.border-primary::after { content: ''; position: absolute; width: 6px; height: 6px; background: var(--primary); transform: rotate(45deg); bottom: -4px; left: calc(50% - 3px); }
+.exchange-nav-popover a { min-height: 54px; }
+.exchange-nav-popover a > div > div { font-size: 14px; font-weight: 600; }
+.exchange-nav-popover p { font-size: 12px; margin-top: 4px; line-height: 1.4; }
+.exchange-mobile-links a { min-height: 38px; display: inline-flex; align-items: center; border-width: 0 0 2px; font-size: 13px; }
+.exchange-settings-popover { position: absolute; right: 0; margin-top: 8px; width: 360px; max-height: calc(100dvh - 108px); overflow-y: auto; }
+.exchange-settings-popover button { min-height: 40px; font-size: 14px; }
+.exchange-settings-popover label { font-size: 12px; }
+.exchange-settings-popover > div:first-child, .exchange-account-popover > div:first-child, .exchange-nav-popover > div > div:first-child { height: 1px; background: var(--border); }
+.exchange-account-popover a, .exchange-account-popover button { min-height: 40px; font-size: 14px; }
+.exchange-nav :is(.exchange-settings, .exchange-user-menu) > button { border-width: 1px; }
+@media (max-width: 640px) {
+  .exchange-page-heading { padding-block: 24px 20px; gap: 16px; margin-bottom: 20px; }
+  .exchange-modal-backdrop { padding: 10px; }
+  .exchange-modal { max-height: calc(100dvh - 20px); }
+  .exchange-modal-heading { padding: 16px; }
+  .exchange-footer { flex-direction: column; align-items: flex-start; }
+  .exchange-nav-inner { min-height: 72px; gap: 8px; }
+  .exchange-brand-name { font-size: 21px; }
+  .exchange-brand-name span { font-size: 12px; letter-spacing: .08em; }
+  .exchange-settings-popover, .exchange-account-popover { position: fixed; top: 72px; right: 16px; margin-top: 0; width: min(360px, calc(100vw - 32px)); max-height: calc(100dvh - 88px); overflow-y: auto; }
+}

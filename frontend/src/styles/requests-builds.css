@@ -1,0 +1,194 @@
+/* Requests and builds: the approved Gilded Exchange trading-workspace composition. */
+.rb-page-content { flex: 1; display: flex; flex-direction: column; gap: 24px; padding-bottom: 56px; }
+.rb-page-content > * { min-width: 0; }
+.rb-server-toggle { display: inline-flex; padding: 3px; border: 1px solid var(--input); background: var(--recess); }
+.rb-server-toggle button { min-height: 36px; min-width: 42px; font-size: 13px; }
+.rb-server-toggle button[aria-pressed=true] { background: var(--secondary); color: var(--primary); box-shadow: inset 0 -2px var(--primary); }
+.rb-stats { display: flex; flex-wrap: wrap; gap: 24px 40px; padding: 0 0 20px; border-bottom: 1px solid var(--border); }
+.rb-stat { display: flex; align-items: center; gap: 12px; min-width: 140px; }
+.rb-stat > div:last-child { display: flex; gap: 12px; align-items: baseline; }
+.rb-stat > div:last-child > span:first-child { color: var(--muted-foreground); font-size: 13px; font-weight: 400; }
+.rb-stat > div:last-child > span:last-child { font-size: 21px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.rb-stat-icon { display: grid; place-items: center; color: var(--primary); }
+.rb-order-stats { justify-content: space-between; gap: 16px; }
+.rb-order-stats .rb-stat > div:last-child { flex-direction: column; gap: 2px; }
+.rb-section-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.rb-request-filters { display: grid; grid-template-columns: minmax(180px, 1.5fr) repeat(4, minmax(135px, 1fr)); gap: 12px; padding: 16px; }
+.rb-request-filters :is(input, select), .rb-order-filters :is(input, select) { min-height: 44px; font-size: 14px; border-color: var(--input); background: var(--recess); }
+.rb-request-filters select, .rb-order-filters select { padding-right: 24px; }
+.rb-request-search { min-width: 0; }
+.rb-request-search > button, .rb-order-filters .relative > button { width: 28px; height: 36px; display: grid; place-items: center; }
+.rb-order-filters { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 16px; }
+.rb-order-filters > .relative { min-width: 180px; }
+.rb-order-tabs { display: flex; flex-wrap: wrap; gap: 4px; border-bottom: 1px solid var(--border); }
+.rb-order-tabs button { min-height: 44px; padding: 10px 14px; background: transparent; font-size: 14px; font-weight: 400; }
+.rb-order-tabs button[aria-pressed=true] { color: var(--primary); background: var(--secondary); box-shadow: inset 0 -2px var(--primary); }
+.rb-request-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: stretch; }
+.rb-request-card { display: flex; flex-direction: column; min-width: 0; transition: border-color .16s; }
+.rb-request-card:hover { border-color: #867044; }
+.rb-request-identity { padding: 20px; display: grid; gap: 16px; }
+.rb-request-badges { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.rb-request-badges > div { flex-wrap: wrap; }
+.rb-request-badges span { font-size: 12px; font-weight: 500; }
+.rb-request-item { display: flex; align-items: flex-start; gap: 14px; }
+.rb-item-icon { width: 58px; height: 58px; padding: 5px; flex: none; display: grid; place-items: center; border-width: 1px; background: var(--recess); }
+.rb-item-name { font-family: var(--font-sans); font-size: 17px; line-height: 1.4; font-weight: 600; color: var(--foreground); overflow-wrap: anywhere; }
+.rb-item-set { margin-top: 4px; font-size: 13px; color: var(--muted-foreground); overflow-wrap: anywhere; }
+.rb-item-set span { color: var(--foreground); }
+.rb-request-specs { display: flex; flex-wrap: wrap; gap: 5px 12px; margin-top: 10px; font-size: 12px; }
+.rb-request-specs > span { border: 0; padding: 0; background: transparent; }
+.rb-delivery-note { padding: 10px 12px; border-left: 2px solid var(--border); background: var(--recess); color: var(--muted-foreground); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.rb-request-details { padding: 0 20px 20px; margin-top: auto; display: grid; gap: 14px; }
+.rb-request-details > div:first-child { padding-top: 16px; border-top: 1px solid var(--border); }
+.rb-offer-price { display: inline-flex; align-items: center; gap: 6px; font-size: 25px; color: var(--primary); font-weight: 600; font-variant-numeric: tabular-nums; }
+.rb-request-people { display: grid; gap: 8px; font-size: 13px; }
+.rb-person-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.rb-person-row > span:last-child { overflow-wrap: anywhere; font-weight: 500; }
+.rb-claim-timer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 10px; border: 1px solid #665132; font-size: 12px; }
+.rb-claim-timer > span { flex-wrap: wrap; overflow-wrap: anywhere; }
+.rb-copy-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.rb-copy-actions button { flex: 1; min-height: 40px; padding: 8px 10px; font-size: 13px; border-color: var(--input); color: var(--foreground); }
+.rb-request-actions > div { flex-wrap: wrap; align-items: stretch; gap: 8px; }
+.rb-request-actions button, .rb-request-actions > div > div { min-height: 42px; font-size: 13px; font-weight: 500; padding: 10px 12px; }
+.rb-request-actions svg, .rb-copy-actions svg { flex-shrink: 0; }
+.rb-build-filters { display: grid; grid-template-columns: minmax(260px, 1fr) auto; gap: 20px; padding: 16px; align-items: end; }
+.rb-build-search { display: flex; min-width: 0; }
+.rb-build-search input { min-height: 44px; padding-left: 40px; width: 100%; background: var(--recess); border: 1px solid var(--input); }
+.rb-build-search button { flex-shrink: 0; box-shadow: none; }
+.rb-build-refinements { display: flex; gap: 12px; }
+.rb-build-refinements > div { min-width: 0; display: grid; gap: 6px; }
+.rb-build-refinements > div > span { font-size: 12px; color: var(--muted-foreground); }
+.rb-build-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.rb-build-card { padding: 20px; display: flex; flex-direction: column; justify-content: space-between; gap: 20px; transition: border-color .16s; min-width: 0; }
+.rb-build-card:hover { border-color: #867044; }
+.rb-build-card h3 { font-family: var(--heading); font-size: 21px; font-weight: 400; line-height: 1.4; margin: 15px 0 6px; overflow-wrap: anywhere; }
+.rb-build-card .rb-build-meta { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; gap: 8px; }
+.rb-build-meta > div { flex-wrap: wrap; }
+.rb-build-description { margin-top: 12px; font-size: 14px; color: var(--muted-foreground); line-height: 1.65; overflow-wrap: anywhere; }
+.rb-build-sets { margin-top: 16px; }
+.rb-build-sets > div:first-child { font-size: 12px; color: var(--muted-foreground); margin-bottom: 6px; }
+.rb-build-sets ul { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 0; padding: 0; margin: 0; font-size: 13px; line-height: 1.55; }
+.rb-build-sets li { color: var(--foreground); overflow-wrap: anywhere; }
+.rb-build-sets li:not(:last-child)::after { content: ' / '; color: #7a715f; padding-inline: 7px; }
+.rb-build-availability { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; border-top: 1px solid var(--border); padding-top: 14px; margin-bottom: 14px; font-size: 12px; }
+.rb-build-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.rb-build-actions button { padding: 9px 8px; font-size: 13px; }
+.rb-modal { display: flex; flex-direction: column; padding: 0; }
+.rb-modal > .exchange-modal-heading { flex-shrink: 0; }
+.rb-modal-body { padding: 24px; overflow-y: auto; min-height: 0; }
+.rb-modal :is(input, select, textarea) { min-width: 0; min-height: 42px; font-size: 14px; border-color: var(--input); background: var(--recess); }
+.rb-modal label { font-size: 13px; font-weight: 500; color: var(--muted-foreground); }
+.rb-modal label + :is(input, select, textarea) { width: 100%; }
+.rb-modal h3, .rb-modal h4 { overflow-wrap: anywhere; }
+.rb-modal .exchange-modal-heading h2 { font-weight: 400; }
+.rb-modal input[aria-label="Gold offer per item"] { padding-right: 78px; }
+.rb-modal input[aria-label="Gold offer per item"] + span { right: 36px; }
+.rb-modal .truncate { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+.rb-modal-footer { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 12px; padding: 16px 24px; border-top: 1px solid var(--border); background: var(--card); flex-shrink: 0; }
+.rb-request-form { display: grid; gap: 20px; }
+.rb-request-form > div { min-width: 0; }
+.rb-selected-item { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; padding: 14px; background: var(--recess); border: 1px solid var(--primary); }
+.rb-selected-item > div { min-width: 0; flex: 1; }
+.rb-selected-item h4 { font-size: 16px; font-weight: 600; }
+.rb-selected-item .flex { flex-wrap: wrap; }
+.rb-catalog-results { position: relative; margin-top: 6px; max-height: 240px; overflow: auto; border: 1px solid var(--input); background: var(--recess); }
+.rb-catalog-results button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; text-align: left; border-bottom: 1px solid var(--border); }
+.rb-catalog-results button:hover { background: var(--secondary); }
+.rb-catalog-results button > div { min-width: 0; }
+.rb-catalog-results button > span { flex-shrink: 0; }
+.rb-catalog-results img { width: 36px; height: 36px; flex: none; }
+.rb-form-section { padding: 16px 0; border-block: 1px solid var(--border); display: grid; gap: 16px; }
+.rb-form-section > div:first-child { border: 0; }
+.rb-build-modal { max-width: 1180px; }
+.rb-build-creator { max-width: 1050px; }
+.rb-build-tabs { display: flex; align-items: center; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding: 12px 24px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+.rb-build-tabs > div { min-width: 0; flex-wrap: wrap; }
+.rb-build-tabs button { min-height: 40px; }
+.rb-build-tabs button[aria-pressed=true] { background: var(--secondary); color: var(--primary); box-shadow: inset 0 -2px var(--primary); }
+.rb-comparison-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 16px; justify-content: space-between; border-bottom: 1px solid var(--border); padding-bottom: 16px; }
+.rb-comparison-controls > div { min-width: 0; }
+.rb-comparison-controls > div:last-child { flex-wrap: wrap; }
+.rb-comparison-controls select { max-width: 100%; }
+.rb-diff-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-block: 1px solid var(--border); padding-block: 16px; gap: 16px; }
+.rb-diff-metrics > div { padding: 0 12px; background: transparent; border: 0; text-align: left; }
+.rb-diff-metrics > div:not(:first-child) { border-left: 1px solid var(--border); }
+.rb-diff-metrics > div > div:first-child { font-size: 25px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.rb-diff-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(260px, auto); align-items: center; gap: 20px; padding: 18px 0; border-bottom: 1px solid var(--border); }
+.rb-diff-row > div { min-width: 0; }
+.rb-diff-row > div:first-child > div:first-child { width: 50px; height: 50px; }
+.rb-diff-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; }
+.rb-diff-actions > div { min-width: 0; width: auto; }
+.rb-diff-actions > div:last-child > div { flex-wrap: wrap; justify-content: flex-end; }
+.rb-diff-actions button { min-height: 40px; font-size: 13px; }
+.rb-slot-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+.rb-slot-heading h3 { font-family: var(--heading); font-size: 20px; font-weight: 400; }
+.rb-slot-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.rb-slot-card { background: var(--recess); border: 1px solid var(--border); padding: 16px; display: grid; gap: 12px; }
+.rb-slot-card > div { min-width: 0; }
+.rb-slot-card > div:first-child { flex-wrap: wrap; }
+.rb-slot-card > div:first-child > button { min-height: 36px; margin-left: auto; }
+.rb-slot-card h4 { font-size: 15px; }
+.rb-slot-card button { min-height: 36px; }
+.rb-slot-card > div:nth-child(2) { flex-wrap: wrap; }
+.rb-set-picker { max-width: 720px; padding: 20px; gap: 16px; }
+.rb-set-picker > div { min-width: 0; }
+.rb-set-picker h3 { font-family: var(--heading); font-size: 22px; font-weight: 400; }
+.rb-set-categories { display: flex; flex-wrap: wrap; gap: 6px; }
+.rb-set-categories button { min-height: 36px; font-size: 12px; }
+.rb-set-list { overflow: auto; min-height: 0; display: grid; gap: 8px; }
+.rb-set-list > button > div:first-child { flex-wrap: wrap; }
+.rb-set-list > button > div:first-child > div { min-width: 0; }
+@media (max-width: 1150px) {
+  .rb-request-filters { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .rb-request-search { grid-column: 1 / -1; }
+  .rb-build-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rb-build-filters { grid-template-columns: 1fr; }
+  .rb-build-refinements > div { flex: 1; }
+}
+@media (max-width: 800px) {
+  .rb-diff-row { grid-template-columns: 1fr; gap: 12px; }
+  .rb-diff-actions { justify-content: space-between; padding-left: 62px; }
+  .rb-slot-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .rb-page-content { gap: 20px; padding-bottom: 32px; }
+  .rb-stats { gap: 16px; justify-content: space-between; }
+  .rb-stat { min-width: 0; gap: 8px; }
+  .rb-stat > div:last-child { gap: 7px; }
+  .rb-order-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rb-request-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px; gap: 10px; }
+  .rb-request-grid, .rb-build-grid { grid-template-columns: 1fr; gap: 16px; }
+  .rb-request-identity { padding: 16px; }
+  .rb-request-details { padding: 0 16px 16px; }
+  .rb-request-item { gap: 12px; }
+  .rb-item-icon { width: 52px; height: 52px; }
+  .rb-item-name { font-size: 16px; }
+  .rb-order-filters { padding: 12px; }
+  .rb-order-filters > div { width: 100%; }
+  .rb-order-tabs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); width: 100%; }
+  .rb-order-tabs button { padding-inline: 10px; text-align: left; justify-content: flex-start; }
+  .rb-build-filters { padding: 12px; gap: 14px; }
+  .rb-build-refinements { flex-wrap: wrap; }
+  .rb-build-refinements > div { flex-basis: calc(50% - 6px); }
+  .rb-build-card { padding: 18px; }
+  .rb-build-card h3 { font-size: 21px; }
+  .rb-modal-body { padding: 16px; }
+  .rb-modal .exchange-modal-heading { gap: 10px; }
+  .rb-modal .exchange-modal-heading h2 { font-size: 23px; line-height: 1.4; }
+  .rb-modal .exchange-modal-heading > div:first-child { min-width: 0; }
+  .rb-modal .exchange-modal-heading > div:last-child { flex-wrap: wrap; justify-content: flex-end; max-width: 115px; }
+  .rb-modal-footer { padding: 14px 16px; }
+  .rb-form-section { padding-block: 14px; }
+  .rb-selected-item { padding: 12px; }
+  .rb-selected-item > div { flex-basis: 100%; }
+  .rb-build-tabs { padding: 10px 16px; gap: 8px; }
+  .rb-build-tabs button { padding-inline: 10px; font-size: 13px; }
+  .rb-diff-metrics { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+  .rb-diff-metrics > div > div:first-child { font-size: 22px; white-space: nowrap; }
+  .rb-diff-metrics > div { padding-inline: 0; }
+  .rb-diff-metrics > div:not(:first-child) { border: 0; }
+  .rb-diff-actions { padding-left: 0; }
+  .rb-set-picker { padding: 16px; }
+  .rb-slot-card { padding: 12px; }
+  .rb-request-actions button { flex-basis: auto; }
+}

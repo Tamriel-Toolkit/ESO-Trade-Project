@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useId } from "react";
+import React from "react";
 import { Tooltip as TooltipPrimitive } from "@base-ui/react/tooltip";
 import { cn } from "@/lib/utils";
 
@@ -55,25 +55,25 @@ export function TooltipContent({
       >
         <TooltipPrimitive.Popup
           className={cn(
-            "bg-[#121218] border border-[#c5a059]/40 text-[#e0d8c3] px-3 py-2 text-xs shadow-2xl backdrop-blur-md max-w-xs transition-all duration-150 animate-in fade-in-0 zoom-in-95 pointer-events-none select-none",
+            "bg-card border border-primary/40 text-foreground px-3 py-2 text-xs shadow-2xl backdrop-blur-md max-w-xs transition-colors duration-150 animate-in fade-in-0 zoom-in-95 pointer-events-none select-none",
             className
           )}
           {...props}
         >
           {title && (
-            <div className="font-cinzel font-bold text-[#d4af37] text-[11px] uppercase tracking-wider mb-1 border-b border-[#2a2c33]/70 pb-1 flex items-center justify-between gap-2">
+            <div className="font-sans font-bold text-primary text-xs   mb-1 border-b border-border/70 pb-1 flex items-center justify-between gap-2">
               <span>{title}</span>
               {shortcut && (
-                <span className="text-[9px] font-mono text-[#8a8275] bg-[#0a0a0d] px-1 py-0.2 border border-[#2a2c33]">
+                <span className="text-xs font-mono text-muted-foreground bg-recess px-1 py-0.2 border border-border">
                   {shortcut}
                 </span>
               )}
             </div>
           )}
-          <div className="text-[#c5bead] leading-relaxed text-[11px]">
+          <div className="text-foreground leading-relaxed text-xs">
             {children}
           </div>
-          <TooltipPrimitive.Arrow className="fill-[#121218] stroke-[#c5a059]/40" />
+          <TooltipPrimitive.Arrow className="fill-card stroke-primary/40" />
         </TooltipPrimitive.Popup>
       </TooltipPrimitive.Positioner>
     </TooltipPrimitive.Portal>

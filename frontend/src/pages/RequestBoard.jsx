@@ -1,23 +1,15 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { 
-  ScrollText, 
-  Hammer, 
   ShoppingCart, 
   Search, 
   Plus, 
-  Filter, 
   Clock, 
-  Check, 
-  Coins, 
   RefreshCw, 
-  User, 
-  Sparkles, 
   Package,
   X, 
   ChevronLeft, 
-  ChevronRight, 
-  Layers 
+  ChevronRight
 } from "lucide-react";
 import { 
   fetchTradeRequests, 
@@ -31,8 +23,8 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { RequestCard } from "../components/requests/RequestCard";
 import { RequestModal } from "../components/requests/RequestModal";
-import { EsoTooltip } from "../components/ui/tooltip";
 import Navbar from "@/components/ui/navbar";
+import "@/styles/requests-builds.css";
 
 const CATEGORIES = [
   "All Categories",
@@ -252,31 +244,30 @@ export function RequestBoard() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0d] text-[#e0d8c3] flex flex-col font-sans selection:bg-[#c5a059] selection:text-black">
+    <div className="exchange-page exchange-requests">
       <Navbar />
 
       {/* Top Banner Header */}
-      <header className="border-b border-[#2a2c33] bg-[#121218]/90 backdrop-blur-md shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <header className="exchange-container">
+        <div className="exchange-page-heading">
           <div>
-            <h1 className="text-2xl md:text-3xl font-cinzel font-bold tracking-wider text-[#e0d8c3] flex items-center gap-2.5">
-              <ShoppingCart className="size-7 text-[#c5a059]" />
-              <span>Public WTB & Crafting Request Board</span>
-            </h1>
-            <p className="text-[#a89f91] text-xs md:text-sm mt-1">
-              Asynchronous matchmaking for custom crafted gear bounties and bulk material requests across Tamriel.
+            <p className="exchange-eyebrow"><ShoppingCart className="size-4" /> Player requests</p>
+            <h1>Requests</h1>
+            <p className="text-muted-foreground text-sm md:text-sm mt-1">
+              Find a crafter or buy the items you need.
             </p>
           </div>
 
           {/* Controls: Megaserver & Post Request CTA */}
           <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
             {/* Server Selector */}
-            <div className="flex rounded-none border border-[#2a2c33] bg-[#0e0e13] p-0.5">
+            <div className="rb-server-toggle" aria-label="Megaserver">
               <button
                 onClick={() => { setServer("NA"); setCurrentPage(1); }}
-                className={`px-3 py-1.5 text-xs font-cinzel font-bold tracking-wider transition-all cursor-pointer ${
+                aria-pressed={server === "NA"}
+                className={`px-3 py-1.5 text-sm font-sans font-bold tracking-normal transition-all cursor-pointer ${
                   server === "NA"
-                    ? "bg-[#c5a059] text-black shadow font-extrabold"
+                    ? "bg-primary text-black shadow font-semibold"
                     : "text-muted-foreground hover:text-white"
                 }`}
               >
@@ -284,9 +275,10 @@ export function RequestBoard() {
               </button>
               <button
                 onClick={() => { setServer("EU"); setCurrentPage(1); }}
-                className={`px-3 py-1.5 text-xs font-cinzel font-bold tracking-wider transition-all cursor-pointer ${
+                aria-pressed={server === "EU"}
+                className={`px-3 py-1.5 text-sm font-sans font-bold tracking-normal transition-all cursor-pointer ${
                   server === "EU"
-                    ? "bg-[#c5a059] text-black shadow font-extrabold"
+                    ? "bg-primary text-black shadow font-semibold"
                     : "text-muted-foreground hover:text-white"
                 }`}
               >
@@ -297,42 +289,42 @@ export function RequestBoard() {
             {/* Post Request CTA */}
             <button
               onClick={() => setIsModalOpen(true)}
-              className="px-4 py-2 bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all cursor-pointer shadow-lg flex items-center gap-1.5"
+              className="exchange-primary"
             >
               <Plus className="size-4" />
-              <span>Post Item Request</span>
+              <span>Post request</span>
             </button>
           </div>
         </div>
       </header>
 
       {/* Main Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1 space-y-6">
+      <main className="exchange-container rb-page-content">
         {/* Stats Dashboard */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="p-4 bg-[#121218] border border-emerald-500/30 flex items-center gap-3 shadow">
-            <div className="size-10 bg-emerald-950/40 border border-emerald-500/40 flex items-center justify-center shrink-0">
-              <span className="size-2 rounded-full bg-emerald-400 animate-pulse" />
+        <div className="rb-stats">
+          <div className="rb-stat">
+            <div className="rb-stat-icon text-emerald-400">
+              <span className="size-2 rounded-full bg-emerald-400" />
             </div>
             <div>
-              <span className="text-[10px] font-cinzel uppercase text-emerald-400 block font-bold">
-                Open Requests
+              <span className="text-xs font-sans text-emerald-400 block font-bold">
+                Open requests
               </span>
-              <span className="font-mono text-xl font-bold text-white">
+              <span className="tabular-nums text-xl font-bold text-white">
                 {statsLoading ? "..." : (stats?.total_open || 0)}
               </span>
             </div>
           </div>
 
-          <div className="p-4 bg-[#121218] border border-amber-500/30 flex items-center gap-3 shadow">
-            <div className="size-10 bg-amber-950/40 border border-amber-500/40 flex items-center justify-center shrink-0">
+          <div className="rb-stat">
+            <div className="rb-stat-icon text-amber-400">
               <Clock className="size-5 text-amber-400" />
             </div>
             <div>
-              <span className="text-[10px] font-cinzel uppercase text-amber-400 block font-bold">
-                In Progress (Claimed)
+              <span className="text-xs font-sans text-amber-400 block font-bold">
+                Claimed
               </span>
-              <span className="font-mono text-xl font-bold text-white">
+              <span className="tabular-nums text-xl font-bold text-white">
                 {statsLoading ? "..." : (stats?.total_in_progress || 0)}
               </span>
             </div>
@@ -340,41 +332,43 @@ export function RequestBoard() {
         </div>
 
         {/* Feed Header Bar & Link to My Orders */}
-        <div className="flex items-center justify-between border-b border-[#2a2c33] bg-[#0e0e13] px-4 py-2.5">
+        <div className="rb-section-heading">
           <div className="flex items-center gap-2">
-            <ShoppingCart className="size-4 text-[#c5a059]" />
-            <span className="text-xs font-cinzel font-bold uppercase tracking-wider text-[#e0d8c3]">
-              Public Request Feed
+            <ShoppingCart className="size-4 text-primary" />
+            <span className="text-sm font-sans font-bold tracking-normal text-foreground">
+              Public requests
             </span>
-            <span className="text-xs font-mono text-muted-foreground ml-2">
-              (<strong className="text-white">{requests.length}</strong> of {totalCount} active)
+            <span className="text-sm tabular-nums text-muted-foreground ml-2">
+              <strong className="text-white">{requests.length}</strong> of {totalCount}
             </span>
           </div>
 
           <Link
             to="/my-orders"
-            className="text-xs font-cinzel font-bold text-[#e6c278] hover:text-white px-3 py-1.5 bg-[#161620] hover:bg-[#1f1f2e] border border-[#c5a059]/40 hover:border-[#c5a059] transition-all flex items-center gap-1.5 uppercase tracking-wider"
+            className="exchange-secondary"
           >
-            <Package className="size-3.5 text-[#c5a059]" />
-            <span>My Orders & Claims →</span>
+            <Package className="size-3.5 text-primary" />
+            <span>My orders & claims →</span>
           </Link>
         </div>
 
         {/* Dynamic Filter Controls Bar */}
-        <div className="p-4 bg-[#121218] border border-[#2a2c33] shadow-lg grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 items-center">
+        <div className="rb-request-filters exchange-panel" role="search" aria-label="Filter requests">
           {/* Search Query */}
-          <div className="relative sm:col-span-2 lg:col-span-1">
+          <div className="relative rb-request-search">
             <Search className="size-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
             <input
               type="text"
+              aria-label="Search requests by item, set, or handle"
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
-              placeholder="Search by item, set, or @handle..."
-              className="w-full pl-9 pr-8 py-2 bg-[#0e0e13] border border-[#2a2c33] text-xs text-[#e0d8c3] placeholder:text-muted-foreground font-cinzel focus:outline-none focus:border-[#c5a059]"
+              placeholder="Item, set, or @handle"
+              className="w-full pl-9 pr-8 py-2 bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground font-sans focus:outline-none focus:border-primary"
             />
             {searchQuery && (
               <button
                 onClick={() => { setSearchQuery(""); setCurrentPage(1); }}
+                aria-label="Clear request search"
                 className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-white cursor-pointer"
               >
                 <X className="size-3.5" />
@@ -386,8 +380,9 @@ export function RequestBoard() {
           <div>
             <select
               value={selectedType}
+              aria-label="Request type"
               onChange={(e) => { setSelectedType(e.target.value); setCurrentPage(1); }}
-              className="w-full py-2 px-3 bg-[#0e0e13] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+              className="w-full py-2 px-3 bg-background border border-border text-sm text-foreground font-sans focus:outline-none focus:border-primary"
             >
               <option value="ALL">All Request Types</option>
               <option value="CRAFTING">Crafted Gear Only</option>
@@ -399,8 +394,9 @@ export function RequestBoard() {
           <div>
             <select
               value={selectedCategory}
+              aria-label="Request category"
               onChange={(e) => { setSelectedCategory(e.target.value); setCurrentPage(1); }}
-              className="w-full py-2 px-3 bg-[#0e0e13] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+              className="w-full py-2 px-3 bg-background border border-border text-sm text-foreground font-sans focus:outline-none focus:border-primary"
             >
               {CATEGORIES.map((c) => (
                 <option key={c} value={c}>{c}</option>
@@ -412,8 +408,9 @@ export function RequestBoard() {
           <div>
             <select
               value={selectedStatus}
+              aria-label="Request status"
               onChange={(e) => { setSelectedStatus(e.target.value); setCurrentPage(1); }}
-              className="w-full py-2 px-3 bg-[#0e0e13] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+              className="w-full py-2 px-3 bg-background border border-border text-sm text-foreground font-sans focus:outline-none focus:border-primary"
             >
               <option value="ACTIVE">Active (Open & Claimed)</option>
               <option value="OPEN">Open Only</option>
@@ -427,8 +424,9 @@ export function RequestBoard() {
           <div>
             <select
               value={sortOption}
+              aria-label="Sort requests"
               onChange={(e) => { setSortOption(e.target.value); setCurrentPage(1); }}
-              className="w-full py-2 px-3 bg-[#0e0e13] border border-[#2a2c33] text-xs text-[#e0d8c3] font-cinzel focus:outline-none focus:border-[#c5a059]"
+              className="w-full py-2 px-3 bg-background border border-border text-sm text-foreground font-sans focus:outline-none focus:border-primary"
             >
               <option value="newest">Newest First</option>
               <option value="gold_desc">Highest Gold Bounty</option>
@@ -442,37 +440,37 @@ export function RequestBoard() {
         {/* Request Cards Grid */}
         {loading ? (
           <div className="py-24 text-center space-y-3">
-            <RefreshCw className="size-8 animate-spin mx-auto text-[#c5a059]" />
-            <p className="text-xs font-cinzel text-muted-foreground uppercase tracking-wider">
-              Loading Public Request Board...
+            <RefreshCw className="size-8 animate-spin mx-auto text-primary" />
+            <p className="text-sm font-sans text-muted-foreground tracking-normal">
+              Loading requests…
             </p>
           </div>
         ) : requests.length === 0 ? (
-          <div className="py-20 text-center bg-[#121218] border border-[#2a2c33] p-8 max-w-xl mx-auto space-y-4 shadow-xl">
-            <ShoppingCart className="size-12 text-[#c5a059] mx-auto opacity-70" />
-            <h3 className="font-cinzel font-bold text-lg text-[#e0d8c3]">
-              No Matching Trade Requests Found
+          <div className="py-20 text-center bg-card border border-border p-8 max-w-xl mx-auto space-y-4 shadow-sm">
+            <ShoppingCart className="size-12 text-primary mx-auto opacity-70" />
+            <h3 className="font-sans font-bold text-lg text-foreground">
+              No matching requests
             </h3>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              No active crafting orders or WTB bounties match your current server and filter criteria.
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              No requests match this server and these filters.
             </p>
             <div className="pt-2 flex items-center justify-center gap-3">
               <button
                 onClick={handleResetFilters}
-                className="px-4 py-2 bg-[#161620] hover:bg-[#1c1c26] border border-[#2a2c33] text-xs font-cinzel text-muted-foreground hover:text-white uppercase transition-colors cursor-pointer"
+                className="px-4 py-2 bg-secondary hover:bg-[#292824] border border-border text-sm font-sans text-muted-foreground hover:text-white transition-colors cursor-pointer"
               >
                 Reset Filters
               </button>
               <button
                 onClick={() => setIsModalOpen(true)}
-                className="px-5 py-2 bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-colors shadow"
+                className="px-5 py-2 bg-primary hover:bg-[#f0d07a] text-black font-sans font-bold text-sm tracking-normal transition-colors shadow"
               >
-                + Post the First Request
+                + Post request
               </button>
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <div className="rb-request-grid">
             {requests.map((req) => (
               <RequestCard
                 key={req.id}
@@ -492,23 +490,25 @@ export function RequestBoard() {
 
         {/* Pagination Bar */}
         {totalPages > 1 && (
-          <div className="flex items-center justify-between border-t border-[#2a2c33] pt-4 px-2">
-            <span className="text-xs text-muted-foreground font-cinzel">
-              Page <strong className="text-white font-mono">{currentPage}</strong> of {totalPages}
+          <div className="flex items-center justify-between border-t border-border pt-4 px-2">
+            <span className="text-sm text-muted-foreground font-sans">
+              Page <strong className="text-white tabular-nums">{currentPage}</strong> of {totalPages}
             </span>
 
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                aria-label="Previous page"
                 disabled={currentPage === 1}
-                className="p-1.5 bg-[#121218] border border-[#2a2c33] hover:border-[#c5a059] disabled:opacity-40 disabled:cursor-not-allowed text-xs font-cinzel cursor-pointer transition-colors"
+                className="p-1.5 bg-card border border-border hover:border-primary disabled:opacity-40 disabled:cursor-not-allowed text-sm font-sans cursor-pointer transition-colors"
               >
                 <ChevronLeft className="size-4" />
               </button>
               <button
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                aria-label="Next page"
                 disabled={currentPage === totalPages}
-                className="p-1.5 bg-[#121218] border border-[#2a2c33] hover:border-[#c5a059] disabled:opacity-40 disabled:cursor-not-allowed text-xs font-cinzel cursor-pointer transition-colors"
+                className="p-1.5 bg-card border border-border hover:border-primary disabled:opacity-40 disabled:cursor-not-allowed text-sm font-sans cursor-pointer transition-colors"
               >
                 <ChevronRight className="size-4" />
               </button>

@@ -1,15 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { 
-  ChevronDown, 
-  ShoppingCart, 
-  Package, 
-  Users, 
-  Sparkles, 
-  Hammer,
-  Layers,
-  Search,
-  UserCheck
+import {
+  ChevronDown,
+  ShoppingCart,
+  Package,
+  Users,
+  Sparkles,
 } from "lucide-react";
 import { fetchSystemStatus } from "@/api/api";
 import SettingsMenu from "./SettingsMenu";
@@ -23,6 +19,7 @@ function Navbar() {
   // Navigation Dropdown States with Graceful Hover Intent Timeout
   const [openDropdown, setOpenDropdown] = useState(null); // 'requests' | 'characters' | null
   const closeTimeoutRef = useRef(null);
+  const openedByHoverRef = useRef(null);
   const requestsMenuRef = useRef(null);
   const charactersMenuRef = useRef(null);
 
@@ -48,7 +45,24 @@ function Navbar() {
       clearTimeout(closeTimeoutRef.current);
       closeTimeoutRef.current = null;
     }
+    if (openDropdown !== menu) openedByHoverRef.current = menu;
     setOpenDropdown(menu);
+  };
+
+  const toggleDropdown = (menu, event) => {
+    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+    // The first pointer click should retain a panel just opened by hover.
+    const wasOpenedByHover = event.detail !== 0 && openedByHoverRef.current === menu;
+    openedByHoverRef.current = null;
+    setOpenDropdown(current => wasOpenedByHover ? menu : current === menu ? null : menu);
+  };
+
+  const handleDropdownBlur = (event) => {
+    if (!event.currentTarget.contains(event.relatedTarget)) {
+      if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+      openedByHoverRef.current = null;
+      setOpenDropdown(null);
+    }
   };
 
   const handleMouseLeave = () => {
@@ -56,6 +70,8 @@ function Navbar() {
       clearTimeout(closeTimeoutRef.current);
     }
     closeTimeoutRef.current = setTimeout(() => {
+      if (requestsMenuRef.current?.contains(document.activeElement) || charactersMenuRef.current?.contains(document.activeElement)) return;
+      openedByHoverRef.current = null;
       setOpenDropdown(null);
     }, 280); // 280ms grace period so mouse movement to options is effortless
   };
@@ -80,43 +96,61 @@ function Navbar() {
   // Close dropdown on route change
   useEffect(() => {
     if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+    openedByHoverRef.current = null;
     setOpenDropdown(null);
-  }, [location.pathname]);
+  }, [location.key]);
 
-  const isActive = (path) => location.pathname === path;
+  useEffect(() => () => {
+    if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
+  }, []);
+
+  const isActive = (path) => path === '/my-orders'
+    ? ['/my-orders', '/requests/my-orders'].includes(location.pathname)
+    : location.pathname === path;
   const isRequestsActive = location.pathname.startsWith('/requests') || location.pathname === '/my-orders';
   const isCharactersActive = location.pathname === '/characters' || location.pathname === '/traits';
 
   return (
     <>
-      <header className="w-full bg-[#121218] border-b border-[#2a2c33] text-[#e0d8c3] shadow-2xl relative sticky top-0 z-50">
+      <header className="exchange-nav w-full bg-background border-b border-border text-foreground sticky top-0 z-50" onKeyDown={(event) => {
+        if (event.key === 'Escape' && openDropdown) {
+          event.preventDefault();
+          event.stopPropagation();
+          (openDropdown === 'requests' ? requestsMenuRef : charactersMenuRef).current?.querySelector('button')?.focus();
+          openedByHoverRef.current = null;
+          setOpenDropdown(null);
+        }
+      }}>
         {/* Ornate Top Border Highlight */}
-        <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#c5a059] to-transparent"></div>
+        <div className="h-px w-full bg-primary/30" aria-hidden="true"></div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-2 lg:gap-4 xl:gap-6">
+        <div className="exchange-container exchange-nav-inner">
           {/* 1. Left: Brand Identity */}
           <div className="flex items-center shrink-0">
-            <Link 
-              to="/" 
-              className="group flex items-center gap-2.5 sm:gap-3 font-cinzel text-lg sm:text-xl xl:text-2xl font-extrabold tracking-wider text-[#d4af37] hover:text-[#e0d8c3] transition-colors whitespace-nowrap"
+            <Link
+              to="/"
+              aria-current={isActive('/') ? 'page' : undefined}
+              aria-label="ESO Marketplace home"
+              className="exchange-wordmark group flex items-center gap-3 text-primary hover:text-foreground transition-colors"
             >
-              <div className="size-9 sm:size-10 rounded-none bg-[#0a0a0d] border-2 border-[#c5a059]/60 flex items-center justify-center text-xs font-black font-mono text-[#d4af37] shadow-inner group-hover:border-[#c5a059] group-hover:shadow-[0_0_12px_rgba(197,160,89,0.4)] transition-all shrink-0">
+              <div aria-hidden="true" className="size-9 sm:size-10 rounded-none bg-recess border-2 border-primary/60 flex items-center justify-center text-xs font-black font-mono text-primary shadow-inner group-hover:border-primary group-hover:shadow-none transition-colors shrink-0">
                 ESO
               </div>
-              <span className="flex items-center gap-1.5 sm:gap-2">
-                TAMRIEL <span className="text-[#e0d8c3] font-medium text-sm sm:text-base xl:text-lg">TRADE HUB</span>
+              <span className="exchange-brand-name">
+                ESO <span>Marketplace</span>
               </span>
             </Link>
           </div>
 
           {/* 2. Center: Responsive Desktop Primary Navigation with Smooth Dropdowns */}
-          <nav className="hidden lg:flex items-center justify-center gap-1 xl:gap-2 flex-1 min-w-0 px-2">
+          <nav className="exchange-nav-links hidden lg:flex items-center justify-center gap-1 xl:gap-2 flex-1 min-w-0 px-2" aria-label="Main navigation">
             <Link
               to="/"
-              className={`px-3 xl:px-4 py-2 text-xs xl:text-sm uppercase font-cinzel font-bold tracking-wider xl:tracking-[0.15em] transition-all border-b-2 whitespace-nowrap shrink-0 ${
-                isActive('/') 
-                  ? 'border-[#c5a059] text-[#d4af37] bg-[#c5a059]/10 shadow-[0_2px_12px_rgba(197,160,89,0.3)]' 
-                  : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
+              aria-current={isActive('/') ? 'page' : undefined}
+              className={`px-3 xl:px-4 py-2 text-xs xl:text-sm  font-sans font-bold   transition-colors border-b-2 whitespace-nowrap shrink-0 ${
+                isActive('/')
+                  ? 'border-primary text-primary bg-primary/10 shadow-none'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
               Home
@@ -124,79 +158,83 @@ function Navbar() {
 
             <Link
               to="/marketplace"
-              className={`px-3 xl:px-4 py-2 text-xs xl:text-sm uppercase font-cinzel font-bold tracking-wider xl:tracking-[0.15em] transition-all border-b-2 whitespace-nowrap shrink-0 ${
-                isActive('/marketplace') 
-                  ? 'border-[#c5a059] text-[#d4af37] bg-[#c5a059]/10 shadow-[0_2px_12px_rgba(197,160,89,0.3)]' 
-                  : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
+              aria-current={isActive('/marketplace') ? 'page' : undefined}
+              className={`px-3 xl:px-4 py-2 text-xs xl:text-sm  font-sans font-bold   transition-colors border-b-2 whitespace-nowrap shrink-0 ${
+                isActive('/marketplace')
+                  ? 'border-primary text-primary bg-primary/10 shadow-none'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
               Marketplace
             </Link>
 
             {/* REQUESTS DROPDOWN */}
-            <div 
-              className="relative shrink-0" 
+            <div
+              className="relative shrink-0"
               ref={requestsMenuRef}
               onMouseEnter={() => handleMouseEnter('requests')}
               onMouseLeave={handleMouseLeave}
+              onBlur={handleDropdownBlur}
             >
               <button
                 type="button"
-                onClick={() => {
-                  if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
-                  setOpenDropdown(openDropdown === 'requests' ? null : 'requests');
-                }}
-                className={`px-3 xl:px-4 py-2 text-xs xl:text-sm uppercase font-cinzel font-bold tracking-wider xl:tracking-[0.15em] transition-all border-b-2 whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                onClick={(event) => toggleDropdown('requests', event)}
+                aria-expanded={openDropdown === 'requests'}
+                aria-controls="requests-navigation"
+                className={`px-3 xl:px-4 py-2 text-xs xl:text-sm  font-sans font-bold   transition-colors border-b-2 whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
                   isRequestsActive || openDropdown === 'requests'
-                    ? 'border-[#c5a059] text-[#d4af37] bg-[#c5a059]/10 shadow-[0_2px_12px_rgba(197,160,89,0.3)]' 
-                    : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
+                    ? 'border-primary text-primary bg-primary/10 shadow-none'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                 }`}
               >
                 <span>Requests</span>
-                <ChevronDown className={`size-3.5 transition-transform duration-200 ${openDropdown === 'requests' ? 'rotate-180 text-[#d4af37]' : ''}`} />
+                <ChevronDown className={`size-3.5 transition-transform duration-200 ${openDropdown === 'requests' ? 'rotate-180 text-primary' : ''}`} />
               </button>
 
               {/* Requests Popover Dropdown with Invisible Bridge Padding */}
               {openDropdown === 'requests' && (
-                <div 
-                  className="absolute left-0 top-full pt-1.5 w-64 z-50 animate-in fade-in duration-150"
+                <div
+                  id="requests-navigation"
+                  className="exchange-nav-popover absolute left-0 top-full pt-1.5 w-64 z-50"
                   onMouseEnter={() => handleMouseEnter('requests')}
                   onMouseLeave={handleMouseLeave}
                 >
-                  <div className="bg-[#121218] border border-[#2a2c33] shadow-2xl overflow-hidden">
-                    <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#c5a059] to-transparent"></div>
-                    
+                  <div className="bg-card border border-border shadow-2xl overflow-hidden">
+                    <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-primary to-transparent"></div>
+
                     <div className="p-1.5 space-y-1">
                       <Link
                         to="/requests"
+                        aria-current={isActive('/requests') ? 'page' : undefined}
                         className={`flex items-start gap-3 p-2.5 transition-colors group ${
-                          isActive('/requests') ? 'bg-[#c5a059]/15 border-l-2 border-[#c5a059]' : 'hover:bg-[#1a1a24]'
+                          isActive('/requests') ? 'bg-primary/15 border-l-2 border-primary' : 'hover:bg-secondary'
                         }`}
                       >
-                        <ShoppingCart className="size-4.5 text-[#c5a059] shrink-0 mt-0.5" />
+                        <ShoppingCart className="size-4.5 text-primary shrink-0 mt-0.5" />
                         <div>
-                          <div className="text-xs font-cinzel font-bold text-[#e0d8c3] group-hover:text-[#d4af37] uppercase">
-                            Item Requests
+                          <div className="text-xs font-sans font-bold text-foreground group-hover:text-primary ">
+                            Requests
                           </div>
-                          <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-                            Browse public WTB & crafting bounties
+                          <p className="text-xs text-muted-foreground leading-tight mt-0.5">
+                            Items wanted and crafting orders
                           </p>
                         </div>
                       </Link>
 
                       <Link
                         to="/my-orders"
+                        aria-current={isActive('/my-orders') ? 'page' : undefined}
                         className={`flex items-start gap-3 p-2.5 transition-colors group ${
-                          isActive('/my-orders') ? 'bg-[#c5a059]/15 border-l-2 border-[#c5a059]' : 'hover:bg-[#1a1a24]'
+                          isActive('/my-orders') ? 'bg-primary/15 border-l-2 border-primary' : 'hover:bg-secondary'
                         }`}
                       >
-                        <Package className="size-4.5 text-[#c5a059] shrink-0 mt-0.5" />
+                        <Package className="size-4.5 text-primary shrink-0 mt-0.5" />
                         <div>
-                          <div className="text-xs font-cinzel font-bold text-[#e0d8c3] group-hover:text-[#d4af37] uppercase">
+                          <div className="text-xs font-sans font-bold text-foreground group-hover:text-primary ">
                             My Orders
                           </div>
-                          <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-                            Manage your posted & claimed bounties
+                          <p className="text-xs text-muted-foreground leading-tight mt-0.5">
+                            Your requests and claimed orders
                           </p>
                         </div>
                       </Link>
@@ -208,61 +246,64 @@ function Navbar() {
 
             <Link
               to="/builds"
-              className={`px-3 xl:px-4 py-2 text-xs xl:text-sm uppercase font-cinzel font-bold tracking-wider xl:tracking-[0.15em] transition-all border-b-2 whitespace-nowrap shrink-0 ${
-                isActive('/builds') 
-                  ? 'border-[#c5a059] text-[#d4af37] bg-[#c5a059]/10 shadow-[0_2px_12px_rgba(197,160,89,0.3)]' 
-                  : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
+              aria-current={isActive('/builds') ? 'page' : undefined}
+              className={`px-3 xl:px-4 py-2 text-xs xl:text-sm  font-sans font-bold   transition-colors border-b-2 whitespace-nowrap shrink-0 ${
+                isActive('/builds')
+                  ? 'border-primary text-primary bg-primary/10 shadow-none'
+                  : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
               Builds
             </Link>
 
             {/* CHARACTERS DROPDOWN */}
-            <div 
-              className="relative shrink-0" 
+            <div
+              className="relative shrink-0"
               ref={charactersMenuRef}
               onMouseEnter={() => handleMouseEnter('characters')}
               onMouseLeave={handleMouseLeave}
+              onBlur={handleDropdownBlur}
             >
               <button
                 type="button"
-                onClick={() => {
-                  if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
-                  setOpenDropdown(openDropdown === 'characters' ? null : 'characters');
-                }}
-                className={`px-3 xl:px-4 py-2 text-xs xl:text-sm uppercase font-cinzel font-bold tracking-wider xl:tracking-[0.15em] transition-all border-b-2 whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
+                onClick={(event) => toggleDropdown('characters', event)}
+                aria-expanded={openDropdown === 'characters'}
+                aria-controls="characters-navigation"
+                className={`px-3 xl:px-4 py-2 text-xs xl:text-sm  font-sans font-bold   transition-colors border-b-2 whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
                   isCharactersActive || openDropdown === 'characters'
-                    ? 'border-[#c5a059] text-[#d4af37] bg-[#c5a059]/10 shadow-[0_2px_12px_rgba(197,160,89,0.3)]' 
-                    : 'border-transparent text-[#a89f91] hover:text-[#e0d8c3] hover:border-[#2a2c33]'
+                    ? 'border-primary text-primary bg-primary/10 shadow-none'
+                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                 }`}
               >
                 <span>Characters</span>
-                <ChevronDown className={`size-3.5 transition-transform duration-200 ${openDropdown === 'characters' ? 'rotate-180 text-[#d4af37]' : ''}`} />
+                <ChevronDown className={`size-3.5 transition-transform duration-200 ${openDropdown === 'characters' ? 'rotate-180 text-primary' : ''}`} />
               </button>
 
               {/* Characters Popover Dropdown with Invisible Bridge Padding */}
               {openDropdown === 'characters' && (
-                <div 
-                  className="absolute left-0 top-full pt-1.5 w-64 z-50 animate-in fade-in duration-150"
+                <div
+                  id="characters-navigation"
+                  className="exchange-nav-popover absolute left-0 top-full pt-1.5 w-64 z-50"
                   onMouseEnter={() => handleMouseEnter('characters')}
                   onMouseLeave={handleMouseLeave}
                 >
-                  <div className="bg-[#121218] border border-[#2a2c33] shadow-2xl overflow-hidden">
-                    <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#c5a059] to-transparent"></div>
-                    
+                  <div className="bg-card border border-border shadow-2xl overflow-hidden">
+                    <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-primary to-transparent"></div>
+
                     <div className="p-1.5 space-y-1">
                       <Link
                         to="/characters"
+                        aria-current={isActive('/characters') ? 'page' : undefined}
                         className={`flex items-start gap-3 p-2.5 transition-colors group ${
-                          isActive('/characters') ? 'bg-[#c5a059]/15 border-l-2 border-[#c5a059]' : 'hover:bg-[#1a1a24]'
+                          isActive('/characters') ? 'bg-primary/15 border-l-2 border-primary' : 'hover:bg-secondary'
                         }`}
                       >
-                        <Users className="size-4.5 text-[#c5a059] shrink-0 mt-0.5" />
+                        <Users className="size-4.5 text-primary shrink-0 mt-0.5" />
                         <div>
-                          <div className="text-xs font-cinzel font-bold text-[#e0d8c3] group-hover:text-[#d4af37] uppercase">
-                            Roster & Crafters
+                          <div className="text-xs font-sans font-bold text-foreground group-hover:text-primary ">
+                            Characters
                           </div>
-                          <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
+                          <p className="text-xs text-muted-foreground leading-tight mt-0.5">
                             Character profiles, stats & equipment
                           </p>
                         </div>
@@ -270,17 +311,18 @@ function Navbar() {
 
                       <Link
                         to="/traits"
+                        aria-current={isActive('/traits') ? 'page' : undefined}
                         className={`flex items-start gap-3 p-2.5 transition-colors group ${
-                          isActive('/traits') ? 'bg-[#c5a059]/15 border-l-2 border-[#c5a059]' : 'hover:bg-[#1a1a24]'
+                          isActive('/traits') ? 'bg-primary/15 border-l-2 border-primary' : 'hover:bg-secondary'
                         }`}
                       >
-                        <Sparkles className="size-4.5 text-[#c5a059] shrink-0 mt-0.5" />
+                        <Sparkles className="size-4.5 text-primary shrink-0 mt-0.5" />
                         <div>
-                          <div className="text-xs font-cinzel font-bold text-[#e0d8c3] group-hover:text-[#d4af37] uppercase">
-                            Trait Tracker
+                          <div className="text-xs font-sans font-bold text-foreground group-hover:text-primary ">
+                            Trait research
                           </div>
-                          <p className="text-[11px] text-muted-foreground leading-tight mt-0.5">
-                            Research matrix & market fodder matching
+                          <p className="text-xs text-muted-foreground leading-tight mt-0.5">
+                            Research progress and matching items
                           </p>
                         </div>
                       </Link>
@@ -302,65 +344,72 @@ function Navbar() {
         </div>
 
         {/* Mobile & Tablet Navigation Links (< lg) */}
-        <div className="border-t border-[#2a2c33] bg-[#0a0a0d] lg:hidden">
-          <div className="max-w-7xl mx-auto px-2 sm:px-4 py-2 flex items-center justify-start sm:justify-center gap-1 sm:gap-2 overflow-x-auto scrollbar-none">
+        <div className="border-t border-border bg-recess lg:hidden">
+          <nav className="exchange-mobile-links exchange-container py-2 flex items-center gap-1 overflow-x-auto" aria-label="Main navigation">
             <Link
               to="/"
-              className={`px-2.5 sm:px-3 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider whitespace-nowrap border shrink-0 ${
-                isActive('/') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
+              aria-current={isActive('/') ? 'page' : undefined}
+              className={`px-2.5 sm:px-3 py-1 text-xs  font-sans font-semibold  whitespace-nowrap border shrink-0 ${
+                isActive('/') ? 'border-primary/60 bg-primary/10 text-primary' : 'border-transparent text-muted-foreground'
               }`}
             >
               Home
             </Link>
             <Link
               to="/marketplace"
-              className={`px-2.5 sm:px-3 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider whitespace-nowrap border shrink-0 ${
-                isActive('/marketplace') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
+              aria-current={isActive('/marketplace') ? 'page' : undefined}
+              className={`px-2.5 sm:px-3 py-1 text-xs  font-sans font-semibold  whitespace-nowrap border shrink-0 ${
+                isActive('/marketplace') ? 'border-primary/60 bg-primary/10 text-primary' : 'border-transparent text-muted-foreground'
               }`}
             >
-              Market
+              Marketplace
             </Link>
             <Link
               to="/requests"
-              className={`px-2.5 sm:px-3 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider whitespace-nowrap border shrink-0 ${
-                isActive('/requests') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
+              aria-current={isActive('/requests') ? 'page' : undefined}
+              className={`px-2.5 sm:px-3 py-1 text-xs  font-sans font-semibold  whitespace-nowrap border shrink-0 ${
+                isActive('/requests') ? 'border-primary/60 bg-primary/10 text-primary' : 'border-transparent text-muted-foreground'
               }`}
             >
               Item Requests
             </Link>
             <Link
               to="/my-orders"
-              className={`px-2.5 sm:px-3 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider whitespace-nowrap border shrink-0 ${
-                isActive('/my-orders') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
+              aria-current={isActive('/my-orders') ? 'page' : undefined}
+              className={`px-2.5 sm:px-3 py-1 text-xs  font-sans font-semibold  whitespace-nowrap border shrink-0 ${
+                isActive('/my-orders') ? 'border-primary/60 bg-primary/10 text-primary' : 'border-transparent text-muted-foreground'
               }`}
             >
               My Orders
             </Link>
             <Link
               to="/builds"
-              className={`px-2.5 sm:px-3 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider whitespace-nowrap border shrink-0 ${
-                isActive('/builds') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
+              aria-current={isActive('/builds') ? 'page' : undefined}
+              className={`px-2.5 sm:px-3 py-1 text-xs  font-sans font-semibold  whitespace-nowrap border shrink-0 ${
+                isActive('/builds') ? 'border-primary/60 bg-primary/10 text-primary' : 'border-transparent text-muted-foreground'
               }`}
             >
               Builds
             </Link>
             <Link
               to="/characters"
-              className={`px-2.5 sm:px-3 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider whitespace-nowrap border shrink-0 ${
-                isActive('/characters') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
+              aria-current={isActive('/characters') ? 'page' : undefined}
+              className={`px-2.5 sm:px-3 py-1 text-xs  font-sans font-semibold  whitespace-nowrap border shrink-0 ${
+                isActive('/characters') ? 'border-primary/60 bg-primary/10 text-primary' : 'border-transparent text-muted-foreground'
               }`}
             >
-              Roster
+              Characters
             </Link>
             <Link
               to="/traits"
-              className={`px-2.5 sm:px-3 py-1 text-xs uppercase font-cinzel font-semibold tracking-wider whitespace-nowrap border shrink-0 ${
-                isActive('/traits') ? 'border-[#c5a059]/60 bg-[#c5a059]/10 text-[#d4af37]' : 'border-transparent text-[#a89f91]'
+              aria-current={isActive('/traits') ? 'page' : undefined}
+              className={`px-2.5 sm:px-3 py-1 text-xs  font-sans font-semibold  whitespace-nowrap border shrink-0 ${
+                isActive('/traits') ? 'border-primary/60 bg-primary/10 text-primary' : 'border-transparent text-muted-foreground'
               }`}
             >
-              Traits
+              Trait research
             </Link>
-          </div>
+          </nav>
         </div>
 
         {/* Ornate Bottom Accent Line */}

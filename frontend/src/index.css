@@ -1,117 +1,29 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
+@import "./styles/tokens.css";
+@import "./styles/exchange.css";
 
 @custom-variant dark (&:is(.dark *));
 
-:root {
-  --text: #b8af9f;
-  --text-h: #e0d8c3;
-  --bg: #0a0a0d;
-  --border: #2a2c33;
-  --code-bg: #121218;
-  --accent: #c5a059;
-  --accent-bg: rgba(197, 160, 89, 0.1);
-  --accent-border: rgba(197, 160, 89, 0.4);
-  --social-bg: rgba(18, 18, 24, 0.8);
-  --shadow: rgba(0, 0, 0, 0.6) 0 10px 15px -3px, rgba(0, 0, 0, 0.4) 0 4px 6px -2px;
-
-  --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-  --heading: 'Cinzel', Georgia, serif;
-  --mono: ui-monospace, Consolas, monospace;
-
-  font: 16px/145% var(--sans);
-  letter-spacing: 0.18px;
-  color-scheme: dark;
-  color: var(--text);
-  background: var(--bg);
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-
-  --background: #0a0a0d;
-  --foreground: #e0d8c3;
-  --card: #121218;
-  --card-foreground: #e0d8c3;
-  --popover: #121218;
-  --popover-foreground: #e0d8c3;
-  --primary: #c5a059;
-  --primary-foreground: #0a0a0d;
-  --secondary: #161620;
-  --secondary-foreground: #d4af37;
-  --muted: #161620;
-  --muted-foreground: #b0a696;
-  --accent: #c5a059;
-  --accent-foreground: #0a0a0d;
-  --destructive: #991b1b;
-  --border: #2a2c33;
-  --input: #2a2c33;
-  --ring: #c5a059;
-  --radius: 0rem;
-}
-
-body {
-  margin: 0;
-  background-color: #0a0a0d;
-  color: #e0d8c3;
-  font-family: var(--sans);
-}
-
-#root {
-  width: 100%;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-  background-color: #0a0a0d;
-}
-
-h1, h2, h3, h4, .font-cinzel {
-  font-family: var(--heading);
-  letter-spacing: 0.05em;
-}
-
-/* Custom Scrollbar for ESO Dark Fantasy Aesthetic */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-::-webkit-scrollbar-track {
-  background: #0a0a0d;
-  border-left: 1px solid #2a2c33;
-}
-::-webkit-scrollbar-thumb {
-  background: #2a2c33;
-  border: 1px solid #c5a059/30;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: #c5a059;
-}
-
-/* Ornate Framing & Dividers */
-.eso-divider {
-  height: 1px;
-  width: 100%;
-  background: linear-gradient(90deg, transparent 0%, rgba(197, 160, 89, 0.4) 50%, transparent 100%);
-  margin: 0;
-}
-
-.eso-card {
-  background-color: #121218;
-  border: 1px solid #2a2c33;
-  box-shadow: inset 0 0 0 1px rgba(197, 160, 89, 0.05);
-}
-
-.eso-card:hover {
-  border-color: rgba(197, 160, 89, 0.4);
-}
-
-.body {
-  display: flex;
-  flex-direction: column;
-  flex: 1;
-  width: 100%;
-  min-height: 100vh;
-  box-sizing: border-box;
+:root { font: 16px/1.5 var(--sans); color-scheme: dark; color: var(--foreground); background: var(--background); font-synthesis: none; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+body { margin: 0; background: var(--background); color: var(--foreground); font-family: var(--sans); }
+#root { width: 100%; min-height: 100vh; display: flex; flex-direction: column; }
+*, *::before, *::after { box-sizing: border-box; }
+h1, h2, h3, h4 { line-height: 1.25; }
+.font-cinzel { font-family: var(--heading); }
+@layer base { button, input, select, textarea { font: inherit; } }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button:not(:disabled), [role=button] { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--ring); outline-offset: 3px; }
+::selection { color: var(--foreground); background: #6b5629; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: var(--recess); }
+::-webkit-scrollbar-thumb { background: #625b4d; border: 2px solid var(--recess); }
+::-webkit-scrollbar-thumb:hover { background: var(--primary); }
+.eso-divider { height: 1px; width: 100%; background: var(--border); margin: 0; }
+.eso-card { background: var(--card); border: 1px solid var(--border); }
+.body { display: flex; flex-direction: column; flex: 1; width: 100%; min-height: 100vh; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
 }

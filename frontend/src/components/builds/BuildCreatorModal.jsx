@@ -1,13 +1,15 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Link } from "react-router-dom";
 import { 
-    X, Shield, Sparkles, Sword, Plus, Trash2, Check, Search, AlertTriangle, 
-    Lock, ShoppingCart, Info, Save, Layers, RefreshCw
+    X, Shield, Search, AlertTriangle,
+    Lock, ShoppingCart, Save, RefreshCw
 } from "lucide-react";
 import { createCustomBuild, fetchSets, resolveSetItem } from "@/api/api";
 import { useAuth } from "@/context/AuthContext";
-import { getEsoIconUrl, cleanEsoText } from "@/lib/utils";
+import { getEsoIconUrl } from "@/lib/utils";
 import { EsoTooltip } from "@/components/ui/tooltip";
+import { useDialogFocus } from "@/hooks/useDialogFocus";
+import "@/styles/requests-builds.css";
 
 const ESO_CLASSES = ["Arcanist", "Dragonknight", "Necromancer", "Nightblade", "Sorcerer", "Templar", "Warden", "All"];
 const ESO_ROLES = ["Magicka DPS", "Stamina DPS", "Tank", "Healer", "Solo / Arena", "PvP"];
@@ -68,6 +70,9 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
     const [setsLoading, setSetsLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [selectedCategory, setSelectedCategory] = useState("All");
+    const pickerSearchRef = useRef(null);
+    const dialogRef = useDialogFocus(true, onClose);
+    const pickerRef = useDialogFocus(editingSlotIndex !== null, () => setEditingSlotIndex(null), pickerSearchRef);
 
     useEffect(() => {
         setSetsLoading(true);
@@ -246,41 +251,37 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
 
     return (
         <div 
-            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md animate-in fade-in duration-200"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Create Custom Build"
+            className="exchange-modal-backdrop"
         >
-            <div className="relative w-full max-w-4xl max-h-[92vh] flex flex-col bg-[#111116] border-2 border-[#c5a059]/50 rounded-none shadow-[0_10px_40px_rgba(0,0,0,0.9)] overflow-hidden">
-                <div className="px-6 py-4 border-b border-[#2a2c33] bg-[#161620] flex items-center justify-between relative">
-                    <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#c5a059] to-transparent pointer-events-none" />
+            <div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="create-build-title" className="exchange-modal rb-modal rb-build-creator">
+                <div className="exchange-modal-heading">
                     <div>
-                        <span className="text-[10px] font-cinzel font-bold uppercase tracking-wider text-[#c5a059]">
-                            Custom Loadout
+                        <span className="text-xs font-sans font-bold tracking-normal text-primary">
+                            Your equipment plan
                         </span>
-                        <h2 className="text-xl font-cinzel font-bold text-[#e0d8c3] tracking-wide">
-                            Create Custom Build
+                        <h2 id="create-build-title">
+                            Create build
                         </h2>
                     </div>
                     <button
                         onClick={onClose}
-                        className="p-1.5 rounded-none text-muted-foreground hover:text-white hover:bg-white/5 transition-colors border border-transparent hover:border-[#c5a059]/30 cursor-pointer"
+                        className="exchange-close"
                         aria-label="Close modal"
                     >
                         <X className="size-5" />
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                <div className="rb-modal-body space-y-6">
                     {!user && (
-                        <div className="p-3.5 bg-amber-950/40 border border-amber-500/40 text-amber-300 text-xs flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 font-cinzel">
+                        <div className="p-3.5 bg-amber-950/40 border border-amber-500/40 text-amber-300 text-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 font-sans">
                             <div className="flex items-center gap-2">
                                 <AlertTriangle className="size-4 text-amber-400 shrink-0" />
-                                <span>Authentication Required: Sign in to save custom builds to your account.</span>
+                                <span>Sign in to save builds to your account.</span>
                             </div>
                             <Link 
                                 to="/login" 
-                                className="px-3 py-1 bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all shrink-0"
+                                className="px-3 py-1 bg-primary hover:bg-[#f0d07a] text-black font-sans font-bold text-sm tracking-normal transition-all shrink-0"
                             >
                                 Sign In
                             </Link>
@@ -288,7 +289,7 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                     )}
 
                     {error && (
-                        <div className="p-3 rounded-none bg-red-950/40 border border-red-500/50 text-red-300 text-xs flex items-center gap-2 font-cinzel">
+                        <div role="alert" className="p-3 rounded-none bg-red-950/40 border border-red-500/50 text-red-300 text-sm flex items-center gap-2 font-sans">
                             <AlertTriangle className="size-4 shrink-0 text-red-400" />
                             {error}
                         </div>
@@ -296,26 +297,28 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div className="sm:col-span-2">
-                            <label className="block text-xs font-cinzel font-bold text-[#fce2a6] uppercase tracking-wider mb-1">
-                                Build Title *
+                            <label htmlFor="build-title" className="block mb-1">
+                                Build title (required)
                             </label>
                             <input
                                 type="text"
+                                id="build-title"
                                 value={title}
                                 onChange={(e) => setTitle(e.target.value)}
                                 placeholder="e.g. Stamina Arcanist Solo Brawler"
-                                className="w-full px-3.5 py-2 rounded-none bg-[#14141c] border border-[#2a2c33] text-[#e0d8c3] placeholder:text-muted-foreground text-sm focus:outline-none focus:border-[#c5a059] font-cinzel"
+                                className="w-full px-3.5 py-2 rounded-none bg-card border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-primary font-sans"
                             />
                         </div>
 
                         <div>
-                            <label className="block text-xs font-cinzel font-bold text-[#fce2a6] uppercase tracking-wider mb-1">
+                            <label className="block text-sm font-sans font-bold text-foreground tracking-normal mb-1">
                                 Class
                             </label>
                             <select
                                 value={buildClass}
+                                aria-label="Build class"
                                 onChange={(e) => setBuildClass(e.target.value)}
-                                className="w-full px-3.5 py-2 rounded-none bg-[#14141c] border border-[#2a2c33] text-[#e0d8c3] text-sm focus:outline-none focus:border-[#c5a059] font-cinzel"
+                                className="w-full px-3.5 py-2 rounded-none bg-card border border-border text-foreground text-sm focus:outline-none focus:border-primary font-sans"
                             >
                                 {ESO_CLASSES.map((c) => (
                                     <option key={c} value={c}>{c}</option>
@@ -324,13 +327,14 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                         </div>
 
                         <div>
-                            <label className="block text-xs font-cinzel font-bold text-[#fce2a6] uppercase tracking-wider mb-1">
+                            <label className="block text-sm font-sans font-bold text-foreground tracking-normal mb-1">
                                 Role
                             </label>
                             <select
                                 value={role}
+                                aria-label="Build role"
                                 onChange={(e) => setRole(e.target.value)}
-                                className="w-full px-3.5 py-2 rounded-none bg-[#14141c] border border-[#2a2c33] text-[#e0d8c3] text-sm focus:outline-none focus:border-[#c5a059] font-cinzel"
+                                className="w-full px-3.5 py-2 rounded-none bg-card border border-border text-foreground text-sm focus:outline-none focus:border-primary font-sans"
                             >
                                 {ESO_ROLES.map((r) => (
                                     <option key={r} value={r}>{r}</option>
@@ -339,30 +343,31 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                         </div>
 
                         <div className="sm:col-span-2">
-                            <label className="block text-xs font-cinzel font-bold text-[#fce2a6] uppercase tracking-wider mb-1">
+                            <label className="block text-sm font-sans font-bold text-foreground tracking-normal mb-1">
                                 Notes & Rotation
                             </label>
                             <textarea
                                 value={description}
+                                aria-label="Notes and rotation"
                                 onChange={(e) => setDescription(e.target.value)}
                                 rows={2}
                                 placeholder="Playstyle notes, skill highlights, and set interactions..."
-                                className="w-full px-3.5 py-2 rounded-none bg-[#14141c] border border-[#2a2c33] text-[#e0d8c3] placeholder:text-muted-foreground text-xs focus:outline-none focus:border-[#c5a059]"
+                                className="w-full px-3.5 py-2 rounded-none bg-card border border-border text-foreground placeholder:text-muted-foreground text-sm focus:outline-none focus:border-primary"
                             />
                         </div>
                     </div>
 
                     <div>
-                        <div className="flex items-center justify-between mb-3">
-                            <h3 className="text-xs font-cinzel font-bold tracking-wider text-[#c5a059] uppercase flex items-center gap-1.5">
-                                <Shield className="size-3.5" /> Equipment Slots
+                        <div className="rb-slot-heading">
+                            <h3 className="flex items-center gap-2">
+                                <Shield className="size-4 text-primary" /> Equipment
                             </h3>
-                            <span className="text-[11px] text-muted-foreground font-cinzel">
-                                Choose from all 712 ESO sets with custom weights and weapon types.
+                            <span className="text-xs text-muted-foreground font-sans">
+                                Set, weight, weapon, trait, and enchantment for each slot.
                             </span>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="rb-slot-grid">
                             {slots.map((slot, idx) => {
                                 const isJewelry = slot.slot_id === 1 || slot.slot_id === 9 || slot.slot_id === 11;
                                 const isWeapon = slot.slot_id === 4 || slot.slot_id === 5 || slot.slot_id === 12;
@@ -374,35 +379,35 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                                 return (
                                     <div 
                                         key={slot.slot_id}
-                                        className="p-3.5 rounded-none bg-[#13131b] border border-[#2a2c33] hover:border-[#c5a059]/50 transition-all space-y-2.5"
+                                        className="rb-slot-card"
                                     >
                                         <div className="flex items-start justify-between gap-2.5">
                                             <div className="flex items-center gap-3 min-w-0 flex-1">
-                                                <div className="size-10 shrink-0 border border-[#2a2c33] bg-[#0a0a0d] p-1 flex items-center justify-center">
+                                                <div className="size-10 shrink-0 border border-border bg-recess p-1 flex items-center justify-center">
                                                     {itemIconUrl ? (
                                                         <img src={itemIconUrl} alt="" className="size-full object-contain" />
                                                     ) : (
-                                                        <Shield className="size-4 text-[#8a8275]" />
+                                                        <Shield className="size-4 text-muted-foreground" />
                                                     )}
                                                 </div>
 
                                                 <div className="min-w-0 flex-1">
                                                     <div className="flex items-center gap-1.5">
-                                                        <span className="text-[10px] font-cinzel font-bold uppercase tracking-wider text-[#c5a059] bg-[#0a0a0d] px-2 py-0.5 rounded-none border border-[#2a2c33]">
+                                                        <span className="text-xs font-sans font-bold tracking-normal text-primary bg-recess px-2 py-0.5 rounded-none border border-border">
                                                             {slot.slot_name}
                                                         </span>
                                                         {slot.armor_weight && !isWeapon && !isJewelry && (
-                                                            <span className="text-[9px] font-cinzel font-bold uppercase tracking-wider px-1.5 py-0.2 rounded-none bg-[#1a1a24] text-[#c5a059] border border-[#c5a059]/30">
+                                                            <span className="text-xs font-sans font-bold tracking-normal px-1.5 py-0.2 rounded-none bg-secondary text-primary border border-primary/30">
                                                                 {slot.armor_weight}
                                                             </span>
                                                         )}
                                                     </div>
                                                     <EsoTooltip content={slot.item_name} side="top">
-                                                        <h4 className="font-cinzel font-bold text-sm text-[#e0d8c3] mt-0.5 truncate cursor-default">
+                                                        <h4 className="font-sans font-bold text-sm text-foreground mt-0.5 truncate cursor-default">
                                                             {slot.item_name}
                                                         </h4>
                                                     </EsoTooltip>
-                                                    <p className="text-[11px] text-muted-foreground truncate">
+                                                    <p className="text-xs text-muted-foreground truncate">
                                                         Set: <span className="text-gray-300 font-medium">{slot.set_name}</span>
                                                     </p>
                                                 </div>
@@ -410,38 +415,42 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
 
                                             <button
                                                 onClick={() => handleOpenSlotPicker(idx)}
-                                                className="px-2.5 py-1 rounded-none bg-[#1c1c28] hover:bg-[#c5a059]/20 text-[#e6c278] border border-[#c5a059]/30 text-xs font-cinzel uppercase tracking-wider transition-all cursor-pointer shrink-0"
+                                                aria-label={`Change set for ${slot.slot_name}`}
+                                                className="px-2.5 py-1 rounded-none bg-secondary hover:bg-primary/20 text-primary border border-primary/30 text-sm font-sans tracking-normal transition-all cursor-pointer shrink-0"
                                             >
-                                                Change Set
+                                                Change set
                                             </button>
                                         </div>
 
                                         {!isJewelry && (
-                                            <div className="pt-1.5 border-t border-[#2a2c33]/60 flex items-center justify-between gap-2 text-xs">
-                                                <span className="text-[10px] font-cinzel uppercase tracking-wider text-muted-foreground">
+                                            <div className="pt-1.5 border-t border-border/60 flex items-center justify-between gap-2 text-sm">
+                                                <span className="text-xs font-sans tracking-normal text-muted-foreground">
                                                     {isWeapon ? "Weapon Type:" : "Armor Weight:"}
                                                 </span>
 
                                                 {isWeapon ? (
                                                     <select
                                                         value={slot.weapon_type || "Dagger"}
+                                                        aria-label={`${slot.slot_name} weapon type`}
                                                         onChange={(e) => handleWeightOrWeaponChange(idx, "weapon_type", e.target.value)}
-                                                        className="px-2 py-0.5 rounded-none bg-[#0a0a0d] border border-[#2a2c33] text-[#e0d8c3] text-[11px] font-cinzel uppercase focus:border-[#c5a059]"
+                                                        className="px-2 py-0.5 rounded-none bg-recess border border-border text-foreground text-xs font-sans focus:border-primary"
                                                     >
                                                         {WEAPON_OPTIONS.map((w) => (
                                                             <option key={w} value={w}>{w}</option>
                                                         ))}
                                                     </select>
                                                 ) : allowedWeights.length > 1 ? (
-                                                    <div className="flex items-center gap-1 bg-[#0a0a0d] p-0.5 border border-[#2a2c33]">
+                                                    <div className="flex items-center gap-1 bg-recess p-0.5 border border-border">
                                                         {allowedWeights.map((w) => (
                                                             <button
                                                                 key={w}
                                                                 type="button"
                                                                 onClick={() => handleWeightOrWeaponChange(idx, "armor_weight", w)}
-                                                                className={`px-2 py-0.5 text-[10px] font-cinzel font-bold uppercase transition-all cursor-pointer ${
+                                                                aria-pressed={(slot.armor_weight || allowedWeights[0]) === w}
+                                                                aria-label={`${slot.slot_name}: ${w} armor`}
+                                                                className={`px-2 py-0.5 text-xs font-sans font-bold transition-all cursor-pointer ${
                                                                     (slot.armor_weight || allowedWeights[0]) === w
-                                                                        ? "bg-[#c5a059] text-black shadow-sm"
+                                                                        ? "bg-primary text-black shadow-sm"
                                                                         : "text-muted-foreground hover:text-white"
                                                                 }`}
                                                             >
@@ -450,20 +459,21 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                                                         ))}
                                                     </div>
                                                 ) : (
-                                                    <span className="text-[10px] font-cinzel font-bold uppercase tracking-wider px-2 py-0.5 bg-[#0a0a0d] text-[#c5a059] border border-[#2a2c33]">
+                                                    <span className="text-xs font-sans font-bold tracking-normal px-2 py-0.5 bg-recess text-primary border border-border">
                                                         {allowedWeights[0]} Only
                                                     </span>
                                                 )}
                                             </div>
                                         )}
 
-                                        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-[#2a2c33] text-xs">
+                                        <div className="grid grid-cols-2 gap-2 pt-1 border-t border-border text-sm">
                                             <div>
-                                                <label className="text-[10px] text-muted-foreground font-cinzel uppercase tracking-wider block mb-0.5">Trait:</label>
+                                                <label className="text-xs text-muted-foreground font-sans tracking-normal block mb-0.5">Trait:</label>
                                                 <select
                                                     value={slot.trait_name}
+                                                    aria-label={`${slot.slot_name} trait`}
                                                     onChange={(e) => handleUpdateSlotField(idx, "trait_name", e.target.value)}
-                                                    className="w-full px-2 py-1 rounded-none bg-[#0a0a0d] border border-[#2a2c33] text-gray-200 text-xs font-cinzel"
+                                                    className="w-full px-2 py-1 rounded-none bg-recess border border-border text-gray-200 text-sm font-sans"
                                                 >
                                                     {traits.map((t) => (
                                                         <option key={t} value={t}>{t}</option>
@@ -472,17 +482,18 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                                             </div>
 
                                             <div>
-                                                <label className="text-[10px] text-muted-foreground font-cinzel uppercase tracking-wider block mb-0.5">Enchant:</label>
+                                                <label className="text-xs text-muted-foreground font-sans tracking-normal block mb-0.5">Enchant:</label>
                                                 <input
                                                     type="text"
                                                     value={slot.enchantment}
+                                                    aria-label={`${slot.slot_name} enchantment`}
                                                     onChange={(e) => handleUpdateSlotField(idx, "enchantment", e.target.value)}
-                                                    className="w-full px-2 py-1 rounded-none bg-[#0a0a0d] border border-[#2a2c33] text-gray-200 text-xs font-cinzel"
+                                                    className="w-full px-2 py-1 rounded-none bg-recess border border-border text-gray-200 text-sm font-sans"
                                                 />
                                             </div>
                                         </div>
 
-                                        <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-1 font-cinzel">
+                                        <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 font-sans">
                                             {slot.is_tradeable ? (
                                                 <span className="text-emerald-400 flex items-center gap-1">
                                                     <ShoppingCart className="size-3" /> Tradeable
@@ -504,40 +515,41 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                 </div>
 
                 {/* Footer */}
-                <div className="px-6 py-4 border-t border-[#2a2c33] bg-[#0e0e13] flex items-center justify-between">
+                <div className="rb-modal-footer">
                     <button
                         onClick={onClose}
-                        className="px-4 py-2 rounded-none text-xs font-cinzel font-semibold text-muted-foreground hover:text-white hover:bg-white/5 transition-all uppercase tracking-wider cursor-pointer"
+                        className="exchange-secondary"
                     >
                         Cancel
                     </button>
                     <button
                         onClick={handleSaveBuild}
                         disabled={saving}
-                        className="px-6 py-2.5 rounded-none bg-[#c5a059] hover:bg-[#d4af37] text-black font-cinzel font-bold text-xs uppercase tracking-wider shadow-lg transition-all flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+                        className="exchange-primary disabled:opacity-50"
                     >
-                        <Save className="size-4" /> {saving ? "Saving..." : "Save Build"}
+                        <Save className="size-4" /> {saving ? "Saving…" : "Save build"}
                     </button>
                 </div>
             </div>
 
             {/* Nested Slot Set Picker Modal (All 712 ESO Sets) */}
             {editingSlotIndex !== null && (
-                <div className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-in fade-in duration-150">
-                    <div className="w-full max-w-2xl max-h-[85vh] bg-[#14141c] border-2 border-[#c5a059]/50 rounded-none p-5 shadow-2xl space-y-3.5 flex flex-col">
+                <div className="exchange-modal-backdrop">
+                    <div ref={pickerRef} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="set-picker-title" className="exchange-modal rb-modal rb-set-picker">
                         {/* Modal Header */}
-                        <div className="flex items-center justify-between border-b border-[#2a2c33] pb-3">
+                        <div className="flex items-center justify-between border-b border-border pb-3">
                             <div>
-                                <span className="text-[10px] font-cinzel font-bold uppercase tracking-wider text-[#c5a059]">
-                                    Set Catalog ({allSets.length} Sets)
+                                <span className="text-xs font-sans font-bold tracking-normal text-primary">
+                                    Set catalog · {allSets.length} sets
                                 </span>
-                                <h3 className="font-cinzel font-bold text-[#e0d8c3] text-base uppercase tracking-wider">
-                                    Select Set ({slots[editingSlotIndex]?.slot_name})
+                                <h3 id="set-picker-title">
+                                    Set for {slots[editingSlotIndex]?.slot_name}
                                 </h3>
                             </div>
                             <button
                                 onClick={() => setEditingSlotIndex(null)}
-                                className="p-1 rounded-none text-muted-foreground hover:text-white hover:bg-white/5 cursor-pointer"
+                                className="exchange-close"
+                                aria-label="Close set picker"
                             >
                                 <X className="size-5" />
                             </button>
@@ -549,25 +561,27 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                             <input
                                 type="text"
                                 value={searchTerm}
+                                aria-label="Search sets by name, bonus, or source"
                                 onChange={(e) => setSearchTerm(e.target.value)}
-                                placeholder="Search 712 sets by name, bonus, or source..."
-                                autoFocus
-                                className="w-full pl-10 pr-4 py-2.5 rounded-none bg-[#0a0a0d] border border-[#c5a059]/40 text-xs text-[#e0d8c3] placeholder:text-muted-foreground focus:outline-none focus:border-[#c5a059] font-cinzel"
+                                placeholder="Set name, bonus, or source"
+                                ref={pickerSearchRef}
+                                className="w-full pl-10 pr-4 py-2.5 rounded-none bg-recess border border-primary/40 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary font-sans"
                             />
                         </div>
 
                         {/* Category Filter Pills */}
-                        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 custom-scrollbar">
+                        <div className="rb-set-categories" aria-label="Set categories">
                             {SET_CATEGORIES.map((cat) => {
                                 const active = selectedCategory === cat.value;
                                 return (
                                     <button
                                         key={cat.value}
                                         onClick={() => setSelectedCategory(cat.value)}
-                                        className={`px-2.5 py-1 rounded-none text-[11px] font-cinzel font-semibold whitespace-nowrap uppercase tracking-wider transition-all cursor-pointer ${
+                                        aria-pressed={active}
+                                        className={`px-2.5 py-1 rounded-none text-xs font-sans font-semibold whitespace-nowrap tracking-normal transition-all cursor-pointer ${
                                             active
-                                                ? "bg-[#c5a059] text-black font-bold shadow-md"
-                                                : "bg-[#0a0a0d] text-[#a89f91] hover:text-[#e0d8c3] border border-[#2a2c33] hover:border-[#c5a059]/40"
+                                                ? "bg-primary text-black font-bold shadow-md"
+                                                : "bg-recess text-muted-foreground hover:text-foreground border border-border hover:border-primary/40"
                                         }`}
                                     >
                                         {cat.label}
@@ -577,14 +591,14 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                         </div>
 
                         {/* Sets List */}
-                        <div className="flex-1 max-h-96 overflow-y-auto space-y-2 custom-scrollbar pr-1">
+                        <div className="rb-set-list">
                             {setsLoading ? (
-                                <div className="py-16 text-center text-muted-foreground font-cinzel text-xs">
-                                    <RefreshCw className="size-6 animate-spin text-[#c5a059] mx-auto mb-2" />
+                                <div className="py-16 text-center text-muted-foreground font-sans text-sm">
+                                    <RefreshCw className="size-6 animate-spin text-primary mx-auto mb-2" />
                                     Loading sets...
                                 </div>
                             ) : filteredSets.length === 0 ? (
-                                <div className="py-12 text-center text-muted-foreground font-cinzel text-xs">
+                                <div className="py-12 text-center text-muted-foreground font-sans text-sm">
                                     No sets found for "{searchTerm}".
                                 </div>
                             ) : (
@@ -592,21 +606,21 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                                     <button
                                         key={setObj.name}
                                         onClick={() => handleSelectSetForSlot(setObj)}
-                                        className="w-full p-3 rounded-none bg-[#0a0a0d] hover:bg-[#181824] border border-[#2a2c33] hover:border-[#c5a059]/60 transition-all text-left flex flex-col gap-1.5 group cursor-pointer"
+                                        className="w-full p-3 rounded-none bg-recess hover:bg-[#292824] border border-border hover:border-primary/60 transition-all text-left flex flex-col gap-1.5 group cursor-pointer"
                                     >
                                         <div className="flex items-start justify-between gap-2">
                                             <div>
-                                                <div className="font-cinzel font-bold text-sm text-[#e0d8c3] group-hover:text-[#d4af37] transition-colors">
+                                                <div className="font-sans font-bold text-sm text-foreground group-hover:text-[#f0d07a] transition-colors">
                                                     {setObj.name}
                                                 </div>
-                                                <div className="text-[11px] text-muted-foreground flex items-center gap-1.5 flex-wrap">
+                                                <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">
                                                     <span>{setObj.category}</span>
                                                     <span>•</span>
                                                     <span className="text-gray-300">{setObj.source}</span>
                                                     {setObj.allowed_weights && (
                                                         <>
                                                             <span>•</span>
-                                                            <span className="text-[#c5a059] font-cinzel font-semibold">
+                                                            <span className="text-primary font-sans font-semibold">
                                                                 {setObj.allowed_weights.length > 1 ? "Light / Med / Heavy" : `${setObj.allowed_weights[0]} Armor`}
                                                             </span>
                                                         </>
@@ -614,11 +628,11 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                                                 </div>
                                             </div>
                                             {setObj.is_tradeable ? (
-                                                <span className="shrink-0 px-2 py-0.5 rounded-none text-[10px] font-bold bg-emerald-950/40 text-emerald-400 border border-emerald-500/30 font-cinzel uppercase tracking-wider">
+                                                <span className="shrink-0 px-2 py-0.5 rounded-none text-xs font-bold bg-emerald-950/40 text-emerald-400 border border-emerald-500/30 font-sans tracking-normal">
                                                     Tradeable
                                                 </span>
                                             ) : (
-                                                <span className="shrink-0 px-2 py-0.5 rounded-none text-[10px] font-bold bg-red-950/40 text-red-400 border border-red-500/30 font-cinzel uppercase tracking-wider">
+                                                <span className="shrink-0 px-2 py-0.5 rounded-none text-xs font-bold bg-red-950/40 text-red-400 border border-red-500/30 font-sans tracking-normal">
                                                     Bound
                                                 </span>
                                             )}
@@ -626,7 +640,7 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
 
                                         {/* Set Bonuses Preview */}
                                         {setObj.bonuses && setObj.bonuses.length > 0 && (
-                                            <div className="text-[11px] text-[#8e8576] line-clamp-2 leading-relaxed bg-[#111116] p-1.5 border border-white/5">
+                                            <div className="text-xs text-muted-foreground line-clamp-2 leading-relaxed bg-card p-1.5 border border-white/5">
                                                 {setObj.bonuses.join(" • ")}
                                             </div>
                                         )}
@@ -636,9 +650,9 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                         </div>
 
                         {/* Set Count Status Footer */}
-                        <div className="text-[11px] text-muted-foreground font-cinzel flex items-center justify-between pt-2 border-t border-[#2a2c33]">
+                        <div className="text-xs text-muted-foreground font-sans flex items-center justify-between pt-2 border-t border-border">
                             <span>Showing {filteredSets.length} of {allSets.length} sets</span>
-                            <span className="text-[#c5a059]">Click a set to equip</span>
+                            <span className="text-primary">Select a set to equip</span>
                         </div>
                     </div>
                 </div>
