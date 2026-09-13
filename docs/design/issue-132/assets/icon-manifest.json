@@ -1,0 +1,44 @@
+{
+  "purpose": "Historical, isolated visual-review assets for issue #132. Not live inventory.",
+  "source": "Exact existing backend/exports/icon-cache PNG bytes. Identity resolved read-only from backend/exports/eso_catalog.db items.icon_url and character_gear.item_icon on 5 September 2026.",
+  "delivery": "Serve the filenames through same-origin /api/icons/:filename only. The preview must never request an upstream image URL. No new media was downloaded for these assets.",
+  "rights": "These existing ESO item images retain their original ownership. The repository documents UESP as the catalog/icon source but does not include a separate redistribution license for game artwork. This manifest records provenance, not a grant of rights or a claim of original authorship.",
+  "fallback": {
+    "filename": "item-icon-fallback.svg",
+    "source": "backend/assets/item-icon-fallback.svg",
+    "reason": "Use the existing application fallback when the exact icon is not in the local cache; do not substitute another item."
+  },
+  "listings": [
+    { "name": "Tide-Born Feathers", "catalogGameItemId": 212134, "filename": "styleitemicon_u46_solsticeargonians.png", "cached": true },
+    { "name": "Crafting Motif 136: Voskrona Guardian Chests", "catalogGameItemId": 212446, "filename": "quest_letter_002.png", "cached": true },
+    { "name": "Amulet of Oakfather's Retribution", "catalogGameItemId": 203902, "filename": "gear_breton_neck_a.png", "cached": true },
+    { "name": "Deadly Ring", "catalogGameItemId": 87866, "filename": "gear_breton_ring_a.png", "cached": true },
+    { "name": "War Maiden's Necklace", "catalogGameItemId": 122793, "filename": "gear_breton_neck_a.png", "cached": true },
+    { "name": "Crafting Motif 135: Black Soul Gem Axes", "catalogGameItemId": 212425, "filename": "quest_letter_002.png", "cached": true },
+    { "name": "Firelogs, Flaming", "catalogGameItemId": 118146, "filename": "housing_gen_inc_fireplace001.png", "cached": false },
+    { "name": "Tide-Born Amulet", "catalogGameItemId": 215515, "filename": "gear_breton_neck_a.png", "cached": true },
+    { "name": "Ring of the Fire", "catalogGameItemId": 95270, "filename": "gear_breton_ring_a.png", "cached": true }
+  ],
+  "gear": [
+    { "slot": "Head", "name": "Bright-Throat's Boast Hat", "gameItemId": 142765, "filename": "gear_elderarg_light_head_a.png" },
+    { "slot": "Chest", "name": "Robe of a Mother's Sorrow", "gameItemId": 97253, "filename": "gear_argonian_light_robe_d.png" },
+    { "slot": "Shoulders", "name": "Epaulets of the Netch's Touch", "gameItemId": 104235, "filename": "gear_reach_light_shoulders_a.png" },
+    { "slot": "Hands", "name": "Pillar Of Nirn Bracers", "gameItemId": 127540, "filename": "gear_falkreath_medium_hands_a.png" },
+    { "slot": "Waist", "name": "Pillar Of Nirn Belt", "gameItemId": 127544, "filename": "gear_falkreath_medium_waist_a.png" },
+    { "slot": "Legs", "name": "Breeches of a Mother's Sorrow", "gameItemId": 97341, "filename": "gear_argonian_light_legs_d.png" },
+    { "slot": "Feet", "name": "Pillar Of Nirn Boots", "gameItemId": 127539, "filename": "gear_falkreath_medium_feet_a.png" },
+    { "slot": "Neck", "name": "Necklace of a Mother's Sorrow", "gameItemId": 97218, "filename": "gear_breton_neck_a.png" },
+    { "slot": "Ring 1", "name": "Pillar Of Nirn Ring", "gameItemId": 127523, "filename": "gear_breton_ring_a.png" },
+    { "slot": "Ring 2", "name": "Pillar Of Nirn Ring", "gameItemId": 127523, "filename": "gear_breton_ring_a.png" },
+    { "slot": "Front bar", "name": "Inferno Staff of a Mother's Sorrow", "gameItemId": 97227, "filename": "gear_argonian_staff_d.png" },
+    { "slot": "Back bar", "name": "Inferno Staff of a Mother's Sorrow", "gameItemId": 97227, "filename": "gear_argonian_staff_d.png" }
+  ],
+  "existingInterfaceAssets": {
+    "category": { "component": "Layers", "library": "lucide-react", "source": "frontend/src/pages/Home.jsx" },
+    "marketplace": { "component": "Store", "library": "lucide-react", "source": "frontend/src/pages/Marketplace.jsx" },
+    "classes": { "Dragonknight": "Flame", "Sorcerer": "Zap", "Nightblade": "Sword", "Warden": "Sparkles", "Necromancer": "Skull", "Templar": "Sun", "Arcanist": "BookOpen" },
+    "classSource": "frontend/src/pages/CharacterManager.jsx: lucide-react symbols, not extracted game class artwork",
+    "allianceSource": "frontend/src/components/ui/alliance-icons.jsx: existing project-drawn alliance SVG crests",
+    "font": "Cinzel is linked from Google Fonts in frontend/index.html; no local Cinzel file was found in repository, Windows Fonts, or bundled runtime fonts."
+  }
+}

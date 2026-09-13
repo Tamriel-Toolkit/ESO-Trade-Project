@@ -26,24 +26,28 @@ export default function UserMenu() {
   // Close dropdown on route change
   useEffect(() => {
     setIsOpen(false);
-  }, [location.pathname]);
+  }, [location.key]);
 
   const userTooltip = user ? `@${user.username}` : "Guest Account";
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div className="exchange-user-menu relative" ref={menuRef}
+      onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setIsOpen(false); }}
+      onKeyDown={(event) => { if (event.key === 'Escape' && isOpen) { event.preventDefault(); event.stopPropagation(); setIsOpen(false); menuRef.current?.querySelector('button')?.focus(); } }}>
       {/* Profile Icon Trigger Button */}
       <EsoTooltip content={userTooltip} side="bottom">
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
-          aria-label="User Account Menu"
-          className={`size-10 flex items-center justify-center rounded-none border-2 transition-all cursor-pointer ${
+          aria-label="Account menu"
+          aria-expanded={isOpen}
+          aria-controls="account-popover"
+          className={`size-10 flex items-center justify-center rounded-none border-2 transition-colors cursor-pointer ${
             user
-              ? 'bg-[#161620] border-[#c5a059] text-[#d4af37] shadow-[0_0_12px_rgba(197,160,89,0.35)] font-mono font-bold text-sm hover:bg-[#1f1f2e]'
+              ? 'bg-secondary border-primary text-primary shadow-none font-mono font-bold text-sm hover:bg-secondary'
               : isOpen
-                ? 'bg-[#c5a059]/20 border-[#c5a059] text-[#d4af37] shadow-[0_0_12px_rgba(197,160,89,0.3)]'
-                : 'bg-[#161620] border-[#c5a059]/40 text-[#a89f91] hover:text-[#d4af37] hover:border-[#c5a059] hover:bg-[#1f1f2e] shadow-sm'
+                ? 'bg-primary/20 border-primary text-primary shadow-none'
+                : 'bg-secondary border-primary/40 text-muted-foreground hover:text-primary hover:border-primary hover:bg-secondary shadow-sm'
           }`}
         >
           {user ? (
@@ -56,24 +60,24 @@ export default function UserMenu() {
 
       {/* Popover Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 mt-2 w-72 bg-[#121218] border border-[#2a2c33] shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+        <div id="account-popover" className="exchange-account-popover absolute right-0 mt-2 w-72 bg-card border border-input shadow-2xl z-50">
           {/* Top Gold Accent Line */}
-          <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-[#c5a059] to-transparent"></div>
+          <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-primary to-transparent"></div>
 
           {user ? (
             /* Authenticated User Menu */
             <div>
               {/* User Header */}
-              <div className="px-4 py-3 border-b border-[#2a2c33] bg-[#0a0a0d]">
+              <div className="px-4 py-3 border-b border-border bg-recess">
                 <div className="flex items-center gap-2.5">
-                  <div className="size-8 bg-[#161620] border border-[#c5a059]/40 flex items-center justify-center text-xs font-bold font-mono text-[#d4af37]">
+                  <div className="size-8 bg-secondary border border-primary/40 flex items-center justify-center text-xs font-bold font-mono text-primary">
                     {user.username.charAt(0).toUpperCase()}
                   </div>
-                  <div className="overflow-hidden">
-                    <span className="font-cinzel text-xs font-bold text-[#e0d8c3] block truncate">
+                  <div className="min-w-0 break-words">
+                    <span className="font-sans text-sm font-bold text-foreground block break-all">
                       @{user.username}
                     </span>
-                    <span className="text-[10px] font-mono text-[#8a8275] block truncate">
+                    <span className="text-xs font-mono text-muted-foreground block break-all">
                       {user.email || 'Merchant Account'}
                     </span>
                   </div>
@@ -84,36 +88,37 @@ export default function UserMenu() {
               <div className="p-2 space-y-1">
                 <Link
                   to="/characters"
-                  className="flex items-center justify-between px-3 py-2 text-xs text-[#a89f91] hover:text-[#e0d8c3] hover:bg-[#161620] transition-colors"
+                  className="flex items-center justify-between px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                 >
-                  <span className="flex items-center gap-2 font-cinzel">
-                    <Shield className="size-3.5 text-[#c5a059]" />
-                    <span>Character Roster & Gear</span>
+                  <span className="flex items-center gap-2 font-sans">
+                    <Shield className="size-3.5 text-primary" />
+                    <span>Characters and equipment</span>
                   </span>
-                  <ChevronRight className="size-3 text-[#8a8275]" />
+                  <ChevronRight className="size-3 text-muted-foreground" />
                 </Link>
 
                 <Link
                   to="/marketplace"
-                  className="flex items-center justify-between px-3 py-2 text-xs text-[#a89f91] hover:text-[#e0d8c3] hover:bg-[#161620] transition-colors"
+                  className="flex items-center justify-between px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-secondary transition-colors"
                 >
-                  <span className="flex items-center gap-2 font-cinzel">
-                    <Bookmark className="size-3.5 text-[#c5a059]" />
-                    <span>Marketplace & Watchlists</span>
+                  <span className="flex items-center gap-2 font-sans">
+                    <Bookmark className="size-3.5 text-primary" />
+                    <span>Marketplace</span>
                   </span>
-                  <ChevronRight className="size-3 text-[#8a8275]" />
+                  <ChevronRight className="size-3 text-muted-foreground" />
                 </Link>
               </div>
 
               {/* Sign Out Action */}
-              <div className="p-2 border-t border-[#2a2c33]">
+              <div className="p-2 border-t border-border">
                 <button
                   type="button"
                   onClick={async () => {
                     setIsOpen(false);
+                    menuRef.current?.querySelector('button')?.focus();
                     await logout();
                   }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-950/20 font-cinzel font-semibold transition-colors cursor-pointer"
+                  className="w-full flex items-center gap-2 px-3 py-2 text-xs text-red-400 hover:text-red-300 hover:bg-red-950/20 font-sans font-semibold transition-colors cursor-pointer"
                 >
                   <LogOut className="size-3.5 text-red-400" />
                   <span>Sign Out</span>
@@ -124,15 +129,15 @@ export default function UserMenu() {
             /* Unauthenticated Guest Menu */
             <div>
               {/* Guest Header */}
-              <div className="px-4 py-3 border-b border-[#2a2c33] bg-[#0a0a0d]">
+              <div className="px-4 py-3 border-b border-border bg-recess">
                 <div className="flex items-center gap-2">
-                  <User className="size-4 text-[#c5a059]" />
-                  <span className="font-cinzel text-xs font-bold text-[#e0d8c3] uppercase tracking-wider">
-                    Guest Session
+                  <User className="size-4 text-primary" />
+                  <span className="font-sans text-xs font-bold text-foreground  ">
+                    Your account
                   </span>
                 </div>
-                <p className="text-[11px] text-[#8a8275] mt-1 leading-relaxed">
-                  Sign in to synchronize your character gear and live market watchlists.
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Sign in to ESO Marketplace to manage your characters and saved searches.
                 </p>
               </div>
 
@@ -141,7 +146,7 @@ export default function UserMenu() {
                 <Link
                   to="/login"
                   state={{ from: location }}
-                  className="w-full py-2 px-3 bg-[#c5a059] hover:bg-[#d4af37] text-[#0a0a0d] font-cinzel font-bold text-xs uppercase tracking-wider flex items-center justify-center gap-2 shadow transition-all cursor-pointer"
+                  className="w-full py-2 px-3 bg-primary hover:bg-primary text-recess font-sans font-bold text-xs   flex items-center justify-center gap-2 shadow transition-colors cursor-pointer"
                 >
                   <LogIn className="size-3.5" />
                   <span>Sign In</span>
@@ -150,9 +155,9 @@ export default function UserMenu() {
                 <Link
                   to="/login"
                   state={{ from: location, defaultTab: 'register' }}
-                  className="w-full py-2 px-3 bg-[#161620] hover:bg-[#1f1f2e] border border-[#2a2c33] hover:border-[#c5a059]/40 text-[#e0d8c3] font-cinzel font-semibold text-xs uppercase tracking-wider flex items-center justify-center gap-2 transition-all cursor-pointer"
+                  className="w-full py-2 px-3 bg-secondary hover:bg-secondary border border-border hover:border-primary/40 text-foreground font-sans font-semibold text-xs   flex items-center justify-center gap-2 transition-colors cursor-pointer"
                 >
-                  <UserPlus className="size-3.5 text-[#c5a059]" />
+                  <UserPlus className="size-3.5 text-primary" />
                   <span>Create Account</span>
                 </Link>
               </div>

@@ -1,0 +1,490 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark" />
+    <title>Obsidian Atlas — Tamriel Trade Hub design review</title>
+    <link rel="stylesheet" href="./atlas.css" />
+    <script src="./fixtures.js" defer></script>
+    <script src="./preview.js" defer></script>
+  </head>
+  <body data-concept="Obsidian Atlas">
+    <a class="skip-link" href="#main">Skip to content</a>
+    <aside class="review-toolbar" aria-label="Design review controls">
+      <a href="./index.html">← Design directions</a>
+      <span
+        ><strong>B</strong> Obsidian Atlas
+        <span class="review-only"
+          >· Isolated design preview, not the live app</span
+        ></span
+      >
+      <label
+        >Listing state
+        <select data-state>
+          <option value="populated">Populated</option>
+          <option value="loading">Loading</option>
+          <option value="empty">Empty</option>
+          <option value="error">Error</option>
+        </select></label
+      >
+    </aside>
+
+    <header class="site-header">
+      <a
+        class="wordmark"
+        href="#home"
+        data-go="home"
+        aria-label="Tamriel Trade Hub home"
+        ><span class="wordmark-eso">ESO</span
+        ><span>Tamriel<span class="wordmark-sub">Trade Hub</span></span></a
+      >
+      <nav class="main-navigation" aria-label="Main navigation">
+        <button data-go="home" aria-current="page">Home</button>
+        <button data-go="marketplace">Marketplace</button>
+        <button data-preview-only>Requests</button>
+        <button data-preview-only>Builds</button>
+        <button data-go="characters">Characters</button>
+      </nav>
+      <div class="header-tools">
+        <span class="server-label">PC <span aria-hidden="true">/</span> NA</span
+        ><button class="account-mark" data-preview-only aria-label="Settings">
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M4 6h16M4 12h16M4 18h16" />
+            <circle cx="8" cy="6" r="2" />
+            <circle cx="16" cy="12" r="2" />
+            <circle cx="10" cy="18" r="2" />
+          </svg></button
+        ><button
+          class="account-mark"
+          data-preview-only
+          aria-label="Account menu"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="8" r="3.4" />
+            <path d="M5.5 20v-2a6.5 6.5 0 0 1 13 0v2" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main id="main" tabindex="-1">
+      <section data-screen="home" aria-labelledby="home-title">
+        <div class="home-opening page-width">
+          <div class="home-copy">
+            <p class="eyebrow">
+              <span class="small-rule" aria-hidden="true"></span> Tamriel,
+              within reach
+            </p>
+            <h1 id="home-title">
+              Find what you need.<br /><em>Across Tamriel.</em>
+            </h1>
+            <p class="home-description">
+              Browse guild trader listings and find the right equipment for your
+              next adventure.
+            </p>
+            <div class="home-actions">
+              <button class="button-primary" data-go="marketplace">
+                Browse marketplace <span aria-hidden="true">↗</span></button
+              ><button class="text-link" data-go="characters">
+                Your characters <span aria-hidden="true">→</span>
+              </button>
+            </div>
+            <p class="observation-note">
+              <span aria-hidden="true" class="observation-symbol">◇</span>
+              Listings observed in game. Availability may change.
+            </p>
+          </div>
+          <div class="atlas-art" aria-hidden="true">
+            <svg class="contour-art" viewBox="0 0 620 530" fill="none">
+              <defs>
+                <linearGradient
+                  id="atlas-contour"
+                  x1="118"
+                  y1="12"
+                  x2="540"
+                  y2="470"
+                  gradientUnits="userSpaceOnUse"
+                >
+                  <stop stop-color="#8eaaa3" stop-opacity=".08" />
+                  <stop offset=".55" stop-color="#8eaaa3" stop-opacity=".58" />
+                  <stop offset="1" stop-color="#8eaaa3" stop-opacity=".06" />
+                </linearGradient>
+                <linearGradient
+                  id="atlas-island"
+                  x1="120"
+                  y1="160"
+                  x2="470"
+                  y2="480"
+                >
+                  <stop stop-color="#233536" stop-opacity=".6" />
+                  <stop offset="1" stop-color="#233536" stop-opacity="0" />
+                </linearGradient>
+              </defs>
+              <g stroke="#55716e" opacity=".3">
+                <path d="M310 10v510M40 265h550" />
+                <circle cx="310" cy="265" r="210" />
+                <circle cx="310" cy="265" r="156" stroke-dasharray="2 8" />
+                <path
+                  d="M162 117l296 296M162 413l296-296"
+                  stroke-dasharray="3 9"
+                />
+              </g>
+              <g stroke="url(#atlas-contour)" stroke-width="1.1">
+                <path
+                  d="M114 162C156 118 166 107 217 116S271 71 316 94S361 140 410 117S472 162 480 211S538 254 529 303S475 337 467 394S416 439 371 419S326 477 279 448S246 394 203 408S178 351 139 333S154 278 116 250S79 196 114 162Z"
+                  fill="url(#atlas-island)"
+                />
+                <path
+                  d="M137 175C173 138 180 128 224 137S272 94 312 117S354 162 399 140S452 181 459 221S514 258 504 298S455 331 447 375S404 418 367 398S326 450 285 424S257 375 218 389S198 337 161 319S175 270 143 247S107 202 137 175Z"
+                />
+                <path
+                  d="M160 190C190 157 196 149 231 158S274 119 310 139S348 184 387 164S432 197 438 231S489 262 479 293S433 326 426 358S394 396 363 378S326 424 291 400S267 357 233 369S217 324 184 306S196 264 167 244S133 214 160 190Z"
+                />
+                <path
+                  d="M183 205C207 176 212 171 238 180S276 143 308 161S342 207 376 188S412 214 417 241S464 266 454 288S411 321 405 341S384 374 359 358S326 398 297 376S278 339 248 349S238 311 207 293S217 258 191 241S159 226 183 205Z"
+                />
+                <path
+                  d="M207 220C225 196 228 193 245 202S278 167 306 183S336 230 365 212S392 231 396 251S439 270 429 283S389 316 384 324S374 352 355 338S326 372 303 352S289 321 263 329S258 299 230 281S239 252 215 239S185 238 207 220Z"
+                />
+                <path
+                  d="M235 230C250 212 253 214 263 219S285 192 306 206S331 249 352 236S373 247 377 262S412 273 405 283S371 308 365 320S349 320 339 329S326 344 308 329S300 301 278 307S278 287 252 270S259 251 242 240Z"
+                />
+                <path
+                  d="M273 238C289 228 294 224 307 233S323 267 341 258S354 267 359 279S382 280 375 291S348 304 334 307S320 314 309 303S302 285 283 280S297 258 276 253Z"
+                />
+              </g>
+              <g stroke="#bba878">
+                <path d="M310 39v14M310 477v14M84 265h14M522 265h14" />
+                <path d="M304 57l6-12 6 12M304 473l6 12 6-12" />
+                <path d="M345 174l9 9-9 9-9-9Z" fill="#162224" />
+                <path d="M222 326l7 7-7 7-7-7Z" fill="#162224" />
+                <path
+                  d="M345 192v26l-45 30v37l-78 41"
+                  stroke-dasharray="3 5"
+                  opacity=".65"
+                />
+                <circle cx="300" cy="250" r="3" fill="#bba878" />
+              </g>
+              <g fill="#bba878" font-family="Georgia, serif" font-size="12">
+                <text x="305" y="25">N</text>
+                <text x="552" y="270">E</text>
+                <text x="306" y="514">S</text>
+                <text x="55" y="270">W</text>
+              </g>
+            </svg>
+            <span class="art-title">Routes worth taking.</span>
+            <span class="art-caption">An abstract atlas · not a game map</span>
+          </div>
+        </div>
+
+        <div class="home-lower page-width">
+          <section class="category-section" aria-labelledby="category-title">
+            <div class="section-heading">
+              <div>
+                <p class="eyebrow">The marketplace</p>
+                <h2 id="category-title">What are you looking for?</h2>
+              </div>
+              <button class="text-link" data-go="marketplace">
+                View all <span aria-hidden="true">→</span>
+              </button>
+            </div>
+            <div class="category-grid" data-categories></div>
+          </section>
+          <section
+            class="home-character"
+            aria-labelledby="home-character-title"
+          >
+            <span class="section-index" aria-hidden="true"
+              >02 / Your roster</span
+            ><svg
+              class="small-character-icon"
+              viewBox="0 0 48 48"
+              fill="none"
+              aria-hidden="true"
+            >
+              <path d="M24 4l16 8v13c0 9-8 16-16 20C16 41 8 34 8 25V12L24 4Z" />
+              <circle cx="24" cy="19" r="5" />
+              <path d="M15 35v-3a9 9 0 0 1 18 0v3" />
+            </svg>
+            <h2 id="home-character-title">Ready for the next chapter.</h2>
+            <p>Keep your characters and their equipment in view.</p>
+            <button class="text-link" data-go="characters">
+              View characters <span aria-hidden="true">→</span>
+            </button>
+          </section>
+        </div>
+      </section>
+
+      <section data-screen="marketplace" aria-labelledby="market-title" hidden>
+        <div class="page-width market-layout">
+          <header class="page-heading">
+            <div>
+              <p class="eyebrow">PC · North America</p>
+              <h1 id="market-title">Marketplace</h1>
+              <p>Find an item. Compare the listings. Plan your visit.</p>
+            </div>
+            <div class="market-tabs" aria-label="Marketplace view">
+              <button aria-current="page" data-preview-only>
+                Guild traders</button
+              ><button data-preview-only>Item catalog</button>
+            </div>
+          </header>
+          <div class="market-search-bar">
+            <label class="search-control"
+              ><svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <circle cx="10.5" cy="10.5" r="6.5" />
+                <path d="m16 16 5 5" /></svg
+              ><span class="sr-only">Search items</span
+              ><input
+                type="search"
+                data-search
+                placeholder="Search for an item…"
+                autocomplete="off" /></label
+            ><label class="category-control"
+              ><span class="sr-only">Category</span
+              ><select data-category>
+                <option value="">All categories</option>
+                <option>Materials</option>
+                <option>Jewelry</option>
+                <option>Consumables</option>
+                <option>Weapons</option>
+                <option>Apparel</option>
+              </select></label
+            >
+          </div>
+          <div class="market-controls">
+            <div class="filter-fields" aria-label="Listing filters">
+              <label
+                >Trading hub<select data-preview-only>
+                  <option>All trading hubs</option>
+                </select></label
+              ><label
+                >Popular trades<select data-preview-only>
+                  <option>All trades</option>
+                </select></label
+              ><label
+                >Subcategory<select data-preview-only>
+                  <option>All subcategories</option>
+                </select></label
+              ><label
+                >Trait<select data-preview-only>
+                  <option>All traits</option>
+                </select></label
+              ><label
+                >Quality<select data-preview-only>
+                  <option>Any quality</option>
+                </select></label
+              ><label
+                >Last seen<select data-preview-only>
+                  <option>Any time</option>
+                </select></label
+              >
+            </div>
+            <div class="saved-content">
+              <strong>Saved searches</strong
+              ><button class="text-link" data-saved-search="tide">
+                tide ↗</button
+              ><label
+                ><span class="sr-only">Search name</span
+                ><input placeholder="Name this search" /></label
+              ><button class="button-secondary" data-preview-only>
+                Save search
+              </button>
+            </div>
+            <label class="deal-control"
+              ><input type="checkbox" disabled /> Deals only
+              <span class="small-meta">1.2× value</span></label
+            >
+            <label class="sort-control"
+              >Sort by
+              <select disabled>
+                <option>Best value</option>
+                <option>Newest first</option>
+              </select></label
+            >
+            <button class="text-link" data-clear>Clear filters</button>
+            <p class="reference-hint">
+              Review only: search and category filter the reference sample.
+              Other controls show appearance without changing data.
+            </p>
+          </div>
+          <div class="results-heading">
+            <h2>Guild trader listings <span data-result-count></span></h2>
+            <span class="results-disclaimer"
+              >Observed listings · availability may change</span
+            >
+          </div>
+          <div class="listing-table">
+            <div class="listing-labels" aria-hidden="true">
+              <span>Item</span><span>Unit / stack price</span
+              ><span>Observed quantity</span><span>Trader / seller</span
+              ><span>Last seen</span>
+            </div>
+            <div data-listings></div>
+          </div>
+          <div class="market-footnote">
+            <span class="footnote-mark" aria-hidden="true">◇</span>
+            <p>
+              Prices and availability reflect the last observation, not a live
+              store inventory.
+            </p>
+            <button class="text-link" data-go="home">
+              Back to home <span aria-hidden="true">↗</span>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section
+        data-screen="characters"
+        aria-labelledby="characters-title"
+        hidden
+      >
+        <div class="page-width character-page">
+          <header class="page-heading">
+            <div>
+              <p class="eyebrow">Your adventures</p>
+              <h1 id="characters-title">Characters</h1>
+              <p>Your roster, equipment, and crafting progress.</p>
+            </div>
+            <button
+              class="button-secondary"
+              disabled
+              title="Existing action; disabled in this read-only concept"
+            >
+              + Add character
+            </button>
+          </header>
+          <div class="character-workspace">
+            <aside class="roster-column" aria-label="Character roster">
+              <div class="roster-heading">
+                <h2>Your roster</h2>
+                <span class="small-meta">Reference character</span>
+              </div>
+              <div class="roster-item" aria-current="true">
+                <div class="roster-avatar" aria-hidden="true">
+                  <svg viewBox="0 0 32 40" fill="none">
+                    <path
+                      d="M16 3l12 7v12c0 7-6 12-12 15C10 34 4 29 4 22V10L16 3Z"
+                    />
+                    <circle cx="16" cy="16" r="4" />
+                    <path d="M10 28v-2a6 6 0 0 1 12 0v2" />
+                  </svg>
+                </div>
+                <div>
+                  <strong data-character-name>Character</strong
+                  ><span
+                    ><span data-character-class>Class</span> ·
+                    <span data-character-level>Level</span></span
+                  >
+                </div>
+                <span class="selection-mark" aria-hidden="true">↗</span>
+              </div>
+              <p class="roster-note">
+                A saved character profile, shown for design review.
+              </p>
+              <div class="roster-footer">
+                <p class="eyebrow">Character details</p>
+                <p>Equipment reflects the most recent character sync.</p>
+              </div>
+            </aside>
+            <article class="character-profile" aria-labelledby="profile-title">
+              <header class="profile-heading">
+                <div>
+                  <p class="eyebrow">Character profile</p>
+                  <h2 id="profile-title" data-character-name>Character</h2>
+                  <p>
+                    <span data-character-class>Class</span
+                    ><span class="meta-separator">/</span
+                    ><span data-character-level>Level</span
+                    ><span class="meta-separator">/</span
+                    ><span data-character-alliance>Alliance</span>
+                  </p>
+                </div>
+                <span class="profile-seal" aria-hidden="true">◇</span>
+              </header>
+              <div class="profile-tabs">
+                <span aria-current="page">Equipment</span
+                ><span class="small-meta"
+                  >Last synced <span data-character-synced>—</span></span
+                >
+              </div>
+              <div class="weapon-tabs" aria-label="Weapon bar">
+                <button class="active" data-bar="front" aria-pressed="true">
+                  Front bar</button
+                ><button data-bar="back" aria-pressed="false">Back bar</button>
+              </div>
+              <div class="equipment-layout">
+                <div class="equipment-figure">
+                  <p class="eyebrow">Equipped gear</p>
+                  <svg
+                    class="anatomical-figure"
+                    viewBox="0 0 260 420"
+                    fill="none"
+                    aria-label="Illustrative equipment slot diagram"
+                    role="img"
+                  >
+                    <g stroke="#4a6463">
+                      <path
+                        d="M130 15v386M32 122h196M48 228h164"
+                        stroke-dasharray="2 7"
+                      />
+                      <ellipse cx="130" cy="221" rx="88" ry="176" />
+                      <path d="M42 221h176" />
+                    </g>
+                    <g stroke="#b3a487" stroke-width="1.2" fill="#263536">
+                      <path d="M116 50l14-8 14 8 4 26-18 20-18-20 4-26Z" />
+                      <path
+                        d="m112 96 18 9 18-9 23 16-9 73-16 34h-32l-16-34-9-73 23-16Z"
+                      />
+                      <path
+                        d="m88 114 8 46-23 59-13-9 14-83 14-13Zm84 0-8 46 23 59 13-9-14-83-14-13Z"
+                      />
+                      <path
+                        d="m61 216 12 6-5 28-13 4-3-15 9-23Zm138 0-12 6 5 28 13 4 3-15-9-23Z"
+                      />
+                      <path
+                        d="m114 224 13 6-4 62-12 51-19-4 10-66 12-49Zm32 0-13 6 4 62 12 51 19-4-10-66-12-49Z"
+                      />
+                      <path
+                        d="m93 345 18 3 2 26-14 8-16-4 10-33Zm74 0-18 3-2 26 14 8 16-4-10-33Z"
+                      />
+                    </g>
+                    <g stroke="#628e88">
+                      <path d="m107 116 23 11 23-11-5 44-18 24-18-24-5-44Z" />
+                      <path d="m105 184 25 9 25-9-9 30h-32l-9-30Z" />
+                    </g>
+                    <g stroke="#bba878" fill="#142123">
+                      <path d="m130 64 4 4-4 4-4-4Z" />
+                      <path d="m130 137 4 4-4 4-4-4Z" />
+                      <path d="m102 280 4 4-4 4-4-4Z" />
+                      <path d="m192 231 4 4-4 4-4-4Z" />
+                    </g>
+                    <g stroke="#6c827d">
+                      <path
+                        d="M134 68h62l12-12M134 141h62l12-12M98 284H51l-14-14M196 235h24"
+                      />
+                    </g>
+                  </svg>
+                  <p class="figure-caption">Equipment slots</p>
+                </div>
+                <div class="gear-list" data-gear></div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer page-width">
+      <span class="footer-brand">Tamriel Trade Hub</span
+      ><span>An independent companion for The Elder Scrolls Online.</span
+      ><span class="footer-review">Concept B / Design review</span>
+    </footer>
+    <dialog id="item-detail" aria-label="Item details">
+      <div data-detail-content></div>
+      <button class="button-secondary" data-close>Close</button>
+    </dialog>
+  </body>
+</html>

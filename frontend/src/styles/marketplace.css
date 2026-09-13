@@ -1,0 +1,91 @@
+.exchange-marketplace .exchange-page-heading > div:last-child { justify-content: flex-end; }
+.exchange-market-tabs { display: flex; border-bottom: 1px solid var(--border); }
+.exchange-market-tabs button { min-height: 44px; padding-inline: 16px; background: transparent; box-shadow: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted-foreground); }
+.exchange-market-tabs button[aria-pressed=true] { color: var(--primary); border-bottom-color: var(--primary); }
+.exchange-market-count { display: flex; align-items: center; gap: 8px; width: 100%; justify-content: flex-end; font-size: 12px; color: var(--muted-foreground); }
+.exchange-market-workspace { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 24px; padding-bottom: 40px; }
+.exchange-market-saved { min-width: 0; align-self: start; position: sticky; top: 112px; }
+.exchange-market-main { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.exchange-market-main > .mb-6 { margin-bottom: 0; }
+.exchange-market-refine { padding: 16px; background: var(--card); border: 1px solid var(--border); }
+.exchange-market-search { display: flex; align-items: center; gap: 12px; padding-inline: 14px 6px; background: var(--recess); border: 1px solid var(--input); margin-bottom: 16px; }
+.exchange-market-search input { flex: 1; min-width: 0; width: 100%; height: 46px; background: transparent; font-size: 16px; }
+.exchange-market-search input::placeholder { color: var(--muted-foreground); }
+.exchange-market-search input::-webkit-search-cancel-button { display: none; }
+.exchange-market-search button { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; color: var(--muted-foreground); }
+.exchange-market-quick { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 12px; }
+.exchange-market-quick > div { flex: 1; min-width: 0; gap: 16px; }
+.exchange-market-quick > div > div { display: grid; gap: 4px; min-width: 0; }
+.exchange-market-quick > div > div > span { color: var(--muted-foreground); font-weight: 400; }
+.exchange-market-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 16px; }
+.exchange-market-refine [data-slot=native-select-wrapper] { width: 100%; min-width: 0; background: transparent; height: auto; }
+.exchange-market-refine select { padding-left: 2px; font-size: 14px; min-height: 42px; border-bottom-color: var(--input); }
+.exchange-market-filters .exchange-field { gap: 0; }
+.exchange-market-filters .exchange-field select { padding-left: 2px; background: transparent; border-width: 0 0 1px; }
+.exchange-market-filters .exchange-field > span { margin-top: 4px; }
+.exchange-market-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
+.exchange-listing-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.exchange-offer { cursor: pointer; transition: border-color .16s, background-color .16s; min-width: 0; background: linear-gradient(120deg, var(--secondary), var(--card) 80%); }
+.exchange-offer:hover, .exchange-offer.is-selected { border-color: var(--primary); }
+.exchange-offer.is-selected { background: var(--secondary); }
+.exchange-offer-heading { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 12px; padding: 18px 18px 0; border: 0; }
+.exchange-offer-heading > .min-w-0 { flex: 1; }
+.exchange-offer-icon { flex-shrink: 0; width: 52px; height: 52px; display: grid; place-items: center; border-width: 1px 1px 1px 2px; background: var(--recess); padding: 5px; }
+.exchange-offer-icon img { width: 40px; height: 40px; object-fit: contain; }
+.exchange-offer-icon span { color: var(--primary); font: 12px var(--heading); }
+.exchange-offer-name { font-size: 16px; line-height: 1.45; font-weight: 600; overflow-wrap: anywhere; }
+.exchange-offer-meta { display: flex; gap: 4px 8px; flex-wrap: wrap; margin-top: 4px; font-size: 12px; line-height: 1.6; color: var(--muted-foreground); }
+.exchange-deal { display: flex; align-items: center; gap: 4px; flex-shrink: 0; color: #81d6a1; font-size: 12px; margin-left: auto; }
+.exchange-offer-content { padding: 18px; }
+.exchange-offer-quote { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+.exchange-offer-stacks { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; }
+.exchange-offer-stacks svg { color: var(--primary); }
+.exchange-offer-secondary { display: block; margin-top: 4px; color: var(--muted-foreground); font-size: 12px; font-weight: 400; }
+.exchange-offer-price { margin-left: auto; text-align: right; font-size: 23px; font-weight: 600; color: var(--primary); font-variant-numeric: tabular-nums; line-height: 1.25; }
+.exchange-offer-price small { font-size: 12px; color: var(--muted-foreground); font-weight: 400; }
+.exchange-offer-average { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted-foreground); margin-top: 14px; font-variant-numeric: tabular-nums; }
+.exchange-offer-trader { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 8px 12px; border-top: 1px solid var(--border); margin-top: 16px; padding-top: 12px; font-size: 12px; line-height: 1.5; color: var(--muted-foreground); }
+.exchange-offer-guild, .exchange-offer-location, .exchange-offer-seen { display: flex; align-items: center; gap: 6px; min-width: 0; overflow-wrap: anywhere; }
+.exchange-offer-guild { font-weight: 600; color: var(--primary); }
+.exchange-offer-trader svg { flex-shrink: 0; }
+.exchange-offer-seller { overflow-wrap: anywhere; max-width: 150px; text-align: right; }
+.exchange-offer-seen { justify-content: flex-end; }
+.exchange-market-detail { min-width: 0; }
+.exchange-market-detail [data-slot=card-title] { font-size: 18px; line-height: 1.4; }
+.exchange-market-detail [data-slot=card-content] { font-size: 14px; }
+.exchange-market-detail [data-slot=card-content] > div { padding: 0 0 16px; background: transparent; border: 0; border-bottom: 1px solid var(--border); }
+.exchange-market-detail [data-slot=card-content] .grid-cols-2 { grid-template-columns: minmax(0, 1fr); }
+.exchange-market-detail [data-slot=card-footer] { padding-top: 16px; }
+.exchange-market-detail button { min-height: 40px; white-space: normal; }
+.exchange-saved-searches { border: 1px solid var(--border); background: var(--card); }
+.exchange-saved-searches [data-slot=card-header] { padding: 18px 16px; border-bottom: 1px solid var(--border); }
+.exchange-saved-searches [data-slot=card-title] { font-size: 14px; }
+.exchange-saved-searches [data-slot=card-content] { padding: 16px; }
+.exchange-saved-searches form input { min-height: 40px; border-color: var(--input); font-size: 14px; }
+.exchange-saved-searches button { min-height: 36px; }
+.exchange-saved-searches li { padding: 12px 8px; background: transparent; border-width: 0 0 1px; }
+.exchange-saved-searches li > div { flex-wrap: wrap; }
+.exchange-saved-searches li button > span { white-space: normal; overflow-wrap: anywhere; }
+.exchange-saved-searches [data-slot=card-content] > div.text-center { border: 0; padding: 0; background: transparent; }
+@media (min-width: 1200px) {
+  .exchange-market-results.has-selection { grid-template-columns: minmax(0, 1fr) 320px; }
+  .exchange-market-results.has-selection .exchange-listing-grid { grid-template-columns: minmax(0, 1fr); }
+  .exchange-market-detail > [data-slot=card] { position: sticky; top: 112px; }
+}
+@media (max-width: 1023px) {
+  .exchange-market-workspace { grid-template-columns: minmax(0, 1fr); }
+  .exchange-market-saved { display: none; }
+}
+@media (max-width: 640px) {
+  .exchange-marketplace .exchange-page-heading > div:last-child { justify-content: flex-start; }
+  .exchange-market-count { width: auto; }
+  .exchange-market-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .exchange-market-quick { flex-wrap: wrap; }
+  .exchange-market-quick > div { flex-direction: row; align-items: stretch; }
+  .exchange-market-quick > div > div { flex: 1; align-content: start; }
+  .exchange-market-refine { padding: 12px; }
+  .exchange-listing-grid { grid-template-columns: minmax(0, 1fr); }
+  .exchange-offer-heading { padding: 16px 16px 0; }
+  .exchange-offer-content { padding: 16px; }
+  .exchange-offer-trader { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+}

@@ -59,6 +59,8 @@ import {
   deleteSavedSearch
 } from "@/api/api";
 import { cleanEsoText, renderEsoFormattedText, getEsoIconUrl } from "@/lib/utils";
+import { useDialogFocus } from "@/hooks/useDialogFocus";
+import "@/styles/marketplace.css";
 
 const DEAL_THRESHOLD = 1.2;
 const LISTING_SORT_VALUES = new Set([
@@ -77,7 +79,7 @@ const RARITY_MAP = {
   2: { label: "Fine", color: "border-green-600 text-green-400 bg-green-950/40" },
   3: { label: "Superior", color: "border-blue-600 text-blue-400 bg-blue-950/40" },
   4: { label: "Epic", color: "border-purple-600 text-purple-400 bg-purple-950/40" },
-  5: { label: "Legendary", color: "border-[#c5a059] text-[#d4af37] bg-amber-950/40" },
+  5: { label: "Legendary", color: "border-primary text-primary bg-amber-950/40" },
 };
 
 const ESO_TRAIT_NAMES = {
@@ -168,6 +170,7 @@ function Marketplace() {
   const [savedSearchError, setSavedSearchError] = useState("");
   const [savedSearchDrawerOpen, setSavedSearchDrawerOpen] = useState(false);
   const [savedSearchRunId, setSavedSearchRunId] = useState(0);
+  const savedSearchPanelRef = useDialogFocus(savedSearchDrawerOpen, () => setSavedSearchDrawerOpen(false));
 
   // Sync URL search parameters on change
   useEffect(() => {
@@ -254,15 +257,6 @@ function Marketplace() {
       isActive = false;
     };
   }, [user?.id]);
-
-  useEffect(() => {
-    if (!savedSearchDrawerOpen) return undefined;
-    const handleEscape = (event) => {
-      if (event.key === "Escape") setSavedSearchDrawerOpen(false);
-    };
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [savedSearchDrawerOpen]);
 
   // Fetch either native listing observations or the full item catalog.
   useEffect(() => {
@@ -492,47 +486,46 @@ function Marketplace() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0d] text-[#e0d8c3] flex flex-col">
+    <div className="exchange-page exchange-marketplace">
       <Navbar />
 
       {/* Header Banner (Full-width edge-to-edge) */}
-      <header className="w-full border-b border-[#2a2c33] bg-[#121218] px-4 sm:px-6 lg:px-8 py-6 sm:py-8 shadow-xl">
-        <div className="max-w-7xl mx-auto flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+      <header className="exchange-container">
+        <div className="exchange-page-heading">
           <div>
-            <h1 className="font-cinzel text-2xl md:text-3xl font-extrabold tracking-wide text-[#e0d8c3] flex items-center gap-2 uppercase">
-              <Store className="size-7 text-[#c5a059]" />
-              <span>{viewMode === "catalog" ? "Master Item Catalog" : "Live Guild Trader Listings"}</span>
+            <p className="exchange-eyebrow"><Store className="size-4" /> {platform} · {serverLocation}</p>
+            <h1>
+              {viewMode === "catalog" ? "Item catalog" : "Marketplace"}
             </h1>
-            <p className="text-[#a89f91] text-xs md:text-sm mt-1">
+            <p>
               {viewMode === "catalog"
-                ? "Browse the complete ESO item identity, taxonomy, set metadata, and locally served icons."
-                : "Native in-game listing observations and deal intelligence for "}
-              {viewMode === "listings" && (
-                <span className="font-semibold text-[#d4af37] font-mono">{platform} - {serverLocation}</span>
-              )}
+                ? "Explore ESO items, traits, and sets."
+                : "Find the item. Compare the offers. Visit the trader."}
             </p>
           </div>
 
           {/* Action Controls & Dev Tools */}
           <div className="flex flex-wrap items-center gap-3">
-            <div className="flex border border-[#c5a059]/50" role="group" aria-label="Marketplace view">
+            <div className="exchange-market-tabs" role="group" aria-label="Marketplace view">
               <Button
                 type="button"
                 size="sm"
                 variant={viewMode === "listings" ? "default" : "ghost"}
+                aria-pressed={viewMode === "listings"}
                 onClick={() => { setViewMode("listings"); setCurrentPage(1); setSelectedItem(null); }}
                 className="rounded-none"
               >
-                Native Listings
+                Guild traders
               </Button>
               <Button
                 type="button"
                 size="sm"
                 variant={viewMode === "catalog" ? "default" : "ghost"}
+                aria-pressed={viewMode === "catalog"}
                 onClick={() => { setViewMode("catalog"); setCurrentPage(1); setSelectedItem(null); }}
                 className="rounded-none"
               >
-                Item Catalog
+                Item catalog
               </Button>
             </div>
             {/* Development: Clear Listings (Visible for dev testing) */}
@@ -542,7 +535,7 @@ function Marketplace() {
                   variant="outline"
                   size="sm"
                   onClick={handleClearListings}
-                  className="rounded-none gap-1.5 font-bold text-xs border-red-900/60 bg-red-950/30 text-red-400 hover:bg-red-900/50 hover:text-red-300 hover:border-red-600 transition-all cursor-pointer"
+                  className="rounded-none gap-1.5 font-bold text-xs border-red-900/60 bg-red-950/30 text-red-400 hover:bg-red-900/50 hover:text-red-300 hover:border-red-600 transition-colors cursor-pointer"
                 >
                   <Trash2 className="size-3.5 text-red-400" />
                   <span>[DEV] Clear Listings</span>
@@ -550,33 +543,44 @@ function Marketplace() {
               </EsoTooltip>
             )}
 
-            <div className="flex h-9 items-center gap-2 border border-[#c5a059]/50 bg-[#c5a059]/10 px-4 text-xs font-cinzel font-semibold uppercase tracking-wider text-[#d4af37]">
+            <div className="exchange-market-count">
               <Tag className="size-3.5" />
-              <span>{viewMode === "catalog" ? "Catalog Items" : "Active Listings"} ({totalItems.toLocaleString()})</span>
+              <span>{totalItems.toLocaleString()} {viewMode === "catalog" ? (totalItems === 1 ? "catalog item" : "catalog items") : (totalItems === 1 ? "listing" : "listings")}</span>
             </div>
           </div>
         </div>
       </header>
 
       {/* Main Content Body Container */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full flex-1 space-y-6">
+      <main className="exchange-container exchange-market-workspace">
+        <aside className="exchange-market-saved">
+          <SavedSearchesCard {...savedSearchesCardProps} />
+        </aside>
+        <div className="exchange-market-main">
+        <section className="exchange-market-refine" aria-label="Find items">
+          <div className="exchange-market-search">
+            <Search className="size-5 text-primary" aria-hidden="true" />
+            <input type="search" aria-label="Search items by name" placeholder="Search items by name"
+              value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }} />
+            {searchQuery && <button type="button" aria-label="Clear item search" onClick={() => setSearchQuery("")}><X className="size-4" /></button>}
+          </div>
         {/* Quick Selectors Bar: Major Trading Hubs & Popular Trade Presets */}
         {viewMode === "listings" && (
-        <div className="p-3 bg-[#121218] border border-[#2a2c33] shadow flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3">
+        <div className="exchange-market-quick">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
             {/* Major Trading Hub Selector */}
             <div className="flex items-center gap-2 flex-1">
-              <span className="text-xs font-cinzel text-[#c5a059] font-bold uppercase tracking-wider whitespace-nowrap flex items-center gap-1.5 shrink-0">
-                <Compass className="size-3.5" /> Trading Hub:
+              <span className="text-xs font-sans text-primary font-bold whitespace-nowrap flex items-center gap-1.5 shrink-0">
+                <Compass className="size-3.5" /> Trading hub
               </span>
-              <NativeSelect
+              <NativeSelect aria-label="Trading hub"
                 value={selectedHubLocation}
                 onChange={(e) => {
                   const loc = e.target.value;
                   setSelectedHubLocation(loc);
                   setCurrentPage(1);
                 }}
-                className="w-full bg-[#0a0a0d] border-[#2a2c33] text-[#e0d8c3] text-xs h-9"
+                className="w-full bg-recess border-border text-foreground text-xs h-9"
               >
                 <NativeSelectOption value="">All Trading Hubs</NativeSelectOption>
                 <NativeSelectOptGroup label="Major Capital Hubs">
@@ -591,10 +595,10 @@ function Marketplace() {
 
             {/* Popular Trade Presets Selector */}
             <div className="flex items-center gap-2 flex-1">
-              <span className="text-xs font-cinzel text-[#c5a059] font-bold uppercase tracking-wider whitespace-nowrap flex items-center gap-1.5 shrink-0">
-                <Sparkles className="size-3.5" /> Popular Trades:
+              <span className="text-xs font-sans text-primary font-bold whitespace-nowrap flex items-center gap-1.5 shrink-0">
+                <Sparkles className="size-3.5" /> Popular trades
               </span>
-              <NativeSelect
+              <NativeSelect aria-label="Popular trades"
                 value={
                   POPULAR_SEARCH_PRESETS.find(p => 
                     selectedCategory === (p.category || "") &&
@@ -618,9 +622,9 @@ function Marketplace() {
                   setSearchQuery("");
                   setCurrentPage(1);
                 }}
-                className="w-full bg-[#0a0a0d] border-[#2a2c33] text-[#e0d8c3] text-xs h-9"
+                className="w-full bg-recess border-border text-foreground text-xs h-9"
               >
-                <NativeSelectOption value="">Popular Trade Presets...</NativeSelectOption>
+                <NativeSelectOption value="">All trades</NativeSelectOption>
                 <NativeSelectOptGroup label="Quick Trade Presets">
                   {POPULAR_SEARCH_PRESETS.map((preset) => (
                     <NativeSelectOption key={preset.label} value={preset.label}>
@@ -641,48 +645,29 @@ function Marketplace() {
                 setSelectedRarity("");
                 setCurrentPage(1);
               }}
-              className="text-xs font-cinzel text-[#a89f91] hover:text-[#e0d8c3] underline shrink-0 cursor-pointer self-end md:self-center"
+              className="text-xs font-sans text-muted-foreground hover:text-foreground underline shrink-0 cursor-pointer self-end md:self-center"
             >
-              Clear Quick Filters
+              Clear quick filters
             </button>
           )}
         </div>
         )}
 
       {/* Control Bar: Search & Select Filters */}
-      <div className={`grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 mb-6 p-4 bg-[#121218] border border-[#2a2c33] shadow-lg ${viewMode === "listings" ? "xl:grid-cols-7" : "xl:grid-cols-4"}`}>
+      <div className="exchange-market-filters">
         {/* Search Bar Input */}
-        <div className="relative sm:col-span-2 md:col-span-3 lg:col-span-2 xl:col-span-2">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#8a8275]" />
-          <input
-            type="text"
-            placeholder="Search items by name..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="w-full pl-9 pr-8 h-10 bg-[#0a0a0d] border border-[#2a2c33] text-[#e0d8c3] text-sm focus:border-[#c5a059] focus:outline-none transition-colors"
-          />
-          {searchQuery && (
-            <button
-              onClick={() => setSearchQuery("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8a8275] hover:text-[#e0d8c3]"
-            >
-              <X className="size-4" />
-            </button>
-          )}
-        </div>
 
         {/* Category NativeSelect */}
-        <NativeSelect
+        <label className="exchange-field">
+          <span>Category</span>
+        <NativeSelect aria-label="Category"
           value={selectedCategory}
           onChange={(e) => {
             setSelectedCategory(e.target.value);
             setSelectedSubcategory("");
             setCurrentPage(1);
           }}
-          className="w-full bg-[#0a0a0d] border-[#2a2c33] text-[#e0d8c3]"
+          className="w-full bg-recess border-border text-foreground"
         >
           <NativeSelectOption value="">All Categories</NativeSelectOption>
           <NativeSelectOptGroup label="Categories">
@@ -693,16 +678,19 @@ function Marketplace() {
             ))}
           </NativeSelectOptGroup>
         </NativeSelect>
+        </label>
 
         {/* Subcategory NativeSelect */}
-        <NativeSelect
+        <label className="exchange-field">
+          <span>Subcategory</span>
+        <NativeSelect aria-label="Subcategory"
           value={selectedSubcategory}
           onChange={(e) => {
             setSelectedSubcategory(e.target.value);
             setCurrentPage(1);
           }}
           disabled={availableSubcategories.length === 0}
-          className="w-full bg-[#0a0a0d] border-[#2a2c33] text-[#e0d8c3]"
+          className="w-full bg-recess border-border text-foreground"
         >
           <NativeSelectOption value="">
             {availableSubcategories.length > 0 ? "All Subcategories" : "Subcategory"}
@@ -717,16 +705,19 @@ function Marketplace() {
             </NativeSelectOptGroup>
           )}
         </NativeSelect>
+        </label>
 
         {/* Trait NativeSelect */}
         {viewMode === "listings" && (
-        <NativeSelect
+        <label className="exchange-field">
+          <span>Trait</span>
+        <NativeSelect aria-label="Trait"
           value={selectedTrait}
           onChange={(e) => {
             setSelectedTrait(e.target.value);
             setCurrentPage(1);
           }}
-          className="w-full bg-[#0a0a0d] border-[#2a2c33] text-[#e0d8c3]"
+          className="w-full bg-recess border-border text-foreground"
         >
           <NativeSelectOption value="">All Traits</NativeSelectOption>
           <NativeSelectOptGroup label="Weapon Traits">
@@ -769,16 +760,19 @@ function Marketplace() {
             <NativeSelectOption value="Ornate">Ornate (Gold)</NativeSelectOption>
           </NativeSelectOptGroup>
         </NativeSelect>
+        </label>
         )}
 
         {/* Rarity NativeSelect */}
-        <NativeSelect
+        <label className="exchange-field">
+          <span>Quality</span>
+        <NativeSelect aria-label="Quality"
           value={selectedRarity}
           onChange={(e) => {
             setSelectedRarity(e.target.value);
             setCurrentPage(1);
           }}
-          className="w-full bg-[#0a0a0d] border-[#2a2c33] text-[#e0d8c3]"
+          className="w-full bg-recess border-border text-foreground"
         >
           <NativeSelectOption value="">Any Quality</NativeSelectOption>
           <NativeSelectOptGroup label="Rarity">
@@ -789,17 +783,20 @@ function Marketplace() {
             ))}
           </NativeSelectOptGroup>
         </NativeSelect>
+        </label>
 
         {/* Time Since Last Seen NativeSelect */}
         {viewMode === "listings" && (
         <>
-        <NativeSelect
+        <label className="exchange-field">
+          <span>Last seen</span>
+        <NativeSelect aria-label="Last seen"
           value={selectedMaxAge}
           onChange={(e) => {
             setSelectedMaxAge(e.target.value);
             setCurrentPage(1);
           }}
-          className="w-full bg-[#0a0a0d] border-[#2a2c33] text-[#e0d8c3]"
+          className="w-full bg-recess border-border text-foreground"
         >
           <NativeSelectOption value="">Last Seen: Any Time</NativeSelectOption>
           <NativeSelectOptGroup label="Scan Recency Scale">
@@ -810,15 +807,18 @@ function Marketplace() {
             <NativeSelectOption value="30">⏱️ Last 30 Days</NativeSelectOption>
           </NativeSelectOptGroup>
         </NativeSelect>
+        </label>
 
         {/* Sort Option NativeSelect */}
-        <NativeSelect
+        <label className="exchange-field">
+          <span>Sort by</span>
+        <NativeSelect aria-label="Sort listings"
           value={sortOption}
           onChange={(e) => {
             setSortOption(e.target.value);
             setCurrentPage(1);
           }}
-          className="w-full bg-[#0a0a0d] border-[#2a2c33] text-[#e0d8c3]"
+          className="w-full bg-recess border-border text-foreground"
         >
           <NativeSelectOptGroup label="Sort By">
             <NativeSelectOption value="value_index">🔥 Best Value Deals</NativeSelectOption>
@@ -831,10 +831,12 @@ function Marketplace() {
             <NativeSelectOption value="newest">Recently Discovered</NativeSelectOption>
           </NativeSelectOptGroup>
         </NativeSelect>
+        </label>
         </>
         )}
       </div>
 
+      </section>
       {user && (
         <PinnedSearchChips searches={savedSearches} onApply={handleApplySavedSearch} />
       )}
@@ -847,7 +849,7 @@ function Marketplace() {
             variant="outline"
             size="sm"
             onClick={() => setSavedSearchDrawerOpen(true)}
-            className="rounded-none border-[#c5a059]/40 bg-[#161620] text-[#d4af37] lg:hidden"
+            className="rounded-none border-primary/40 bg-secondary text-primary lg:hidden"
           >
             <Bookmark className="size-3.5" />
             Saved Searches{savedSearches.length ? ` (${savedSearches.length})` : ""}
@@ -856,17 +858,18 @@ function Marketplace() {
           {viewMode === "listings" && (
           <Button
             variant={dealsOnly ? "default" : "outline"}
+            aria-pressed={dealsOnly}
             size="sm"
             onClick={() => {
               setDealsOnly(!dealsOnly);
               setCurrentPage(1);
             }}
             className={`rounded-none gap-1.5 font-semibold text-xs border ${
-              dealsOnly ? "bg-[#c5a059] text-[#0a0a0d] border-[#c5a059]" : "border-[#c5a059]/40 text-[#d4af37] bg-[#161620]"
+              dealsOnly ? "bg-primary text-recess border-primary" : "border-primary/40 text-primary bg-secondary"
             }`}
           >
-            <Sparkles className="size-3.5 text-[#c5a059]" />
-            <span>Only Bargain Deals (1.2x+ Value)</span>
+            <Sparkles className="size-3.5 text-primary" />
+            <span>Deals only · 1.2x+ value</span>
           </Button>
           )}
 
@@ -875,7 +878,7 @@ function Marketplace() {
               variant="ghost"
               size="sm"
               onClick={handleResetFilters}
-              className="rounded-none text-xs text-[#a89f91] hover:text-[#e0d8c3] hover:bg-[#161620] gap-1"
+              className="rounded-none text-xs text-muted-foreground hover:text-foreground hover:bg-secondary gap-1"
             >
               <X className="size-3" />
               <span>Reset Filters</span>
@@ -883,21 +886,21 @@ function Marketplace() {
           )}
         </div>
 
-        <div className="text-xs text-[#8a8275] font-mono">
-          Page <span className="font-bold text-[#d4af37]">{currentPage}</span> of{" "}
-          <span className="font-bold text-[#d4af37]">{totalPages}</span> ({totalItems} total results)
+        <div className="text-xs text-muted-foreground tabular-nums" role="status">
+          Page <span className="font-bold text-primary">{currentPage}</span> of{" "}
+          <span className="font-bold text-primary">{totalPages}</span> ({totalItems} total results)
         </div>
       </div>
 
       {savedSearchDrawerOpen && (
-        <div className="fixed inset-0 z-50 lg:hidden" role="dialog" aria-modal="true" aria-label="Saved searches">
+        <div className="fixed inset-0 z-70" role="dialog" aria-modal="true" aria-label="Saved searches">
           <button
             type="button"
             onClick={() => setSavedSearchDrawerOpen(false)}
             aria-label="Close saved searches"
             className="absolute inset-0 cursor-default bg-black/75 backdrop-blur-sm"
           />
-          <aside className="absolute inset-y-0 left-0 w-[min(90vw,24rem)] overflow-y-auto border-r border-[#c5a059]/40 bg-[#0a0a0d] p-3 shadow-2xl">
+          <aside ref={savedSearchPanelRef} tabIndex={-1} className="absolute inset-y-0 left-0 w-[min(90vw,24rem)] overflow-y-auto border-r border-primary/40 bg-recess p-3 shadow-2xl">
             <SavedSearchesCard
               {...savedSearchesCardProps}
               onClose={() => setSavedSearchDrawerOpen(false)}
@@ -907,27 +910,24 @@ function Marketplace() {
       )}
 
       {/* Main Grid & Detail Sidebar Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-        <aside className="hidden lg:col-span-1 lg:block lg:self-start lg:sticky lg:top-4">
-          <SavedSearchesCard {...savedSearchesCardProps} />
-        </aside>
+      <div className={`exchange-market-results ${selectedItem ? "has-selection" : ""}`}>
 
         {/* Active Listings Grid */}
-        <div className={selectedItem ? "lg:col-span-2 space-y-4" : "lg:col-span-3 space-y-4"}>
+        <div className="min-w-0 space-y-4">
           {isLoading ? (
             <div className="eso-card flex flex-col items-center justify-center p-12 text-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#c5a059] mb-3"></div>
-              <p className="text-xs font-cinzel text-[#a89f91] tracking-wider uppercase">Loading Tamriel Market Intelligence...</p>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-3"></div>
+              <p className="text-sm text-muted-foreground" role="status">Loading items…</p>
             </div>
           ) : itemsData.length === 0 ? (
             <div className="eso-card flex flex-col items-center justify-center p-12 text-center">
-              <Store className="size-12 text-[#c5a059]/60 mb-3" />
-              <h3 className="font-cinzel text-xl font-bold text-[#e0d8c3] mb-1">
+              <Store className="size-12 text-primary/60 mb-3" />
+              <h3 className="font-sans text-xl font-bold text-foreground mb-1">
                 {viewMode === "catalog"
                   ? (searchQuery ? `No Catalog Items Found for "${searchQuery}"` : "No Catalog Items Found")
                   : (searchQuery ? `No Active Listings Found for "${searchQuery}"` : "No Guild Trader Scans Logged")}
               </h3>
-              <p className="text-xs text-[#a89f91] max-w-lg mb-4 leading-relaxed">
+              <p className="text-xs text-muted-foreground max-w-lg mb-4 leading-relaxed">
                 {viewMode === "catalog"
                   ? "Adjust the catalog filters or run the UESP master catalog ingestion workflow if the local catalog is empty."
                   : "No native guild trader observations match these filters yet. Load an in-game ESOTrade scan or adjust the active listing filters."}
@@ -941,7 +941,7 @@ function Marketplace() {
               </div>
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-2 gap-4">
+            <div className="exchange-listing-grid">
               {itemsData.map((item, idx) => {
                 const isSelected = selectedItem && (
                   (item.listing_id && selectedItem.listing_id === item.listing_id) ||
@@ -954,148 +954,82 @@ function Marketplace() {
                 return (
                   <Card
                     key={item.listing_id || `${item.game_item_id}-${idx}`}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`View ${cleanName}`}
+                    aria-expanded={Boolean(isSelected)}
+                    aria-controls={isSelected ? "market-item-detail" : undefined}
                     onClick={() => setSelectedItem(item)}
-                    className={`eso-card rounded-none cursor-pointer transition-all duration-200 hover:border-[#c5a059]/80 border-l-4 ${rarityInfo.color.split(" ")[0]} ${
-                      isSelected ? "border-[#c5a059] bg-[#c5a059]/10" : ""
-                    }`}
+                    onKeyDown={(event) => {
+                      if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) {
+                        event.preventDefault();
+                        setSelectedItem(item);
+                      }
+                    }}
+                    className={`exchange-offer ${isSelected ? "is-selected" : ""}`}
                   >
-                    <CardHeader className="p-4 pb-2 border-b border-[#2a2c33]/50 bg-[#161620]/40">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex items-center gap-3">
-                          {getEsoIconUrl(item.item_icon) ? (
-                            <img
-                              src={getEsoIconUrl(item.item_icon)}
-                              alt={cleanName}
-                              className="size-10 rounded-none border border-[#2a2c33] object-contain bg-[#0a0a0d] p-1"
-                              onError={(e) => (e.target.style.display = "none")}
-                              loading="lazy"
-                            />
-                          ) : (
-                            <div className="size-10 rounded-none border border-[#2a2c33] bg-[#0a0a0d] flex items-center justify-center font-cinzel font-bold text-xs text-[#c5a059]">
-                              ESO
-                            </div>
-                          )}
-                          <div>
-                            <CardTitle className="font-cinzel text-sm font-bold text-[#e0d8c3] line-clamp-1">
-                              {cleanName}
-                            </CardTitle>
-                            <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded-none font-bold uppercase tracking-wider border ${rarityInfo.color}`}>
-                                {rarityInfo.label}
-                              </span>
-                              {itemTrait && (
-                                <span className="text-[10px] px-1.5 py-0.5 rounded-none font-bold uppercase tracking-wider border border-amber-500/40 bg-amber-950/30 text-amber-300">
-                                  {itemTrait}
-                                </span>
-                              )}
-                              <span className="text-[11px] text-[#8a8275]">
-                                {item.item_category} {item.item_subcategory ? `• ${item.item_subcategory}` : ""}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Value Index Badge */}
-                        {item.value_index && item.value_index >= DEAL_THRESHOLD && (
-                          <span className="shrink-0 bg-emerald-950/60 border border-emerald-500/50 text-emerald-400 text-[11px] px-2 py-0.5 font-bold flex items-center gap-1">
-                            <Zap className="size-3 fill-emerald-400" />
-                            {item.value_index.toFixed(1)}x Deal
-                          </span>
-                        )}
+                    <CardHeader className="exchange-offer-heading">
+                      <div className={`exchange-offer-icon ${rarityInfo.color.split(" ")[0]}`}>
+                        {getEsoIconUrl(item.item_icon) ? (
+                          <img src={getEsoIconUrl(item.item_icon)} alt="" loading="lazy"
+                            onError={(e) => (e.target.style.display = "none")} />
+                        ) : <span>ESO</span>}
                       </div>
+                      <div className="min-w-0">
+                        <CardTitle className="exchange-offer-name">{cleanName}</CardTitle>
+                        <div className="exchange-offer-meta">
+                          <span className={rarityInfo.color.split(" ")[1]}>{rarityInfo.label}</span>
+                          {itemTrait && <span>{itemTrait}</span>}
+                          <span>{item.item_category}{item.item_subcategory ? ` · ${item.item_subcategory}` : ""}</span>
+                        </div>
+                      </div>
+                      {/* Value Index Badge */}
+                      {item.value_index && item.value_index >= DEAL_THRESHOLD && (
+                        <span className="exchange-deal"><Zap className="size-3" />{item.value_index.toFixed(1)}x deal</span>
+                      )}
                     </CardHeader>
-
-                    <CardContent className="p-4 pt-2">
-                      <div className="space-y-2 text-xs">
-                        {viewMode === "listings" ? (
-                        <div className="flex items-center justify-between border-t border-[#2a2c33]/40 pt-2">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-[#a89f91]">Unit Price:</span>
-                            <span className="bg-[#161620] text-[#d4af37] font-mono font-bold px-1.5 py-0.5 text-[10px] border border-[#2a2c33]">
-                              x{item.quantity || 1}/stack
-                            </span>
+                    <CardContent className="exchange-offer-content">
+                      {viewMode === "listings" ? (
+                        <>
+                          {/* Smart Seller Inventory & Stacks Badge */}
+                          <div className="exchange-offer-quote">
+                            <div>
+                              <span className="exchange-offer-stacks"><Layers className="size-4" />
+                                {(item.active_stacks || 1) > 1 ? `${item.active_stacks} stacks` : "1 stack"}
+                              </span>
+                              <span className="exchange-offer-secondary">
+                                {item.quantity || 1} each · {((item.quantity || 1) * (item.active_stacks || 1)).toLocaleString()} {(item.quantity || 1) * (item.active_stacks || 1) === 1 ? "item" : "items"} total
+                              </span>
+                            </div>
+                            <div className="exchange-offer-price">
+                              <span>{formatGold(item.price)} <small>/ item</small></span>
+                              <span className="exchange-offer-secondary">{formatGold((item.price || 0) * (item.quantity || 1))} / stack</span>
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <span className="font-bold text-base text-[#c5a059] block font-mono">
-                              {formatGold(item.price)}
-                              <span className="text-[10px] text-[#8a8275] font-normal ml-0.5">/ea</span>
-                            </span>
-                            <span className="text-[10px] text-[#8a8275] block font-mono">
-                              Total/stack: {formatGold((item.price || 0) * (item.quantity || 1))}
-                            </span>
-                          </div>
-                        </div>
-                        ) : (
-                          <div className="flex items-center justify-between border-t border-[#2a2c33]/40 pt-2">
-                            <span className="text-[#a89f91]">Catalog ID</span>
-                            <span className="font-mono font-bold text-[#d4af37]">{item.game_item_id}</span>
-                          </div>
-                        )}
-
-                        {/* Smart Seller Inventory & Stacks Badge */}
-                        {viewMode === "listings" && (
-                        <div className="flex items-center justify-between text-xs bg-[#0a0a0d] border border-[#2a2c33] px-2.5 py-1.5 mt-2">
-                          <div className="flex items-center gap-1.5 font-semibold text-[#d4af37]">
-                            <Layers className="size-3.5 text-[#c5a059] shrink-0" />
-                            <span>
-                              {(item.active_stacks || 1) > 1
-                                ? `📦 ${item.active_stacks} Stacks Available (${((item.quantity || 1) * item.active_stacks).toLocaleString()} total)`
-                                : `1 Stack Available (${item.quantity || 1} total)`}
-                            </span>
-                          </div>
-                          <EsoTooltip content={`Seller Account: ${item.seller_name || "@Unknown"}`} side="top">
-                            <span className="font-mono text-[#a89f91] text-[11px] truncate max-w-[110px] cursor-default">
-                              {item.seller_name || "@Unknown"}
-                            </span>
-                          </EsoTooltip>
-                        </div>
-                        )}
-
-                        {viewMode === "listings" && (
-                        <div className="flex items-center justify-between">
-                          <span className="text-[#a89f91]">Observed Average:</span>
-                          <span className="font-medium text-[#d4af37] font-mono">
-                            {formatGold(item.observed_avg_price)}
-                          </span>
-                        </div>
-                        )}
-                      </div>
+                          <div className="exchange-offer-average"><span>Observed average</span><span>{formatGold(item.observed_avg_price)} / item</span></div>
+                        </>
+                      ) : <div className="exchange-offer-average"><span>Catalog ID</span><span>{item.game_item_id}</span></div>}
 
                       {/* Prominent Guild Trader Name, Location, & Last Seen Marker */}
                       {viewMode === "listings" && (
-                      <div className="flex items-center justify-between text-[11px] text-[#8a8275] pt-2 mt-2 border-t border-[#2a2c33]/40 gap-1">
-                        <EsoTooltip content={`Guild Trader: ${item.guild_name || "Active Guild Trader"}`} side="top">
-                          <span className="flex items-center gap-1.5 truncate max-w-[120px] cursor-default">
-                            <Store className="size-3.5 text-[#c5a059] shrink-0" />
-                            <span className="truncate font-semibold text-[#e0d8c3]">{item.guild_name || "Guild Trader"}</span>
-                          </span>
-                        </EsoTooltip>
-                        <EsoTooltip content={`Location: ${item.location || "Tamriel Guild Trader"}`} side="top">
-                          <span className="flex items-center gap-1.5 truncate max-w-[110px] cursor-default">
-                            <MapPin className="size-3.5 text-[#d4af37] shrink-0" />
-                            <span className="truncate font-semibold text-[#d4af37]">{item.location || "Tamriel Guild Trader"}</span>
-                          </span>
-                        </EsoTooltip>
-                        {(() => {
-                          const scanDate = item.discovered_at || item.updated_at;
-                          const isItemStale = scanDate && ((new Date() - new Date(scanDate)) / (1000 * 3600 * 24) > 7);
-                          const scanTooltip = `Last Seen Scan: ${scanDate ? new Date(scanDate).toLocaleString() : 'Recent scan'}${isItemStale ? ' (Stale >7d old)' : ''}`;
-                          return (
-                            <EsoTooltip content={scanTooltip} side="top">
-                              <span
-                                className={`flex items-center gap-1 shrink-0 font-mono text-[10px] px-1.5 py-0.5 border cursor-default ${
-                                  isItemStale
-                                    ? "border-amber-500/50 bg-amber-950/60 text-amber-400"
-                                    : "border-[#2a2c33] bg-[#0a0a0d] text-[#38bdf8]"
-                                }`}
-                              >
-                                <Clock className={`size-3 shrink-0 ${isItemStale ? 'text-amber-400' : 'text-[#38bdf8]'}`} />
-                                <span className="font-semibold">{isItemStale ? `⚠️ Stale (${formatLastSeen(scanDate)})` : formatLastSeen(scanDate || item.created_at)}</span>
-                              </span>
-                            </EsoTooltip>
-                          );
-                        })()}
-                      </div>
+                        <div className="exchange-offer-trader">
+                          <span className="exchange-offer-guild"><Store className="size-3.5" />{item.guild_name || "Guild Trader"}</span>
+                          <span className="exchange-offer-seller">{item.seller_name || "@Unknown"}</span>
+                          <span className="exchange-offer-location"><MapPin className="size-3.5" />{item.location || "Tamriel Guild Trader"}</span>
+                          {(() => {
+                            const scanDate = item.discovered_at || item.updated_at;
+                            const isItemStale = scanDate && ((new Date() - new Date(scanDate)) / (1000 * 3600 * 24) > 7);
+                            const scanTooltip = `Last Seen Scan: ${scanDate ? new Date(scanDate).toLocaleString() : 'Recent scan'}${isItemStale ? ' (Stale >7d old)' : ''}`;
+                            return (
+                              <EsoTooltip content={scanTooltip} side="top">
+                                <span className={`exchange-offer-seen ${isItemStale ? "text-amber-300" : ""}`}>
+                                  <Clock className="size-3" />
+                                  {isItemStale ? `Stale (${formatLastSeen(scanDate)})` : `Seen ${formatLastSeen(scanDate || item.created_at)}`}
+                                </span>
+                              </EsoTooltip>
+                            );
+                          })()}
+                        </div>
                       )}
                     </CardContent>
                   </Card>
@@ -1107,28 +1041,28 @@ function Marketplace() {
 
         {/* Selected Item Detail Sidebar */}
         {selectedItem && (
-          <div className="lg:col-span-1">
-            <Card className="eso-card rounded-none sticky top-4 border-2 border-[#c5a059]/60 shadow-2xl">
-              <CardHeader className="p-4 pb-2 border-b border-[#2a2c33] bg-[#161620]">
+          <div className="exchange-market-detail" id="market-item-detail">
+            <Card className="exchange-frame">
+              <CardHeader className="p-4 pb-2 border-b border-border bg-secondary">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
                     {getEsoIconUrl(selectedItem.item_icon) && (
                       <img
                         src={getEsoIconUrl(selectedItem.item_icon)}
                         alt={cleanEsoText(selectedItem.item_name)}
-                        className="size-12 rounded-none border border-[#c5a059]/40 p-1 bg-[#0a0a0d] object-contain"
+                        className="size-12 rounded-none border border-primary/40 p-1 bg-recess object-contain"
                         onError={(e) => (e.target.style.display = "none")}
                         loading="lazy"
                       />
                     )}
                     <div>
-                      <CardTitle className="font-cinzel text-base font-bold text-[#e0d8c3]">
+                      <CardTitle className="font-sans text-base font-bold text-foreground">
                         {cleanEsoText(selectedItem.item_name)}
                       </CardTitle>
-                      <CardDescription className="text-xs text-[#8a8275] font-mono">
+                      <CardDescription className="text-xs text-muted-foreground font-mono">
                         ID: {selectedItem.game_item_id} • {selectedItem.item_category}
-                        {(selectedItem.trait_name || (selectedItem.trait_id && ESO_TRAIT_NAMES[selectedItem.trait_id] && ESO_TRAIT_NAMES[selectedItem.trait_id] !== "None")) && (
-                          <span className="ml-2 text-amber-300 font-bold font-cinzel">
+                        {Boolean(selectedItem.trait_name || (selectedItem.trait_id && ESO_TRAIT_NAMES[selectedItem.trait_id] && ESO_TRAIT_NAMES[selectedItem.trait_id] !== "None")) && (
+                          <span className="ml-2 text-amber-300 font-bold font-sans">
                             • Trait: {selectedItem.trait_name || ESO_TRAIT_NAMES[selectedItem.trait_id]}
                           </span>
                         )}
@@ -1140,7 +1074,7 @@ function Marketplace() {
                     size="icon"
                     onClick={() => setSelectedItem(null)}
                     aria-label="Close detail panel"
-                    className="rounded-none text-[#a89f91] hover:text-[#e0d8c3]"
+                    className="rounded-none text-muted-foreground hover:text-foreground"
                   >
                     <X className="size-4" />
                   </Button>
@@ -1150,25 +1084,25 @@ function Marketplace() {
               <CardContent className="p-4 space-y-4 text-xs">
                 {/* Native observation summary */}
                 {viewMode === "listings" && (
-                <div className="space-y-2 p-3 bg-[#0a0a0d] border border-[#2a2c33]">
-                  <span className="font-cinzel font-bold uppercase tracking-wider text-[10px] text-[#c5a059] block flex items-center justify-between">
-                    <span>Native Observations ({serverLocation})</span>
-                    <DollarSign className="size-3 text-[#c5a059]" />
+                <div className="space-y-2 p-3 bg-recess border border-border">
+                  <span className="font-sans font-bold text-xs text-primary block flex items-center justify-between">
+                    <span>Observed prices · {serverLocation}</span>
+                    <DollarSign className="size-3 text-primary" />
                   </span>
                   <div className="grid grid-cols-2 gap-2 text-sm font-bold font-mono">
                     <div>
-                      <span className="text-[#8a8275] text-xs font-normal block font-sans">Observed Average</span>
-                      <span className="text-[#c5a059]">{formatGold(selectedItem.observed_avg_price)}</span>
+                      <span className="text-muted-foreground text-xs font-normal block font-sans">Observed Average</span>
+                      <span className="text-primary">{formatGold(selectedItem.observed_avg_price)}</span>
                     </div>
                     <div>
-                      <span className="text-[#8a8275] text-xs font-normal block font-sans">Observed Range</span>
-                      <span className="text-[#e0d8c3]">{formatGold(selectedItem.observed_min_price)}–{formatGold(selectedItem.observed_max_price)}</span>
+                      <span className="text-muted-foreground text-xs font-normal block font-sans">Observed Range</span>
+                      <span className="text-foreground">{formatGold(selectedItem.observed_min_price)}–{formatGold(selectedItem.observed_max_price)}</span>
                     </div>
                   </div>
 
                   {/* Flipping Profit Calculator */}
                   {selectedItem.price && selectedItem.observed_avg_price && (
-                    <div className="pt-2 border-t border-[#2a2c33] space-y-1 text-xs">
+                    <div className="pt-2 border-t border-border space-y-1 text-xs">
                       {(() => {
                         const netResale = Math.round(selectedItem.observed_avg_price * 0.93); // 7% ESO guild listing tax
                         const estProfit = netResale - selectedItem.price;
@@ -1176,15 +1110,15 @@ function Marketplace() {
                         const isLucrative = estProfit > 0;
 
                         return (
-                          <div className={`p-2 border ${isLucrative ? 'border-emerald-500/40 bg-emerald-950/20 text-emerald-300' : 'border-amber-900/40 bg-amber-950/20 text-[#d4af37]'}`}>
-                            <div className="flex items-center justify-between font-cinzel font-bold text-[11px] uppercase">
-                              <span>Est. Flip Margin (after 7% tax):</span>
-                              <span className={isLucrative ? 'text-emerald-400 font-mono' : 'text-[#d4af37] font-mono'}>
+                          <div className={`p-2 border ${isLucrative ? 'border-emerald-500/40 bg-emerald-950/20 text-emerald-300' : 'border-amber-900/40 bg-amber-950/20 text-primary'}`}>
+                            <div className="flex items-center justify-between font-sans font-bold text-xs ">
+                              <span>Est. profit after 7% tax</span>
+                              <span className={isLucrative ? 'text-emerald-400 font-mono' : 'text-primary font-mono'}>
                                 {estProfit > 0 ? `+${estProfit.toLocaleString()}g` : `${estProfit.toLocaleString()}g`}
                               </span>
                             </div>
-                            <div className="text-[10px] text-[#a89f91] mt-0.5 flex justify-between font-mono">
-                              <span>Return on Investment:</span>
+                            <div className="text-xs text-muted-foreground mt-0.5 flex justify-between font-mono">
+                              <span>Est. return</span>
                               <span>{marginPct > 0 ? `+${marginPct}%` : `${marginPct}%`} ROI</span>
                             </div>
                           </div>
@@ -1194,19 +1128,19 @@ function Marketplace() {
                   )}
 
                   {selectedItem.price && (
-                    <div className="pt-2 border-t border-[#2a2c33] space-y-1 text-xs font-mono">
+                    <div className="pt-2 border-t border-border space-y-1 text-xs font-mono">
                       <div className="flex items-center justify-between">
-                        <span className="text-[#a89f91] font-sans">Stack Quantity:</span>
-                        <span className="font-bold text-[#d4af37] bg-[#161620] px-2 py-0.5 text-xs border border-[#2a2c33]">
+                        <span className="text-muted-foreground font-sans">Stack Quantity:</span>
+                        <span className="font-bold text-primary bg-secondary px-2 py-0.5 text-xs border border-border">
                           {selectedItem.quantity || 1} units
                         </span>
                       </div>
                       <div className="flex items-center justify-between">
-                        <span className="text-[#a89f91] font-sans">Unit Price:</span>
-                        <span className="font-semibold text-[#e0d8c3]">{formatGold(selectedItem.price)} / ea</span>
+                        <span className="text-muted-foreground font-sans">Unit Price:</span>
+                        <span className="font-semibold text-foreground">{formatGold(selectedItem.price)} / ea</span>
                       </div>
                       <div className="flex items-center justify-between pt-1">
-                        <span className="text-[#a89f91] font-semibold font-sans">Total Listing Price:</span>
+                        <span className="text-muted-foreground font-semibold font-sans">Total Listing Price:</span>
                         <span className="font-extrabold text-base text-emerald-400">
                           {formatGold(selectedItem.price * (selectedItem.quantity || 1))}
                         </span>
@@ -1217,16 +1151,16 @@ function Marketplace() {
                 )}
 
                 {/* Always Render Trader Name, Location & Last Seen Scan Marker */}
-                <div className="space-y-2 p-3 bg-[#0a0a0d] border border-[#2a2c33]">
-                  <span className="font-cinzel font-bold uppercase tracking-wider text-[10px] text-[#c5a059] block flex items-center justify-between">
-                    <span>Guild Trader Details</span>
-                    <Store className="size-3.5 text-[#c5a059]" />
+                <div className="space-y-2 p-3 bg-recess border border-border">
+                  <span className="font-sans font-bold text-xs text-primary block flex items-center justify-between">
+                    <span>Trader details</span>
+                    <Store className="size-3.5 text-primary" />
                   </span>
                   <div className="flex items-center gap-2">
-                    <Store className="size-4 text-[#c5a059] shrink-0" />
-                    <span className="font-semibold text-[#e0d8c3]">{selectedItem.guild_name || "Active Guild Trader"}</span>
+                    <Store className="size-4 text-primary shrink-0" />
+                    <span className="font-semibold text-foreground">{selectedItem.guild_name || "Active Guild Trader"}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-[#d4af37] font-semibold">
+                  <div className="flex items-center gap-2 text-primary font-semibold">
                     <MapPin className="size-4 shrink-0" />
                     <span>{selectedItem.location || "Tamriel Guild Trader"}</span>
                   </div>
@@ -1234,8 +1168,8 @@ function Marketplace() {
                     const scanDate = selectedItem.discovered_at || selectedItem.updated_at;
                     const isStale = scanDate && ((new Date() - new Date(scanDate)) / (1000 * 3600 * 24) > 7);
                     return (
-                      <div className={`pt-2 border-t border-[#2a2c33]/60 flex items-center justify-between text-xs font-mono ${isStale ? 'text-amber-400' : ''}`}>
-                        <span className="text-[#a89f91] flex items-center gap-1.5 font-sans">
+                      <div className={`pt-2 border-t border-border/60 flex items-center justify-between text-xs font-mono ${isStale ? 'text-amber-400' : ''}`}>
+                        <span className="text-muted-foreground flex items-center gap-1.5 font-sans">
                           <Clock className={`size-3.5 shrink-0 ${isStale ? 'text-amber-400' : 'text-[#38bdf8]'}`} />
                           <span>Last Seen Scan:</span>
                         </span>
@@ -1248,14 +1182,14 @@ function Marketplace() {
                 </div>
 
                 {/* Clean ESO Formatted Metadata Details */}
-                {selectedItem.item_metadata && (
+                {(selectedItem.item_metadata?.set || selectedItem.item_metadata?.trait_description) && (
                   <div className="space-y-2">
                     {selectedItem.item_metadata.set && (
-                      <div className="p-3 bg-[#0a0a0d] border border-[#2a2c33]">
-                        <span className="font-cinzel font-bold text-xs text-[#d4af37] block mb-1">
+                      <div className="p-3 bg-recess border border-border">
+                        <span className="font-sans font-bold text-xs text-primary block mb-1">
                           Set: {cleanEsoText(selectedItem.item_metadata.set.name)}
                         </span>
-                        <ul className="space-y-1 text-[11px] text-[#a89f91] pl-2 border-l border-[#c5a059]/40">
+                        <ul className="space-y-1 text-xs text-muted-foreground pl-2 border-l border-primary/40">
                           {selectedItem.item_metadata.set.bonuses?.slice(0, 5).map((bonus, bIdx) => (
                             <li key={bIdx} className="leading-relaxed">
                               • {renderEsoFormattedText(bonus)}
@@ -1265,11 +1199,11 @@ function Marketplace() {
                       </div>
                     )}
                     {selectedItem.item_metadata.trait_description && (
-                      <div className="p-2.5 bg-[#0a0a0d] border border-[#2a2c33]">
-                        <span className="font-cinzel font-bold text-xs block text-[#c5a059] mb-1 uppercase tracking-wider">
+                      <div className="p-2.5 bg-recess border border-border">
+                        <span className="font-sans font-bold text-xs block text-primary mb-1 r">
                           Trait Description
                         </span>
-                        <p className="text-[11px] text-[#e0d8c3] leading-relaxed">
+                        <p className="text-xs text-foreground leading-relaxed">
                           {renderEsoFormattedText(selectedItem.item_metadata.trait_description)}
                         </p>
                       </div>
@@ -1278,15 +1212,15 @@ function Marketplace() {
                 )}
               </CardContent>
 
-              <CardFooter className="p-4 pt-0 border-t border-[#2a2c33] mt-2 flex flex-col gap-2">
+              <CardFooter className="p-4 pt-0 border-t border-border mt-2 flex flex-col gap-2">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => copyInGameCommand(selectedItem.item_name)}
-                  className="w-full rounded-none font-cinzel font-semibold border-[#2a2c33] bg-[#161620] text-[#e0d8c3] hover:border-[#c5a059]/50 hover:bg-[#1f1f2e] text-xs gap-1.5"
+                  className="w-full rounded-none font-sans font-semibold border-border bg-secondary text-foreground hover:border-primary/50 hover:bg-secondary text-xs gap-1.5"
                 >
-                  {copiedLink ? <Check className="size-3.5 text-emerald-400" /> : <Copy className="size-3.5 text-[#c5a059]" />}
-                  <span>{copiedLink ? "Copied In-Game Search Cmd!" : "Copy In-Game Search Command"}</span>
+                  {copiedLink ? <Check className="size-3.5 text-emerald-400" /> : <Copy className="size-3.5 text-primary" />}
+                  <span>{copiedLink ? "Search command copied" : "Copy in-game search"}</span>
                 </Button>
 
                 <Button
@@ -1299,9 +1233,9 @@ function Marketplace() {
                       navigate('/characters');
                     }
                   }}
-                  className="w-full rounded-none font-cinzel font-bold bg-[#c5a059] text-[#0a0a0d] hover:bg-[#d4af37] uppercase tracking-wider cursor-pointer"
+                  className="w-full rounded-none font-sans font-bold bg-primary text-recess hover:bg-primary cursor-pointer"
                 >
-                  Track in Watchlist
+                  View characters
                 </Button>
               </CardFooter>
             </Card>
@@ -1310,20 +1244,20 @@ function Marketplace() {
       </div>
 
       {/* Pagination Controls */}
-      <div className="mt-auto pt-6 border-t border-[#2a2c33] flex items-center justify-center">
+      <div className="mt-auto pt-6 border-t border-border flex items-center justify-center">
         <Pagination>
           <PaginationContent className="gap-1">
             <PaginationItem>
               <PaginationPrevious
                 onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                className={`rounded-none border border-[#2a2c33] bg-[#121218] text-[#e0d8c3] ${
-                  currentPage === 1 ? "pointer-events-none opacity-40" : "cursor-pointer hover:border-[#c5a059]/60"
+                className={`rounded-none border border-border bg-card text-foreground ${
+                  currentPage === 1 ? "pointer-events-none opacity-40" : "cursor-pointer hover:border-primary/60"
                 }`}
               />
             </PaginationItem>
 
             <PaginationItem>
-              <PaginationLink className="rounded-none border border-[#c5a059] bg-[#c5a059]/10 text-[#d4af37] font-bold font-mono">
+              <PaginationLink isActive aria-label={`Page ${currentPage}`} className="rounded-none border border-primary bg-secondary text-primary font-bold tabular-nums">
                 {currentPage}
               </PaginationLink>
             </PaginationItem>
@@ -1331,14 +1265,15 @@ function Marketplace() {
             <PaginationItem>
               <PaginationNext
                 onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                className={`rounded-none border border-[#2a2c33] bg-[#121218] text-[#e0d8c3] ${
-                  currentPage >= totalPages ? "pointer-events-none opacity-40" : "cursor-pointer hover:border-[#c5a059]/60"
+                className={`rounded-none border border-border bg-card text-foreground ${
+                  currentPage >= totalPages ? "pointer-events-none opacity-40" : "cursor-pointer hover:border-primary/60"
                 }`}
               />
             </PaginationItem>
           </PaginationContent>
         </Pagination>
       </div>
+        </div>
       </main>
     </div>
   );

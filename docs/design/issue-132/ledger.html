@@ -1,0 +1,455 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light" />
+    <title>Guild Ledger — Tamriel Trade Hub design review</title>
+    <link rel="stylesheet" href="ledger.css" />
+  </head>
+  <body data-concept="Guild Ledger">
+    <a class="skip-link" href="#main-content">Skip to content</a>
+    <aside class="review-bar" aria-label="Design review controls">
+      <span
+        ><span class="review-mark">A</span> Guild Ledger
+        <span class="review-stage"
+          >· Visual direction, not the live app</span
+        ></span
+      >
+      <nav aria-label="Reference screens">
+        <button type="button" data-go="home">Home</button>
+        <button type="button" data-go="marketplace">Marketplace</button>
+        <button type="button" data-go="characters">Characters</button>
+      </nav>
+      <a href="index.html"
+        >Compare directions <span aria-hidden="true">↗</span></a
+      >
+      <label class="review-state"
+        >Listing state
+        <select data-state>
+          <option value="populated">Populated</option>
+          <option value="loading">Loading</option>
+          <option value="empty">Empty</option>
+          <option value="error">Error</option>
+        </select></label
+      >
+    </aside>
+
+    <header class="site-header">
+      <div class="header-inner">
+        <button
+          class="wordmark"
+          data-go="home"
+          aria-label="Tamriel Trade Hub home"
+        >
+          <span>Tamriel</span><span>Trade Hub</span>
+        </button>
+        <nav class="primary-nav" aria-label="Main navigation">
+          <button data-go="home" class="active">Home</button>
+          <button data-go="marketplace">Marketplace</button>
+          <button type="button" data-preview-only>
+            Requests <span aria-hidden="true">⌄</span>
+          </button>
+          <button type="button" data-preview-only>Builds</button>
+          <button data-go="characters">
+            Characters <span aria-hidden="true">⌄</span>
+          </button>
+        </nav>
+        <div class="header-tools">
+          <button
+            class="tool-button"
+            type="button"
+            aria-label="Settings"
+            data-preview-only
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="3.2" />
+              <path
+                d="m9 3-.7 2.2-2.1 1-2.1-.6-1.6 2.8L4 10.2v2.4l-1.5 1.8L4.1 17l2.1-.4 2.1 1L9 20h3l.8-2.4 2-1 2.1.4 1.6-2.6-1.4-1.8v-2.4l1.4-1.8L17 5.6l-2.2.6-2-1L12 3Z"
+              />
+            </svg>
+          </button>
+          <button
+            class="account-button"
+            type="button"
+            aria-label="Account menu"
+            data-preview-only
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="8" r="3.5" />
+              <path d="M5 21v-2a7 7 0 0 1 14 0v2" />
+            </svg>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <main id="main-content" tabindex="-1">
+      <section
+        data-screen="home"
+        class="screen home-screen"
+        aria-labelledby="home-title"
+      >
+        <div class="section-kicker">
+          <span>Elder Scrolls Online</span><span class="fine-rule"></span
+          ><span>Made for the journey</span>
+        </div>
+        <div class="home-intro">
+          <div class="intro-copy">
+            <h1 id="home-title">
+              The marketplace.<br /><em>Your next discovery.</em>
+            </h1>
+            <p>
+              Find items from guild traders across Tamriel.<br
+                class="desktop-break"
+              />
+              Keep your characters and their equipment close at hand.
+            </p>
+            <div class="intro-actions">
+              <button class="button-primary" data-go="marketplace">
+                Browse marketplace <span aria-hidden="true">↗</span></button
+              ><button class="text-link" data-go="characters">
+                Your characters <span aria-hidden="true">→</span>
+              </button>
+            </div>
+          </div>
+          <div class="trade-ornament" aria-hidden="true">
+            <svg viewBox="0 0 440 320" fill="none">
+              <path d="M6 269h427M71 19v282M367 19v282" class="diagram-rule" />
+              <circle cx="220" cy="163" r="120" class="diagram-circle" />
+              <circle cx="220" cy="163" r="107" class="diagram-rule" />
+              <path
+                d="M101 163h238M220 44v238M136 79l168 168M136 247 304 79"
+                class="diagram-rule"
+              />
+              <path
+                d="m220 64 25 74 76 25-76 25-25 75-25-75-75-25 75-25Z"
+                class="diagram-star"
+              />
+              <path
+                d="m220 105 14 44 45 14-45 14-14 44-14-44-45-14 45-14Z"
+                class="diagram-inner"
+              />
+              <circle cx="220" cy="163" r="8" class="diagram-center" />
+              <path
+                d="M191 20h58M191 304h58M7 140v46M433 140v46"
+                class="diagram-rule"
+              />
+              <path
+                d="m215 31 5-7 5 7m-10 264 5 7 5-7M90 158l-7 5 7 5m260-10 7 5-7 5"
+                class="diagram-star"
+              />
+            </svg>
+            <span class="ornament-caption">An eye for the uncommon.</span>
+          </div>
+        </div>
+
+        <section class="category-section" aria-labelledby="categories-title">
+          <div class="section-heading">
+            <div>
+              <span class="margin-index">01 / Browse</span>
+              <h2 id="categories-title">What are you looking for?</h2>
+            </div>
+            <span class="section-caption"
+              >Items for every part of your journey</span
+            >
+          </div>
+          <div class="category-directory" data-categories></div>
+        </section>
+
+        <section class="home-footnote" aria-label="About the marketplace">
+          <div>
+            <span class="note-number">i.</span>
+            <div>
+              <h3>Seen in Tamriel</h3>
+              <p>
+                Listings are observations shared by players using the ESOTrade
+                addon. Availability can change.
+              </p>
+            </div>
+          </div>
+          <div>
+            <span class="note-number">ii.</span>
+            <div>
+              <h3>More than the market</h3>
+              <p>
+                Keep track of your characters, equipment and trait research.
+              </p>
+              <button class="text-link" data-go="characters">
+                View characters <span aria-hidden="true">→</span>
+              </button>
+            </div>
+          </div>
+        </section>
+      </section>
+
+      <section
+        data-screen="marketplace"
+        class="screen market-screen"
+        aria-labelledby="market-title"
+        hidden
+      >
+        <div class="page-heading">
+          <div>
+            <span class="section-kicker"
+              >The trading ledger <span class="kicker-separator">/</span> PC ·
+              NA</span
+            >
+            <h1 id="market-title">Marketplace</h1>
+            <p>Find the right item. Know where to look.</p>
+          </div>
+          <div class="view-tabs" aria-label="Marketplace views">
+            <button class="selected" data-preview-only>Listings</button
+            ><button data-preview-only>Item catalog</button>
+          </div>
+        </div>
+        <div class="market-workspace">
+          <aside class="market-sidebar" aria-label="Saved searches">
+            <span class="margin-index">Your shortlist</span>
+            <h2>Saved searches</h2>
+            <p>Return to the searches you use most.</p>
+            <button
+              class="saved-search selected"
+              type="button"
+              data-saved-search="tide"
+            >
+              <span>tide</span><span aria-hidden="true">↗</span>
+            </button>
+            <label class="field-label" for="saved-name">Search name</label
+            ><input
+              id="saved-name"
+              placeholder="Name this search"
+              autocomplete="off"
+            />
+            <button type="button" class="button-outline" data-preview-only>
+              Save search <span aria-hidden="true">+</span>
+            </button>
+            <div class="sidebar-note">
+              <span class="note-number">A note on listings</span>
+              <p>
+                Prices and availability reflect the last observation, not a
+                reserved offer.
+              </p>
+            </div>
+          </aside>
+          <div class="market-main">
+            <form class="search-toolbar" role="search" onsubmit="return false">
+              <label class="search-field"
+                ><span class="sr-only">Search items</span
+                ><svg viewBox="0 0 24 24" aria-hidden="true">
+                  <circle cx="10.5" cy="10.5" r="6.5" />
+                  <path d="m16 16 5 5" /></svg
+                ><input
+                  type="search"
+                  data-search
+                  placeholder="Search items by name"
+                  autocomplete="off"
+              /></label>
+              <label class="category-field"
+                ><span class="sr-only">Category</span
+                ><select data-category>
+                  <option value="">All categories</option>
+                </select></label
+              >
+            </form>
+            <div class="filter-toolbar" aria-label="Listing filters">
+              <label
+                >Trading hub<select data-hub>
+                  <option>All trading hubs</option>
+                </select></label
+              >
+              <label
+                >Quality<select data-quality>
+                  <option>Any quality</option>
+                </select></label
+              >
+              <label
+                >Last seen<select data-last-seen>
+                  <option>Any time</option>
+                </select></label
+              >
+              <label
+                >Subcategory<select data-preview-only>
+                  <option>All subcategories</option>
+                </select></label
+              >
+              <label
+                >Trait<select data-preview-only>
+                  <option>All traits</option>
+                </select></label
+              >
+              <label
+                >Popular trades<select data-preview-only>
+                  <option>All trades</option>
+                </select></label
+              >
+            </div>
+            <div class="market-options">
+              <label
+                ><input type="checkbox" data-preview-only /> Deals only</label
+              ><button type="button" class="text-link" data-clear>
+                Clear filters
+              </button>
+            </div>
+            <p class="result-note">
+              Review only: search and category filter the reference sample.
+              Other controls show appearance without changing data.
+            </p>
+            <div class="results-meta">
+              <span
+                ><strong data-count>—</strong> matching listings
+                <span class="reference-label">Reference sample</span></span
+              ><label
+                >Sort by
+                <select data-preview-only>
+                  <option value="name">Item name</option>
+                  <option value="price">Unit price</option>
+                </select></label
+              >
+            </div>
+            <div class="listing-ledger">
+              <div class="listing-columns" aria-hidden="true">
+                <span>Item</span><span>Unit price</span><span>Stacks</span
+                ><span>Trader</span><span>Last seen</span>
+              </div>
+              <div data-listings></div>
+            </div>
+            <p class="result-note">
+              Select a listing to see its details. Reference observations are
+              not current inventory.
+            </p>
+            <div class="pagination">
+              <button type="button" disabled>← Previous</button
+              ><span>Page 1</span><button type="button" disabled>Next →</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section
+        data-screen="characters"
+        class="screen character-screen"
+        aria-labelledby="characters-title"
+        hidden
+      >
+        <div class="page-heading">
+          <div>
+            <span class="section-kicker">Your adventures, together</span>
+            <h1 id="characters-title">Characters</h1>
+            <p>Your roster, equipment and research.</p>
+          </div>
+          <button class="button-primary" type="button" data-preview-only>
+            Add character <span aria-hidden="true">+</span>
+          </button>
+        </div>
+        <div class="character-workspace">
+          <aside class="character-sidebar" aria-label="Character roster">
+            <div class="roster-heading">
+              <h2>Your roster</h2>
+              <span class="reference-label">Reference profile</span>
+            </div>
+            <button
+              class="character-entry selected"
+              type="button"
+              data-preview-only
+            >
+              <span class="character-initial" aria-hidden="true">S</span
+              ><span
+                ><strong data-character-name>Character</strong
+                ><small data-character-class>Class</small></span
+              ><span class="entry-arrow" aria-hidden="true">→</span>
+            </button>
+            <p class="character-roster-note">
+              A saved character profile, shown for design review.
+            </p>
+            <div class="sidebar-note">
+              <span class="note-number">Part of your toolkit</span
+              ><button class="text-link" type="button" data-preview-only>
+                Trait research <span aria-hidden="true">↗</span>
+              </button>
+            </div>
+          </aside>
+          <article class="character-profile" aria-labelledby="character-name">
+            <header class="profile-header">
+              <div>
+                <span class="margin-index">Character record</span>
+                <h2 id="character-name" data-character-name>Character</h2>
+                <div class="profile-facts">
+                  <span data-character-class>Class</span
+                  ><span data-character-level>Level</span
+                  ><span data-character-alliance>Alliance</span>
+                </div>
+              </div>
+              <div class="profile-seal" aria-hidden="true">
+                <svg viewBox="0 0 80 100">
+                  <path
+                    d="M40 5 70 17v33c0 18-13 34-30 44C23 84 10 68 10 50V17Z"
+                  />
+                  <path
+                    d="M40 17 60 25v24c0 13-8 25-20 34-12-9-20-21-20-34V25Z"
+                  />
+                  <path d="M40 29v37M28 40l12-11 12 11M28 56l12 10 12-10" />
+                </svg>
+              </div>
+            </header>
+            <div class="profile-section-heading">
+              <div>
+                <span class="margin-index">Equipped items</span>
+                <h3>Equipment</h3>
+              </div>
+              <div class="weapon-tabs" aria-label="Weapon bar">
+                <button
+                  class="active"
+                  type="button"
+                  aria-pressed="true"
+                  data-bar="front"
+                >
+                  Front bar</button
+                ><button type="button" aria-pressed="false" data-bar="back">
+                  Back bar
+                </button>
+              </div>
+            </div>
+            <div class="equipment-ledger">
+              <div class="gear-columns" aria-hidden="true">
+                <span>Slot</span><span>Item · quality · trait · set</span>
+              </div>
+              <div data-gear></div>
+            </div>
+            <footer class="profile-footer">
+              <span>Equipment from the saved character profile.</span
+              ><span class="reference-label">Read-only reference</span>
+            </footer>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <span>Tamriel Trade Hub</span
+      ><span>For the paths you take. And the things you find.</span
+      ><a href="index.html">Design review · Issue #132</a>
+    </footer>
+
+    <dialog id="item-detail" aria-labelledby="detail-title">
+      <div class="dialog-top">
+        <span class="margin-index">Listing details</span
+        ><button
+          type="button"
+          class="dialog-close"
+          data-close
+          aria-label="Close listing details"
+        >
+          ×
+        </button>
+      </div>
+      <div data-detail-content></div>
+      <p class="detail-note">
+        A player-observed listing. Availability may have changed.
+      </p>
+    </dialog>
+    <div class="preview-notice" data-notice role="status" hidden></div>
+    <script src="fixtures.js"></script>
+    <script src="preview.js"></script>
+  </body>
+</html>

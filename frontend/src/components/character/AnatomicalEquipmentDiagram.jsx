@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from "react";
-import { Shield, Sparkles, Zap, Award, Info, Sword } from "lucide-react";
+import React, { useState, useEffect, useId, useRef } from "react";
+import { Shield, Sparkles, Zap, Info, Sword } from "lucide-react";
 import { renderEsoFormattedText, cleanEsoText, getEsoIconUrl } from "@/lib/utils";
+import '../../styles/characters.css';
 
 const SLOT_DEFINITIONS = [
   // Left Column (Armor)
@@ -29,7 +30,7 @@ const QUALITY_COLORS = {
   2: { label: "Fine", border: "border-green-500", text: "text-green-400", bg: "bg-green-950/60" },
   3: { label: "Superior", border: "border-blue-500", text: "text-blue-400", bg: "bg-blue-950/60" },
   4: { label: "Epic", border: "border-purple-500", text: "text-purple-400", bg: "bg-purple-950/60" },
-  5: { label: "Legendary", border: "border-[#c5a059]", text: "text-[#d4af37]", bg: "bg-amber-950/60" },
+  5: { label: "Legendary", border: "border-[#e6c15a]", text: "text-[#e6c15a]", bg: "bg-amber-950/60" },
 };
 
 const getQualityTheme = (qualityVal, item = null) => {
@@ -204,33 +205,41 @@ function SlotItemIcon({ icon, itemName, iconType = "armor", className = "size-fu
   }
 
   if (iconType === "weapon") {
-    return <Sword className="size-4 text-[#c5a059]" />;
+    return <Sword className="size-4 text-[#e6c15a]" />;
   }
   if (iconType === "jewelry") {
-    return <Sparkles className="size-4 text-[#c5a059]" />;
+    return <Sparkles className="size-4 text-[#e6c15a]" />;
   }
-  return <Shield className="size-4 text-[#8a8275]" />;
+  return <Shield className="size-4 text-[#afa797]" />;
 }
 
 export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front" }) {
   const [hoveredSlot, setHoveredSlot] = useState(null);
+  const [inspectedSlot, setInspectedSlot] = useState(null);
+  const inspectorId = useId();
+  const inspectorRef = useRef(null);
+  const inspectSlot = (slotId) => {
+    setInspectedSlot(slotId);
+    requestAnimationFrame(() => inspectorRef.current?.scrollIntoView?.({ block: "nearest" }));
+  };
 
   const leftSlots = SLOT_DEFINITIONS.filter((s) => s.side === "left");
   const rightSlots = SLOT_DEFINITIONS.filter((s) => s.side === "right");
 
-  const activeHoveredSlotDef = hoveredSlot !== null ? SLOT_DEFINITIONS.find((s) => s.slotId === hoveredSlot) : null;
+  const activeSlotId = hoveredSlot ?? inspectedSlot;
+  const activeHoveredSlotDef = activeSlotId !== null ? SLOT_DEFINITIONS.find((s) => s.slotId === activeSlotId) : null;
   const activeHoveredItem = activeHoveredSlotDef ? getGearItemForSlot(gearBySlot, activeHoveredSlotDef) : null;
 
   return (
-    <div className="relative w-full bg-[#0a0a0d] border-2 border-[#2a2c33] p-4 flex flex-col items-center select-none shadow-2xl">
-      <div className="font-cinzel text-xs font-bold text-[#c5a059] uppercase tracking-wider mb-2 flex items-center gap-2">
-        <Shield className="size-4 text-[#c5a059]" />
-        <span>Anatomical Equipment Loadout Diagram</span>
+    <div className="equipment-loadout relative w-full bg-[#111214] border border-[#403c33] p-4 flex flex-col items-center">
+      <div className="font-cinzel text-xs font-bold text-[#e6c15a] uppercase tracking-wider mb-2 flex items-center gap-2">
+        <Shield className="size-4 text-[#e6c15a]" />
+        <span>Equipment</span>
       </div>
 
-      <div className="relative w-full grid grid-cols-1 md:grid-cols-7 gap-3 items-center min-h-[520px]">
+      <div className="equipment-layout relative w-full">
         {/* Left Column: Armor Slots */}
-        <div className="md:col-span-2 space-y-3">
+        <div className="equipment-column">
           {leftSlots.map((slot) => {
             const item = getGearItemForSlot(gearBySlot, slot);
             const quality = getQualityTheme(item?.quality, item);
@@ -239,16 +248,22 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
             const levelDisplay = getItemLevelDisplay(item);
 
             return (
-              <div
+              <button
                 key={slot.slotId}
+                type="button"
+                aria-label={`Inspect ${slot.name}: ${item ? cleanEsoText(item.item_name) : "Empty slot"}`}
+                aria-controls={inspectorId}
                 onMouseEnter={() => setHoveredSlot(slot.slotId)}
                 onMouseLeave={() => setHoveredSlot(null)}
-                className={`p-2 bg-[#121218] border transition-colors cursor-pointer flex items-center justify-between gap-2 rounded-none ${
-                  isHovered ? "border-[#c5a059] bg-[#c5a059]/15 shadow-md" : item ? `${quality.border} hover:border-[#c5a059]/60` : "border-[#2a2c33] opacity-60"
+                onFocus={() => setHoveredSlot(slot.slotId)}
+                onBlur={() => setHoveredSlot(null)}
+                onClick={() => inspectSlot(slot.slotId)}
+                className={`equipment-slot p-2 bg-[#19191b] border transition-colors cursor-pointer flex items-center justify-between gap-2 rounded-none ${
+                  isHovered ? "border-[#e6c15a] bg-[#e6c15a]/15 shadow-md" : item ? `${quality.border} hover:border-[#e6c15a]/60` : "border-[#403c33] opacity-60"
                 }`}
               >
                 <div className="flex items-center gap-2 overflow-hidden min-w-0">
-                  <div className={`size-8 shrink-0 border ${item ? quality.border : "border-[#2a2c33]"} bg-[#0a0a0d] flex items-center justify-center p-0.5 relative`}>
+                  <div className={`size-8 shrink-0 border ${item ? quality.border : "border-[#403c33]"} bg-[#111214] flex items-center justify-center p-0.5 relative`}>
                     <SlotItemIcon
                       icon={item?.item_icon}
                       itemName={item?.item_name}
@@ -257,18 +272,18 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
                   </div>
                   <div className="truncate min-w-0">
                     <div className="flex items-center gap-1.5 leading-none">
-                      <span className="text-[10px] uppercase font-cinzel text-[#8a8275]">{slot.name}</span>
+                      <span className="text-xs uppercase font-cinzel text-[#afa797]">{slot.name}</span>
                       {item && (
-                        <span className={`text-[9px] font-bold uppercase ${quality.text}`}>
+                        <span className={`text-xs font-bold uppercase ${quality.text}`}>
                           [{quality.label}]
                         </span>
                       )}
                     </div>
-                    <span className={`text-xs font-semibold truncate block ${item ? quality.text : "text-[#8a8275]"}`}>
+                    <span className={`text-xs font-semibold truncate block ${item ? quality.text : "text-[#afa797]"}`}>
                       {item ? cleanEsoText(item.item_name) : "Empty Slot"}
                     </span>
                     {item && traitName && (
-                      <span className="text-[10px] text-[#93c5fd] font-sans truncate block leading-tight">
+                      <span className="text-xs text-[#93c5fd] font-sans truncate block leading-tight">
                         Trait: {traitName}
                       </span>
                     )}
@@ -277,36 +292,36 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
 
                 <div className="flex flex-col items-end gap-1 shrink-0">
                   {item && (
-                    <span className="text-[9px] px-1 py-0.5 border border-[#2a2c33] bg-[#0a0a0d] text-[#e0d8c3] font-mono">
+                    <span className="text-xs px-1 py-0.5 border border-[#403c33] bg-[#111214] text-[#efe5cf] font-mono">
                       {levelDisplay}
                     </span>
                   )}
                   {item?.set_name && (
-                    <span className="text-[9px] px-1 py-0.5 border border-[#c5a059]/40 bg-[#c5a059]/10 text-[#d4af37] font-mono">
+                    <span className="text-xs px-1 py-0.5 border border-[#e6c15a]/40 bg-[#e6c15a]/10 text-[#e6c15a] font-mono">
                       Set
                     </span>
                   )}
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
 
         {/* Center Column: SVG Anatomical Human Silhouette */}
-        <div className="md:col-span-3 relative flex flex-col items-center justify-center min-h-[460px]">
+        <div className="equipment-silhouette" aria-hidden="true">
           {/* Anatomical Human Body Silhouette */}
-          <svg className="w-64 h-[420px] text-[#2a2c33] drop-shadow-lg" viewBox="0 0 200 400" fill="none" stroke="currentColor">
+          <svg className="w-64 h-[420px] text-[#403c33] drop-shadow-lg" viewBox="0 0 200 400" fill="none" stroke="currentColor">
             {/* Head */}
-            <circle cx="100" cy="45" r="22" strokeWidth="2" fill="#121218" />
+            <circle cx="100" cy="45" r="22" strokeWidth="2" fill="#19191b" />
             {/* Neck & Shoulders */}
-            <path d="M 88,67 L 112,67 L 145,90 L 55,90 Z" strokeWidth="2" fill="#121218" />
+            <path d="M 88,67 L 112,67 L 145,90 L 55,90 Z" strokeWidth="2" fill="#19191b" />
             {/* Chest & Torso */}
-            <path d="M 55,90 L 145,90 L 135,210 L 65,210 Z" strokeWidth="2" fill="#121218" />
+            <path d="M 55,90 L 145,90 L 135,210 L 65,210 Z" strokeWidth="2" fill="#19191b" />
             {/* Arms */}
-            <path d="M 55,90 L 35,200 L 48,205 L 65,115 Z" strokeWidth="2" fill="#121218" />
-            <path d="M 145,90 L 165,200 L 152,205 L 135,115 Z" strokeWidth="2" fill="#121218" />
+            <path d="M 55,90 L 35,200 L 48,205 L 65,115 Z" strokeWidth="2" fill="#19191b" />
+            <path d="M 145,90 L 165,200 L 152,205 L 135,115 Z" strokeWidth="2" fill="#19191b" />
             {/* Legs */}
-            <path d="M 65,210 L 135,210 L 125,370 L 105,370 L 100,240 L 95,240 L 75,370 L 55,370 Z" strokeWidth="2" fill="#121218" />
+            <path d="M 65,210 L 135,210 L 125,370 L 105,370 L 100,240 L 95,240 L 75,370 L 55,370 Z" strokeWidth="2" fill="#19191b" />
           </svg>
 
           {/* SVG Dynamic Glowing Pointer Connector Lines */}
@@ -322,7 +337,7 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
                   y1={slot.anchorY}
                   x2={slot.lineTarget.x}
                   y2={slot.lineTarget.y}
-                  stroke={isHovered ? "#c5a059" : hasItem ? "#c5a059" : "#4a4d5a"}
+                  stroke={isHovered ? "#e6c15a" : hasItem ? "#e6c15a" : "#4a4d5a"}
                   strokeOpacity={isHovered ? 1 : hasItem ? 0.45 : 0.2}
                   strokeWidth={isHovered ? 2.5 : 1.5}
                   strokeDasharray={isHovered ? "none" : "3,3"}
@@ -342,7 +357,7 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
                   y1={slot.anchorY}
                   x2={slot.lineTarget.x}
                   y2={slot.lineTarget.y}
-                  stroke={isHovered ? "#c5a059" : hasItem ? "#c5a059" : "#4a4d5a"}
+                  stroke={isHovered ? "#e6c15a" : hasItem ? "#e6c15a" : "#4a4d5a"}
                   strokeOpacity={isHovered ? 1 : hasItem ? 0.45 : 0.2}
                   strokeWidth={isHovered ? 2.5 : 1.5}
                   strokeDasharray={isHovered ? "none" : "3,3"}
@@ -354,7 +369,7 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
         </div>
 
         {/* Right Column: Jewelry & Weapons Slots */}
-        <div className="md:col-span-2 space-y-3">
+        <div className="equipment-column">
           {rightSlots.map((slot) => {
             const item = getGearItemForSlot(gearBySlot, slot);
             const quality = getQualityTheme(item?.quality, item);
@@ -364,22 +379,28 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
             const levelDisplay = getItemLevelDisplay(item);
 
             return (
-              <div
+              <button
                 key={slot.slotId}
+                type="button"
+                aria-label={`Inspect ${slot.name}: ${item ? cleanEsoText(item.item_name) : "Empty slot"}${isWeaponBarActive ? ", active bar" : ""}`}
+                aria-controls={inspectorId}
                 onMouseEnter={() => setHoveredSlot(slot.slotId)}
                 onMouseLeave={() => setHoveredSlot(null)}
-                className={`p-2 bg-[#121218] border transition-colors cursor-pointer flex items-center justify-between gap-2 rounded-none ${
+                onFocus={() => setHoveredSlot(slot.slotId)}
+                onBlur={() => setHoveredSlot(null)}
+                onClick={() => inspectSlot(slot.slotId)}
+                className={`equipment-slot p-2 bg-[#19191b] border transition-colors cursor-pointer flex items-center justify-between gap-2 rounded-none ${
                   isHovered
-                    ? "border-[#c5a059] bg-[#c5a059]/15 shadow-md"
+                    ? "border-[#e6c15a] bg-[#e6c15a]/15 shadow-md"
                     : isWeaponBarActive
-                    ? `${quality.border} bg-[#c5a059]/5 border-l-4`
+                    ? `${quality.border} bg-[#e6c15a]/5 border-l-4`
                     : item
-                    ? `${quality.border} hover:border-[#c5a059]/60`
-                    : "border-[#2a2c33] opacity-60"
+                    ? `${quality.border} hover:border-[#e6c15a]/60`
+                    : "border-[#403c33] opacity-60"
                 }`}
               >
                 <div className="flex items-center gap-2 overflow-hidden min-w-0">
-                  <div className={`size-8 shrink-0 border ${item ? quality.border : "border-[#2a2c33]"} bg-[#0a0a0d] flex items-center justify-center p-0.5`}>
+                  <div className={`size-8 shrink-0 border ${item ? quality.border : "border-[#403c33]"} bg-[#111214] flex items-center justify-center p-0.5`}>
                     <SlotItemIcon
                       icon={item?.item_icon}
                       itemName={item?.item_name}
@@ -388,18 +409,18 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
                   </div>
                   <div className="truncate min-w-0">
                     <div className="flex items-center gap-1.5 leading-none">
-                      <span className="text-[10px] uppercase font-cinzel text-[#8a8275]">{slot.name}</span>
+                      <span className="text-xs uppercase font-cinzel text-[#afa797]">{slot.name}</span>
                       {item && (
-                        <span className={`text-[9px] font-bold uppercase ${quality.text}`}>
+                        <span className={`text-xs font-bold uppercase ${quality.text}`}>
                           [{quality.label}]
                         </span>
                       )}
                     </div>
-                    <span className={`text-xs font-semibold truncate block ${item ? quality.text : "text-[#8a8275]"}`}>
+                    <span className={`text-xs font-semibold truncate block ${item ? quality.text : "text-[#afa797]"}`}>
                       {item ? cleanEsoText(item.item_name) : "Empty Slot"}
                     </span>
                     {item && traitName && (
-                      <span className="text-[10px] text-[#93c5fd] font-sans truncate block leading-tight">
+                      <span className="text-xs text-[#93c5fd] font-sans truncate block leading-tight">
                         Trait: {traitName}
                       </span>
                     )}
@@ -408,78 +429,78 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
 
                 <div className="flex flex-col items-end gap-1 shrink-0">
                   {item && (
-                    <span className="text-[9px] px-1 py-0.5 border border-[#2a2c33] bg-[#0a0a0d] text-[#e0d8c3] font-mono">
+                    <span className="text-xs px-1 py-0.5 border border-[#403c33] bg-[#111214] text-[#efe5cf] font-mono">
                       {levelDisplay}
                     </span>
                   )}
                   {item?.set_name && (
-                    <span className="text-[9px] px-1 py-0.5 border border-[#c5a059]/40 bg-[#c5a059]/10 text-[#d4af37] font-mono">
+                    <span className="text-xs px-1 py-0.5 border border-[#e6c15a]/40 bg-[#e6c15a]/10 text-[#e6c15a] font-mono">
                       Set
                     </span>
                   )}
                 </div>
-              </div>
+              </button>
             );
           })}
         </div>
       </div>
 
       {/* Reserved Fixed-Height Equipment Details Inspector Panel */}
-      <div className="mt-4 w-full min-h-[140px] p-3.5 bg-[#161620] border-2 border-[#c5a059]/60 shadow-2xl text-xs flex flex-col justify-between">
+      <div id={inspectorId} ref={inspectorRef} aria-live="polite" className="equipment-inspector mt-4 w-full min-h-[140px] p-4 bg-[#202022] border border-[#e6c15a]/40 text-sm flex flex-col justify-between">
         {activeHoveredItem ? (
           <div className="space-y-2 animate-in fade-in duration-150">
-            <div className="flex items-center justify-between border-b border-[#2a2c33] pb-1.5">
+            <div className="flex items-center justify-between border-b border-[#403c33] pb-1.5">
               <div className="flex items-center gap-2">
-                <div className="size-6 border border-[#c5a059]/40 bg-[#0a0a0d] p-0.5 flex items-center justify-center">
+                <div className="size-6 border border-[#e6c15a]/40 bg-[#111214] p-0.5 flex items-center justify-center">
                   <SlotItemIcon
                     icon={activeHoveredItem.item_icon}
                     itemName={activeHoveredItem.item_name}
                     iconType={activeHoveredSlotDef?.iconType || "armor"}
                   />
                 </div>
-                <span className="font-cinzel font-bold text-sm text-[#e0d8c3]">{cleanEsoText(activeHoveredItem.item_name)}</span>
+                <span className="font-cinzel font-bold text-sm text-[#efe5cf]">{cleanEsoText(activeHoveredItem.item_name)}</span>
               </div>
-              <span className={`text-[10px] font-bold uppercase px-1.5 py-0.5 border ${getQualityTheme(activeHoveredItem.quality, activeHoveredItem).border} ${getQualityTheme(activeHoveredItem.quality, activeHoveredItem).text}`}>
+              <span className={`text-xs font-bold uppercase px-1.5 py-0.5 border ${getQualityTheme(activeHoveredItem.quality, activeHoveredItem).border} ${getQualityTheme(activeHoveredItem.quality, activeHoveredItem).text}`}>
                 {getQualityTheme(activeHoveredItem.quality, activeHoveredItem).label}
               </span>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
               {activeHoveredItem.armor_rating > 0 && (
-                <div className="text-[#8a8275]">
-                  <span className="text-[#e0d8c3] font-semibold">Armor Rating:</span> {activeHoveredItem.armor_rating.toLocaleString()}
+                <div className="text-[#afa797]">
+                  <span className="text-[#efe5cf] font-semibold">Armor Rating:</span> {activeHoveredItem.armor_rating.toLocaleString()}
                 </div>
               )}
               {activeHoveredItem.weapon_power > 0 && (
-                <div className="text-[#8a8275]">
-                  <span className="text-[#e0d8c3] font-semibold">Weapon Power:</span> {activeHoveredItem.weapon_power.toLocaleString()}
+                <div className="text-[#afa797]">
+                  <span className="text-[#efe5cf] font-semibold">Weapon Power:</span> {activeHoveredItem.weapon_power.toLocaleString()}
                 </div>
               )}
               {activeHoveredItem.set_name && (
-                <div className="text-[#d4af37] font-cinzel font-semibold col-span-2">
+                <div className="text-[#e6c15a] font-cinzel font-semibold col-span-2">
                   Set: {cleanEsoText(activeHoveredItem.set_name)}
                 </div>
               )}
               {getTraitDisplayName(activeHoveredItem) && (
-                <div className="text-[#e0d8c3] col-span-2 sm:col-span-1 bg-[#0a0a0d]/60 p-2 border border-[#2a2c33]">
-                  <span className="font-semibold text-[#60a5fa] block text-[10px] uppercase mb-0.5 flex items-center justify-between">
+                <div className="text-[#efe5cf] col-span-2 sm:col-span-1 bg-[#111214]/60 p-2 border border-[#403c33]">
+                  <span className="font-semibold text-[#60a5fa] block text-xs uppercase mb-0.5 flex items-center justify-between">
                     <span>Item Trait: {getTraitDisplayName(activeHoveredItem)}</span>
                     <Sparkles className="size-3 text-[#60a5fa]" />
                   </span>
                   {getTraitDescription(activeHoveredItem) ? (
-                    <div className="text-[11px] text-[#93c5fd] leading-snug">{renderEsoFormattedText(getTraitDescription(activeHoveredItem))}</div>
+                    <div className="text-xs text-[#93c5fd] leading-snug">{renderEsoFormattedText(getTraitDescription(activeHoveredItem))}</div>
                   ) : (
-                    <p className="text-[11px] text-[#8a8275] italic">Active {getTraitDisplayName(activeHoveredItem)} trait bonus applied.</p>
+                    <p className="text-xs text-[#afa797] italic">Active {getTraitDisplayName(activeHoveredItem)} trait bonus applied.</p>
                   )}
                 </div>
               )}
               {activeHoveredItem.enchantment_description && (
-                <div className="text-[#e0d8c3] col-span-2 sm:col-span-1 bg-[#0a0a0d]/60 p-2 border border-[#2a2c33]">
-                  <span className="font-semibold text-[#c5a059] block text-[10px] uppercase mb-0.5 flex items-center justify-between">
+                <div className="text-[#efe5cf] col-span-2 sm:col-span-1 bg-[#111214]/60 p-2 border border-[#403c33]">
+                  <span className="font-semibold text-[#e6c15a] block text-xs uppercase mb-0.5 flex items-center justify-between">
                     <span>Enchantment Glyph</span>
-                    <Zap className="size-3 text-[#c5a059]" />
+                    <Zap className="size-3 text-[#e6c15a]" />
                   </span>
-                  <div className="text-[11px] text-[#e0d8c3] leading-snug">
+                  <div className="text-xs text-[#efe5cf] leading-snug">
                     {renderEsoFormattedText(activeHoveredItem.enchantment_description)}
                   </div>
                 </div>
@@ -487,11 +508,11 @@ export function AnatomicalEquipmentDiagram({ gearBySlot = {}, activeBar = "front
             </div>
           </div>
         ) : (
-          <div className="h-full flex flex-col items-center justify-center text-center p-4 text-[#8a8275] space-y-1">
-            <Info className="size-5 text-[#c5a059]/70 mb-1" />
-            <span className="font-cinzel text-xs font-semibold text-[#e0d8c3] uppercase tracking-wider">Item Inspector</span>
-            <p className="text-[11px] text-[#8a8275] max-w-md">
-              Hover over any equipment slot in the diagram above to inspect full item stats, glyph enchantments, traits, and armor ratings.
+          <div className="h-full flex flex-col items-center justify-center text-center p-4 text-[#afa797] space-y-1">
+            <Info className="size-5 text-[#e6c15a]/70 mb-1" />
+            <span className="font-cinzel text-xs font-semibold text-[#efe5cf] uppercase tracking-wider">Item Inspector</span>
+            <p className="text-xs text-[#afa797] max-w-md">
+              Hover, focus, or select an equipment slot to view its stats, enchantment, and trait.
             </p>
           </div>
         )}
