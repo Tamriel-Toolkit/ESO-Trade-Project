@@ -1,12 +1,12 @@
-# Issue #132 — Visual direction review
+# Issue #132 — Approved visual direction and implementation
 
-Phase 1 of [#132](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/132): three visual directions for Tamriel Trade Hub, using the same historical reference data across Home, Marketplace, and Characters. These are isolated, interactive composition samples—not a completed application restyle.
+This directory records the visual-direction phase of [#132](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/132) and its integrated delivery. The A/B/C harness remains an isolated, historical composition sample. Its earlier Tamriel Trade Hub branding is retained as a review record, not the current product name.
 
-**Owner approval is required before broad implementation.** C is the latest direction; A/B remain available for comparison. Record the selected direction or an explicitly defined combination in #132 after desktop/mobile review. The concept PR does not close #132. Its remaining application-wide acceptance criteria and rollout work stay open.
+**C — Gilded Exchange was approved on 6 September 2026**, with explicit authorization for the **full restyle plus rename to ESO Marketplace**. The integrated app is now implemented in the same draft PR #133. See the [implementation report and current screenshots](IMPLEMENTATION.md) and [shared design system](../../DESIGN_SYSTEM.md). Final owner acceptance remains pending; #132 remains open.
 
 ## Latest direction: C — Gilded Exchange
 
-Owner feedback on A/B was that they felt too generic and insufficiently like a fantasy marketplace. The requested correction was to preserve the current app's darker, golden-yellow ESO identity and its icons. C responds to that feedback; it is not yet an approved direction. “Gilded Exchange” is a review label, not a new product name.
+Owner feedback on A/B was that they felt too generic and insufficiently like a fantasy marketplace. The requested correction was to preserve the app's darker, golden-yellow ESO identity and its icons. C is the approved response. “Gilded Exchange” names the design direction; **ESO Marketplace** is the product name.
 
 - **Palette:** charcoal canvas `#111214`, deeper recesses `#0b0c0e`, stone-like surfaces `#19191b` / `#202022`, parchment text `#efe5cf`, readable muted text `#afa797`, and golden-yellow `#e6c15a`. Gold signals identity, selection, and price rather than coloring every sentence.
 - **Typography:** the app's existing Cinzel family for the wordmark and restrained fantasy headings; sans-serif item names, labels, controls, and numerals for quick reading. Cinzel is self-hosted in this preview, with no browser font-service requests.
@@ -16,7 +16,7 @@ Owner feedback on A/B was that they felt too generic and insufficiently like a f
 - **Characters:** the current Necromancer class icon and Ebonheart crest, a clear selected-character identity, and original equipment icons alongside readable gear names. Both weapon bars remain inspectable.
 - **Interaction:** short gold/surface/focus feedback and native controls; no looping effects or new gestures. This remains a read-only concept with the same limitations as A/B.
 
-The reusable signature is **charcoal-and-gold metalwork, recognizable ESO item art, Cinzel identity, and aligned trading information**. Extend it to Requests and My Orders with stable specification/price/action groups; Builds with readable equipment and set lists; forms with one quiet dark surface and persistent labels; and the trait matrix with clear row/column labels and textual state indicators. Keep intricate framing in major composition boundaries, not around every field or badge. #104 will define production tokens after approval.
+The reusable signature is **charcoal-and-gold metalwork, recognizable ESO item art, Cinzel identity, and aligned trading information**. It now extends to Requests and My Orders with stable specification/price/action groups; Builds with readable equipment and set lists; forms with one quiet dark surface and persistent labels; and the trait matrix with clear row/column labels and textual state indicators. Keep intricate framing in major composition boundaries, not around every field or badge. Production tokens are documented in the shared design system linked above.
 
 | C sample    | Desktop                                                      | Mobile                                            |
 | ----------- | ------------------------------------------------------------ | ------------------------------------------------- |
@@ -96,7 +96,7 @@ The Tide-Born Feathers example deliberately preserves the distinction between **
 - The compass, contours, and character linework are code-native decorative illustrations. The abstract atlas is not a game map, route planner, or location feature; the figure is not a newly proposed equipment interaction.
 - No credentials, tokens, or private account-contact fields are included. Listing seller handles and character details are reference-record content.
 
-## Implementation contract after approval
+## Preserved implementation contract
 
 These are **composition samples**, not proposals for new routes, alternate navigation modes, feature removals, or new functionality. The comparison harness and its state selectors do not ship with the application. A composition's selected-character view is not permission to replace the existing character workflow; likewise a read-only catalog control is not permission to remove catalog access.
 
@@ -106,9 +106,9 @@ The approved direction becomes a shared specification through #104, then is appl
 
 ### Rollout completion checklist
 
-All remain unchecked in this concept phase:
+Direction approval is recorded below. The remaining boxes represent final acceptance of the integrated implementation, not missing implementation work. See the implementation report for delivered coverage and verification; do not automatically close linked issues from this checklist.
 
-- [ ] Owner approves a documented direction in #132.
+- [x] Owner approves a documented direction in #132: C, full restyle plus ESO Marketplace rename.
 - [ ] #104 — Shared visual/editorial foundations, tokens, and primitives.
 - [ ] #119 — Navigation, settings, and account surfaces.
 - [ ] #120 — Home.
@@ -128,7 +128,9 @@ All remain unchecked in this concept phase:
 
 The checklist describes delivery coverage, not new functionality or a replacement priority queue. GitHub tracking issue #35 remains authoritative for execution status and dependencies.
 
-## Verification record — 5–6 September 2026
+## Historical concept verification — 5–6 September 2026
+
+This section describes the isolated concept phase, when production files were still unmodified. Current application checks and limitations are recorded separately in [IMPLEMENTATION.md](IMPLEMENTATION.md).
 
 - `node --test docs/design/issue-132/preview.test.cjs`: **8 passed**. Includes eleven principal text/palette pairs at a minimum 4.5:1 contrast ratio, reference-price/quantity invariants, harness deep-link/message validation, exact icon mappings, and asset/behavior isolation checks. This is not a complete rendered contrast audit.
 - Headless system Chrome, isolated browser context: **54 screen/viewport checks passed** across three directions, all three screens, 360/390/768/1024/1440px widths, plus a short 720×450 effective viewport at 2× device scale. No page-level horizontal overflow or JavaScript errors were found in those runs.
@@ -145,7 +147,7 @@ Optional browser verification (requires Playwright and system Chrome, separate f
 node docs/design/issue-132/browser-check.cjs
 ```
 
-Owner feedback on A/B is recorded above; C awaits review. Limitations: no measured usability test, screen-reader audit, manual browser-menu 200% zoom check, other-browser certification, full production-state coverage, or final owner approval has occurred. The 2× effective-viewport check is not claimed as a manual browser zoom test. These remain part of the approved-direction implementation and final review; no umbrella acceptance checkbox is marked complete by this artifact.
+C direction approval supersedes the original pending-review gate. The historical concept checks did not establish measured usability, screen-reader conformance, manual browser-menu 200% zoom, other-browser certification, or production-state parity. The 2× effective-viewport check is not a manual browser zoom test. Final integrated owner acceptance is still required.
 
 ### Captures
 
