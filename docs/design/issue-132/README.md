@@ -2,7 +2,7 @@
 
 This directory records the visual-direction phase of [#132](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/132) and its integrated delivery. The A/B/C harness remains an isolated, historical composition sample. Its earlier Tamriel Trade Hub branding is retained as a review record, not the current product name.
 
-**C — Gilded Exchange was approved on 6 September 2026**, with explicit authorization for the **full restyle plus rename to ESO Marketplace**. The integrated app is now implemented in the same draft PR #133. See the [implementation report and current screenshots](IMPLEMENTATION.md) and [shared design system](../../DESIGN_SYSTEM.md). Final owner acceptance remains pending; #132 remains open.
+**C — Gilded Exchange was approved on 6 September 2026**, with explicit authorization for the **full restyle plus rename to ESO Marketplace**. On **15 September**, the owner authorized upgrading the running app to the constructed UI and requested removal of Item Catalog browsing. The implementation continues in the same draft PR #133. See the [latest follow-up and screenshots](FOLLOWUP.md), [initial implementation report](IMPLEMENTATION.md), and [shared design system](../../DESIGN_SYSTEM.md). Technical acceptance and related ticket review remain outstanding; #132 remains open.
 
 ## Latest direction: C — Gilded Exchange
 
@@ -100,6 +100,8 @@ The Tide-Born Feathers example deliberately preserves the distinction between **
 
 These are **composition samples**, not proposals for new routes, alternate navigation modes, feature removals, or new functionality. The comparison harness and its state selectors do not ship with the application. A composition's selected-character view is not permission to replace the existing character workflow; likewise a read-only catalog control is not permission to remove catalog access.
 
+The owner's subsequent explicit request to retire Item Catalog is the sole exception to this historical feature-preservation contract. Internal metadata and selection APIs remain; current behavior is documented in [FOLLOWUP.md](FOLLOWUP.md).
+
 Production implementation must retain all existing destinations, permission checks, actions, handlers, options, filtering and sorting semantics, saved-search behavior, pagination, calculations, data fields, and loading/empty/error states. Any abbreviated fixture or disabled demonstration control must be connected to its complete existing counterpart. Responsive styling must not make required information or actions unavailable. Copy can be shortened without making stronger claims about listing freshness or availability.
 
 The approved direction becomes a shared specification through #104, then is applied consistently across the existing page tickets. Keep #104's existing #80 dependency. **Do not make completion/closure of umbrella #132 a prerequisite for its child work**; the recorded direction approval is the design handoff, while final umbrella closure follows completed implementation and verification.
@@ -109,6 +111,7 @@ The approved direction becomes a shared specification through #104, then is appl
 Direction approval is recorded below. The remaining boxes represent final acceptance of the integrated implementation, not missing implementation work. See the implementation report for delivered coverage and verification; do not automatically close linked issues from this checklist.
 
 - [x] Owner approves a documented direction in #132: C, full restyle plus ESO Marketplace rename.
+- [x] Owner authorizes upgrading the running app to the constructed UI (15 September 2026).
 - [ ] #104 — Shared visual/editorial foundations, tokens, and primitives.
 - [ ] #119 — Navigation, settings, and account surfaces.
 - [ ] #120 — Home.
@@ -124,7 +127,7 @@ Direction approval is recorded below. The remaining boxes represent final accept
 - [ ] #130 — Trait tracker.
 - [ ] #131 — Sign-in, registration, not-found, and developer-account surfaces.
 - [ ] Cross-page desktop/mobile, keyboard, focus, contrast, reduced-motion, long-content, and state review completed against real application behavior.
-- [ ] Owner reviews the integrated identity; #132's full acceptance criteria are satisfied before closure.
+- [ ] #132's full technical acceptance criteria and related ticket review are satisfied before closure.
 
 The checklist describes delivery coverage, not new functionality or a replacement priority queue. GitHub tracking issue #35 remains authoritative for execution status and dependencies.
 
@@ -147,7 +150,7 @@ Optional browser verification (requires Playwright and system Chrome, separate f
 node docs/design/issue-132/browser-check.cjs
 ```
 
-C direction approval supersedes the original pending-review gate. The historical concept checks did not establish measured usability, screen-reader conformance, manual browser-menu 200% zoom, other-browser certification, or production-state parity. The 2× effective-viewport check is not a manual browser zoom test. Final integrated owner acceptance is still required.
+C direction approval supersedes the original pending-review gate. The historical concept checks did not establish measured usability, screen-reader conformance, manual browser-menu 200% zoom, other-browser certification, or production-state parity. The 2× effective-viewport check is not a manual browser zoom test. The later shipping authorization is recorded above; it does not certify those outstanding checks.
 
 ### Captures
 

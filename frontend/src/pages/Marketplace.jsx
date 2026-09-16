@@ -43,7 +43,7 @@ import {
   CardFooter
 } from "@/components/ui/card";
 
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import Navbar from "@/components/ui/navbar";
 import SavedSearchesCard, { PinnedSearchChips } from "@/components/SavedSearchesCard";
 import { useTheme } from "@/components/theme-provider";
@@ -51,7 +51,6 @@ import { useAuth } from "@/context/AuthContext";
 import {
   fetchTaxonomy,
   fetchMarketListings,
-  fetchCatalogItems,
   clearAllListings,
   fetchSavedSearches,
   createSavedSearch,
@@ -146,11 +145,11 @@ function Marketplace() {
   const { serverLocation, setServerLocation, platform, setPlatform } = useTheme();
   const { user } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
 
   // State Management
   const [taxonomy, setTaxonomy] = useState({});
-  const [viewMode, setViewMode] = useState(searchParams.get("view") === "catalog" ? "catalog" : "listings");
   const [selectedCategory, setSelectedCategory] = useState(searchParams.get("category") || "");
   const [selectedSubcategory, setSelectedSubcategory] = useState(searchParams.get("subcategory") || "");
   const [selectedTrait, setSelectedTrait] = useState(searchParams.get("trait") || "");
@@ -179,15 +178,25 @@ function Marketplace() {
     const cat = searchParams.get("category");
     const subcat = searchParams.get("subcategory");
     const srt = searchParams.get("sort");
-    const requestedView = searchParams.get("view");
     if (q !== null && q !== undefined) setSearchQuery(q);
     if (t !== null && t !== undefined) setSelectedTrait(t);
     if (cat !== null && cat !== undefined) setSelectedCategory(cat);
     if (subcat !== null && subcat !== undefined) setSelectedSubcategory(subcat);
     if (srt !== null && srt !== undefined && LISTING_SORT_VALUES.has(srt)) setSortOption(srt);
-    if (requestedView) setViewMode(requestedView === "catalog" ? "catalog" : "listings");
     setCurrentPage(1);
   }, [searchParams]);
+
+  // Old catalog bookmarks now open listings without discarding their other filters or anchor.
+  useEffect(() => {
+    if (searchParams.get("view") === "catalog") {
+      const listingParams = new URLSearchParams(searchParams);
+      listingParams.set("view", "listings");
+      navigate({ pathname: location.pathname, search: `?${listingParams}`, hash: location.hash }, {
+        replace: true,
+        state: location.state,
+      });
+    }
+  }, [searchParams, navigate, location.pathname, location.hash, location.state]);
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -209,7 +218,7 @@ function Marketplace() {
   const currentSavedSearchFilters = useMemo(() => ({
     server: serverLocation,
     platform,
-    view: viewMode,
+    view: "listings",
     search: searchQuery,
     category: selectedCategory,
     subcategory: selectedSubcategory,
@@ -221,7 +230,6 @@ function Marketplace() {
     deals_only: dealsOnly,
   }), [
     serverLocation,
-    viewMode,
     platform,
     searchQuery,
     selectedCategory,
@@ -258,7 +266,7 @@ function Marketplace() {
     };
   }, [user?.id]);
 
-  // Fetch either native listing observations or the full item catalog.
+  // Fetch native listing observations.
   useEffect(() => {
     setIsLoading(true);
     const offset = (currentPage - 1) * itemsPerPage;
@@ -272,30 +280,17 @@ function Marketplace() {
       ...(selectedRarity && { rarity: selectedRarity }),
     };
 
-    if (viewMode === "listings") {
-      params.server = serverLocation;
-      if (selectedTrait) params.trait = selectedTrait;
-      if (selectedHubLocation) params.location = selectedHubLocation;
-      if (selectedMaxAge) params.max_age = selectedMaxAge;
-      if (sortOption) params.sort = sortOption;
-      if (dealsOnly) params.min_value_index = DEAL_THRESHOLD;
-    }
+    params.server = serverLocation;
+    if (selectedTrait) params.trait = selectedTrait;
+    if (selectedHubLocation) params.location = selectedHubLocation;
+    if (selectedMaxAge) params.max_age = selectedMaxAge;
+    if (sortOption) params.sort = sortOption;
+    if (dealsOnly) params.min_value_index = DEAL_THRESHOLD;
 
     let isActive = true;
-    const request = viewMode === "catalog" ? fetchCatalogItems(params) : fetchMarketListings(params);
-    request.then((res) => {
+    fetchMarketListings(params).then((res) => {
       if (isActive) {
-        const rows = viewMode === "catalog"
-          ? (res.items || []).map((item) => ({
-              ...item,
-              item_name: item.name,
-              item_icon: item.icon_url || item.icon,
-              item_category: item.category,
-              item_subcategory: item.subcategory,
-              item_rarity: item.rarity,
-            }))
-          : (res.listings || []);
-        setItemsData(rows);
+        setItemsData(res.listings || []);
         setTotalItems(res.total || 0);
         setIsLoading(false);
       }
@@ -306,7 +301,6 @@ function Marketplace() {
     };
   }, [
     serverLocation,
-    viewMode,
     selectedCategory,
     selectedSubcategory,
     selectedTrait,
@@ -404,7 +398,6 @@ function Marketplace() {
     );
     const nextSearch = filters.search || (hasStoredCriteria ? "" : savedSearch.name);
     setServerLocation(filters.server === "EU" ? "EU" : "NA");
-    setViewMode(filters.view === "catalog" ? "catalog" : "listings");
     setPlatform(["PC", "Xbox", "PlayStation"].includes(filters.platform) ? filters.platform : "PC");
     setSearchQuery(nextSearch);
     setSelectedCategory(filters.category || "");
@@ -494,42 +487,14 @@ function Marketplace() {
         <div className="exchange-page-heading">
           <div>
             <p className="exchange-eyebrow"><Store className="size-4" /> {platform} · {serverLocation}</p>
-            <h1>
-              {viewMode === "catalog" ? "Item catalog" : "Marketplace"}
-            </h1>
-            <p>
-              {viewMode === "catalog"
-                ? "Explore ESO items, traits, and sets."
-                : "Find the item. Compare the offers. Visit the trader."}
-            </p>
+            <h1>Marketplace</h1>
+            <p>Find the item. Compare the offers. Visit the trader.</p>
           </div>
 
           {/* Action Controls & Dev Tools */}
           <div className="flex flex-wrap items-center gap-3">
-            <div className="exchange-market-tabs" role="group" aria-label="Marketplace view">
-              <Button
-                type="button"
-                size="sm"
-                variant={viewMode === "listings" ? "default" : "ghost"}
-                aria-pressed={viewMode === "listings"}
-                onClick={() => { setViewMode("listings"); setCurrentPage(1); setSelectedItem(null); }}
-                className="rounded-none"
-              >
-                Guild traders
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                variant={viewMode === "catalog" ? "default" : "ghost"}
-                aria-pressed={viewMode === "catalog"}
-                onClick={() => { setViewMode("catalog"); setCurrentPage(1); setSelectedItem(null); }}
-                className="rounded-none"
-              >
-                Item catalog
-              </Button>
-            </div>
             {/* Development: Clear Listings (Visible for dev testing) */}
-            {viewMode === "listings" && user?.role === "admin" && (
+            {user?.role === "admin" && (
               <EsoTooltip content="Development: Clear all native listing observations from SQLite" side="bottom">
                 <Button
                   variant="outline"
@@ -545,7 +510,7 @@ function Marketplace() {
 
             <div className="exchange-market-count">
               <Tag className="size-3.5" />
-              <span>{totalItems.toLocaleString()} {viewMode === "catalog" ? (totalItems === 1 ? "catalog item" : "catalog items") : (totalItems === 1 ? "listing" : "listings")}</span>
+              <span>{totalItems.toLocaleString()} {totalItems === 1 ? "listing" : "listings"}</span>
             </div>
           </div>
         </div>
@@ -565,7 +530,6 @@ function Marketplace() {
             {searchQuery && <button type="button" aria-label="Clear item search" onClick={() => setSearchQuery("")}><X className="size-4" /></button>}
           </div>
         {/* Quick Selectors Bar: Major Trading Hubs & Popular Trade Presets */}
-        {viewMode === "listings" && (
         <div className="exchange-market-quick">
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
             {/* Major Trading Hub Selector */}
@@ -651,7 +615,6 @@ function Marketplace() {
             </button>
           )}
         </div>
-        )}
 
       {/* Control Bar: Search & Select Filters */}
       <div className="exchange-market-filters">
@@ -708,7 +671,6 @@ function Marketplace() {
         </label>
 
         {/* Trait NativeSelect */}
-        {viewMode === "listings" && (
         <label className="exchange-field">
           <span>Trait</span>
         <NativeSelect aria-label="Trait"
@@ -761,7 +723,6 @@ function Marketplace() {
           </NativeSelectOptGroup>
         </NativeSelect>
         </label>
-        )}
 
         {/* Rarity NativeSelect */}
         <label className="exchange-field">
@@ -786,8 +747,6 @@ function Marketplace() {
         </label>
 
         {/* Time Since Last Seen NativeSelect */}
-        {viewMode === "listings" && (
-        <>
         <label className="exchange-field">
           <span>Last seen</span>
         <NativeSelect aria-label="Last seen"
@@ -832,8 +791,6 @@ function Marketplace() {
           </NativeSelectOptGroup>
         </NativeSelect>
         </label>
-        </>
-        )}
       </div>
 
       </section>
@@ -855,7 +812,6 @@ function Marketplace() {
             Saved Searches{savedSearches.length ? ` (${savedSearches.length})` : ""}
           </Button>
 
-          {viewMode === "listings" && (
           <Button
             variant={dealsOnly ? "default" : "outline"}
             aria-pressed={dealsOnly}
@@ -871,7 +827,6 @@ function Marketplace() {
             <Sparkles className="size-3.5 text-primary" />
             <span>Deals only · 1.2x+ value</span>
           </Button>
-          )}
 
           {(selectedCategory || selectedSubcategory || selectedTrait || selectedRarity || selectedHubLocation || selectedMaxAge || searchQuery || dealsOnly) && (
             <Button
@@ -923,14 +878,10 @@ function Marketplace() {
             <div className="eso-card flex flex-col items-center justify-center p-12 text-center">
               <Store className="size-12 text-primary/60 mb-3" />
               <h3 className="font-sans text-xl font-bold text-foreground mb-1">
-                {viewMode === "catalog"
-                  ? (searchQuery ? `No Catalog Items Found for "${searchQuery}"` : "No Catalog Items Found")
-                  : (searchQuery ? `No Active Listings Found for "${searchQuery}"` : "No Guild Trader Scans Logged")}
+                {searchQuery ? `No Active Listings Found for "${searchQuery}"` : "No Guild Trader Scans Logged"}
               </h3>
               <p className="text-xs text-muted-foreground max-w-lg mb-4 leading-relaxed">
-                {viewMode === "catalog"
-                  ? "Adjust the catalog filters or run the UESP master catalog ingestion workflow if the local catalog is empty."
-                  : "No native guild trader observations match these filters yet. Load an in-game ESOTrade scan or adjust the active listing filters."}
+                No native guild trader observations match these filters yet. Load an in-game ESOTrade scan or adjust the active listing filters.
               </p>
               <div className="flex flex-wrap items-center justify-center gap-3">
                 {(selectedCategory || selectedSubcategory || selectedTrait || selectedRarity || selectedHubLocation || searchQuery) && (
@@ -989,8 +940,6 @@ function Marketplace() {
                       )}
                     </CardHeader>
                     <CardContent className="exchange-offer-content">
-                      {viewMode === "listings" ? (
-                        <>
                           {/* Smart Seller Inventory & Stacks Badge */}
                           <div className="exchange-offer-quote">
                             <div>
@@ -1007,11 +956,8 @@ function Marketplace() {
                             </div>
                           </div>
                           <div className="exchange-offer-average"><span>Observed average</span><span>{formatGold(item.observed_avg_price)} / item</span></div>
-                        </>
-                      ) : <div className="exchange-offer-average"><span>Catalog ID</span><span>{item.game_item_id}</span></div>}
 
                       {/* Prominent Guild Trader Name, Location, & Last Seen Marker */}
-                      {viewMode === "listings" && (
                         <div className="exchange-offer-trader">
                           <span className="exchange-offer-guild"><Store className="size-3.5" />{item.guild_name || "Guild Trader"}</span>
                           <span className="exchange-offer-seller">{item.seller_name || "@Unknown"}</span>
@@ -1030,7 +976,6 @@ function Marketplace() {
                             );
                           })()}
                         </div>
-                      )}
                     </CardContent>
                   </Card>
                 );
@@ -1083,7 +1028,6 @@ function Marketplace() {
 
               <CardContent className="p-4 space-y-4 text-xs">
                 {/* Native observation summary */}
-                {viewMode === "listings" && (
                 <div className="space-y-2 p-3 bg-recess border border-border">
                   <span className="font-sans font-bold text-xs text-primary block flex items-center justify-between">
                     <span>Observed prices · {serverLocation}</span>
@@ -1148,7 +1092,6 @@ function Marketplace() {
                     </div>
                   )}
                 </div>
-                )}
 
                 {/* Always Render Trader Name, Location & Last Seen Scan Marker */}
                 <div className="space-y-2 p-3 bg-recess border border-border">

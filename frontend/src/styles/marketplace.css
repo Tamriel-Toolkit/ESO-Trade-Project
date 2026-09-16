@@ -1,7 +1,4 @@
 .exchange-marketplace .exchange-page-heading > div:last-child { justify-content: flex-end; }
-.exchange-market-tabs { display: flex; border-bottom: 1px solid var(--border); }
-.exchange-market-tabs button { min-height: 44px; padding-inline: 16px; background: transparent; box-shadow: none; border: 0; border-bottom: 2px solid transparent; color: var(--muted-foreground); }
-.exchange-market-tabs button[aria-pressed=true] { color: var(--primary); border-bottom-color: var(--primary); }
 .exchange-market-count { display: flex; align-items: center; gap: 8px; width: 100%; justify-content: flex-end; font-size: 12px; color: var(--muted-foreground); }
 .exchange-market-workspace { display: grid; grid-template-columns: 230px minmax(0, 1fr); gap: 24px; padding-bottom: 40px; }
 .exchange-market-saved { min-width: 0; align-self: start; position: sticky; top: 112px; }
@@ -15,12 +12,13 @@
 .exchange-market-search button { display: grid; place-items: center; flex-shrink: 0; width: 36px; height: 36px; color: var(--muted-foreground); }
 .exchange-market-quick { display: flex; align-items: flex-end; gap: 12px; margin-bottom: 12px; }
 .exchange-market-quick > div { flex: 1; min-width: 0; gap: 16px; }
-.exchange-market-quick > div > div { display: grid; gap: 4px; min-width: 0; }
+.exchange-market-quick > div > div { display: grid; gap: 8px; min-width: 0; }
 .exchange-market-quick > div > div > span { color: var(--muted-foreground); font-weight: 400; }
 .exchange-market-filters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 16px; }
 .exchange-market-refine [data-slot=native-select-wrapper] { width: 100%; min-width: 0; background: transparent; height: auto; }
 .exchange-market-refine select { padding-left: 2px; font-size: 14px; min-height: 42px; border-bottom-color: var(--input); }
-.exchange-market-filters .exchange-field { gap: 0; }
+/* Reserve space for the 2px focus outline plus its 3px offset below labels. */
+.exchange-market-filters .exchange-field { gap: 8px; }
 .exchange-market-filters .exchange-field select { padding-left: 2px; background: transparent; border-width: 0 0 1px; }
 .exchange-market-filters .exchange-field > span { margin-top: 4px; }
 .exchange-market-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }

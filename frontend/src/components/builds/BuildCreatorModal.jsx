@@ -540,7 +540,7 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                         <div className="flex items-center justify-between border-b border-border pb-3">
                             <div>
                                 <span className="text-xs font-sans font-bold tracking-normal text-primary">
-                                    Set catalog · {allSets.length} sets
+                                    Available sets · {allSets.length}
                                 </span>
                                 <h3 id="set-picker-title">
                                     Set for {slots[editingSlotIndex]?.slot_name}

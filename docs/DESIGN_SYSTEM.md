@@ -2,9 +2,11 @@
 
 ## Approval and scope
 
-On **6 September 2026**, the owner approved concept **C — Gilded Exchange** as the desired general vibe, authorized the **full restyle plus rename**, and selected **ESO Marketplace** as the user-facing product name. This supersedes the pending-direction gate in earlier concept artifacts. A/B remain historical comparisons. The owner has not yet approved the final integrated app.
+On **6 September 2026**, the owner approved concept **C — Gilded Exchange** as the desired general vibe, authorized the **full restyle plus rename**, and selected **ESO Marketplace** as the user-facing product name. On **15 September**, the owner authorized upgrading the running app to the constructed version. A/B remain historical comparisons. Shipping approval does not waive outstanding technical accessibility or individual issue acceptance checks.
 
-Reference: [C composition and captures](design/issue-132/README.md) and [integrated implementation review](design/issue-132/IMPLEMENTATION.md). Delivery umbrella: [#132](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/132); shared foundations: #104; page coverage: #119–131. The component-test foundation associated with #80 is included in this delivery: Vitest, React Testing Library, a DOM environment, shared setup, and 66 passing checks across eight suites. This evidence does not automatically close #80 or the individual page issues; their acceptance remains subject to review.
+Reference: [C composition and captures](design/issue-132/README.md), [integrated implementation review](design/issue-132/IMPLEMENTATION.md), and [15 September follow-up](design/issue-132/FOLLOWUP.md). Delivery umbrella: [#132](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/132); shared foundations: #104; page coverage: #119–131. The component-test foundation associated with #80 is included in this delivery: Vitest, React Testing Library, a DOM environment, shared setup, and 71 passing checks across nine suites. This evidence does not automatically close #80 or the individual page issues; their acceptance remains subject to review.
+
+**Approved scope exception:** retire user-facing Item Catalog browsing and its promotional counts. Marketplace now shows guild trader listings only. Keep the internal item metadata, taxonomy, icons, set lookup, and request/build item selection that support existing workflows. Legacy catalog links and presets open listings with their other filters preserved.
 
 ## Identity
 
@@ -31,6 +33,7 @@ Tokens are declared in `frontend/src/styles/tokens.css` and exposed through Tail
 - Self-hosted Cinzel 400/600 for brand, page titles, and a limited number of section headings. Sans-serif for item names, body, fields, utility menus, and numeric comparisons. System font fallbacks remain available.
 - Body/control 14–16px; secondary text 12–14px; section headings 18–22px; responsive page headings 28–36px. Use tabular numerals for quantities/prices. Preserve long authored names by wrapping, not shrinking into microtext.
 - Shared container and 16–32px responsive gutters; small spacing steps 4/8/12/16/24/32px. Cards apply padding once. Dense offer cards do not inherit the former empty 32px root bands.
+- Marketplace field labels reserve an 8px gap above controls, clear of the 2px focus outline plus its 3px offset. Do not fix label overlap by hiding or clipping keyboard focus.
 - Home uses the approved two-part guild marketplace/merchandise composition. Marketplace prioritizes search and compact offers. Requests prioritize specifications, offer, status, and role-dependent actions. Builds emphasize titles, set lists, and comparison data. Characters emphasize identity and readable equipment. Trait research remains a labeled matrix, not an ornamental picture.
 - Brief 120–200ms color/border feedback; no perpetual ambient motion, lift, or glow. Reduced motion disables decorative transitions while keeping visible focus/selection. Status, pending, errors, and copied states keep meaningful text.
 - Dialogs remain the same workflows, with viewport-bounded scrolling and reachable close/actions. Preserve existing information and improve keyboard/touch access. Responsive layout must never remove refinements or action destinations.

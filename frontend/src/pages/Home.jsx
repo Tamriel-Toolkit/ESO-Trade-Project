@@ -70,7 +70,6 @@ function Home() {
       </section>
       {/* Feature Statistics Highlights */}
       <section className="exchange-home-context" aria-label="About the marketplace">
-        <div><ScrollText size={22} aria-hidden="true" /><p><strong>155,476 catalog items</strong><span>Explore the ESO item catalog.</span></p></div>
         <div><Store size={22} aria-hidden="true" /><p><strong>Seen at guild traders</strong><span>Shared by players. Availability may change.</span></p></div>
         <Link to="/characters"><Shield size={22} aria-hidden="true" /><p><strong>Your characters, equipped</strong><span>Roster, gear, and trait research.</span></p><ChevronRight size={16} aria-hidden="true" /></Link>
       </section>

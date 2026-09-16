@@ -31,8 +31,7 @@ function Navbar() {
         setSyncStatus({
           status: 'online',
           latestScan: res.latest_scan_at ? new Date(res.latest_scan_at).toLocaleString() : 'No Scans Logged Yet',
-          listingsCount: res.active_listings,
-          catalogCount: res.catalog_prices
+          listingsCount: res.active_listings
         });
       } else {
         setSyncStatus({ status: 'offline', latestScan: null });

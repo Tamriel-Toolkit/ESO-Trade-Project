@@ -2,25 +2,39 @@ import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, useLocation } from 'react-router-dom';
 import Marketplace from '../pages/Marketplace';
 import SavedSearchesCard from '../components/SavedSearchesCard';
 import * as api from '../api/api';
 
 vi.mock('../components/ui/navbar', () => ({ default: () => <nav aria-label="Test navigation" /> }));
-vi.mock('../context/AuthContext', () => ({ useAuth: () => ({ user: null }) }));
-vi.mock('../components/theme-provider', () => ({ useTheme: () => ({ serverLocation: 'NA', platform: 'PC', setServerLocation: vi.fn(), setPlatform: vi.fn() }) }));
+const auth = vi.hoisted(() => ({ user: null }));
+vi.mock('../context/AuthContext', () => ({ useAuth: () => auth }));
+vi.mock('../components/theme-provider', () => ({
+  useTheme: () => {
+    const [serverLocation, setServerLocation] = React.useState('NA');
+    const [platform, setPlatform] = React.useState('PC');
+    return { serverLocation, platform, setServerLocation, setPlatform };
+  },
+}));
+// Keep the removed catalog helper as a mock-only tripwire: this page must never call it.
 vi.mock('../api/api', () => ({ fetchTaxonomy: vi.fn(), fetchMarketListings: vi.fn(), fetchCatalogItems: vi.fn(), clearAllListings: vi.fn(), fetchSavedSearches: vi.fn(), createSavedSearch: vi.fn(), setSavedSearchPinned: vi.fn(), deleteSavedSearch: vi.fn() }));
 
 // Existing native observation read from the isolated SQLite copy on 7 September 2026.
 // No fabricated listings are inserted into the application or a database.
 const ring = { listing_id: 10000950, game_item_id: 219321, item_name: 'Coup De Grâce Ring', item_category: 'Jewelry', item_subcategory: 'Ring', item_icon: 'gear_breton_ring_a.png', price: 1999, quantity: 1, active_stacks: 1, quality: 4, seller_name: '@Danielzzz', guild_name: 'Lost Ark', location: 'Gonfalon Bay, High Isle', discovered_at: '2026-09-03 01:30:58', observed_min_price: 1999, observed_max_price: 15000, observed_avg_price: 8500, value_index: 4.252126063031516 };
-const openMarket = (path = '/marketplace') => render(<MemoryRouter initialEntries={[path]}><Marketplace /></MemoryRouter>);
+function CurrentLocation() {
+  const location = useLocation();
+  return <output aria-label="Current location" data-route-state={JSON.stringify(location.state)}>{location.pathname}{location.search}{location.hash}</output>;
+}
+const openMarket = (path = '/marketplace') => render(<MemoryRouter initialEntries={[path]}><Marketplace /><CurrentLocation /></MemoryRouter>);
 
 beforeEach(() => {
+  auth.user = null;
   api.fetchTaxonomy.mockResolvedValue({ Jewelry: ['Ring'], Materials: ['Style Material'] });
   api.fetchMarketListings.mockResolvedValue({ listings: [ring], total: 278 });
   api.fetchCatalogItems.mockResolvedValue({ items: [], total: 0 });
+  api.fetchSavedSearches.mockResolvedValue({ success: true, saved_searches: [] });
 });
 
 describe('marketplace presentation parity', () => {
@@ -70,14 +84,57 @@ describe('marketplace presentation parity', () => {
     await waitFor(() => expect(api.fetchMarketListings).toHaveBeenLastCalledWith({ limit: 20, offset: 0, server: 'NA', sort: 'value_index' }));
   });
 
-  it('keeps catalog mode independent of listing-only filters and shows the existing empty state', async () => {
-    const user = userEvent.setup();
-    openMarket();
+  it('opens legacy catalog links as listings without losing other query parameters', async () => {
+    openMarket({ pathname: '/marketplace', search: '?view=catalog&search=ring&category=Jewelry&subcategory=Ring&rarity=4&trait=Infused&location=Summerset&sort=price_asc&source=bookmark', hash: '#offers', state: { from: '/characters' } });
     await screen.findByRole('button', { name: 'View Coup De Grâce Ring' });
-    await user.click(screen.getByRole('button', { name: 'Item catalog' }));
-    expect(await screen.findByText('No Catalog Items Found')).toBeVisible();
-    expect(screen.queryByRole('combobox', { name: 'Trait' })).not.toBeInTheDocument();
-    expect(api.fetchCatalogItems).toHaveBeenLastCalledWith({ limit: 20, offset: 0 });
+    expect(api.fetchMarketListings).toHaveBeenLastCalledWith({ limit: 20, offset: 0, server: 'NA', search: 'ring', category: 'Jewelry', subcategory: 'Ring', rarity: '4', trait: 'Infused', location: 'Summerset', sort: 'price_asc' });
+    const location = new URL(screen.getByLabelText('Current location').textContent, 'https://example.test');
+    expect(Object.fromEntries(location.searchParams)).toEqual({ view: 'listings', search: 'ring', category: 'Jewelry', subcategory: 'Ring', rarity: '4', trait: 'Infused', location: 'Summerset', sort: 'price_asc', source: 'bookmark' });
+    expect(location.hash).toBe('#offers');
+    expect(screen.getByLabelText('Current location')).toHaveAttribute('data-route-state', JSON.stringify({ from: '/characters' }));
+    expect(screen.getByRole('heading', { name: 'Marketplace', level: 1 })).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Trait' })).toHaveValue('Infused');
+    expect(screen.getByRole('combobox', { name: 'Last seen' })).toBeVisible();
+    expect(screen.queryByRole('button', { name: 'Item catalog' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('group', { name: 'Marketplace view' })).not.toBeInTheDocument();
+    expect(api.fetchCatalogItems).not.toHaveBeenCalled();
+  });
+
+  it('shows the listing empty state for legacy catalog links, without requesting catalog items', async () => {
+    api.fetchMarketListings.mockResolvedValue({ listings: [], total: 0 });
+    openMarket('/marketplace?view=catalog');
+    expect(await screen.findByText('No Guild Trader Scans Logged')).toBeVisible();
+    expect(api.fetchMarketListings).toHaveBeenLastCalledWith({ limit: 20, offset: 0, server: 'NA', sort: 'value_index' });
+    expect(screen.queryByText(/No Catalog Items/)).not.toBeInTheDocument();
+    expect(api.fetchCatalogItems).not.toHaveBeenCalled();
+  });
+
+  it('applies legacy catalog presets to listings and saves new presets with the listings view', async () => {
+    const user = userEvent.setup();
+    auth.user = { id: 1 };
+    const filters = { view: 'catalog', search: 'ring', category: 'Jewelry', subcategory: 'Ring', rarity: '4', trait: 'Infused', location: 'Summerset', max_age: '7', sort: 'price_asc', deals_only: true, server: 'EU', platform: 'PlayStation' };
+    api.fetchSavedSearches.mockResolvedValue({ success: true, saved_searches: [{ id: 1, name: 'Legacy search', filter_params: filters }] });
+    api.createSavedSearch.mockImplementation(async (name, filter_params) => ({ success: true, saved_search: { id: 2, name, filter_params } }));
+    openMarket();
+    await user.click(await screen.findByRole('button', { name: 'Apply Legacy search' }));
+    await waitFor(() => expect(api.fetchMarketListings).toHaveBeenLastCalledWith({ limit: 20, offset: 0, server: 'EU', search: 'ring', category: 'Jewelry', subcategory: 'Ring', rarity: '4', trait: 'Infused', location: 'Summerset', max_age: '7', sort: 'price_asc', min_value_index: 1.2 }));
+    expect(screen.getByText('PlayStation · EU')).toBeVisible();
+    expect(screen.getByRole('combobox', { name: 'Last seen' })).toHaveValue('7');
+    expect(screen.getByRole('button', { name: 'Deals only · 1.2x+ value' })).toHaveAttribute('aria-pressed', 'true');
+    await user.type(screen.getByRole('textbox', { name: 'Search name' }), 'Current search');
+    await user.click(screen.getByRole('button', { name: 'Save search' }));
+    expect(api.createSavedSearch).toHaveBeenCalledWith('Current search', { ...filters, view: 'listings' });
+    expect(api.fetchCatalogItems).not.toHaveBeenCalled();
+  });
+
+  it('retains the name-as-item-search fallback for a legacy catalog-only preset', async () => {
+    const user = userEvent.setup();
+    auth.user = { id: 1 };
+    api.fetchSavedSearches.mockResolvedValue({ success: true, saved_searches: [{ id: 1, name: 'ring', filter_params: { view: 'catalog' } }] });
+    openMarket();
+    await user.click(await screen.findByRole('button', { name: 'Apply ring' }));
+    await waitFor(() => expect(api.fetchMarketListings).toHaveBeenLastCalledWith({ limit: 20, offset: 0, server: 'NA', search: 'ring', sort: 'value_index' }));
+    expect(api.fetchCatalogItems).not.toHaveBeenCalled();
   });
 
   it('preserves saved-search submit, apply, pin, and delete callbacks', async () => {

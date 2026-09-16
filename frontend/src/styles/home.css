@@ -28,7 +28,7 @@
 .exchange-category svg { color: var(--primary); flex-shrink: 0; }
 .exchange-category svg:last-child { margin-left: auto; }
 .exchange-category:hover { background: var(--secondary); border-color: var(--primary); }
-.exchange-home-context { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px; padding: 28px 0 0; margin-top: 28px; border-top: 1px solid var(--border); }
+.exchange-home-context { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; padding: 28px 0 0; margin-top: 28px; border-top: 1px solid var(--border); }
 .exchange-home-context > * { display: flex; align-items: center; gap: 14px; min-width: 0; }
 .exchange-home-context svg { color: var(--primary); flex-shrink: 0; }
 .exchange-home-context p { display: grid; gap: 5px; }

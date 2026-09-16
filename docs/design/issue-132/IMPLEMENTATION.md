@@ -1,5 +1,7 @@
 # ESO Marketplace — integrated Gilded Exchange review
 
+**Historical baseline (12–13 September).** The owner subsequently authorized shipping the constructed UI and retiring Item Catalog browsing. See the [15 September follow-up, current captures and 71-test results](FOLLOWUP.md). Catalog captures and parity statements below describe the earlier review, not the current product scope.
+
 ## Delivery and approval
 
 The owner approved **C — Gilded Exchange** and explicitly requested the **full restyle plus rename to ESO Marketplace**. The application-wide implementation continues in [draft PR #133](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/pull/133). This report records the integrated review on **12–13 September 2026**, not a production deployment or final owner sign-off. Issue #132 remains open.

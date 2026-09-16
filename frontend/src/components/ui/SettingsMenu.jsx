@@ -84,17 +84,9 @@ export default function SettingsMenu({ syncStatus, onOpenDevModal }) {
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-1">
-                <div>
-                  <span className="text-muted-foreground block text-xs">Latest scan</span>
-                  <span className="font-mono text-foreground">{syncStatus?.latestScan || 'None'}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground block text-xs">Catalog Items:</span>
-                  <span className="font-mono text-primary">
-                    {syncStatus?.catalogCount ? syncStatus.catalogCount.toLocaleString() : '155,476'}
-                  </span>
-                </div>
+              <div className="text-xs text-muted-foreground pt-1">
+                <span className="text-muted-foreground block text-xs">Latest scan</span>
+                <span className="font-mono text-foreground">{syncStatus?.latestScan || 'None'}</span>
               </div>
             </div>
 

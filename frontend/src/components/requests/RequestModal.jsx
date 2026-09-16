@@ -256,7 +256,7 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
     }
 
     if (!selectedItem) {
-      setErrorMsg("Please search and select an item from the catalog.");
+      setErrorMsg("Please search for and select an item.");
       return;
     }
 
@@ -395,7 +395,7 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
                   id="request-item-search"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search the item catalog"
+                  placeholder="Search items by name"
                   className="w-full pl-9 pr-8 py-2.5 bg-background border border-border text-sm text-foreground placeholder:text-muted-foreground font-sans focus:outline-none focus:border-primary"
                   ref={searchRef}
                 />
@@ -405,7 +405,7 @@ export function RequestModal({ isOpen, onClose, defaultServer, onRequestCreated 
 
                 {/* Search Dropdown Results */}
                 {searchResults.length > 0 && (
-                  <div className="rb-catalog-results" aria-label="Catalog search results">
+                  <div className="rb-catalog-results" aria-label="Item search results">
                     {searchResults.map((item) => (
                       <button type="button"
                         key={item.game_item_id}

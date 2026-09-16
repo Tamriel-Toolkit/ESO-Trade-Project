@@ -77,6 +77,16 @@ describe('navigation and product identity', () => {
 });
 
 describe('utility control parity', () => {
+  it('keeps scan status without promoting the retired item catalog', async () => {
+    const user = userEvent.setup();
+    renderShell(<SettingsMenu syncStatus={{ status: 'online', latestScan: '13 September', catalogCount: 155476 }} onOpenDevModal={vi.fn()} />);
+    await user.click(screen.getByRole('button', { name: 'Settings' }));
+    expect(screen.getByText('Connected')).toBeVisible();
+    expect(screen.getByText('13 September')).toBeVisible();
+    expect(screen.queryByText(/catalog/i)).not.toBeInTheDocument();
+    expect(screen.queryByText('155,476')).not.toBeInTheDocument();
+  });
+
   it('labels existing setting groups and exposes selected values without changing callbacks', async () => {
     const user = userEvent.setup();
     renderShell(<SettingsMenu syncStatus={{ status: 'offline' }} onOpenDevModal={vi.fn()} />);

@@ -109,18 +109,6 @@ export async function fetchMarketListings(params = {}) {
     }
 }
 
-export async function fetchCatalogItems(params = {}) {
-    try {
-        const query = new URLSearchParams(params).toString();
-        const response = await apiFetch(`/api/items?${query}`);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        return await response.json();
-    } catch (error) {
-        console.error('Error fetching catalog items:', error);
-        return { total: 0, items: [] };
-    }
-}
-
 export async function clearAllListings() {
     try {
         const response = await apiFetch('/api/market/dev/clear-listings', {
