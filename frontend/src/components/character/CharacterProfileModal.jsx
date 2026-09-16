@@ -1,12 +1,13 @@
 import React, { useState, useEffect, useMemo } from "react";
-import { X, Shield, Award, Sparkles, User, Sword, CheckCircle2, Zap, Layers, RefreshCw } from "lucide-react";
+import { X, Award, Sparkles, CheckCircle2, Layers } from "lucide-react";
 import { fetchCharacterProfile } from "@/api/api";
 import { AnatomicalEquipmentDiagram, ESO_TRAIT_NAMES } from "./AnatomicalEquipmentDiagram";
 import { getAllianceIcon } from "@/components/ui/alliance-icons";
-import { renderEsoFormattedText, cleanEsoText } from "@/lib/utils";
+import { cleanEsoText } from "@/lib/utils";
+import { useDialogFocus } from "@/hooks/useDialogFocus";
 
 const ALLIANCE_NAMES = {
-  1: { name: "Aldmeri Dominion", color: "text-[#d4af37] border-[#c5a059]/40 bg-amber-950/20" },
+  1: { name: "Aldmeri Dominion", color: "text-[#e6c15a] border-[#e6c15a]/40 bg-amber-950/20" },
   2: { name: "Ebonheart Pact", color: "text-red-400 border-red-600/40 bg-red-950/20" },
   3: { name: "Daggerfall Covenant", color: "text-blue-400 border-blue-600/40 bg-blue-950/20" }
 };
@@ -15,6 +16,7 @@ export function CharacterProfileModal({ character, onClose }) {
   const [loading, setLoading] = useState(true);
   const [profileData, setProfileData] = useState(null);
   const [activeWeaponBar, setActiveWeaponBar] = useState("front"); // "front" or "back"
+  const dialogRef = useDialogFocus(Boolean(character), onClose);
 
   useEffect(() => {
     if (character?.id) {
@@ -89,18 +91,7 @@ export function CharacterProfileModal({ character, onClose }) {
     return traits;
   }, [gearBySlot]);
 
-  // Escape key handler
-  useEffect(() => {
-    function handleKeyDown(e) {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    }
-    if (character) {
-      document.addEventListener('keydown', handleKeyDown);
-    }
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [character, onClose]);
+  // Escape key handler, focus return, and dialog tab order use useDialogFocus.
 
   if (!character) return null;
 
@@ -111,40 +102,42 @@ export function CharacterProfileModal({ character, onClose }) {
       role="dialog"
       aria-modal="true"
       aria-label={`Character Equipment Profile for ${character.name}`}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 overflow-y-auto"
+      className="character-profile-backdrop fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4"
     >
-      <div className="w-full max-w-6xl rounded-none bg-[#121218] border-2 border-[#c5a059]/60 p-6 text-[#e0d8c3] shadow-2xl space-y-6 my-auto">
+      <div ref={dialogRef} tabIndex={-1} className="character-profile-panel w-full max-w-6xl rounded-none bg-[#19191b] border border-[#e6c15a]/60 text-[#efe5cf] shadow-2xl">
         {/* Header Bar */}
-        <div className="flex items-center justify-between border-b border-[#2a2c33] pb-4">
+        <div className="character-profile-heading flex items-center justify-between border-b border-[#403c33] p-6">
           <div className="flex items-center gap-3">
-            <div className="size-12 rounded-none border-2 border-[#c5a059] bg-[#0a0a0d] flex items-center justify-center p-1" aria-hidden="true">
+            <div className="size-12 rounded-none border-2 border-[#e6c15a] bg-[#111214] flex items-center justify-center p-1" aria-hidden="true">
               {getAllianceIcon(character.alliance, "size-8")}
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h2 className="font-cinzel text-xl font-extrabold text-[#e0d8c3] uppercase tracking-wide">
+              <p className="exchange-eyebrow mb-2">{allianceInfo.name}</p>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className="font-cinzel text-xl font-extrabold text-[#efe5cf] uppercase tracking-wide">
                   {character.name}
                 </h2>
                 {Boolean(character.master_crafter_unlocked) && (
-                  <span className="px-2 py-0.5 bg-[#c5a059]/20 border border-[#c5a059] text-[#d4af37] text-[10px] font-cinzel font-bold uppercase flex items-center gap-1">
-                    <Award className="size-3 text-[#c5a059]" aria-hidden="true" /> Master Crafter
+                  <span className="px-2 py-0.5 bg-[#e6c15a]/20 border border-[#e6c15a] text-[#e6c15a] text-xs font-cinzel font-bold uppercase flex items-center gap-1">
+                    <Award className="size-3 text-[#e6c15a]" aria-hidden="true" /> Master Crafter
                   </span>
                 )}
               </div>
-              <p className="text-xs text-[#b0a696] font-mono mt-0.5">
-                Level {character.level || 50} • {character.class || "Dragonknight"} • {allianceInfo.name}
+              <p className="text-xs text-[#afa797] font-mono mt-0.5">
+                Level {character.level || 50} • {character.class || "Dragonknight"}
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="character-profile-actions flex items-center gap-3">
             {/* Active Bar Toggle */}
-            <div className="flex items-center gap-1 bg-[#0a0a0d] p-1 border border-[#2a2c33]" role="group" aria-label="Weapon Bar Selection">
+            <div className="flex items-center gap-1 bg-[#111214] p-1 border border-[#403c33]" role="group" aria-label="Weapon Bar Selection">
               <button
                 type="button"
                 onClick={() => setActiveWeaponBar("front")}
+                aria-pressed={activeWeaponBar === "front"}
                 className={`px-3 py-1 text-xs font-cinzel font-bold uppercase border transition-all cursor-pointer ${
-                  activeWeaponBar === "front" ? "bg-[#c5a059] text-[#0a0a0d] border-[#c5a059]" : "text-[#b0a696] border-transparent hover:text-[#e0d8c3]"
+                  activeWeaponBar === "front" ? "bg-[#e6c15a] text-[#111214] border-[#e6c15a]" : "text-[#afa797] border-transparent hover:text-[#efe5cf]"
                 }`}
               >
                 Front Bar
@@ -152,8 +145,9 @@ export function CharacterProfileModal({ character, onClose }) {
               <button
                 type="button"
                 onClick={() => setActiveWeaponBar("back")}
+                aria-pressed={activeWeaponBar === "back"}
                 className={`px-3 py-1 text-xs font-cinzel font-bold uppercase border transition-all cursor-pointer ${
-                  activeWeaponBar === "back" ? "bg-[#c5a059] text-[#0a0a0d] border-[#c5a059]" : "text-[#b0a696] border-transparent hover:text-[#e0d8c3]"
+                  activeWeaponBar === "back" ? "bg-[#e6c15a] text-[#111214] border-[#e6c15a]" : "text-[#afa797] border-transparent hover:text-[#efe5cf]"
                 }`}
               >
                 Back Bar
@@ -164,7 +158,7 @@ export function CharacterProfileModal({ character, onClose }) {
               type="button"
               onClick={onClose}
               aria-label="Close character profile modal"
-              className="p-1.5 rounded-none text-[#b0a696] hover:text-[#e0d8c3] hover:bg-[#161620] cursor-pointer"
+              className="p-1.5 rounded-none text-[#afa797] hover:text-[#efe5cf] hover:bg-[#202022] cursor-pointer"
             >
               <X className="size-5" aria-hidden="true" />
             </button>
@@ -173,12 +167,12 @@ export function CharacterProfileModal({ character, onClose }) {
 
         {/* Content Layout */}
         {loading ? (
-          <div className="py-20 text-center font-cinzel text-xs text-[#c5a059] uppercase tracking-wider flex flex-col items-center gap-2">
-            <div className="animate-spin size-8 border-b-2 border-[#c5a059]"></div>
-            <span>Fetching Character Loadout & Gear Profile...</span>
+          <div className="py-20 text-center font-cinzel text-xs text-[#e6c15a] uppercase tracking-wider flex flex-col items-center gap-2">
+            <div className="animate-spin size-8 border-b-2 border-[#e6c15a]"></div>
+            <span>Loading equipment...</span>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="character-profile-body grid grid-cols-1 lg:grid-cols-3 gap-5 p-6">
             {/* Left Col (2/3): Anatomical Equipment Diagram */}
             <div className="lg:col-span-2">
               <AnatomicalEquipmentDiagram gearBySlot={gearBySlot} activeBar={activeWeaponBar} />
@@ -187,14 +181,14 @@ export function CharacterProfileModal({ character, onClose }) {
             {/* Right Col (1/3): Active Set Bonuses & Trait Analytics Sidebar */}
             <div className="space-y-4 text-xs">
               {/* Active Set Bonus Counter */}
-              <div className="p-4 bg-[#0a0a0d] border border-[#2a2c33] space-y-3">
-                <span className="font-cinzel font-bold text-xs text-[#c5a059] uppercase tracking-wider block flex items-center justify-between">
-                  <span>Active Set Piece Bonuses ({activeWeaponBar.toUpperCase()} BAR)</span>
-                  <Layers className="size-4 text-[#c5a059]" />
+              <div className="p-4 bg-[#111214] border border-[#403c33] space-y-3">
+                <span className="font-cinzel font-bold text-xs text-[#e6c15a] uppercase tracking-wider block flex items-center justify-between">
+                  <span>Set bonuses · {activeWeaponBar === "front" ? "Front bar" : "Back bar"}</span>
+                  <Layers className="size-4 text-[#e6c15a]" />
                 </span>
 
                 {Object.keys(setBonusAnalysis).length === 0 ? (
-                  <p className="text-[11px] text-[#8a8275] italic">No active set pieces logged for this loadout.</p>
+                  <p className="text-xs text-[#afa797] italic">No active set pieces logged for this loadout.</p>
                 ) : (
                   <div className="space-y-2">
                     {Object.entries(setBonusAnalysis).map(([sName, count]) => {
@@ -208,17 +202,17 @@ export function CharacterProfileModal({ character, onClose }) {
                             isActive5Piece
                               ? "border-emerald-500/50 bg-emerald-950/20 text-emerald-300"
                               : isMonster
-                              ? "border-amber-500/50 bg-amber-950/20 text-[#d4af37]"
-                              : "border-[#2a2c33] bg-[#121218] text-[#e0d8c3]"
+                              ? "border-amber-500/50 bg-amber-950/20 text-[#e6c15a]"
+                              : "border-[#403c33] bg-[#19191b] text-[#efe5cf]"
                           }`}
                         >
-                          <div className="flex items-center justify-between font-cinzel font-bold text-[11px]">
+                          <div className="flex items-center justify-between font-cinzel font-bold text-xs">
                             <span>{sName}</span>
-                            <span className="font-mono bg-[#0a0a0d] px-1.5 py-0.5 border border-[#2a2c33]">
+                            <span className="font-mono bg-[#111214] px-1.5 py-0.5 border border-[#403c33]">
                               {count} Pieces
                             </span>
                           </div>
-                          <div className="text-[10px] text-[#8a8275] mt-1 flex items-center gap-1 font-mono">
+                          <div className="text-xs text-[#afa797] mt-1 flex items-center gap-1 font-mono">
                             <CheckCircle2 className="size-3 text-emerald-400" />
                             <span>{count >= 5 ? "Full 5-Piece Bonus Active" : `${count} Set Bonuses Active`}</span>
                           </div>
@@ -230,20 +224,20 @@ export function CharacterProfileModal({ character, onClose }) {
               </div>
 
               {/* Armor & Weapon Trait Analytics */}
-              <div className="p-4 bg-[#0a0a0d] border border-[#2a2c33] space-y-3">
-                <span className="font-cinzel font-bold text-xs text-[#c5a059] uppercase tracking-wider block flex items-center justify-between">
-                  <span>Equipped Trait Summary</span>
-                  <Sparkles className="size-4 text-[#c5a059]" />
+              <div className="p-4 bg-[#111214] border border-[#403c33] space-y-3">
+                <span className="font-cinzel font-bold text-xs text-[#e6c15a] uppercase tracking-wider block flex items-center justify-between">
+                  <span>Equipped traits</span>
+                  <Sparkles className="size-4 text-[#e6c15a]" />
                 </span>
 
                 {Object.keys(traitAnalysis).length === 0 ? (
-                  <p className="text-[11px] text-[#8a8275] italic">No trait data parsed for this loadout.</p>
+                  <p className="text-xs text-[#afa797] italic">No trait data parsed for this loadout.</p>
                 ) : (
                   <div className="grid grid-cols-2 gap-2">
                     {Object.entries(traitAnalysis).map(([tName, count]) => (
-                      <div key={tName} className="p-2 border border-[#2a2c33] bg-[#121218] flex items-center justify-between">
-                        <span className="font-semibold text-[#e0d8c3]">{tName}</span>
-                        <span className="font-mono text-[#d4af37] font-bold">x{count}</span>
+                      <div key={tName} className="p-2 border border-[#403c33] bg-[#19191b] flex items-center justify-between">
+                        <span className="font-semibold text-[#efe5cf]">{tName}</span>
+                        <span className="font-mono text-[#e6c15a] font-bold">x{count}</span>
                       </div>
                     ))}
                   </div>

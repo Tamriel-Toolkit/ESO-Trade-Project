@@ -28,7 +28,7 @@ export function PinnedSearchChips({ searches, onApply }) {
 
   return (
     <div className="flex flex-wrap items-center gap-2" aria-label="Pinned saved searches">
-      <span className="text-[10px] font-cinzel font-bold uppercase tracking-widest text-[#8a8275]">
+      <span className="text-xs font-sans font-bold text-muted-foreground">
         Pinned
       </span>
       {pinnedSearches.map((search) => (
@@ -38,7 +38,7 @@ export function PinnedSearchChips({ searches, onApply }) {
           variant="outline"
           size="xs"
           onClick={() => onApply(search)}
-          className="rounded-none border-[#c5a059]/50 bg-[#c5a059]/10 text-[#d4af37] hover:border-[#d4af37] hover:bg-[#c5a059]/20"
+          className="rounded-none border-primary/50 bg-primary/10 text-primary hover:border-primary hover:bg-primary/20"
         >
           <Pin className="size-3 fill-current" />
           {search.name}
@@ -71,12 +71,12 @@ export default function SavedSearchesCard({
   };
 
   return (
-    <Card className="eso-card rounded-none border-[#2a2c33] bg-[#121218] py-0 gap-0">
-      <CardHeader className="border-b border-[#2a2c33] px-4 py-4">
+    <Card className="exchange-saved-searches">
+      <CardHeader className="border-b border-border px-4 py-4">
         <div className="flex items-center justify-between gap-3">
-          <CardTitle className="flex items-center gap-2 text-sm text-[#e0d8c3]">
-            <Bookmark className="size-4 text-[#c5a059]" />
-            Saved Searches
+          <CardTitle className="flex items-center gap-2 text-sm text-foreground">
+            <Bookmark className="size-4 text-primary" />
+            Saved searches
           </CardTitle>
           {onClose && (
             <Button
@@ -85,32 +85,32 @@ export default function SavedSearchesCard({
               size="icon-xs"
               onClick={onClose}
               aria-label="Close saved searches"
-              className="rounded-none text-[#a89f91] hover:text-[#e0d8c3]"
+              className="rounded-none text-muted-foreground hover:text-foreground"
             >
               <X />
             </Button>
           )}
         </div>
-        <p className="text-[11px] leading-relaxed text-[#8a8275]">
-          Keep useful market combinations ready for your next trader run.
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Keep a search for your next trader visit.
         </p>
       </CardHeader>
 
       <CardContent className="space-y-4 px-4 py-4">
         {!user ? (
-          <div className="border border-dashed border-[#c5a059]/40 bg-[#c5a059]/5 p-4 text-center">
-            <LogIn className="mx-auto mb-2 size-5 text-[#c5a059]" />
-            <p className="text-xs font-cinzel font-bold uppercase tracking-wider text-[#e0d8c3]">
+          <div className="border border-dashed border-primary/40 bg-primary/5 p-4 text-center">
+            <LogIn className="mx-auto mb-2 size-5 text-primary" />
+            <p className="text-xs font-sans font-bold text-foreground">
               Sign in to save filters
             </p>
-            <p className="mt-1 text-[11px] leading-relaxed text-[#8a8275]">
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
               Your presets stay private to your account.
             </p>
             <Button
               type="button"
               size="sm"
               onClick={onLogin}
-              className="mt-3 w-full rounded-none bg-[#c5a059] text-[#0a0a0d] hover:bg-[#d4af37]"
+              className="mt-3 w-full rounded-none bg-primary text-recess hover:bg-primary"
             >
               Sign In
             </Button>
@@ -118,35 +118,35 @@ export default function SavedSearchesCard({
         ) : (
           <>
             <form onSubmit={handleSubmit} className="space-y-2">
-              <label htmlFor={nameInputId} className="text-[10px] font-cinzel font-bold uppercase tracking-widest text-[#a89f91]">
-                Save filters or item search
+              <label htmlFor={nameInputId} className="text-xs font-sans font-bold text-muted-foreground">
+                Search name
               </label>
               <input
                 id={nameInputId}
                 value={name}
                 onChange={(event) => setName(event.target.value)}
                 maxLength={80}
-                placeholder="Item or preset name (e.g. lockpick)"
-                className="h-9 w-full rounded-none border border-[#2a2c33] bg-[#0a0a0d] px-3 text-xs text-[#e0d8c3] outline-none placeholder:text-[#625d55] focus:border-[#c5a059] focus:ring-2 focus:ring-[#c5a059]/20"
+                placeholder="Name this search"
+                className="h-9 w-full rounded-none border border-border bg-recess px-3 text-xs text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-2 focus:ring-primary/20"
               />
-              <p className="text-[10px] leading-relaxed text-[#625d55]">
-                With no filters selected, this name becomes the live item search.
+              <p className="text-xs leading-relaxed text-muted-foreground">
+                No filters selected? The name becomes your item search.
               </p>
               <Button
                 type="submit"
                 size="sm"
                 disabled={isMutating || !name.trim()}
-                className="w-full rounded-none bg-[#c5a059] text-[#0a0a0d] hover:bg-[#d4af37]"
+                className="w-full rounded-none bg-primary text-recess hover:bg-primary"
               >
                 <Plus />
-                Save Search
+                Save search
               </Button>
             </form>
 
             {error && (
               <p
                 role="alert"
-                className="border border-red-900/60 bg-red-950/30 px-2.5 py-2 text-[11px] text-red-300"
+                className="border border-red-900/60 bg-red-950/30 px-2.5 py-2 text-xs text-red-300"
               >
                 {error}
               </p>
@@ -154,36 +154,37 @@ export default function SavedSearchesCard({
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-cinzel font-bold uppercase tracking-widest text-[#a89f91]">
-                  Your presets
+                <span className="text-xs font-sans font-bold text-muted-foreground">
+                  Saved searches
                 </span>
-                <span className="font-mono text-[10px] text-[#625d55]">{searches.length}</span>
+                <span className="font-mono text-xs text-muted-foreground">{searches.length}</span>
               </div>
 
               {isLoading ? (
-                <div className="flex items-center justify-center border border-[#2a2c33] py-6">
-                  <div className="size-5 animate-spin rounded-full border-2 border-[#2a2c33] border-b-[#c5a059]" />
+                <div className="flex items-center justify-center border border-border py-6">
+                  <div className="size-5 animate-spin rounded-full border-2 border-border border-b-primary" />
                   <span className="sr-only">Loading saved searches</span>
                 </div>
               ) : searches.length === 0 ? (
-                <div className="border border-dashed border-[#2a2c33] px-3 py-5 text-center">
-                  <Search className="mx-auto mb-2 size-4 text-[#625d55]" />
-                  <p className="text-[11px] text-[#8a8275]">No saved searches yet.</p>
+                <div className="border border-dashed border-border px-3 py-5 text-center">
+                  <Search className="mx-auto mb-2 size-4 text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground">No saved searches yet.</p>
                 </div>
               ) : (
                 <ul className="max-h-[28rem] space-y-2 overflow-y-auto pr-1">
                   {searches.map((search) => {
                     const description = describeFilters(search.filter_params, search.name);
                     return (
-                      <li key={search.id} className="border border-[#2a2c33] bg-[#0a0a0d] p-3 hover:border-[#c5a059]/50">
+                      <li key={search.id} className="border border-border bg-recess p-3 hover:border-primary/50">
                         <div className="flex items-start justify-between gap-2">
                           <button
                             type="button"
                             onClick={() => onApply(search)}
-                            className="min-w-0 flex-1 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#c5a059]/50"
+                            aria-label={`Apply ${search.name}`}
+                            className="min-w-0 flex-1 cursor-pointer text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/50"
                           >
-                            <span className="block truncate text-xs font-semibold text-[#e0d8c3]">{search.name}</span>
-                            <span className="mt-1 block truncate text-[10px] text-[#8a8275]">{description}</span>
+                            <span className="block truncate text-xs font-semibold text-foreground">{search.name}</span>
+                            <span className="mt-1 block truncate text-xs text-muted-foreground">{description}</span>
                           </button>
                           <div className="flex shrink-0 items-center gap-1">
                             <Button
@@ -193,7 +194,7 @@ export default function SavedSearchesCard({
                               disabled={isMutating}
                               onClick={() => onTogglePin(search)}
                               aria-label={`${search.is_pinned ? "Unpin" : "Pin"} ${search.name}`}
-                              className={`rounded-none ${search.is_pinned ? "text-[#d4af37]" : "text-[#625d55] hover:text-[#d4af37]"}`}
+                              className={`rounded-none ${search.is_pinned ? "text-primary" : "text-muted-foreground hover:text-primary"}`}
                             >
                               <Pin className={search.is_pinned ? "fill-current" : ""} />
                             </Button>
@@ -204,7 +205,7 @@ export default function SavedSearchesCard({
                               disabled={isMutating}
                               onClick={() => onDelete(search)}
                               aria-label={`Delete ${search.name}`}
-                              className="rounded-none text-[#625d55] hover:bg-red-950/30 hover:text-red-400"
+                              className="rounded-none text-muted-foreground hover:bg-red-950/30 hover:text-red-400"
                             >
                               <Trash2 />
                             </Button>

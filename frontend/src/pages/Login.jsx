@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useId } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Navbar from '../components/ui/navbar';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '../components/ui/card';
+import { Card, CardHeader, CardDescription, CardContent } from '../components/ui/card';
 import {
   LogIn,
   UserPlus,
@@ -56,6 +56,7 @@ export default function Login() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const primaryInputRef = useRef(null);
+  const formId = useId();
 
   // Auto-focus primary input on load and tab change
   useEffect(() => {
@@ -124,7 +125,7 @@ export default function Login() {
       if (tab === 'login') {
         const res = await login(usernameOrEmail.trim(), password);
         if (res.success) {
-          setSuccessMsg('Welcome back to Tamriel!');
+          setSuccessMsg('Welcome back to ESO Marketplace!');
           setTimeout(() => navigate(location.state?.from?.pathname || '/marketplace'), 400);
         } else {
           setError(res.error || 'Authentication failed. Please check your credentials.');
@@ -169,43 +170,42 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0a0a0d] text-[#e0d8c3] flex flex-col selection:bg-[#c5a059]/30 selection:text-[#d4af37]">
+    <div className="exchange-page exchange-auth">
       <Navbar />
 
-      <main className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-8 relative overflow-hidden">
+      <main className="exchange-container flex-1 flex items-start justify-center py-8 sm:py-12 relative">
         {/* Ambient atmospheric backdrop */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(197,160,89,0.06)_0%,transparent_70%)] pointer-events-none" />
-        <div className="absolute top-1/4 -left-32 w-96 h-96 bg-[#c5a059]/5 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute bottom-1/4 -right-32 w-96 h-96 bg-purple-950/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="exchange-auth-backdrop" aria-hidden="true" />
 
-        <div className="max-w-md w-full relative z-10">
-          <Card className="border border-[#2a2c33] bg-[#121218]/95 backdrop-blur-md shadow-2xl rounded-none relative overflow-hidden">
+        <div className="max-w-lg w-full relative z-10">
+          <Card className="exchange-frame overflow-visible">
             {/* Top gold embellishment line */}
-            <div className="h-1 bg-gradient-to-r from-transparent via-[#c5a059] to-transparent" />
+            <div className="h-px bg-primary/30" aria-hidden="true" />
 
-            <CardHeader className="text-center pb-4 pt-6">
-              <div className="inline-flex p-3 bg-[#0a0a0d] border border-[#c5a059]/30 mb-3 mx-auto text-[#c5a059] shadow-inner">
+            <CardHeader className="px-6 pt-7 pb-5">
+              <div className="inline-flex p-3 bg-recess border border-primary/40 mb-2 mr-auto text-primary">
                 {tab === 'login' ? <LogIn className="size-6" /> : <UserPlus className="size-6" />}
               </div>
 
-              <CardTitle className="font-cinzel text-2xl sm:text-3xl font-extrabold text-[#d4af37] tracking-wider uppercase">
-                {tab === 'login' ? 'Merchant Portal' : 'Register Merchant'}
-              </CardTitle>
-              <CardDescription className="text-[#a89f91] text-xs sm:text-sm mt-1">
+              <h1 className="font-cinzel text-3xl font-normal text-foreground">
+                {tab === 'login' ? 'Welcome back' : 'Create an account'}
+              </h1>
+              <CardDescription className="text-muted-foreground text-xs sm:text-sm mt-1">
                 {tab === 'login'
-                  ? 'Sign in to access your synchronized character gear and live market watchlists.'
-                  : 'Create your Tamriel Toolkit trading account to track prices and sync in-game scans.'}
+                  ? 'Sign in to ESO Marketplace to manage your characters and saved searches.'
+                  : 'Join ESO Marketplace to manage your characters and sync in-game scans.'}
               </CardDescription>
 
               {/* Tab Switcher */}
-              <div className="grid grid-cols-2 gap-1 bg-[#0a0a0d] border border-[#2a2c33] p-1 mt-5">
+              <div className="grid grid-cols-2 gap-1 bg-recess border border-border p-1 mt-5">
                 <button
                   type="button"
                   onClick={() => { setTab('login'); setError(''); setSuccessMsg(''); }}
-                  className={`py-2 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  aria-pressed={tab === 'login'}
+                  className={`py-2 text-xs font-sans font-bold   transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
                     tab === 'login'
-                      ? 'bg-[#c5a059] text-[#0a0a0d] shadow'
-                      : 'text-[#a89f91] hover:text-[#e0d8c3] hover:bg-[#161620]'
+                      ? 'bg-primary text-recess shadow'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
                   }`}
                 >
                   <LogIn className="size-3.5" />
@@ -214,10 +214,11 @@ export default function Login() {
                 <button
                   type="button"
                   onClick={() => { setTab('register'); setError(''); setSuccessMsg(''); }}
-                  className={`py-2 text-xs font-cinzel font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  aria-pressed={tab === 'register'}
+                  className={`py-2 text-xs font-sans font-bold   transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${
                     tab === 'register'
-                      ? 'bg-[#c5a059] text-[#0a0a0d] shadow'
-                      : 'text-[#a89f91] hover:text-[#e0d8c3] hover:bg-[#161620]'
+                      ? 'bg-primary text-recess shadow'
+                      : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
                   }`}
                 >
                   <UserPlus className="size-3.5" />
@@ -229,14 +230,14 @@ export default function Login() {
             <CardContent className="px-6 pb-6">
               {/* Feedback Alerts */}
               {error && (
-                <div className="mb-4 p-3 bg-red-950/50 border border-red-500/50 text-red-300 text-xs flex items-start gap-2.5">
+                <div role="alert" className="mb-4 p-3 bg-red-950/50 border border-red-500/50 text-red-300 text-sm flex items-start gap-2.5">
                   <AlertCircle className="size-4 shrink-0 text-red-400 mt-0.5" />
                   <span>{error}</span>
                 </div>
               )}
 
               {successMsg && (
-                <div className="mb-4 p-3 bg-emerald-950/50 border border-emerald-500/50 text-emerald-300 text-xs flex items-start gap-2.5">
+                <div role="status" className="mb-4 p-3 bg-emerald-950/50 border border-emerald-500/50 text-emerald-300 text-sm flex items-start gap-2.5">
                   <CheckCircle2 className="size-4 shrink-0 text-emerald-400 mt-0.5" />
                   <span>{successMsg}</span>
                 </div>
@@ -246,43 +247,45 @@ export default function Login() {
                 {tab === 'login' ? (
                   <>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-cinzel font-bold uppercase tracking-wider text-[#a89f91] flex items-center gap-1.5">
-                        <User className="size-3.5 text-[#c5a059]" />
+                      <label htmlFor={`${formId}-identity`} className="text-xs font-sans font-bold   text-muted-foreground flex items-center gap-1.5">
+                        <User className="size-3.5 text-primary" />
                         <span>Username or Email</span>
                       </label>
                       <input
+                        id={`${formId}-identity`}
                         ref={primaryInputRef}
                         type="text"
                         value={usernameOrEmail}
                         onChange={(e) => setUsernameOrEmail(e.target.value)}
                         placeholder="e.g. Blake or hero@tamriel.com"
                         disabled={isSubmitting}
-                        className="w-full bg-[#0a0a0d] border border-[#2a2c33] focus:border-[#c5a059] focus:outline-none text-[#e0d8c3] text-sm px-3 py-2.5 transition-colors placeholder:text-[#555047]"
+                        className="w-full bg-recess border border-border focus:border-primary focus:outline-none text-foreground text-sm px-3 py-2.5 transition-colors placeholder:text-muted-foreground"
                         autoComplete="username"
                         required
                       />
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-cinzel font-bold uppercase tracking-wider text-[#a89f91] flex items-center gap-1.5">
-                        <Lock className="size-3.5 text-[#c5a059]" />
+                      <label htmlFor={`${formId}-password`} className="text-xs font-sans font-bold   text-muted-foreground flex items-center gap-1.5">
+                        <Lock className="size-3.5 text-primary" />
                         <span>Password</span>
                       </label>
                       <div className="relative">
                         <input
+                          id={`${formId}-password`}
                           type={showPassword ? 'text' : 'password'}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           placeholder="••••••••"
                           disabled={isSubmitting}
-                          className="w-full bg-[#0a0a0d] border border-[#2a2c33] focus:border-[#c5a059] focus:outline-none text-[#e0d8c3] text-sm px-3 py-2.5 pr-10 transition-colors placeholder:text-[#555047]"
+                          className="w-full bg-recess border border-border focus:border-primary focus:outline-none text-foreground text-sm px-3 py-2.5 pr-10 transition-colors placeholder:text-muted-foreground"
                           autoComplete="current-password"
                           required
                         />
                         <button
                           type="button"
                           onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8a8275] hover:text-[#d4af37] p-1 transition-colors cursor-pointer"
+                          className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary p-1 transition-colors cursor-pointer"
                           aria-label={showPassword ? "Hide password" : "Show password"}
                         >
                           {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -293,76 +296,80 @@ export default function Login() {
                 ) : (
                   <>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-cinzel font-bold uppercase tracking-wider text-[#a89f91] flex items-center gap-1.5">
-                        <User className="size-3.5 text-[#c5a059]" />
+                      <label htmlFor={`${formId}-username`} className="text-xs font-sans font-bold   text-muted-foreground flex items-center gap-1.5">
+                        <User className="size-3.5 text-primary" />
                         <span>Username</span>
                       </label>
                       <input
+                        id={`${formId}-username`}
                         ref={primaryInputRef}
                         type="text"
                         value={username}
                         onChange={(e) => setUsername(e.target.value)}
                         placeholder="3–32 alphanumeric chars"
                         disabled={isSubmitting}
-                        className="w-full bg-[#0a0a0d] border border-[#2a2c33] focus:border-[#c5a059] focus:outline-none text-[#e0d8c3] text-sm px-3 py-2.5 transition-colors placeholder:text-[#555047]"
+                        className="w-full bg-recess border border-border focus:border-primary focus:outline-none text-foreground text-sm px-3 py-2.5 transition-colors placeholder:text-muted-foreground"
                         autoComplete="username"
                         required
                       />
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-cinzel font-bold uppercase tracking-wider text-[#a89f91] flex items-center gap-1.5">
-                        <Mail className="size-3.5 text-[#c5a059]" />
+                      <label htmlFor={`${formId}-email`} className="text-xs font-sans font-bold   text-muted-foreground flex items-center gap-1.5">
+                        <Mail className="size-3.5 text-primary" />
                         <span>Email Address</span>
                       </label>
                       <input
+                        id={`${formId}-email`}
                         type="email"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
                         placeholder="you@domain.com"
                         disabled={isSubmitting}
-                        className="w-full bg-[#0a0a0d] border border-[#2a2c33] focus:border-[#c5a059] focus:outline-none text-[#e0d8c3] text-sm px-3 py-2.5 transition-colors placeholder:text-[#555047]"
+                        className="w-full bg-recess border border-border focus:border-primary focus:outline-none text-foreground text-sm px-3 py-2.5 transition-colors placeholder:text-muted-foreground"
                         autoComplete="email"
                         required
                       />
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-cinzel font-bold uppercase tracking-wider text-[#a89f91] flex items-center gap-1.5">
-                        <AtSign className="size-3.5 text-[#c5a059]" />
+                      <label htmlFor={`${formId}-handle`} className="text-xs font-sans font-bold   text-muted-foreground flex items-center gap-1.5">
+                        <AtSign className="size-3.5 text-primary" />
                         <span>In-Game ESO Handle (Optional)</span>
                       </label>
                       <input
+                        id={`${formId}-handle`}
                         type="text"
                         value={esoHandle}
                         onChange={(e) => setEsoHandle(e.target.value)}
                         placeholder="@AccountName"
                         disabled={isSubmitting}
-                        className="w-full bg-[#0a0a0d] border border-[#2a2c33] focus:border-[#c5a059] focus:outline-none text-[#e0d8c3] text-sm px-3 py-2.5 transition-colors placeholder:text-[#555047]"
+                        className="w-full bg-recess border border-border focus:border-primary focus:outline-none text-foreground text-sm px-3 py-2.5 transition-colors placeholder:text-muted-foreground"
                       />
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-1.5">
-                        <label className="text-xs font-cinzel font-bold uppercase tracking-wider text-[#a89f91] flex items-center gap-1.5">
-                          <Lock className="size-3.5 text-[#c5a059]" />
+                        <label htmlFor={`${formId}-password`} className="text-xs font-sans font-bold   text-muted-foreground flex items-center gap-1.5">
+                          <Lock className="size-3.5 text-primary" />
                           <span>Password</span>
                         </label>
                         <div className="relative">
                           <input
+                            id={`${formId}-password`}
                             type={showPassword ? 'text' : 'password'}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             placeholder="Min 8 chars"
                             disabled={isSubmitting}
-                            className="w-full bg-[#0a0a0d] border border-[#2a2c33] focus:border-[#c5a059] focus:outline-none text-[#e0d8c3] text-sm px-3 py-2.5 pr-10 transition-colors placeholder:text-[#555047]"
+                            className="w-full bg-recess border border-border focus:border-primary focus:outline-none text-foreground text-sm px-3 py-2.5 pr-10 transition-colors placeholder:text-muted-foreground"
                             autoComplete="new-password"
                             required
                           />
                           <button
                             type="button"
                             onClick={() => setShowPassword(!showPassword)}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8a8275] hover:text-[#d4af37] p-1 transition-colors cursor-pointer"
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary p-1 transition-colors cursor-pointer"
                             aria-label={showPassword ? "Hide password" : "Show password"}
                           >
                             {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -371,25 +378,26 @@ export default function Login() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="text-xs font-cinzel font-bold uppercase tracking-wider text-[#a89f91] flex items-center gap-1.5">
-                          <ShieldCheck className="size-3.5 text-[#c5a059]" />
+                        <label htmlFor={`${formId}-confirm-password`} className="text-xs font-sans font-bold   text-muted-foreground flex items-center gap-1.5">
+                          <ShieldCheck className="size-3.5 text-primary" />
                           <span>Confirm</span>
                         </label>
                         <div className="relative">
                           <input
+                            id={`${formId}-confirm-password`}
                             type={showConfirmPassword ? 'text' : 'password'}
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                             placeholder="Repeat password"
                             disabled={isSubmitting}
-                            className="w-full bg-[#0a0a0d] border border-[#2a2c33] focus:border-[#c5a059] focus:outline-none text-[#e0d8c3] text-sm px-3 py-2.5 pr-10 transition-colors placeholder:text-[#555047]"
+                            className="w-full bg-recess border border-border focus:border-primary focus:outline-none text-foreground text-sm px-3 py-2.5 pr-10 transition-colors placeholder:text-muted-foreground"
                             autoComplete="new-password"
                             required
                           />
                           <button
                             type="button"
                             onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#8a8275] hover:text-[#d4af37] p-1 transition-colors cursor-pointer"
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary p-1 transition-colors cursor-pointer"
                             aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
                           >
                             {showConfirmPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
@@ -403,7 +411,7 @@ export default function Login() {
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full rounded-none font-cinzel font-bold text-xs uppercase tracking-wider bg-[#c5a059] hover:bg-[#d4af37] text-[#0a0a0d] border border-[#c5a059] py-3 mt-4 flex items-center justify-center gap-2 shadow-lg shadow-[#c5a059]/10 transition-all cursor-pointer"
+                  className="w-full rounded-none font-sans font-bold text-xs   bg-primary hover:bg-primary text-recess border border-primary py-3 mt-4 flex items-center justify-center gap-2 shadow-lg shadow-primary/10 transition-colors cursor-pointer"
                 >
                   {isSubmitting ? (
                     <>
@@ -412,7 +420,7 @@ export default function Login() {
                     </>
                   ) : (
                     <>
-                      <span>{tab === 'login' ? 'Enter Marketplace' : 'Register Account'}</span>
+                      <span>{tab === 'login' ? 'Sign in' : 'Create account'}</span>
                       <ArrowRight className="size-4" />
                     </>
                   )}
@@ -421,12 +429,12 @@ export default function Login() {
 
               {/* Developer Sandbox Bypass Panel (DEV Mode only) */}
               {import.meta.env.DEV && (
-                <div className="mt-8 pt-5 border-t border-[#2a2c33]/70">
-                  <div className="flex items-center gap-1.5 text-[11px] font-cinzel font-bold text-[#c5a059] uppercase tracking-wider mb-2">
+                <div className="mt-8 pt-5 border-t border-border/70">
+                  <div className="flex items-center gap-1.5 text-xs font-sans font-bold text-primary   mb-2">
                     <Sparkles className="size-3.5" />
-                    <span>Developer Sandbox 1-Click Login</span>
+                    <span>Development sign-in</span>
                   </div>
-                  <p className="text-[11px] text-[#8a8275] mb-3">
+                  <p className="text-xs text-muted-foreground mb-3">
                     Instant local development login bypassing password verification:
                   </p>
                   <div className="grid grid-cols-2 gap-2">
@@ -434,19 +442,19 @@ export default function Login() {
                       type="button"
                       onClick={() => handleDevQuickLogin(1)}
                       disabled={isSubmitting}
-                      className="text-left px-2.5 py-1.5 bg-[#0a0a0d] border border-[#2a2c33] hover:border-[#c5a059] text-[11px] text-[#e0d8c3] transition-colors cursor-pointer"
+                      className="text-left px-2.5 py-1.5 bg-recess border border-border hover:border-primary text-xs text-foreground transition-colors cursor-pointer"
                     >
-                      <div className="font-bold text-[#d4af37]">@Blake (Admin)</div>
-                      <div className="text-[10px] text-[#8a8275]">Root Developer Account</div>
+                      <div className="font-bold text-primary">@Blake (Admin)</div>
+                      <div className="text-xs text-muted-foreground">Root Developer Account</div>
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDevQuickLogin(2)}
                       disabled={isSubmitting}
-                      className="text-left px-2.5 py-1.5 bg-[#0a0a0d] border border-[#2a2c33] hover:border-[#c5a059] text-[11px] text-[#e0d8c3] transition-colors cursor-pointer"
+                      className="text-left px-2.5 py-1.5 bg-recess border border-border hover:border-primary text-xs text-foreground transition-colors cursor-pointer"
                     >
-                      <div className="font-bold text-[#e0d8c3]">@TraderJoe</div>
-                      <div className="text-[10px] text-[#8a8275]">Standard User Account</div>
+                      <div className="font-bold text-foreground">@TraderJoe</div>
+                      <div className="text-xs text-muted-foreground">Standard User Account</div>
                     </button>
                   </div>
                 </div>

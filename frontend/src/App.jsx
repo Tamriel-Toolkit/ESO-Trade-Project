@@ -10,6 +10,7 @@ import TraitTracker from './pages/TraitTracker.jsx';
 import RequestBoard from './pages/RequestBoard.jsx';
 import MyOrders from './pages/MyOrders.jsx';
 import NotFound from './pages/NotFound.jsx';
+import Footer from './components/ui/footer.jsx';
 import './App.css';
 
 function App() {
@@ -29,6 +30,7 @@ function App() {
             <Route path="/characters" element={<CharacterManager />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          <Footer />
         </BrowserRouter>
       </AuthProvider>
     </ThemeProvider>
