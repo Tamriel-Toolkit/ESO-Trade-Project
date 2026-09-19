@@ -25,11 +25,20 @@ cp backend/.env.example backend/.env
 | `PORT` | `5001` | Express HTTP server port. |
 | `NODE_ENV` | `development` | Runtime mode (`development`, `production`, `test`). In production, enforces secure cookies (`SameSite=None; Secure`), disables dev bypass routes, and bounds CORS. |
 | `FRONTEND_URL` | *(empty)* | Public origin of the web client allowed by CORS in production (e.g. `https://esomarketplace.example.com`). |
+| `TRUST_PROXY` | `false` | Express `trust proxy` configuration for reverse-proxy rate limiting (`false`, `1`, `2`, `loopback`, or CIDR subnets). |
 | `DB_PATH` | `./exports/eso_catalog.db` | Path to the SQLite database. For production containers, mount a persistent volume. |
 | `SESSION_TTL_HOURS` | `168` | Lifetime in hours for SQLite sessions (7 days). |
 | `ENABLE_DEV_ENDPOINTS` | `false` | Enables `/api/dev/*` administrative endpoints in development. Strictly blocked in production. |
 | `BLAKE_API_TOKEN` / `DEMO_API_TOKEN` | *(auto-generated)* | Optional static token override for development test accounts. |
 | `ESOTRADE_AUTH_TOKEN` | *(empty)* | Bearer token used by `parse_esotrade_addon.py` when syncing scans over HTTP to a remote API. |
+
+### Reverse Proxy & Rate Limiting
+
+When deploying behind a reverse proxy (Nginx, Caddy, AWS ALB, Cloudflare):
+- Set `TRUST_PROXY=1` (for a single reverse proxy hop) or `TRUST_PROXY=loopback, 10.0.0.0/8` (for container internal networks).
+- If `TRUST_PROXY` is unset or `false`, all incoming requests share the proxy's IP address, which causes rate limiters (`generalLimiter` at 100 req/min, `authLimiter` at 10 req/min) to throttle all users globally.
+- Direct deployments without an upstream proxy must leave `TRUST_PROXY=false` to prevent attackers from spoofing client IPs via `X-Forwarded-For`.
+
 
 ## Data workflows
 
