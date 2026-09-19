@@ -21,7 +21,7 @@ class WatcherFeedbackLoopTests(unittest.TestCase):
         ))
         with open(addon_path, "r", encoding="utf-8") as addon_file:
             addon_source = addon_file.read()
-        self.assertIn("UID      = NormalizeTradingHouseUid(uid)", addon_source)
+        self.assertRegex(addon_source, r"UID\s+=\s+NormalizeTradingHouseUid\(uid\)")
         handler_source = addon_source[
             addon_source.index("local function OnTradingHouseResponse"):addon_source.index("local function RefreshCharacterData")
         ]
