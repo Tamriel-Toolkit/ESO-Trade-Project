@@ -9,6 +9,7 @@ const {
     isExpectedDuplicateColumnError,
     rollbackTransaction
 } = require('../database_helpers');
+const { runProxyTrustTests } = require('../test_proxy_trust');
 
 const PORT = 5002;
 const SERVER_PATH = path.join(__dirname, '..', 'server.js');
@@ -1278,7 +1279,10 @@ async function runTests() {
         }
         console.log("   Saved-search create/list/pin/delete behavior and cross-account isolation verified!");
 
-        console.log("\nAll 55 API endpoint suites plus bcrypt, schema-migration, and rollback regressions passed successfully!");
+        // 56. Run Proxy Trust and Client IP Rate Limiting Regression Tests (#76)
+        await runProxyTrustTests();
+
+        console.log("\nAll 56 API endpoint suites plus bcrypt, schema-migration, proxy-trust, and rollback regressions passed successfully!");
     } catch (err) {
         console.error("API test failed:", err);
         process.exitCode = 1;

@@ -13,6 +13,7 @@ process.on("unhandledRejection", (reason, promise) => {
 
 process.on("uncaughtException", (err) => {
     console.error("[FATAL] Uncaught Exception thrown:", err);
+    process.exit(1);
 });
 
 const express = require("express");
@@ -25,9 +26,13 @@ const { rateLimit } = require("express-rate-limit");
 const sqlite3 = require("sqlite3").verbose();
 const { seedCuratedMetaBuilds } = require("./curated_builds");
 const { createSchemaMigrationRunner, rollbackTransaction } = require("./database_helpers");
+const { configureTrustProxy, parseTrustProxyConfig } = require("./proxy_config");
 const app = express();
 const PORT = process.env.PORT || 5001;
 let server = null;
+
+// Configure topology-safe reverse proxy trust before rate limiters & route handlers
+configureTrustProxy(app);
 
 const BCRYPT_SALT_ROUNDS = 12;
 const BCRYPT_HASH_PATTERN = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
@@ -4520,5 +4525,7 @@ process.on("SIGINT", () => gracefulShutdown("SIGINT"));
 module.exports = {
     app,
     get server() { return server; },
-    gracefulShutdown
+    gracefulShutdown,
+    configureTrustProxy,
+    parseTrustProxyConfig
 };
