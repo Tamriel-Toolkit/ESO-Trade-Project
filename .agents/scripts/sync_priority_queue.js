@@ -45,8 +45,9 @@ async function githubRequest(endpoint, method = 'GET', body = null) {
     });
 
     if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`GitHub API error ${res.status} on ${method} ${endpoint}: ${errorText}`);
+        const error = new Error(`GitHub API error ${res.status} on ${method} ${endpoint}`);
+        error.status = res.status;
+        throw error;
     }
 
     return res.json();
@@ -55,18 +56,19 @@ async function githubRequest(endpoint, method = 'GET', body = null) {
 /**
  * Fetch all closed issues and merged pull requests in the repository
  */
-async function fetchClosedIssues() {
+async function fetchClosedIssues(request = githubRequest, authenticated = Boolean(GITHUB_TOKEN)) {
     const closedMap = new Map();
 
-    if (!GITHUB_TOKEN) {
+    if (!authenticated) {
         console.warn('[WARN] No GITHUB_TOKEN provided; skipping remote closed issue fetch.');
         return closedMap;
     }
 
     try {
         // 1. Fetch closed issues
-        const closedIssues = await githubRequest(`/repos/${REPO_OWNER}/${REPO_NAME}/issues?state=closed&per_page=100`);
+        const closedIssues = await fetchPages(`/repos/${REPO_OWNER}/${REPO_NAME}/issues?state=closed`, request);
         for (const issue of closedIssues) {
+            if (issue.pull_request) continue;
             closedMap.set(issue.number, {
                 number: issue.number,
                 title: issue.title,
@@ -77,8 +79,9 @@ async function fetchClosedIssues() {
         }
 
         // 2. Fetch closed/merged PRs and parse linked closing keywords
-        const closedPulls = await githubRequest(`/repos/${REPO_OWNER}/${REPO_NAME}/pulls?state=closed&per_page=100`);
+        const closedPulls = await fetchPages(`/repos/${REPO_OWNER}/${REPO_NAME}/pulls?state=closed`, request);
         for (const pr of closedPulls) {
+            if (!pr.merged_at) continue;
             const linked = [
                 ...extractClosingKeywords(pr.body),
                 ...extractClosingKeywords(pr.title)
@@ -97,8 +100,16 @@ async function fetchClosedIssues() {
 
         return closedMap;
     } catch (err) {
-        console.error('[ERROR] Failed to fetch closed issues/PRs from GitHub:', err.message);
-        return closedMap;
+        throw new Error(`Cannot reconcile closed issues/merged PRs; no writes performed: ${err.message}`);
+    }
+}
+
+async function fetchPages(endpoint, request = githubRequest) {
+    const records = [];
+    for (let page = 1; ; page++) {
+        const batch = await request(`${endpoint}&per_page=100&page=${page}`);
+        records.push(...batch);
+        if (batch.length < 100) return records;
     }
 }
 
@@ -107,7 +118,7 @@ async function fetchClosedIssues() {
  */
 async function fetchTrackingIssueBody() {
     if (!GITHUB_TOKEN || localFileOnly) {
-        console.log('[INFO] Reading local PRIORITY_QUEUE.md.');
+        console.error('[INFO] Reading local PRIORITY_QUEUE.md.');
         return fs.readFileSync(LOCAL_QUEUE_FILE, 'utf-8');
     }
 
@@ -115,8 +126,7 @@ async function fetchTrackingIssueBody() {
         const issue = await githubRequest(`/repos/${REPO_OWNER}/${REPO_NAME}/issues/${TRACKING_ISSUE_NUM}`);
         return issue.body;
     } catch (err) {
-        console.warn(`[WARN] Failed to fetch Issue #${TRACKING_ISSUE_NUM} from GitHub (${err.message}). Falling back to local file.`);
-        return fs.readFileSync(LOCAL_QUEUE_FILE, 'utf-8');
+        throw new Error(`Cannot read the live roadmap; refusing to publish a local snapshot: ${err.message}`);
     }
 }
 
@@ -230,7 +240,7 @@ function updateQueueState(tableRows, completedList, closedIssuesMap, options = {
         const closedInfo = closedIssuesMap.get(row.issueNum);
         const title = closedInfo?.title?.replace(/^-\s+\*\*[#`\d]+[\*`]*\s+—\s+/, '') || row.rationale;
         const entry = `- **\`#${row.issueNum}\`** — \`${title.replace(/`/g, '')}\` (Closed/Merged)`;
-        if (!completedList.some(item => item.includes(`#${row.issueNum}`) || item.includes(`\`#${row.issueNum}\``))) {
+        if (!completedList.some(item => Number(item.match(/#(\d+)/)?.[1]) === row.issueNum)) {
             completedList.unshift(entry);
         }
     }
@@ -289,6 +299,10 @@ function updateQueueState(tableRows, completedList, closedIssuesMap, options = {
             nextCandidate.status = '🟡 Next Up';
         }
     }
+
+    // Rank 1 must be executable even when earlier rows remain blocked.
+    const nextIndex = activeRows.findIndex(row => row.status.includes('Next Up'));
+    if (nextIndex > 0) activeRows.unshift(...activeRows.splice(nextIndex, 1));
 
     // 7. Re-assign Ranks (1, 2, 3...)
     let currentRank = 1;
@@ -385,6 +399,46 @@ function extractClosingKeywords(text) {
     return matches;
 }
 
+/** Preserve human-written roadmap sections and avoid date-only/no-op commits. */
+function reconcileMarkdown(markdown, closedIssues, options = {}) {
+    if (!/^\| Rank \|/m.test(markdown) || !/^## .*Recently Completed/m.test(markdown)) {
+        throw new Error('Roadmap structure is missing its matrix/archive; refusing to overwrite it.');
+    }
+    const { activeRows, completedList } = updateQueueState(
+        parseMatrixTable(markdown), parseRecentlyCompleted(markdown), closedIssues, options
+    );
+    const table = '| Rank | Issue | Area | Severity | Status | Blocked By | Strategic Rationale |\n' +
+        '|:---:|:---|:---|:---:|:---:|:---:|:---|\n' + activeRows.map(row =>
+        `| ${row.rankStr} | #${row.issueNum} | ${row.area} | ${row.severity} | ${row.status} | ${row.blockedBy} | ${row.rationale} |`).join('\n');
+    let updated = markdown.replace(/^\| Rank \|[^\n]*\n(?:\|[^\n]*(?:\n|$))*/m, table + '\n');
+    // Retain notes and headings in the archive; insert only newly completed entries.
+    const previous = new Set(parseRecentlyCompleted(markdown));
+    const additions = completedList.filter(entry => !previous.has(entry));
+    if (additions.length) updated = updated.replace(/(^## .*Recently Completed[^\n]*\n)/m,
+        (_, heading) => heading + additions.join('\n') + '\n');
+    if (updated !== markdown) updated = updated.replace(/(> \*\*Last Evaluated\*\*: )[^\r\n]+/,
+        '$1' + new Date().toISOString().slice(0, 10));
+    return updated;
+}
+
+/** Re-read before publishing; never reuse a failed/stale calculation. */
+async function reconcileRemote(request = githubRequest, attempts = 3) {
+    const endpoint = `/repos/${REPO_OWNER}/${REPO_NAME}/issues/${TRACKING_ISSUE_NUM}`;
+    for (let attempt = 0; attempt < attempts; attempt++) {
+        const snapshot = await request(endpoint);
+        const closed = await fetchClosedIssues(request, true);
+        const body = reconcileMarkdown(snapshot.body, closed);
+        const latest = await request(endpoint);
+        if (latest.body !== snapshot.body) continue;
+        if (body === snapshot.body) return body;
+        await request(endpoint, 'PATCH', { body });
+        const verified = await request(endpoint);
+        if (verified.body === body) return body;
+        // A later edit is authoritative: recalculate from it, never roll it back.
+    }
+    throw new Error('Roadmap kept changing during reconciliation; rerun after edits settle.');
+}
+
 /**
  * Main Execution Function
  */
@@ -446,7 +500,7 @@ async function main() {
 
     const { activeRows, completedList: updatedCompleted } = updateQueueState(tableRows, completedList, closedIssuesMap, options);
 
-    const updatedMarkdown = renderMarkdown(activeRows, updatedCompleted);
+    const updatedMarkdown = reconcileMarkdown(markdownBody, closedIssuesMap, options);
 
     if (printMarkdown) {
         process.stdout.write(updatedMarkdown);
@@ -459,7 +513,11 @@ async function main() {
         return;
     }
 
-    // Write to local file
+    // Write to local file (remote publication uses the freshly checked canonical body).
+    if (GITHUB_TOKEN && !localFileOnly) {
+        const latest = await githubRequest(`/repos/${REPO_OWNER}/${REPO_NAME}/issues/${TRACKING_ISSUE_NUM}`);
+        if (latest.body !== markdownBody) throw new Error('Live roadmap changed; rerun instead of publishing a stale snapshot.');
+    }
     fs.writeFileSync(LOCAL_QUEUE_FILE, updatedMarkdown, 'utf-8');
     console.log(`[SYNC] Updated local file: ${LOCAL_QUEUE_FILE}`);
 
@@ -485,6 +543,10 @@ module.exports = {
     parseRecentlyCompleted,
     updateQueueState,
     renderMarkdown,
-    extractClosingKeywords
+    extractClosingKeywords,
+    fetchClosedIssues,
+    fetchPages,
+    reconcileMarkdown,
+    reconcileRemote
 };
 

@@ -159,7 +159,7 @@ When assigned an issue, follow this exact workflow:
 ### Step 1: Read the Issue & Resolve Target
 - If a specific issue number was provided (e.g. "Implement issue #25"), read that issue body from GitHub via `issue_read`.
 - If asked generically (e.g. "begin working on the item at the top of the work queue" or "start next task"), **always fetch [Master Tracking Issue #35](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/35) directly via `issue_read`**. GitHub Issue #35 is the **authoritative live Single Source of Truth (SSOT)** across all branches. Locate the single item marked **`🟡 Next Up`** (Rank #1).
-- Identify: severity, affected files, required changes, estimated effort.
+- Identify: severity, affected files, required changes, estimated effort. If reviewing or auditing an issue prior to implementation, follow [`.agents/skills/eso-trade-issue-reviewer/SKILL.md`](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/skills/eso-trade-issue-reviewer/SKILL.md).
 
 ### Step 2: Locate Affected Files
 Use this quick reference to find what to edit:

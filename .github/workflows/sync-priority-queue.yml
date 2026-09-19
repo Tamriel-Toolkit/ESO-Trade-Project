@@ -8,6 +8,10 @@ on:
     types: [closed]
   workflow_dispatch:
 
+concurrency:
+  group: sync-priority-queue
+  cancel-in-progress: false
+
 permissions:
   contents: write
   issues: write
@@ -47,7 +51,36 @@ jobs:
           git add .agents/PRIORITY_QUEUE.md
           if git diff --staged --quiet; then
             echo "No changes to .agents/PRIORITY_QUEUE.md. Skipping commit."
-          else
-            git commit -m "chore(queue): auto-sync priority matrix on issue/PR merge [skip ci]"
-            git push origin main
+            exit 0
+          fi
+
+          git commit -m "chore(queue): auto-sync priority matrix on issue/PR merge [skip ci]"
+
+          # Push with bounded retries and rebase against latest origin/main
+          MAX_RETRIES=3
+          RETRY_COUNT=0
+          PUSH_SUCCESS=false
+
+          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+            echo "Attempting git push origin main (attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES)..."
+            if git push origin main; then
+              PUSH_SUCCESS=true
+              echo "Successfully pushed updated PRIORITY_QUEUE.md to main."
+              break
+            fi
+
+            echo "[WARN] Push failed. Fetching and rebasing against latest origin/main..."
+            RETRY_COUNT=$((RETRY_COUNT + 1))
+            git fetch origin main
+            if ! git rebase origin/main; then
+              echo "[FATAL] Rebase conflict encountered while synchronizing PRIORITY_QUEUE.md. Aborting rebase."
+              git rebase --abort || true
+              exit 1
+            fi
+            sleep $((RETRY_COUNT * 2))
+          done
+
+          if [ "$PUSH_SUCCESS" = false ]; then
+            echo "[FATAL] Failed to push PRIORITY_QUEUE.md after $MAX_RETRIES attempts."
+            exit 1
           fi
