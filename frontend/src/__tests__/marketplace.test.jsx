@@ -183,10 +183,51 @@ describe('marketplace presentation parity', () => {
     api.fetchMarketListings.mockResolvedValue({ total: 1, listings: [traitedItem] });
     openMarket();
     const card = await screen.findByRole('button', { name: 'View Rubedite Cuirass' });
-    expect(within(card).getByText('Divines')).toBeVisible();
+    expect(within(card).getByText('Trait: Divines')).toBeVisible();
 
     await user.click(card);
-    expect(screen.getByText('• Trait: Divines')).toBeVisible();
-    expect(screen.getByText('Increases Mundus Stone effects by up to 9.1%.')).toBeVisible();
+    const detail = document.getElementById('market-item-detail');
+    expect(within(detail).getByText('• Trait: Divines')).toBeVisible();
+    expect(within(detail).getByText('Trait: Divines')).toBeVisible();
+    expect(within(detail).getByText('Increases Mundus Stone effects by up to 9.1%.')).toBeVisible();
+  });
+
+  it('renders trait name from item_metadata fallback and above trait description', async () => {
+    const user = userEvent.setup();
+    const catalogTraitedItem = {
+      listing_id: 10000998,
+      game_item_id: 45348,
+      item_name: "homespun shoes^p",
+      item_category: "Apparel",
+      item_subcategory: "Light Armor",
+      item_icon: "gear_breton_light_feet_a.png",
+      price: 9,
+      quantity: 1,
+      active_stacks: 1,
+      quality: 1,
+      trait_id: 0,
+      seller_name: "@ADS8688",
+      guild_name: "Lost Ark",
+      location: "Gonfalon Bay, High Isle",
+      discovered_at: "2026-09-03 01:30:58",
+      observed_min_price: 9,
+      observed_max_price: 84,
+      observed_avg_price: 47,
+      value_index: 5.2,
+      item_metadata: {
+        trait_id: 20,
+        trait_description: "Increases inspiration gained from deconstruction of this item by 280-300%, and gain additional refined material upon deconstruction of this item."
+      }
+    };
+    api.fetchMarketListings.mockResolvedValue({ total: 1, listings: [catalogTraitedItem] });
+    openMarket();
+    const card = await screen.findByRole('button', { name: /View homespun shoes/i });
+    expect(within(card).getByText('Trait: Intricate')).toBeVisible();
+
+    await user.click(card);
+    const detail = document.getElementById('market-item-detail');
+    expect(within(detail).getByText('• Trait: Intricate')).toBeVisible();
+    expect(within(detail).getByText('Trait: Intricate')).toBeVisible();
+    expect(within(detail).getByText(/Increases inspiration gained from deconstruction/)).toBeVisible();
   });
 });

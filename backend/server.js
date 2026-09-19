@@ -1893,7 +1893,16 @@ const ESO_TRAIT_ID_TO_NAME = {
     30: "Triune",     // Jewelry Triune
     31: "Bloodthirsty", // Jewelry Bloodthirsty
     32: "Protective", // Jewelry Protective
-    33: "Infused"     // Jewelry Infused
+    33: "Infused",    // Jewelry Infused
+    // Companion Weapon Traits (34-42)
+    34: "Quickened", 35: "Prolific", 36: "Focused", 37: "Shattering", 38: "Aggressive",
+    39: "Soothing", 40: "Augmented", 41: "Bolstered", 42: "Vigorous",
+    // Companion Armor Traits (43-51)
+    43: "Quickened", 44: "Prolific", 45: "Focused", 46: "Shattering", 47: "Aggressive",
+    48: "Soothing", 49: "Augmented", 50: "Bolstered", 51: "Vigorous",
+    // Companion Jewelry Traits (52-60)
+    52: "Quickened", 53: "Prolific", 54: "Focused", 55: "Shattering", 56: "Aggressive",
+    57: "Soothing", 58: "Augmented", 59: "Bolstered", 60: "Vigorous"
 };
 
 const ESO_TRAIT_DESCRIPTIONS = {
@@ -1932,7 +1941,35 @@ const ESO_TRAIT_DESCRIPTIONS = {
     30: "Increases Maximum Health by up to 478, Maximum Magicka by up to 435, and Maximum Stamina by up to 435.",
     31: "Increases your Damage done against enemies under 25% Health by up to 350.",
     32: "Increases Spell and Physical Resistance by up to 1190.",
-    33: "Increases Jewelry Enchantment effectiveness by up to 60%."
+    33: "Increases Jewelry Enchantment effectiveness by up to 60%.",
+    // Companion Traits
+    34: "Reduces ability cooldowns by up to 2.6%.",
+    35: "Increases Ultimate generation by up to 9%.",
+    36: "Increases Critical Strike Rating by up to 657.",
+    37: "Increases Penetration by up to 900.",
+    38: "Increases damage done by up to 1.2%.",
+    39: "Increases healing done by up to 2.6%.",
+    40: "Increases duration of buffs and debuffs by up to 4.4%.",
+    41: "Reduces damage taken by up to 2.9%.",
+    42: "Increases Max Health by up to 3.6%.",
+    43: "Reduces ability cooldowns by up to 2.6%.",
+    44: "Increases Ultimate generation by up to 9%.",
+    45: "Increases Critical Strike Rating by up to 657.",
+    46: "Increases Penetration by up to 900.",
+    47: "Increases damage done by up to 1.2%.",
+    48: "Increases healing done by up to 2.6%.",
+    49: "Increases duration of buffs and debuffs by up to 4.4%.",
+    50: "Reduces damage taken by up to 2.9%.",
+    51: "Increases Max Health by up to 3.6%.",
+    52: "Reduces ability cooldowns by up to 2.6%.",
+    53: "Increases Ultimate generation by up to 9%.",
+    54: "Increases Critical Strike Rating by up to 657.",
+    55: "Increases Penetration by up to 900.",
+    56: "Increases damage done by up to 1.2%.",
+    57: "Increases healing done by up to 2.6%.",
+    58: "Increases duration of buffs and debuffs by up to 4.4%.",
+    59: "Reduces damage taken by up to 2.9%.",
+    60: "Increases Max Health by up to 3.6%."
 };
 
 const TRAIT_NAME_TO_IDS = {
@@ -1961,7 +1998,16 @@ const TRAIT_NAME_TO_IDS = {
     "harmony": [29],
     "triune": [30],
     "bloodthirsty": [31],
-    "protective": [32]
+    "protective": [32],
+    "quickened": [34, 43, 52],
+    "prolific": [35, 44, 53],
+    "focused": [36, 45, 54],
+    "shattering": [37, 46, 55],
+    "aggressive": [38, 47, 56],
+    "soothing": [39, 48, 57],
+    "augmented": [40, 49, 58],
+    "bolstered": [41, 50, 59],
+    "vigorous": [42, 51, 60]
 };
 
 
@@ -2002,7 +2048,7 @@ app.get("/api/market/listings", async (req, res) => {
         const matchedIds = TRAIT_NAME_TO_IDS[traitKey] || (!isNaN(parseInt(traitStr, 10)) ? [parseInt(traitStr, 10)] : []);
         if (matchedIds.length > 0) {
             const placeholders = matchedIds.map(() => '?').join(', ');
-            conditions.push(`gtl.trait_id IN (${placeholders})`);
+            conditions.push(`COALESCE(NULLIF(gtl.trait_id, 0), CASE WHEN i.category IN ('Apparel', 'Armor', 'Weapons', 'Jewelry') THEN CAST(json_extract(i.metadata, '$.trait_id') AS INTEGER) ELSE 0 END, 0) IN (${placeholders})`);
             params.push(...matchedIds);
         }
     }
@@ -2072,7 +2118,7 @@ app.get("/api/market/listings", async (req, res) => {
                 gtl.location,
                 gtl.level,
                 gtl.quality,
-                gtl.trait_id,
+                COALESCE(NULLIF(gtl.trait_id, 0), CASE WHEN i.category IN ('Apparel', 'Armor', 'Weapons', 'Jewelry') THEN CAST(json_extract(i.metadata, '$.trait_id') AS INTEGER) ELSE 0 END, 0) AS trait_id,
                 gtl.expires_at,
                 gtl.discovered_at,
                 COALESCE(gtl.item_name, i.name) AS item_name,
@@ -2110,8 +2156,10 @@ app.get("/api/market/listings", async (req, res) => {
             } catch (e) {
                 row.item_metadata = {};
             }
-            row.trait_name = row.trait_name || (row.trait_id ? ESO_TRAIT_ID_TO_NAME[row.trait_id] : null) || null;
-            row.trait_description = (row.trait_id ? ESO_TRAIT_DESCRIPTIONS[row.trait_id] : null) || null;
+            const effectiveTraitId = row.trait_id || (row.item_metadata?.trait_id ? parseInt(row.item_metadata.trait_id, 10) : 0);
+            row.trait_id = effectiveTraitId;
+            row.trait_name = row.trait_name || (effectiveTraitId ? ESO_TRAIT_ID_TO_NAME[effectiveTraitId] : null) || null;
+            row.trait_description = (effectiveTraitId ? ESO_TRAIT_DESCRIPTIONS[effectiveTraitId] : null) || (row.item_metadata?.trait_description ? row.item_metadata.trait_description : null) || null;
             return row;
         });
 
@@ -2182,7 +2230,7 @@ app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
                 const unitPrice = Math.max(1, parseInt(price, 10) || 1);
                 const sellerHandle = seller_name || "@Unknown";
                 let validTraitId = parseInt(trait_id, 10) || 0;
-                if (validTraitId < 0 || validTraitId > 33) validTraitId = 0;
+                if (validTraitId < 0 || validTraitId > 60) validTraitId = 0;
 
                 // Reconcile legacy trait_id = 0 row if fresh scan has valid trait_id > 0
                 if (validTraitId > 0) {

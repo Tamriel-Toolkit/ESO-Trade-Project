@@ -59,6 +59,15 @@ ESO_TRAIT_NAMES = {
     31: "Bloodthirsty", # Jewelry Bloodthirsty
     32: "Protective", # Jewelry Protective
     33: "Infused",    # Jewelry Infused
+    # Companion Weapon Traits (34-42)
+    34: "Quickened", 35: "Prolific", 36: "Focused", 37: "Shattering", 38: "Aggressive",
+    39: "Soothing", 40: "Augmented", 41: "Bolstered", 42: "Vigorous",
+    # Companion Armor Traits (43-51)
+    43: "Quickened", 44: "Prolific", 45: "Focused", 46: "Shattering", 47: "Aggressive",
+    48: "Soothing", 49: "Augmented", 50: "Bolstered", 51: "Vigorous",
+    # Companion Jewelry Traits (52-60)
+    52: "Quickened", 53: "Prolific", 54: "Focused", 55: "Shattering", 56: "Aggressive",
+    57: "Soothing", 58: "Augmented", 59: "Bolstered", 60: "Vigorous",
 }
 
 DEFAULT_TRAIT_DESCRIPTIONS = {
@@ -98,6 +107,34 @@ DEFAULT_TRAIT_DESCRIPTIONS = {
     31: "Increases your Damage done against enemies under 25% Health by up to 350.",
     32: "Increases Spell and Physical Resistance by up to 1190.",
     33: "Increases Jewelry Enchantment effectiveness by up to 60%.",
+    # Companion Traits
+    34: "Reduces ability cooldowns by up to 2.6%.",
+    35: "Increases Ultimate generation by up to 9%.",
+    36: "Increases Critical Strike Rating by up to 657.",
+    37: "Increases Penetration by up to 900.",
+    38: "Increases damage done by up to 1.2%.",
+    39: "Increases healing done by up to 2.6%.",
+    40: "Increases duration of buffs and debuffs by up to 4.4%.",
+    41: "Reduces damage taken by up to 2.9%.",
+    42: "Increases Max Health by up to 3.6%.",
+    43: "Reduces ability cooldowns by up to 2.6%.",
+    44: "Increases Ultimate generation by up to 9%.",
+    45: "Increases Critical Strike Rating by up to 657.",
+    46: "Increases Penetration by up to 900.",
+    47: "Increases damage done by up to 1.2%.",
+    48: "Increases healing done by up to 2.6%.",
+    49: "Increases duration of buffs and debuffs by up to 4.4%.",
+    50: "Reduces damage taken by up to 2.9%.",
+    51: "Increases Max Health by up to 3.6%.",
+    52: "Reduces ability cooldowns by up to 2.6%.",
+    53: "Increases Ultimate generation by up to 9%.",
+    54: "Increases Critical Strike Rating by up to 657.",
+    55: "Increases Penetration by up to 900.",
+    56: "Increases damage done by up to 1.2%.",
+    57: "Increases healing done by up to 2.6%.",
+    58: "Increases duration of buffs and debuffs by up to 4.4%.",
+    59: "Reduces damage taken by up to 2.9%.",
+    60: "Increases Max Health by up to 3.6%.",
 }
 
 SAVED_VARS_PATHS = [
@@ -285,7 +322,7 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
         level = int(level_m.group(1)) if level_m else 1
         quality = int(qual_m.group(1)) if qual_m else 1
         trait_id = int(trait_m.group(1)) if trait_m else 0
-        if trait_id < 0 or trait_id > 33:
+        if trait_id < 0 or trait_id > 60:
             trait_id = 0
 
         raw_uid = uid_m.group(1).strip() if uid_m else ""
@@ -459,7 +496,7 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                         item_id = int(g_item_id.group(1)) if g_item_id else 0
                         quality = int(g_qual.group(1)) if g_qual else 1
                         trait_id = int(g_trait.group(1)) if g_trait else 0
-                        if trait_id < 0 or trait_id > 33:
+                        if trait_id < 0 or trait_id > 60:
                             trait_id = 0
 
                         # Extract true quality directly from ESO item_link if available
@@ -663,7 +700,7 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                         item_link_str = link_m.group(1) if link_m else ""
                         parsed_q = int(qual_m.group(1)) if qual_m else 1
                         parsed_t = int(trait_m.group(1)) if trait_m else 0
-                        if parsed_t < 0 or parsed_t > 33:
+                        if parsed_t < 0 or parsed_t > 60:
                             parsed_t = 0
 
                         if item_link_str and parsed_q <= 1:
