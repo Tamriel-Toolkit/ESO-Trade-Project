@@ -23,7 +23,7 @@ DEFAULT_DB_PATH = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "exports", "eso
 
 ESO_TRAIT_NAMES = {
     0: "None",
-    # Weapon Traits (1-10)
+    # Weapon Traits (1-10, 25)
     1: "Powered",
     2: "Charged",
     3: "Precise",
@@ -34,7 +34,7 @@ ESO_TRAIT_NAMES = {
     8: "Decisive",
     9: "Intricate",
     10: "Ornate",
-    # Armor Traits (11-20)
+    # Armor Traits (11-20, 26)
     11: "Sturdy",
     12: "Impenetrable",
     13: "Reinforced",
@@ -43,24 +43,22 @@ ESO_TRAIT_NAMES = {
     16: "Infused",
     17: "Invigorating",
     18: "Divines",
-    19: "Intricate",
-    20: "Ornate",
-    # Jewelry Traits (21-24, 27, 30-35)
+    19: "Ornate",
+    20: "Intricate",
+    # Jewelry Traits (21-24, 27-33)
     21: "Healthy",
     22: "Arcane",
     23: "Robust",
-    24: "Intricate",
-    25: "Nirnhoned",
-    26: "Nirnhoned",
-    27: "Ornate",
-    28: "Protective",
-    29: "Swift",
-    30: "Triune",
-    31: "Bloodthirsty",
-    32: "Harmony",
-    33: "Swift",
-    34: "Protective",
-    35: "Infused",
+    24: "Ornate",
+    25: "Nirnhoned",  # Weapon Nirnhoned
+    26: "Nirnhoned",  # Armor Nirnhoned
+    27: "Intricate",  # Jewelry Intricate
+    28: "Swift",      # Jewelry Swift
+    29: "Harmony",    # Jewelry Harmony
+    30: "Triune",     # Jewelry Triune
+    31: "Bloodthirsty", # Jewelry Bloodthirsty
+    32: "Protective", # Jewelry Protective
+    33: "Infused",    # Jewelry Infused
 }
 
 DEFAULT_TRAIT_DESCRIPTIONS = {
@@ -84,24 +82,22 @@ DEFAULT_TRAIT_DESCRIPTIONS = {
     16: "Increases Armor Enchantment effect by up to 20%.",
     17: "Increases Health, Magicka, and Stamina Recovery by up to 16.",
     18: "Increases Mundus Stone effects by up to 9.1%.",
-    19: "Increases Inspiration gained from deconstruction by up to 300%.",
-    20: "Increases sell price to merchants by 280%.",
+    19: "Increases sell price to merchants by 280%.",
+    20: "Increases Inspiration gained from deconstruction by up to 300%.",
     # Jewelry & Nirnhoned
     21: "Increases Maximum Health by up to 957.",
     22: "Increases Maximum Magicka by up to 870.",
     23: "Increases Maximum Stamina by up to 870.",
-    24: "Increases Inspiration gained from deconstruction by up to 300%.",
-    25: "Increases Spell and Physical Resistance by up to 301.",
-    26: "Increases Weapon and Spell Damage by up to 15%.",
-    27: "Increases sell price to merchants by 280%.",
-    28: "Increases Spell and Physical Resistance by up to 1190.",
-    29: "Increases your Movement Speed by up to 7%.",
+    24: "Increases sell price to merchants by 280%.",
+    25: "Increases Weapon and Spell Damage by up to 15%.",
+    26: "Increases Spell and Physical Resistance by up to 301.",
+    27: "Increases Inspiration gained from deconstruction by up to 300%.",
+    28: "Increases your Movement Speed by up to 7%.",
+    29: "Increases the damage, healing, resource restore, and damage shield strength of synergies you activate by up to 880.",
     30: "Increases Maximum Health by up to 478, Maximum Magicka by up to 435, and Maximum Stamina by up to 435.",
     31: "Increases your Damage done against enemies under 25% Health by up to 350.",
-    32: "Increases the damage, healing, resource restore, and damage shield strength of synergies you activate by up to 880.",
-    33: "Increases your Movement Speed by up to 7%.",
-    34: "Increases Spell and Physical Resistance by up to 1190.",
-    35: "Increases Jewelry Enchantment effectiveness by up to 60%.",
+    32: "Increases Spell and Physical Resistance by up to 1190.",
+    33: "Increases Jewelry Enchantment effectiveness by up to 60%.",
 }
 
 SAVED_VARS_PATHS = [
@@ -289,14 +285,8 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
         level = int(level_m.group(1)) if level_m else 1
         quality = int(qual_m.group(1)) if qual_m else 1
         trait_id = int(trait_m.group(1)) if trait_m else 0
-
-        # If trait_id is 0, attempt parsing from full item link
-        if trait_id <= 0:
-            link_full_m = re.search(r'\|H\d+:item:[^|]+\|h', snippet)
-            if link_full_m:
-                lparts = link_full_m.group(0).split(':')
-                if len(lparts) >= 7 and lparts[6].isdigit():
-                    trait_id = int(lparts[6])
+        if trait_id < 0 or trait_id > 33:
+            trait_id = 0
 
         raw_uid = uid_m.group(1).strip() if uid_m else ""
 
@@ -395,6 +385,15 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
     if listings:
         print(f"Direct Ingesting {len(listings)} custom ESOTrade listings into database...")
         for item in listings:
+            # If item has trait_id > 0, clean up any stale legacy listing where trait_id was 0
+            # for the same item/seller/price/qty/level/quality on this server & guild
+            if item["trait_id"] > 0:
+                cursor.execute("""
+                    DELETE FROM guild_trader_listings
+                    WHERE game_item_id = ? AND server = ? AND guild_name = ? AND seller_name = ?
+                      AND price = ? AND quantity = ? AND level = ? AND quality = ? AND trait_id = 0;
+                """, (item["game_item_id"], server, item["guild_name"], item.get("seller_name", "@Unknown"), item["price"], item["quantity"], item["level"], item["quality"]))
+
             cursor.execute("""
                 INSERT INTO guild_trader_listings 
                 (game_item_id, item_name, server, seller_name, price, quantity, active_stacks, guild_name, location, level, quality, trait_id, expires_at, discovered_at)
@@ -460,19 +459,16 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                         item_id = int(g_item_id.group(1)) if g_item_id else 0
                         quality = int(g_qual.group(1)) if g_qual else 1
                         trait_id = int(g_trait.group(1)) if g_trait else 0
+                        if trait_id < 0 or trait_id > 33:
+                            trait_id = 0
 
-                        # Extract true quality and trait directly from ESO item_link if available
-                        if item_link and (quality <= 1 or trait_id <= 0):
+                        # Extract true quality directly from ESO item_link if available
+                        if item_link and quality <= 1:
                             lparts = item_link.split(':')
-                            if len(lparts) >= 7:
-                                if quality <= 1 and lparts[5].isdigit():
-                                    parsed_q = int(lparts[5])
-                                    if 1 <= parsed_q <= 5:
-                                        quality = parsed_q
-                                if trait_id <= 0 and lparts[6].isdigit():
-                                    parsed_t = int(lparts[6])
-                                    if parsed_t > 0:
-                                        trait_id = parsed_t
+                            if len(lparts) >= 6 and lparts[5].isdigit():
+                                parsed_q = int(lparts[5])
+                                if 1 <= parsed_q <= 5:
+                                    quality = parsed_q
 
                         set_name = g_set.group(1).strip() if g_set else ""
                         item_icon = g_icon.group(1).strip() if g_icon else ""
@@ -667,18 +663,15 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                         item_link_str = link_m.group(1) if link_m else ""
                         parsed_q = int(qual_m.group(1)) if qual_m else 1
                         parsed_t = int(trait_m.group(1)) if trait_m else 0
+                        if parsed_t < 0 or parsed_t > 33:
+                            parsed_t = 0
 
-                        if item_link_str and (parsed_q <= 1 or parsed_t <= 0):
+                        if item_link_str and parsed_q <= 1:
                             lparts = item_link_str.split(':')
-                            if len(lparts) >= 7:
-                                if parsed_q <= 1 and lparts[5].isdigit():
-                                    q_val = int(lparts[5])
-                                    if 1 <= q_val <= 5:
-                                        parsed_q = q_val
-                                if parsed_t <= 0 and lparts[6].isdigit():
-                                    t_val = int(lparts[6])
-                                    if t_val > 0:
-                                        parsed_t = t_val
+                            if len(lparts) >= 6 and lparts[5].isdigit():
+                                q_val = int(lparts[5])
+                                if 1 <= q_val <= 5:
+                                    parsed_q = q_val
 
                         g_tname_str = tname_m.group(1).strip() if tname_m else ""
                         g_tdesc_str = tdesc_m.group(1).strip() if tdesc_m else ""

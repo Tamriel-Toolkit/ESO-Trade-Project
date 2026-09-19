@@ -153,4 +153,40 @@ describe('marketplace presentation parity', () => {
     expect(callbacks.onTogglePin).toHaveBeenCalledWith(search);
     expect(callbacks.onDelete).toHaveBeenCalledWith(search);
   });
+
+  it('renders trait badge and displays trait description in detail panel', async () => {
+    const user = userEvent.setup();
+    const traitedItem = {
+      listing_id: 10000999,
+      game_item_id: 1129,
+      item_name: "Rubedite Cuirass",
+      item_category: "Armor",
+      item_subcategory: "Heavy Armor",
+      item_icon: "gear_rubedite_cuirass.png",
+      price: 5000,
+      quantity: 1,
+      active_stacks: 1,
+      quality: 4,
+      trait_id: 18,
+      trait_name: "Divines",
+      trait_description: "Increases Mundus Stone effects by up to 9.1%.",
+      seller_name: "@Crafter",
+      guild_name: "Lost Ark",
+      location: "Gonfalon Bay",
+      discovered_at: "2026-09-03 01:30:58",
+      observed_min_price: 5000,
+      observed_max_price: 5000,
+      observed_avg_price: 5000,
+      value_index: 1.0,
+      item_metadata: {}
+    };
+    api.fetchMarketListings.mockResolvedValue({ total: 1, listings: [traitedItem] });
+    openMarket();
+    const card = await screen.findByRole('button', { name: 'View Rubedite Cuirass' });
+    expect(within(card).getByText('Divines')).toBeVisible();
+
+    await user.click(card);
+    expect(screen.getByText('• Trait: Divines')).toBeVisible();
+    expect(screen.getByText('Increases Mundus Stone effects by up to 9.1%.')).toBeVisible();
+  });
 });

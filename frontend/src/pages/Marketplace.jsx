@@ -86,10 +86,10 @@ const ESO_TRAIT_NAMES = {
   1: "Powered", 2: "Charged", 3: "Precise", 4: "Infused", 5: "Defending",
   6: "Training", 7: "Sharpened", 8: "Decisive", 9: "Intricate", 10: "Ornate",
   11: "Sturdy", 12: "Impenetrable", 13: "Reinforced", 14: "Well-Fitted", 15: "Training",
-  16: "Infused", 17: "Invigorating", 18: "Divines", 19: "Intricate", 20: "Ornate",
-  21: "Healthy", 22: "Arcane", 23: "Robust", 24: "Intricate", 25: "Nirnhoned",
-  26: "Nirnhoned", 27: "Ornate", 28: "Protective", 29: "Swift", 30: "Triune",
-  31: "Bloodthirsty", 32: "Harmony", 33: "Swift", 34: "Protective", 35: "Infused"
+  16: "Infused", 17: "Invigorating", 18: "Divines", 19: "Ornate", 20: "Intricate",
+  21: "Healthy", 22: "Arcane", 23: "Robust", 24: "Ornate", 25: "Nirnhoned",
+  26: "Nirnhoned", 27: "Intricate", 28: "Swift", 29: "Harmony", 30: "Triune",
+  31: "Bloodthirsty", 32: "Protective", 33: "Infused"
 };
 
 // Major Tamriel Trading Hub Capitals
@@ -1125,9 +1125,9 @@ function Marketplace() {
                 </div>
 
                 {/* Clean ESO Formatted Metadata Details */}
-                {(selectedItem.item_metadata?.set || selectedItem.item_metadata?.trait_description) && (
+                {(selectedItem.item_metadata?.set || selectedItem.trait_description || selectedItem.item_metadata?.trait_description) && (
                   <div className="space-y-2">
-                    {selectedItem.item_metadata.set && (
+                    {selectedItem.item_metadata?.set && (
                       <div className="p-3 bg-recess border border-border">
                         <span className="font-sans font-bold text-xs text-primary block mb-1">
                           Set: {cleanEsoText(selectedItem.item_metadata.set.name)}
@@ -1141,13 +1141,13 @@ function Marketplace() {
                         </ul>
                       </div>
                     )}
-                    {selectedItem.item_metadata.trait_description && (
+                    {(selectedItem.trait_description || selectedItem.item_metadata?.trait_description) && (
                       <div className="p-2.5 bg-recess border border-border">
-                        <span className="font-sans font-bold text-xs block text-primary mb-1 r">
-                          Trait Description
+                        <span className="font-sans font-bold text-xs block text-primary mb-1">
+                          Trait: {selectedItem.trait_name || (selectedItem.trait_id ? ESO_TRAIT_NAMES[selectedItem.trait_id] : null) || "Trait Description"}
                         </span>
                         <p className="text-xs text-foreground leading-relaxed">
-                          {renderEsoFormattedText(selectedItem.item_metadata.trait_description)}
+                          {renderEsoFormattedText(selectedItem.trait_description || selectedItem.item_metadata?.trait_description)}
                         </p>
                       </div>
                     )}
