@@ -221,13 +221,69 @@ describe('marketplace presentation parity', () => {
     };
     api.fetchMarketListings.mockResolvedValue({ total: 1, listings: [catalogTraitedItem] });
     openMarket();
-    const card = await screen.findByRole('button', { name: /View homespun shoes/i });
+    const card = await screen.findByRole('button', { name: 'View homespun shoes' });
+    expect(within(card).getByText('homespun shoes')).toBeVisible();
+    expect(screen.queryByText(/homespun shoes\^p/)).not.toBeInTheDocument();
     expect(within(card).getByText('Trait: Intricate')).toBeVisible();
 
     await user.click(card);
     const detail = document.getElementById('market-item-detail');
+    expect(within(detail).getByText('homespun shoes')).toBeVisible();
     expect(within(detail).getByText('• Trait: Intricate')).toBeVisible();
     expect(within(detail).getByText('Trait: Intricate')).toBeVisible();
     expect(within(detail).getByText(/Increases inspiration gained from deconstruction/)).toBeVisible();
+  });
+
+  it('strips ESO grammatical suffixes like ^n, ^p, and ^ns from item titles and search command', async () => {
+    const user = userEvent.setup();
+    const suffixItems = [
+      {
+        listing_id: 10000801,
+        game_item_id: 45348,
+        item_name: "homespun shoes^p",
+        item_category: "Apparel",
+        price: 10,
+        quantity: 1,
+        active_stacks: 1,
+        quality: 1,
+        trait_id: 20,
+        trait_name: "Intricate",
+        seller_name: "@Tester",
+        guild_name: "Lost Ark",
+        location: "Gonfalon Bay"
+      },
+      {
+        listing_id: 10000802,
+        game_item_id: 45349,
+        item_name: "oak bow^n",
+        item_category: "Weapon",
+        price: 20,
+        quantity: 1,
+        active_stacks: 1,
+        quality: 1,
+        trait_id: 6,
+        trait_name: "Training",
+        seller_name: "@Tester",
+        guild_name: "Lost Ark",
+        location: "Gonfalon Bay"
+      }
+    ];
+    api.fetchMarketListings.mockResolvedValue({ total: 2, listings: suffixItems });
+    openMarket();
+
+    const shoesCard = await screen.findByRole('button', { name: 'View homespun shoes' });
+    expect(within(shoesCard).getByText('homespun shoes')).toBeVisible();
+    expect(screen.queryByText(/homespun shoes\^p/)).not.toBeInTheDocument();
+
+    const bowCard = await screen.findByRole('button', { name: 'View oak bow' });
+    expect(within(bowCard).getByText('oak bow')).toBeVisible();
+    expect(screen.queryByText(/oak bow\^n/)).not.toBeInTheDocument();
+
+    await user.click(shoesCard);
+    const detail = document.getElementById('market-item-detail');
+    expect(within(detail).getByText('homespun shoes')).toBeVisible();
+
+    await user.click(within(detail).getByRole('button', { name: 'Copy in-game search' }));
+    expect(await navigator.clipboard.readText()).toBe('/script TradingHouseSearch("homespun shoes")');
   });
 });

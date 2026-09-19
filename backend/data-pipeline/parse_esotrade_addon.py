@@ -21,6 +21,12 @@ sys.stdout.reconfigure(encoding='utf-8')
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_DB_PATH = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "exports", "eso_catalog.db"))
 
+def clean_eso_item_name(name):
+    """Strip ESO grammatical gender/number suffixes (^n, ^p, ^ns, ^m, ^f, etc.) from item names."""
+    if not name or not isinstance(name, str):
+        return ""
+    return re.sub(r'\^[a-zA-Z]+', '', name).strip()
+
 ESO_TRAIT_NAMES = {
     0: "None",
     # Weapon Traits (1-10, 25)
@@ -311,7 +317,7 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
 
         raw_link_id = int(link_m.group(1)) if link_m else 0
         raw_table_id = int(item_id_m.group(1)) if item_id_m else 0
-        raw_name = name_m.group(1).strip() if name_m else ""
+        raw_name = clean_eso_item_name(name_m.group(1)) if name_m else ""
         
         item_id = raw_link_id if raw_link_id in valid_ids else (raw_table_id if raw_table_id in valid_ids else 0)
         total_price = int(price_m.group(1)) if price_m else None
@@ -491,7 +497,7 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
 
                     if g_slot and g_name:
                         slot_id = int(g_slot.group(1))
-                        item_name = g_name.group(1).strip()
+                        item_name = clean_eso_item_name(g_name.group(1))
                         item_link = g_link.group(1).strip() if g_link else ""
                         item_id = int(g_item_id.group(1)) if g_item_id else 0
                         quality = int(g_qual.group(1)) if g_qual else 1
@@ -726,7 +732,7 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                         gear_items.append({
                             "slot_id": int(slot_m.group(1)),
                             "game_item_id": int(id_m.group(1)) if id_m else 0,
-                            "item_name": name_m.group(1) if name_m else "Equipped Item",
+                            "item_name": clean_eso_item_name(name_m.group(1)) if name_m else "Equipped Item",
                             "item_link": item_link_str,
                             "quality": parsed_q,
                             "trait_id": parsed_t,

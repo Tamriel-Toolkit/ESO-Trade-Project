@@ -5,6 +5,9 @@ backend/exports/*.db*
 backend/exports/icon-cache/*
 !backend/exports/icon-cache/.gitkeep
 *.bak
+*.db
+*.db-journal
+*.db-wal
 
 # Ignore Node dependencies
 node_modules/

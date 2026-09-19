@@ -30,7 +30,10 @@ export function cleanEsoText(text) {
   // 4. Strip leftover color resets: |r
   cleaned = cleaned.replace(/\|r/gi, "");
 
-  // 5. Clean up multiple spaces or leading/trailing whitespace
+  // 5. Strip ESO grammatical gender/number suffixes (e.g., ^n, ^p, ^ns, ^m, ^f, ^d)
+  cleaned = cleaned.replace(/\^[a-zA-Z]+/g, "");
+
+  // 6. Clean up multiple spaces or leading/trailing whitespace
   return cleaned.replace(/\s+/g, " ").trim();
 }
 
@@ -45,8 +48,8 @@ export function renderEsoFormattedText(text) {
   const lines = normalized.split("\n");
 
   const renderedLines = lines.map((line, lineIdx) => {
-    // First clean links & textures
-    let str = line.replace(/\|H[^|]*\|h([^|]*)\|h/gi, "$1").replace(/\|t[^|]*\|t/gi, "");
+    // First clean links, textures & gender/number suffixes
+    let str = line.replace(/\|H[^|]*\|h([^|]*)\|h/gi, "$1").replace(/\|t[^|]*\|t/gi, "").replace(/\^[a-zA-Z]+/g, "");
 
     // Check if line contains color tags
     if (!/\|c[0-9a-fA-F]{6}/i.test(str)) {

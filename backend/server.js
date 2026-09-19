@@ -54,6 +54,12 @@ function verifyPassword(password, storedHash) {
     }
 }
 
+// Clean raw ESO grammatical gender/number suffixes (^n, ^p, ^ns, ^m, ^f, ^d) from item names
+function cleanEsoItemName(name) {
+    if (!name || typeof name !== 'string') return '';
+    return name.replace(/\^[a-zA-Z]+/g, '').trim();
+}
+
 // Developer & Testing Environment Flag (defaults to 'development' if NODE_ENV is unset)
 const nodeEnv = process.env.NODE_ENV || "development";
 const isDevMode = (nodeEnv === "development" || nodeEnv === "test" || process.env.ENABLE_DEV_ENDPOINTS === "true") && process.env.NODE_ENV !== "production";
@@ -740,6 +746,28 @@ function initializeDatabaseSchema() {
             END;
         `);
 
+        // Clean legacy/ingested ESO localization grammatical gender suffixes (^n, ^p, ^ns, ^m, ^f)
+        db.all("SELECT DISTINCT item_name FROM guild_trader_listings WHERE item_name LIKE '%^%'", (err, rows) => {
+            if (!err && rows && rows.length > 0) {
+                for (const row of rows) {
+                    if (row.item_name) {
+                        const cleaned = cleanEsoItemName(row.item_name);
+                        db.run("UPDATE guild_trader_listings SET item_name = ? WHERE item_name = ?", [cleaned, row.item_name]);
+                    }
+                }
+            }
+        });
+        db.all("SELECT DISTINCT item_name FROM character_gear WHERE item_name LIKE '%^%'", (err, rows) => {
+            if (!err && rows && rows.length > 0) {
+                for (const row of rows) {
+                    if (row.item_name) {
+                        const cleaned = cleanEsoItemName(row.item_name);
+                        db.run("UPDATE character_gear SET item_name = ? WHERE item_name = ?", [cleaned, row.item_name]);
+                    }
+                }
+            }
+        });
+
         // This sentinel runs after every queued schema statement. Unexpected
         // migration failures are fatal so the API never serves a partial schema.
         db.run("SELECT 1;", (finalizeErr) => {
@@ -1238,7 +1266,7 @@ app.post("/api/characters/upload-gear", batchUploadLimiter, async (req, res) => 
                 characterId,
                 slot_id,
                 game_item_id || 0,
-                item_name || 'Unknown Item',
+                cleanEsoItemName(item_name) || 'Unknown Item',
                 item_link || '',
                 quality || 1,
                 trait_id || 0,
@@ -2156,6 +2184,9 @@ app.get("/api/market/listings", async (req, res) => {
             } catch (e) {
                 row.item_metadata = {};
             }
+            if (row.item_name) {
+                row.item_name = cleanEsoItemName(row.item_name);
+            }
             const effectiveTraitId = row.trait_id || (row.item_metadata?.trait_id ? parseInt(row.item_metadata.trait_id, 10) : 0);
             row.trait_id = effectiveTraitId;
             row.trait_name = row.trait_name || (effectiveTraitId ? ESO_TRAIT_ID_TO_NAME[effectiveTraitId] : null) || null;
@@ -2224,6 +2255,7 @@ app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
         for (const item of listings) {
             const { game_item_id, item_name, name, price, quantity, active_stacks, seller_name, guild_name, location, level, quality, trait_id, expires_at } = item;
             const displayName = item_name || name || null;
+            const cleanDisplayName = displayName ? cleanEsoItemName(displayName) : null;
             if (game_item_id && price && guild_name) {
                 const stackQty = Math.max(1, parseInt(quantity, 10) || 1);
                 const stacksCount = Math.max(1, parseInt(active_stacks, 10) || 1);
@@ -2251,7 +2283,7 @@ app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
                         discovered_at = CURRENT_TIMESTAMP,
                         location = CASE WHEN excluded.location != 'Guild Trader' THEN excluded.location ELSE location END,
                         expires_at = COALESCE(excluded.expires_at, expires_at);
-                `, [game_item_id, displayName, targetServer, sellerHandle, unitPrice, stackQty, stacksCount, guild_name, location || "Guild Trader", level || 1, quality || 1, validTraitId, expires_at || null]);
+                `, [game_item_id, cleanDisplayName, targetServer, sellerHandle, unitPrice, stackQty, stacksCount, guild_name, location || "Guild Trader", level || 1, quality || 1, validTraitId, expires_at || null]);
                 insertedCount++;
                 affectedItemIds.add(game_item_id);
                 scannedGuilds.add(guild_name);
