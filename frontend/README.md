@@ -1,6 +1,30 @@
-# React + Vite
+# ESO Marketplace — Frontend (React 19 + Vite)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+The frontend web client for **ESO Marketplace**, providing live guild trader search, character equipment loadouts, trait research tracking, and public crafting request bounties.
+
+## Environment Configuration
+
+Copy `frontend/.env.example` to `frontend/.env` (or `frontend/.env.local`):
+
+```bash
+cp frontend/.env.example frontend/.env
+```
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `VITE_API_BASE_URL` | `http://localhost:5001/api` | Base URL for API requests. In production reverse-proxy deployments, set to `/api`. |
+
+> **Note**: Vite only exposes environment variables prefixed with `VITE_` to client-side code via `import.meta.env.VITE_*`.
+
+## Development
+
+```bash
+npm install
+npm run dev     # Start local Vite dev server at http://localhost:5173
+npm run build   # Production bundle build
+npm test        # Run Vitest component test suite
+npm run lint    # Run Oxlint
+```
 
 Currently, two official plugins are available:
 
