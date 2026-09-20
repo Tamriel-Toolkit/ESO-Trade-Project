@@ -508,7 +508,8 @@ function initializeDatabaseSchema() {
                 item_name TEXT,
                 server TEXT,
                 seller_name TEXT DEFAULT '@Unknown',
-                price INTEGER,
+                price REAL,
+                total_price INTEGER,
                 quantity INTEGER,
                 active_stacks INTEGER DEFAULT 1,
                 guild_name TEXT,
@@ -528,8 +529,10 @@ function initializeDatabaseSchema() {
             }
         });
 
-        // Ensure item_name column exists for dynamic in-game item naming
+        // Ensure item_name and total_price columns exist for dynamic naming and exact stack price preservation
         runSchemaMigration("guild-trader-listings.add-item-name", "ALTER TABLE guild_trader_listings ADD COLUMN item_name TEXT", { allowDuplicateColumn: true });
+        runSchemaMigration("guild-trader-listings.add-total-price", "ALTER TABLE guild_trader_listings ADD COLUMN total_price INTEGER", { allowDuplicateColumn: true });
+        runSchemaMigration("guild-trader-listings.backfill-total-price", "UPDATE guild_trader_listings SET total_price = ROUND(price * quantity) WHERE total_price IS NULL");
 
         db.run(`
             CREATE TABLE IF NOT EXISTS user_inventory (
@@ -2140,6 +2143,7 @@ app.get("/api/market/listings", async (req, res) => {
                 gtl.server,
                 gtl.seller_name,
                 gtl.price,
+                COALESCE(gtl.total_price, ROUND(gtl.price * gtl.quantity)) AS total_price,
                 gtl.quantity,
                 gtl.active_stacks,
                 gtl.guild_name,
@@ -2187,6 +2191,8 @@ app.get("/api/market/listings", async (req, res) => {
             if (row.item_name) {
                 row.item_name = cleanEsoItemName(row.item_name);
             }
+            row.price = typeof row.price === 'number' ? row.price : (parseFloat(row.price) || 0);
+            row.total_price = row.total_price != null ? Number(row.total_price) : Math.round(row.price * (row.quantity || 1));
             const effectiveTraitId = row.trait_id || (row.item_metadata?.trait_id ? parseInt(row.item_metadata.trait_id, 10) : 0);
             row.trait_id = effectiveTraitId;
             row.trait_name = row.trait_name || (effectiveTraitId ? ESO_TRAIT_ID_TO_NAME[effectiveTraitId] : null) || null;
@@ -2253,13 +2259,20 @@ app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
         const batchStartTime = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
         for (const item of listings) {
-            const { game_item_id, item_name, name, price, quantity, active_stacks, seller_name, guild_name, location, level, quality, trait_id, expires_at } = item;
+            const { game_item_id, item_name, name, price, total_price, quantity, active_stacks, seller_name, guild_name, location, level, quality, trait_id, expires_at } = item;
             const displayName = item_name || name || null;
             const cleanDisplayName = displayName ? cleanEsoItemName(displayName) : null;
             if (game_item_id && price && guild_name) {
                 const stackQty = Math.max(1, parseInt(quantity, 10) || 1);
                 const stacksCount = Math.max(1, parseInt(active_stacks, 10) || 1);
-                const unitPrice = Math.max(1, parseInt(price, 10) || 1);
+                const rawTotalPrice = total_price != null ? parseInt(total_price, 10) : null;
+                const rawUnitPrice = parseFloat(price);
+                const effectiveTotalPrice = rawTotalPrice != null && !isNaN(rawTotalPrice) && rawTotalPrice > 0
+                    ? rawTotalPrice
+                    : Math.max(1, Math.round((!isNaN(rawUnitPrice) ? rawUnitPrice : 1) * stackQty));
+                const unitPrice = !isNaN(rawUnitPrice) && rawUnitPrice > 0
+                    ? Math.round(rawUnitPrice * 100) / 100
+                    : Math.round((effectiveTotalPrice / stackQty) * 100) / 100;
                 const sellerHandle = seller_name || "@Unknown";
                 let validTraitId = parseInt(trait_id, 10) || 0;
                 if (validTraitId < 0 || validTraitId > 60) validTraitId = 0;
@@ -2275,15 +2288,16 @@ app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
 
                 await dbRun(`
                     INSERT INTO guild_trader_listings 
-                    (game_item_id, item_name, server, seller_name, price, quantity, active_stacks, guild_name, location, level, quality, trait_id, expires_at, discovered_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    (game_item_id, item_name, server, seller_name, price, total_price, quantity, active_stacks, guild_name, location, level, quality, trait_id, expires_at, discovered_at)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                     ON CONFLICT(game_item_id, server, guild_name, seller_name, price, quantity, level, quality, trait_id) DO UPDATE SET
                         item_name = COALESCE(excluded.item_name, item_name),
+                        total_price = COALESCE(excluded.total_price, total_price),
                         active_stacks = excluded.active_stacks,
                         discovered_at = CURRENT_TIMESTAMP,
                         location = CASE WHEN excluded.location != 'Guild Trader' THEN excluded.location ELSE location END,
                         expires_at = COALESCE(excluded.expires_at, expires_at);
-                `, [game_item_id, cleanDisplayName, targetServer, sellerHandle, unitPrice, stackQty, stacksCount, guild_name, location || "Guild Trader", level || 1, quality || 1, validTraitId, expires_at || null]);
+                `, [game_item_id, cleanDisplayName, targetServer, sellerHandle, unitPrice, effectiveTotalPrice, stackQty, stacksCount, guild_name, location || "Guild Trader", level || 1, quality || 1, validTraitId, expires_at || null]);
                 insertedCount++;
                 affectedItemIds.add(game_item_id);
                 scannedGuilds.add(guild_name);

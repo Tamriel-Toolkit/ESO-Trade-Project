@@ -1372,10 +1372,53 @@ async function runTests() {
         }
         console.log("   Saved-search create/list/pin/delete behavior and cross-account isolation verified!");
 
+        console.log("\n57. Testing stack price preservation and fractional unit price in upload-scans and market listings (#138)...");
+        const stackScanRes = await httpPost('/api/market/upload-scans', {
+            server: "NA",
+            listings: [
+                {
+                    game_item_id: 1129,
+                    item_name: "Lockpicks",
+                    price: 3.72,
+                    total_price: 744,
+                    quantity: 200,
+                    active_stacks: 1,
+                    seller_name: "@PricingTester",
+                    guild_name: "Pricing Test Guild",
+                    location: "Abah's Landing",
+                    level: 1,
+                    quality: 1,
+                    trait_id: 0
+                }
+            ]
+        }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
+        if (stackScanRes.status !== 200) {
+            throw new Error(`Failed to upload stack pricing scan: ${JSON.stringify(stackScanRes.data)}`);
+        }
+
+        const pricingCheckRes = await httpGet('/api/market/listings?server=NA&search=Lockpicks');
+        if (pricingCheckRes.status !== 200 || !Array.isArray(pricingCheckRes.data.listings)) {
+            throw new Error(`Expected 200 from market listings, got status ${pricingCheckRes.status}`);
+        }
+        const lockpickListing = pricingCheckRes.data.listings.find(l => l.seller_name === "@PricingTester");
+        if (!lockpickListing) {
+            throw new Error(`Did not find @PricingTester lockpicks in listings: ${JSON.stringify(pricingCheckRes.data.listings)}`);
+        }
+        if (lockpickListing.total_price !== 744) {
+            throw new Error(`Expected total_price 744, got ${lockpickListing.total_price}`);
+        }
+        if (lockpickListing.price !== 3.72) {
+            throw new Error(`Expected unit price 3.72, got ${lockpickListing.price}`);
+        }
+        if (lockpickListing.quantity !== 200) {
+            throw new Error(`Expected quantity 200, got ${lockpickListing.quantity}`);
+        }
+        console.log(`   Verified stack pricing: 200 units @ 3.72g/item -> exact ${lockpickListing.total_price}g total (no rounding inflation)!`);
+
         // 56. Run Proxy Trust and Client IP Rate Limiting Regression Tests (#76)
         await runProxyTrustTests();
 
-        console.log("\nAll 56 API endpoint suites plus bcrypt, schema-migration, proxy-trust, and rollback regressions passed successfully!");
+        console.log("\nAll 57 API endpoint suites plus bcrypt, schema-migration, proxy-trust, and rollback regressions passed successfully!");
     } catch (err) {
         console.error("API test failed:", err);
         process.exitCode = 1;

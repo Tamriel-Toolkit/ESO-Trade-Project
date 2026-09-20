@@ -286,4 +286,36 @@ describe('marketplace presentation parity', () => {
     await user.click(within(detail).getByRole('button', { name: 'Copy in-game search' }));
     expect(await navigator.clipboard.readText()).toBe('/script TradingHouseSearch("homespun shoes")');
   });
+
+  it('preserves exact stack purchase prices and fractional unit prices without rounding inflation (#138)', async () => {
+    const user = userEvent.setup();
+    const lockpicks = {
+      listing_id: 10000999,
+      game_item_id: 1234,
+      item_name: 'Lockpicks',
+      item_category: 'Consumables',
+      price: 3.72,
+      total_price: 744,
+      quantity: 200,
+      active_stacks: 1,
+      quality: 1,
+      seller_name: '@Locksmith',
+      guild_name: 'Thieves Guild',
+      location: "Abah's Landing",
+      discovered_at: '2026-09-19 20:00:00',
+    };
+    api.fetchMarketListings.mockResolvedValue({ total: 1, listings: [lockpicks] });
+    openMarket();
+
+    const offer = await screen.findByRole('button', { name: 'View Lockpicks' });
+    // Unit price displays 3.72g / item, stack price displays exact 744g / stack (not 800g)
+    expect(offer).toHaveTextContent('3.72g / item');
+    expect(offer).toHaveTextContent('744g / stack');
+
+    await user.click(offer);
+    const detail = document.getElementById('market-item-detail');
+    expect(within(detail).getByText('3.72g / ea')).toBeVisible();
+    expect(within(detail).getByText('744g')).toBeVisible();
+    expect(within(detail).queryByText('800g')).not.toBeInTheDocument();
+  });
 });

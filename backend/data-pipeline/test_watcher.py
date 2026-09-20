@@ -45,7 +45,8 @@ class WatcherFeedbackLoopTests(unittest.TestCase):
                         item_name TEXT,
                         server TEXT,
                         seller_name TEXT,
-                        price INTEGER,
+                        price REAL,
+                        total_price INTEGER,
                         quantity INTEGER,
                         active_stacks INTEGER,
                         guild_name TEXT,
@@ -92,11 +93,70 @@ class WatcherFeedbackLoopTests(unittest.TestCase):
 
             with closing(sqlite3.connect(database)) as verification:
                 row = verification.execute("""
-                    SELECT quantity, active_stacks
+                    SELECT quantity, active_stacks, total_price, price
                     FROM guild_trader_listings
                     WHERE game_item_id = 123
                 """).fetchone()
-            self.assertEqual((100, 3), row)
+            self.assertEqual((100, 3, 210000, 2100.0), row)
+
+    def test_fractional_unit_pricing_and_exact_stack_total(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            saved_variables = os.path.join(temp_dir, "ESOTrade.lua")
+            database = os.path.join(temp_dir, "eso_catalog.db")
+            with closing(sqlite3.connect(database)) as connection:
+                connection.executescript("""
+                    CREATE TABLE items (game_item_id INTEGER PRIMARY KEY);
+                    INSERT INTO items (game_item_id) VALUES (456);
+                    CREATE TABLE guild_trader_listings (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        game_item_id INTEGER,
+                        item_name TEXT,
+                        server TEXT,
+                        seller_name TEXT,
+                        price REAL,
+                        total_price INTEGER,
+                        quantity INTEGER,
+                        active_stacks INTEGER,
+                        guild_name TEXT,
+                        location TEXT,
+                        level INTEGER,
+                        quality INTEGER,
+                        trait_id INTEGER,
+                        expires_at TEXT,
+                        discovered_at TEXT,
+                        UNIQUE(game_item_id, server, guild_name, seller_name, price, quantity, level, quality, trait_id)
+                    );
+                """)
+
+            scan_time = int(time.time())
+            content = (
+                'ESOTrade_SavedVariables = {\n'
+                '    ["Server"] = "NA",\n'
+                '    ["Scans"] = {\n'
+                '        [1] = { ["UID"] = "uid-lockpicks-1", ["ItemId"] = 456, '
+                '["Name"] = "Lockpicks", ["Price"] = 744, ["Qty"] = 200, '
+                '["Guild"] = "Thieves Guild", ["Seller"] = "@LockPicker", '
+                '["Location"] = "Abah\'s Landing", ["Level"] = 1, ["Quality"] = 1, '
+                f'["Trait"] = 0, ["Time"] = {scan_time} }},\n'
+                '    },\n'
+                '}\n'
+            )
+
+            with mock.patch.dict(os.environ, {"ESOTRADE_AUTH_TOKEN": ""}), \
+                    mock.patch.object(parse_esotrade_addon, "DEFAULT_DB_PATH", database), \
+                    mock.patch("sys.stdout", io.StringIO()):
+                with open(saved_variables, "w", encoding="utf-8") as handle:
+                    handle.write(content)
+                self.assertEqual(1, parse_esotrade_addon.parse_and_sync_esotrade(saved_variables))
+
+            with closing(sqlite3.connect(database)) as verification:
+                row = verification.execute("""
+                    SELECT quantity, active_stacks, total_price, price
+                    FROM guild_trader_listings
+                    WHERE game_item_id = 456
+                """).fetchone()
+            # 744 total / 200 qty = 3.72 unit price, exactly preserving 744g stack purchase price
+            self.assertEqual((200, 1, 744, 3.72), row)
 
     def test_parser_does_not_rewrite_an_empty_scans_table(self):
         with tempfile.TemporaryDirectory() as temp_dir:
