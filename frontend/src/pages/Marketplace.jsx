@@ -332,8 +332,12 @@ function Marketplace() {
   const totalPages = Math.max(1, Math.ceil(totalItems / itemsPerPage));
 
   const formatGold = (num) => {
-    if (num === null || num === undefined) return "N/A";
-    return num.toLocaleString() + "g";
+    if (num === null || num === undefined || isNaN(num)) return "N/A";
+    const val = Number(num);
+    return val.toLocaleString(undefined, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2,
+    }) + "g";
   };
 
   const handleResetFilters = () => {
@@ -973,7 +977,7 @@ function Marketplace() {
                             </div>
                             <div className="exchange-offer-price">
                               <span>{formatGold(item.price)} <small>/ item</small></span>
-                              <span className="exchange-offer-secondary">{formatGold((item.price || 0) * (item.quantity || 1))} / stack</span>
+                              <span className="exchange-offer-secondary">{formatGold(item.total_price ?? ((item.price || 0) * (item.quantity || 1)))} / stack</span>
                             </div>
                           </div>
                           <div className="exchange-offer-average"><span>Observed average</span><span>{formatGold(item.observed_avg_price)} / item</span></div>
@@ -1112,7 +1116,7 @@ function Marketplace() {
                         <div className="flex items-center justify-between pt-1">
                           <span className="text-muted-foreground font-semibold font-sans">Total Listing Price:</span>
                           <span className="font-extrabold text-base text-emerald-400">
-                            {formatGold(selectedItem.price * (selectedItem.quantity || 1))}
+                            {formatGold(selectedItem.total_price ?? ((selectedItem.price || 0) * (selectedItem.quantity || 1)))}
                           </span>
                         </div>
                       </div>

@@ -334,12 +334,13 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
         raw_uid = uid_m.group(1).strip() if uid_m else ""
 
         if item_id > 0 and total_price and total_price > 0:
-            unit_price = max(1, int(round(total_price / qty)))
+            unit_price = round(total_price / qty, 2)
             raw_scans.append({
                 "uid": raw_uid,
                 "game_item_id": item_id,
                 "item_name": raw_name,
                 "price": unit_price,
+                "total_price": total_price,
                 "quantity": qty,
                 "seller_name": seller,
                 "guild_name": guild,
@@ -387,12 +388,13 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
     # Step 5: Group unique items by seller listing key to compute active_stacks
     grouped_listings = {}
     for item in unique_items_in_session:
+        effective_total = item.get("total_price") or int(round(item["price"] * item["quantity"]))
         group_key = (
             item["game_item_id"],
             server,
             item["guild_name"],
             item["seller_name"],
-            item["price"],
+            effective_total,
             item["quantity"],
             item["level"],
             item["quality"],
@@ -408,6 +410,7 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
                 "game_item_id": item["game_item_id"],
                 "item_name": item.get("item_name", ""),
                 "price": item["price"],
+                "total_price": effective_total,
                 "quantity": item["quantity"],
                 "active_stacks": 1,
                 "seller_name": item["seller_name"],
@@ -426,6 +429,12 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
 
     affected_ids = set()
     if listings:
+        try:
+            cursor.execute("ALTER TABLE guild_trader_listings ADD COLUMN total_price INTEGER;")
+            conn.commit()
+        except sqlite3.OperationalError:
+            pass
+
         print(f"Direct Ingesting {len(listings)} custom ESOTrade listings into database...")
         for item in listings:
             # If item has trait_id > 0, clean up any stale legacy listing where trait_id was 0
@@ -439,15 +448,16 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
 
             cursor.execute("""
                 INSERT INTO guild_trader_listings 
-                (game_item_id, item_name, server, seller_name, price, quantity, active_stacks, guild_name, location, level, quality, trait_id, expires_at, discovered_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                (game_item_id, item_name, server, seller_name, price, total_price, quantity, active_stacks, guild_name, location, level, quality, trait_id, expires_at, discovered_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(game_item_id, server, guild_name, seller_name, price, quantity, level, quality, trait_id) DO UPDATE SET
                     item_name = COALESCE(excluded.item_name, item_name),
+                    total_price = COALESCE(excluded.total_price, total_price),
                     active_stacks = excluded.active_stacks,
                     discovered_at = CURRENT_TIMESTAMP,
                     location = CASE WHEN excluded.location != 'Guild Trader' THEN excluded.location ELSE location END,
                     expires_at = COALESCE(excluded.expires_at, expires_at);
-            """, (item["game_item_id"], item.get("item_name"), server, item.get("seller_name", "@Unknown"), item["price"], item["quantity"], item.get("active_stacks", 1), item["guild_name"], item["location"], item["level"], item["quality"], item["trait_id"], item["expires_at"]))
+            """, (item["game_item_id"], item.get("item_name"), server, item.get("seller_name", "@Unknown"), item["price"], item.get("total_price"), item["quantity"], item.get("active_stacks", 1), item["guild_name"], item["location"], item["level"], item["quality"], item["trait_id"], item["expires_at"]))
             affected_ids.add(item["game_item_id"])
 
     # Always auto-discover playing character in local SQLite

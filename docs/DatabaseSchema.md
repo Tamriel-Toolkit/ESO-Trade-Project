@@ -10,7 +10,7 @@
 
 ### `guild_trader_listings`
 
-Stores listing observations captured by the native ESOTrade addon: item, server, seller, unit price, quantity, stack count, guild, location, level, quality, trait, expiration, and discovery time.
+Stores listing observations captured by the native ESOTrade addon: item, server, seller, unit price (`price`), total stack price (`total_price`), quantity, stack count, guild, location, level, quality, trait, expiration, and discovery time.
 
 Observed minimum, maximum, average, count, and value index are query-time aggregates grouped by `game_item_id` and server. They are not persisted as a second market dataset.
 
