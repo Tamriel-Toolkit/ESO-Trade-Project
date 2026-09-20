@@ -86,10 +86,19 @@ const ESO_TRAIT_NAMES = {
   1: "Powered", 2: "Charged", 3: "Precise", 4: "Infused", 5: "Defending",
   6: "Training", 7: "Sharpened", 8: "Decisive", 9: "Intricate", 10: "Ornate",
   11: "Sturdy", 12: "Impenetrable", 13: "Reinforced", 14: "Well-Fitted", 15: "Training",
-  16: "Infused", 17: "Invigorating", 18: "Divines", 19: "Intricate", 20: "Ornate",
-  21: "Healthy", 22: "Arcane", 23: "Robust", 24: "Intricate", 25: "Nirnhoned",
-  26: "Nirnhoned", 27: "Ornate", 28: "Protective", 29: "Swift", 30: "Triune",
-  31: "Bloodthirsty", 32: "Harmony", 33: "Swift", 34: "Protective", 35: "Infused"
+  16: "Infused", 17: "Invigorating", 18: "Divines", 19: "Ornate", 20: "Intricate",
+  21: "Healthy", 22: "Arcane", 23: "Robust", 24: "Ornate", 25: "Nirnhoned",
+  26: "Nirnhoned", 27: "Intricate", 28: "Swift", 29: "Harmony", 30: "Triune",
+  31: "Bloodthirsty", 32: "Protective", 33: "Infused",
+  // Companion Weapon Traits (34-42)
+  34: "Quickened", 35: "Prolific", 36: "Focused", 37: "Shattering", 38: "Aggressive",
+  39: "Soothing", 40: "Augmented", 41: "Bolstered", 42: "Vigorous",
+  // Companion Armor Traits (43-51)
+  43: "Quickened", 44: "Prolific", 45: "Focused", 46: "Shattering", 47: "Aggressive",
+  48: "Soothing", 49: "Augmented", 50: "Bolstered", 51: "Vigorous",
+  // Companion Jewelry Traits (52-60)
+  52: "Quickened", 53: "Prolific", 54: "Focused", 55: "Shattering", 56: "Aggressive",
+  57: "Soothing", 58: "Augmented", 59: "Bolstered", 60: "Vigorous"
 };
 
 // Major Tamriel Trading Hub Capitals
@@ -721,6 +730,17 @@ function Marketplace() {
             <NativeSelectOption value="Intricate">Intricate (Inspiration)</NativeSelectOption>
             <NativeSelectOption value="Ornate">Ornate (Gold)</NativeSelectOption>
           </NativeSelectOptGroup>
+          <NativeSelectOptGroup label="Companion Traits">
+            <NativeSelectOption value="Quickened">Quickened (Cooldowns)</NativeSelectOption>
+            <NativeSelectOption value="Prolific">Prolific (Ultimate)</NativeSelectOption>
+            <NativeSelectOption value="Focused">Focused (Critical Strike)</NativeSelectOption>
+            <NativeSelectOption value="Shattering">Shattering (Penetration)</NativeSelectOption>
+            <NativeSelectOption value="Aggressive">Aggressive (Damage)</NativeSelectOption>
+            <NativeSelectOption value="Soothing">Soothing (Healing)</NativeSelectOption>
+            <NativeSelectOption value="Augmented">Augmented (Buff Duration)</NativeSelectOption>
+            <NativeSelectOption value="Bolstered">Bolstered (Damage Reduction)</NativeSelectOption>
+            <NativeSelectOption value="Vigorous">Vigorous (Max Health)</NativeSelectOption>
+          </NativeSelectOptGroup>
         </NativeSelect>
         </label>
 
@@ -900,7 +920,8 @@ function Marketplace() {
                 );
                 const rarityInfo = RARITY_MAP[item.quality || item.item_rarity] || RARITY_MAP[1];
                 const cleanName = cleanEsoText(item.item_name);
-                const itemTrait = item.trait_name || (item.trait_id && ESO_TRAIT_NAMES[item.trait_id] && ESO_TRAIT_NAMES[item.trait_id] !== "None" ? ESO_TRAIT_NAMES[item.trait_id] : null);
+                const rawTraitId = item.trait_id || (item.item_metadata?.trait_id ? parseInt(item.item_metadata.trait_id, 10) : 0);
+                const itemTrait = item.trait_name || (rawTraitId && ESO_TRAIT_NAMES[rawTraitId] && ESO_TRAIT_NAMES[rawTraitId] !== "None" ? ESO_TRAIT_NAMES[rawTraitId] : null);
 
                 return (
                   <Card
@@ -930,7 +951,7 @@ function Marketplace() {
                         <CardTitle className="exchange-offer-name">{cleanName}</CardTitle>
                         <div className="exchange-offer-meta">
                           <span className={rarityInfo.color.split(" ")[1]}>{rarityInfo.label}</span>
-                          {itemTrait && <span>{itemTrait}</span>}
+                          {itemTrait && <span className="font-semibold text-primary">Trait: {itemTrait}</span>}
                           <span>{item.item_category}{item.item_subcategory ? ` · ${item.item_subcategory}` : ""}</span>
                         </div>
                       </div>
@@ -985,205 +1006,211 @@ function Marketplace() {
         </div>
 
         {/* Selected Item Detail Sidebar */}
-        {selectedItem && (
-          <div className="exchange-market-detail" id="market-item-detail">
-            <Card className="exchange-frame">
-              <CardHeader className="p-4 pb-2 border-b border-border bg-secondary">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    {getEsoIconUrl(selectedItem.item_icon) && (
-                      <img
-                        src={getEsoIconUrl(selectedItem.item_icon)}
-                        alt={cleanEsoText(selectedItem.item_name)}
-                        className="size-12 rounded-none border border-primary/40 p-1 bg-recess object-contain"
-                        onError={(e) => (e.target.style.display = "none")}
-                        loading="lazy"
-                      />
+        {selectedItem && (() => {
+          const detailTraitId = selectedItem.trait_id || (selectedItem.item_metadata?.trait_id ? parseInt(selectedItem.item_metadata.trait_id, 10) : 0);
+          const detailTraitName = selectedItem.trait_name || (detailTraitId && ESO_TRAIT_NAMES[detailTraitId] && ESO_TRAIT_NAMES[detailTraitId] !== "None" ? ESO_TRAIT_NAMES[detailTraitId] : null);
+          const detailTraitDesc = selectedItem.trait_description || selectedItem.item_metadata?.trait_description;
+
+          return (
+            <div className="exchange-market-detail" id="market-item-detail">
+              <Card className="exchange-frame">
+                <CardHeader className="p-4 pb-2 border-b border-border bg-secondary">
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      {getEsoIconUrl(selectedItem.item_icon) && (
+                        <img
+                          src={getEsoIconUrl(selectedItem.item_icon)}
+                          alt={cleanEsoText(selectedItem.item_name)}
+                          className="size-12 rounded-none border border-primary/40 p-1 bg-recess object-contain"
+                          onError={(e) => (e.target.style.display = "none")}
+                          loading="lazy"
+                        />
+                      )}
+                      <div>
+                        <CardTitle className="font-sans text-base font-bold text-foreground">
+                          {cleanEsoText(selectedItem.item_name)}
+                        </CardTitle>
+                        <CardDescription className="text-xs text-muted-foreground font-mono">
+                          ID: {selectedItem.game_item_id} • {selectedItem.item_category}
+                          {detailTraitName && (
+                            <span className="ml-2 text-amber-300 font-bold font-sans">
+                              • Trait: {detailTraitName}
+                            </span>
+                          )}
+                        </CardDescription>
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setSelectedItem(null)}
+                      aria-label="Close detail panel"
+                      className="rounded-none text-muted-foreground hover:text-foreground"
+                    >
+                      <X className="size-4" />
+                    </Button>
+                  </div>
+                </CardHeader>
+
+                <CardContent className="p-4 space-y-4 text-xs">
+                  {/* Native observation summary */}
+                  <div className="space-y-2 p-3 bg-recess border border-border">
+                    <span className="font-sans font-bold text-xs text-primary block flex items-center justify-between">
+                      <span>Observed prices · {serverLocation}</span>
+                      <DollarSign className="size-3 text-primary" />
+                    </span>
+                    <div className="grid grid-cols-2 gap-2 text-sm font-bold font-mono">
+                      <div>
+                        <span className="text-muted-foreground text-xs font-normal block font-sans">Observed Average</span>
+                        <span className="text-primary">{formatGold(selectedItem.observed_avg_price)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground text-xs font-normal block font-sans">Observed Range</span>
+                        <span className="text-foreground">{formatGold(selectedItem.observed_min_price)}–{formatGold(selectedItem.observed_max_price)}</span>
+                      </div>
+                    </div>
+
+                    {/* Flipping Profit Calculator */}
+                    {selectedItem.price && selectedItem.observed_avg_price && (
+                      <div className="pt-2 border-t border-border space-y-1 text-xs">
+                        {(() => {
+                          const netResale = Math.round(selectedItem.observed_avg_price * 0.93); // 7% ESO guild listing tax
+                          const estProfit = netResale - selectedItem.price;
+                          const marginPct = Math.round((estProfit / selectedItem.price) * 100);
+                          const isLucrative = estProfit > 0;
+
+                          return (
+                            <div className={`p-2 border ${isLucrative ? 'border-emerald-500/40 bg-emerald-950/20 text-emerald-300' : 'border-amber-900/40 bg-amber-950/20 text-primary'}`}>
+                              <div className="flex items-center justify-between font-sans font-bold text-xs ">
+                                <span>Est. profit after 7% tax</span>
+                                <span className={isLucrative ? 'text-emerald-400 font-mono' : 'text-primary font-mono'}>
+                                  {estProfit > 0 ? `+${estProfit.toLocaleString()}g` : `${estProfit.toLocaleString()}g`}
+                                </span>
+                              </div>
+                              <div className="text-xs text-muted-foreground mt-0.5 flex justify-between font-mono">
+                                <span>Est. return</span>
+                                <span>{marginPct > 0 ? `+${marginPct}%` : `${marginPct}%`} ROI</span>
+                              </div>
+                            </div>
+                          );
+                        })()}
+                      </div>
                     )}
-                    <div>
-                      <CardTitle className="font-sans text-base font-bold text-foreground">
-                        {cleanEsoText(selectedItem.item_name)}
-                      </CardTitle>
-                      <CardDescription className="text-xs text-muted-foreground font-mono">
-                        ID: {selectedItem.game_item_id} • {selectedItem.item_category}
-                        {Boolean(selectedItem.trait_name || (selectedItem.trait_id && ESO_TRAIT_NAMES[selectedItem.trait_id] && ESO_TRAIT_NAMES[selectedItem.trait_id] !== "None")) && (
-                          <span className="ml-2 text-amber-300 font-bold font-sans">
-                            • Trait: {selectedItem.trait_name || ESO_TRAIT_NAMES[selectedItem.trait_id]}
+
+                    {selectedItem.price && (
+                      <div className="pt-2 border-t border-border space-y-1 text-xs font-mono">
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground font-sans">Stack Quantity:</span>
+                          <span className="font-bold text-primary bg-secondary px-2 py-0.5 text-xs border border-border">
+                            {selectedItem.quantity || 1} units
                           </span>
-                        )}
-                      </CardDescription>
-                    </div>
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground font-sans">Unit Price:</span>
+                          <span className="font-semibold text-foreground">{formatGold(selectedItem.price)} / ea</span>
+                        </div>
+                        <div className="flex items-center justify-between pt-1">
+                          <span className="text-muted-foreground font-semibold font-sans">Total Listing Price:</span>
+                          <span className="font-extrabold text-base text-emerald-400">
+                            {formatGold(selectedItem.price * (selectedItem.quantity || 1))}
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
+
+                  {/* Always Render Trader Name, Location & Last Seen Scan Marker */}
+                  <div className="space-y-2 p-3 bg-recess border border-border">
+                    <span className="font-sans font-bold text-xs text-primary block flex items-center justify-between">
+                      <span>Trader details</span>
+                      <Store className="size-3.5 text-primary" />
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <Store className="size-4 text-primary shrink-0" />
+                      <span className="font-semibold text-foreground">{selectedItem.guild_name || "Active Guild Trader"}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-primary font-semibold">
+                      <MapPin className="size-4 shrink-0" />
+                      <span>{selectedItem.location || "Tamriel Guild Trader"}</span>
+                    </div>
+                    {(() => {
+                      const scanDate = selectedItem.discovered_at || selectedItem.updated_at;
+                      const isStale = scanDate && ((new Date() - new Date(scanDate)) / (1000 * 3600 * 24) > 7);
+                      return (
+                        <div className={`pt-2 border-t border-border/60 flex items-center justify-between text-xs font-mono ${isStale ? 'text-amber-400' : ''}`}>
+                          <span className="text-muted-foreground flex items-center gap-1.5 font-sans">
+                            <Clock className={`size-3.5 shrink-0 ${isStale ? 'text-amber-400' : 'text-[#38bdf8]'}`} />
+                            <span>Last Seen Scan:</span>
+                          </span>
+                          <span className={`font-bold ${isStale ? 'text-amber-400' : 'text-[#38bdf8]'}`}>
+                            {isStale ? `⚠️ Stale (${formatLastSeen(scanDate)})` : formatLastSeen(scanDate || selectedItem.created_at)}
+                          </span>
+                        </div>
+                      );
+                    })()}
+                  </div>
+
+                  {/* Clean ESO Formatted Metadata Details */}
+                  {(selectedItem.item_metadata?.set || detailTraitDesc) && (
+                    <div className="space-y-2">
+                      {selectedItem.item_metadata?.set && (
+                        <div className="p-3 bg-recess border border-border">
+                          <span className="font-sans font-bold text-xs text-primary block mb-1">
+                            Set: {cleanEsoText(selectedItem.item_metadata.set.name)}
+                          </span>
+                          <ul className="space-y-1 text-xs text-muted-foreground pl-2 border-l border-primary/40">
+                            {selectedItem.item_metadata.set.bonuses?.slice(0, 5).map((bonus, bIdx) => (
+                              <li key={bIdx} className="leading-relaxed">
+                                • {renderEsoFormattedText(bonus)}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                      {detailTraitDesc && (
+                        <div className="p-2.5 bg-recess border border-border">
+                          <span className="font-sans font-bold text-xs block text-primary mb-1">
+                            {detailTraitName ? `Trait: ${detailTraitName}` : "Trait Description"}
+                          </span>
+                          <p className="text-xs text-foreground leading-relaxed">
+                            {renderEsoFormattedText(detailTraitDesc)}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+
+                <CardFooter className="p-4 pt-0 border-t border-border mt-2 flex flex-col gap-2">
                   <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setSelectedItem(null)}
-                    aria-label="Close detail panel"
-                    className="rounded-none text-muted-foreground hover:text-foreground"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => copyInGameCommand(selectedItem.item_name)}
+                    className="w-full rounded-none font-sans font-semibold border-border bg-secondary text-foreground hover:border-primary/50 hover:bg-secondary text-xs gap-1.5"
                   >
-                    <X className="size-4" />
+                    {copiedLink ? <Check className="size-3.5 text-emerald-400" /> : <Copy className="size-3.5 text-primary" />}
+                    <span>{copiedLink ? "Search command copied" : "Copy in-game search"}</span>
                   </Button>
-                </div>
-              </CardHeader>
 
-              <CardContent className="p-4 space-y-4 text-xs">
-                {/* Native observation summary */}
-                <div className="space-y-2 p-3 bg-recess border border-border">
-                  <span className="font-sans font-bold text-xs text-primary block flex items-center justify-between">
-                    <span>Observed prices · {serverLocation}</span>
-                    <DollarSign className="size-3 text-primary" />
-                  </span>
-                  <div className="grid grid-cols-2 gap-2 text-sm font-bold font-mono">
-                    <div>
-                      <span className="text-muted-foreground text-xs font-normal block font-sans">Observed Average</span>
-                      <span className="text-primary">{formatGold(selectedItem.observed_avg_price)}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground text-xs font-normal block font-sans">Observed Range</span>
-                      <span className="text-foreground">{formatGold(selectedItem.observed_min_price)}–{formatGold(selectedItem.observed_max_price)}</span>
-                    </div>
-                  </div>
-
-                  {/* Flipping Profit Calculator */}
-                  {selectedItem.price && selectedItem.observed_avg_price && (
-                    <div className="pt-2 border-t border-border space-y-1 text-xs">
-                      {(() => {
-                        const netResale = Math.round(selectedItem.observed_avg_price * 0.93); // 7% ESO guild listing tax
-                        const estProfit = netResale - selectedItem.price;
-                        const marginPct = Math.round((estProfit / selectedItem.price) * 100);
-                        const isLucrative = estProfit > 0;
-
-                        return (
-                          <div className={`p-2 border ${isLucrative ? 'border-emerald-500/40 bg-emerald-950/20 text-emerald-300' : 'border-amber-900/40 bg-amber-950/20 text-primary'}`}>
-                            <div className="flex items-center justify-between font-sans font-bold text-xs ">
-                              <span>Est. profit after 7% tax</span>
-                              <span className={isLucrative ? 'text-emerald-400 font-mono' : 'text-primary font-mono'}>
-                                {estProfit > 0 ? `+${estProfit.toLocaleString()}g` : `${estProfit.toLocaleString()}g`}
-                              </span>
-                            </div>
-                            <div className="text-xs text-muted-foreground mt-0.5 flex justify-between font-mono">
-                              <span>Est. return</span>
-                              <span>{marginPct > 0 ? `+${marginPct}%` : `${marginPct}%`} ROI</span>
-                            </div>
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  )}
-
-                  {selectedItem.price && (
-                    <div className="pt-2 border-t border-border space-y-1 text-xs font-mono">
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground font-sans">Stack Quantity:</span>
-                        <span className="font-bold text-primary bg-secondary px-2 py-0.5 text-xs border border-border">
-                          {selectedItem.quantity || 1} units
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-muted-foreground font-sans">Unit Price:</span>
-                        <span className="font-semibold text-foreground">{formatGold(selectedItem.price)} / ea</span>
-                      </div>
-                      <div className="flex items-center justify-between pt-1">
-                        <span className="text-muted-foreground font-semibold font-sans">Total Listing Price:</span>
-                        <span className="font-extrabold text-base text-emerald-400">
-                          {formatGold(selectedItem.price * (selectedItem.quantity || 1))}
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Always Render Trader Name, Location & Last Seen Scan Marker */}
-                <div className="space-y-2 p-3 bg-recess border border-border">
-                  <span className="font-sans font-bold text-xs text-primary block flex items-center justify-between">
-                    <span>Trader details</span>
-                    <Store className="size-3.5 text-primary" />
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <Store className="size-4 text-primary shrink-0" />
-                    <span className="font-semibold text-foreground">{selectedItem.guild_name || "Active Guild Trader"}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-primary font-semibold">
-                    <MapPin className="size-4 shrink-0" />
-                    <span>{selectedItem.location || "Tamriel Guild Trader"}</span>
-                  </div>
-                  {(() => {
-                    const scanDate = selectedItem.discovered_at || selectedItem.updated_at;
-                    const isStale = scanDate && ((new Date() - new Date(scanDate)) / (1000 * 3600 * 24) > 7);
-                    return (
-                      <div className={`pt-2 border-t border-border/60 flex items-center justify-between text-xs font-mono ${isStale ? 'text-amber-400' : ''}`}>
-                        <span className="text-muted-foreground flex items-center gap-1.5 font-sans">
-                          <Clock className={`size-3.5 shrink-0 ${isStale ? 'text-amber-400' : 'text-[#38bdf8]'}`} />
-                          <span>Last Seen Scan:</span>
-                        </span>
-                        <span className={`font-bold ${isStale ? 'text-amber-400' : 'text-[#38bdf8]'}`}>
-                          {isStale ? `⚠️ Stale (${formatLastSeen(scanDate)})` : formatLastSeen(scanDate || selectedItem.created_at)}
-                        </span>
-                      </div>
-                    );
-                  })()}
-                </div>
-
-                {/* Clean ESO Formatted Metadata Details */}
-                {(selectedItem.item_metadata?.set || selectedItem.item_metadata?.trait_description) && (
-                  <div className="space-y-2">
-                    {selectedItem.item_metadata.set && (
-                      <div className="p-3 bg-recess border border-border">
-                        <span className="font-sans font-bold text-xs text-primary block mb-1">
-                          Set: {cleanEsoText(selectedItem.item_metadata.set.name)}
-                        </span>
-                        <ul className="space-y-1 text-xs text-muted-foreground pl-2 border-l border-primary/40">
-                          {selectedItem.item_metadata.set.bonuses?.slice(0, 5).map((bonus, bIdx) => (
-                            <li key={bIdx} className="leading-relaxed">
-                              • {renderEsoFormattedText(bonus)}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
-                    {selectedItem.item_metadata.trait_description && (
-                      <div className="p-2.5 bg-recess border border-border">
-                        <span className="font-sans font-bold text-xs block text-primary mb-1 r">
-                          Trait Description
-                        </span>
-                        <p className="text-xs text-foreground leading-relaxed">
-                          {renderEsoFormattedText(selectedItem.item_metadata.trait_description)}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </CardContent>
-
-              <CardFooter className="p-4 pt-0 border-t border-border mt-2 flex flex-col gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => copyInGameCommand(selectedItem.item_name)}
-                  className="w-full rounded-none font-sans font-semibold border-border bg-secondary text-foreground hover:border-primary/50 hover:bg-secondary text-xs gap-1.5"
-                >
-                  {copiedLink ? <Check className="size-3.5 text-emerald-400" /> : <Copy className="size-3.5 text-primary" />}
-                  <span>{copiedLink ? "Search command copied" : "Copy in-game search"}</span>
-                </Button>
-
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={() => {
-                    if (!user) {
-                      navigate('/login', { state: { from: { pathname: '/marketplace' } } });
-                    } else {
-                      navigate('/characters');
-                    }
-                  }}
-                  className="w-full rounded-none font-sans font-bold bg-primary text-recess hover:bg-primary cursor-pointer"
-                >
-                  View characters
-                </Button>
-              </CardFooter>
-            </Card>
-          </div>
-        )}
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => {
+                      if (!user) {
+                        navigate('/login', { state: { from: { pathname: '/marketplace' } } });
+                      } else {
+                        navigate('/characters');
+                      }
+                    }}
+                    className="w-full rounded-none font-sans font-bold text-xs bg-primary text-primary-foreground hover:bg-primary/90"
+                  >
+                    View characters
+                  </Button>
+                </CardFooter>
+              </Card>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Pagination Controls */}

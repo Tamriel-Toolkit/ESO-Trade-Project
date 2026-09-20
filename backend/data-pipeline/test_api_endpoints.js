@@ -1041,11 +1041,104 @@ async function runTests() {
         });
 
         console.log("\n46. Testing GET /api/market/listings with trait filter & sort...");
-        const traitFilterRes = await httpGet('/api/market/listings?server=NA&trait=Precise');
-        if (traitFilterRes.status !== 200 || !Array.isArray(traitFilterRes.data.listings)) {
-            throw new Error(`Expected 200 on market listings with trait filter, got status ${traitFilterRes.status}`);
+        // Seed test listings with traits via upload-scans
+        const seedTraitScanRes = await httpPost('/api/market/upload-scans', {
+            server: "NA",
+            listings: [
+                {
+                    game_item_id: 1129,
+                    price: 10000,
+                    quantity: 1,
+                    active_stacks: 1,
+                    seller_name: "@TraitTester",
+                    guild_name: "Trait Test Guild",
+                    location: "Mournhold",
+                    level: 50,
+                    quality: 5,
+                    trait_id: 3 // Precise
+                },
+                {
+                    game_item_id: 68447,
+                    price: 15000,
+                    quantity: 1,
+                    active_stacks: 1,
+                    seller_name: "@TraitTester",
+                    guild_name: "Trait Test Guild",
+                    location: "Mournhold",
+                    level: 50,
+                    quality: 4,
+                    trait_id: 18 // Divines
+                },
+                {
+                    game_item_id: 68450,
+                    price: 8000,
+                    quantity: 1,
+                    active_stacks: 1,
+                    seller_name: "@TraitTester",
+                    guild_name: "Trait Test Guild",
+                    location: "Mournhold",
+                    level: 50,
+                    quality: 4,
+                    trait_id: 0 // Legacy untraited row
+                }
+            ]
+        }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
+
+        if (seedTraitScanRes.status !== 200) {
+            throw new Error(`Failed to seed trait test listings: ${JSON.stringify(seedTraitScanRes.data)}`);
         }
-        console.log(`   Trait filter 'Precise' returned ${traitFilterRes.data.listings.length} listings (trait_name: ${traitFilterRes.data.listings[0]?.trait_name || 'N/A'})!`);
+
+        // Test filtering by trait name "Precise"
+        const traitFilterRes = await httpGet('/api/market/listings?server=NA&trait=Precise');
+        if (traitFilterRes.status !== 200 || !Array.isArray(traitFilterRes.data.listings) || traitFilterRes.data.listings.length === 0) {
+            throw new Error(`Expected at least 1 listing with trait=Precise, got status ${traitFilterRes.status}, count ${traitFilterRes.data?.listings?.length}`);
+        }
+        const preciseListing = traitFilterRes.data.listings.find(l => l.game_item_id === 1129);
+        if (!preciseListing || preciseListing.trait_id !== 3 || preciseListing.trait_name !== "Precise" || !preciseListing.trait_description) {
+            throw new Error(`Listing does not have canonical Precise trait info: ${JSON.stringify(preciseListing)}`);
+        }
+        console.log(`   Trait filter 'Precise' verified: found ID ${preciseListing.trait_id}, name '${preciseListing.trait_name}', desc: '${preciseListing.trait_description}'`);
+
+        // Test filtering by trait name "Divines"
+        const divinesFilterRes = await httpGet('/api/market/listings?server=NA&trait=Divines');
+        if (divinesFilterRes.status !== 200 || !Array.isArray(divinesFilterRes.data.listings) || divinesFilterRes.data.listings.length === 0) {
+            throw new Error(`Expected at least 1 listing with trait=Divines, got status ${divinesFilterRes.status}`);
+        }
+        const divinesListing = divinesFilterRes.data.listings.find(l => l.game_item_id === 68447);
+        if (!divinesListing || divinesListing.trait_id !== 18 || divinesListing.trait_name !== "Divines" || !divinesListing.trait_description) {
+            throw new Error(`Listing does not have canonical Divines trait info: ${JSON.stringify(divinesListing)}`);
+        }
+        console.log(`   Trait filter 'Divines' verified: found ID ${divinesListing.trait_id}, name '${divinesListing.trait_name}'`);
+
+        // Test legacy row reconciliation: upload scan with trait_id: 18 for item 68450 (which was trait_id: 0)
+        const reconcileScanRes = await httpPost('/api/market/upload-scans', {
+            server: "NA",
+            listings: [
+                {
+                    game_item_id: 68450,
+                    price: 8000,
+                    quantity: 1,
+                    active_stacks: 1,
+                    seller_name: "@TraitTester",
+                    guild_name: "Trait Test Guild",
+                    location: "Mournhold",
+                    level: 50,
+                    quality: 4,
+                    trait_id: 18 // Now authoritative Divines
+                }
+            ]
+        }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
+        if (reconcileScanRes.status !== 200) {
+            throw new Error(`Failed to upload reconciliation scan: ${JSON.stringify(reconcileScanRes.data)}`);
+        }
+
+        // Verify that item 68450 only has 1 active listing (the trait_id: 18 one) and trait_id: 0 was removed
+        const checkReconciled = await httpGet('/api/market/listings?server=NA&search=Briarheart+Helmet');
+        const helmListings = checkReconciled.data.listings.filter(l => l.game_item_id === 68450 && l.seller_name === "@TraitTester");
+        if (helmListings.length !== 1 || helmListings[0].trait_id !== 18) {
+            throw new Error(`Legacy trait_id=0 listing was not reconciled properly: ${JSON.stringify(helmListings)}`);
+        }
+        console.log(`   Legacy trait_id=0 reconciliation verified! Active helm listing trait_id is now ${helmListings[0].trait_id} (count: ${helmListings.length})`);
 
         const traitSortRes = await httpGet('/api/market/listings?server=NA&sort=trait_asc');
         if (traitSortRes.status !== 200 || !Array.isArray(traitSortRes.data.listings)) {

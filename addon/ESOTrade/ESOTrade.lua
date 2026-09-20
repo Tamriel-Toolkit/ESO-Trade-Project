@@ -39,17 +39,28 @@ local function GetDynamicLocationName()
     end
 end
 
--- Parse raw item ID, Level, Quality, Trait from ESO ItemLink string (|H0:item:ID:SUBTYPE:LEVEL:QUALITY:TRAIT:...)
+-- Parse raw item ID, Level, Quality, Trait from ESO ItemLink
 local function ParseItemLinkAttributes(itemLink)
-    if not itemLink then return 0, 1, 1, 0 end
-    local linkStyle, linkType, text, itemId, subType, level, quality, trait = ZO_LinkHandler_ParseLink(itemLink)
+    if not itemLink then return 0, 1, 1, 0, "" end
+    local linkStyle, linkType, text, itemId, subType, level, quality = ZO_LinkHandler_ParseLink(itemLink)
     
     local parsedId = tonumber(itemId) or 0
     local parsedLevel = tonumber(level) or 1
     local parsedQuality = tonumber(quality) or 1
-    local parsedTrait = tonumber(trait) or 0
+    local parsedTrait = 0
+    local traitName = ""
 
-    return parsedId, parsedLevel, parsedQuality, parsedTrait
+    if GetItemLinkTraitInfo then
+        local traitType, traitDesc = GetItemLinkTraitInfo(itemLink)
+        if traitType and traitType > 0 then
+            parsedTrait = traitType
+            if GetString then
+                traitName = GetString("SI_ITEMTRAITTYPE", traitType) or ""
+            end
+        end
+    end
+
+    return parsedId, parsedLevel, parsedQuality, parsedTrait, traitName
 end
 
 -- Preserve ESO's stable per-listing identity so repeated trading-house response
@@ -147,11 +158,11 @@ local function ExportEquippedGear()
             if itemLink and itemLink ~= "" then
                 local icon, stack, sellPrice, meetsUsageRequirement, locked, equipType, itemStyle, quality = GetItemInfo(BAG_WORN, slotId)
                 local itemName = GetItemLinkName(itemLink)
-                local itemId, itemLevel, itemQuality, itemTrait = ParseItemLinkAttributes(itemLink)
+                local itemId, itemLevel, itemQuality, itemTrait, itemTraitName = ParseItemLinkAttributes(itemLink)
                 local hasSet, setName, numBonuses, numEquipped, maxEquipped, setId = GetItemLinkSetInfo(itemLink)
                 local hasEnchant, enchantHeader, enchantDescription = GetItemLinkEnchantInfo(itemLink)
                 local traitType, traitDesc = GetItemLinkTraitInfo(itemLink)
-                local traitName = (traitType and traitType > 0) and GetString("SI_ITEMTRAITTYPE", traitType) or ""
+                local traitName = (traitType and traitType > 0) and GetString("SI_ITEMTRAITTYPE", traitType) or itemTraitName
                 local armorRating = GetItemLinkArmorRating(itemLink, false) or 0
                 local weaponPower = GetItemLinkWeaponPower(itemLink) or 0
 
@@ -278,26 +289,27 @@ local function OnTradingHouseResponse(eventCode, responseType, result)
         local icon, name, quality, stackCount, sellerName, timeRemaining, totalPrice, _, uid = GetTradingHouseSearchResultItemInfo(i)
         
         if itemLink and totalPrice and totalPrice > 0 then
-            local itemId, itemLevel, itemQuality, itemTrait = ParseItemLinkAttributes(itemLink)
+            local itemId, itemLevel, itemQuality, itemTrait, traitName = ParseItemLinkAttributes(itemLink)
             if not itemQuality or itemQuality <= 0 then
                 itemQuality = quality or 1
             end
             
             local scan = {
-                UID      = NormalizeTradingHouseUid(uid),
-                ItemId   = itemId,
-                Link     = itemLink,
-                Name     = name,
-                Price    = totalPrice,
-                Qty      = stackCount or 1,
-                Level    = itemLevel,
-                Quality  = itemQuality,
-                Trait    = itemTrait,
-                Seller   = sellerName or "@Unknown",
-                Guild    = guildName,
-                Location = locationName,
-                Scanner  = GetUnitName("player") or "Hero",
-                Time     = now
+                UID       = NormalizeTradingHouseUid(uid),
+                ItemId    = itemId,
+                Link      = itemLink,
+                Name      = name,
+                Price     = totalPrice,
+                Qty       = stackCount or 1,
+                Level     = itemLevel,
+                Quality   = itemQuality,
+                Trait     = itemTrait,
+                TraitName = traitName,
+                Seller    = sellerName or "@Unknown",
+                Guild     = guildName,
+                Location  = locationName,
+                Scanner   = GetUnitName("player") or "Hero",
+                Time      = now
             }
 
             local storeResult = StoreTradingHouseScan(scan)

@@ -54,6 +54,12 @@ function verifyPassword(password, storedHash) {
     }
 }
 
+// Clean raw ESO grammatical gender/number suffixes (^n, ^p, ^ns, ^m, ^f, ^d) from item names
+function cleanEsoItemName(name) {
+    if (!name || typeof name !== 'string') return '';
+    return name.replace(/\^[a-zA-Z]+/g, '').trim();
+}
+
 // Developer & Testing Environment Flag (defaults to 'development' if NODE_ENV is unset)
 const nodeEnv = process.env.NODE_ENV || "development";
 const isDevMode = (nodeEnv === "development" || nodeEnv === "test" || process.env.ENABLE_DEV_ENDPOINTS === "true") && process.env.NODE_ENV !== "production";
@@ -740,6 +746,28 @@ function initializeDatabaseSchema() {
             END;
         `);
 
+        // Clean legacy/ingested ESO localization grammatical gender suffixes (^n, ^p, ^ns, ^m, ^f)
+        db.all("SELECT DISTINCT item_name FROM guild_trader_listings WHERE item_name LIKE '%^%'", (err, rows) => {
+            if (!err && rows && rows.length > 0) {
+                for (const row of rows) {
+                    if (row.item_name) {
+                        const cleaned = cleanEsoItemName(row.item_name);
+                        db.run("UPDATE guild_trader_listings SET item_name = ? WHERE item_name = ?", [cleaned, row.item_name]);
+                    }
+                }
+            }
+        });
+        db.all("SELECT DISTINCT item_name FROM character_gear WHERE item_name LIKE '%^%'", (err, rows) => {
+            if (!err && rows && rows.length > 0) {
+                for (const row of rows) {
+                    if (row.item_name) {
+                        const cleaned = cleanEsoItemName(row.item_name);
+                        db.run("UPDATE character_gear SET item_name = ? WHERE item_name = ?", [cleaned, row.item_name]);
+                    }
+                }
+            }
+        });
+
         // This sentinel runs after every queued schema statement. Unexpected
         // migration failures are fatal so the API never serves a partial schema.
         db.run("SELECT 1;", (finalizeErr) => {
@@ -1238,7 +1266,7 @@ app.post("/api/characters/upload-gear", batchUploadLimiter, async (req, res) => 
                 characterId,
                 slot_id,
                 game_item_id || 0,
-                item_name || 'Unknown Item',
+                cleanEsoItemName(item_name) || 'Unknown Item',
                 item_link || '',
                 quality || 1,
                 trait_id || 0,
@@ -1858,7 +1886,7 @@ app.get("/api/trades/matches/:character_id", async (req, res) => {
 // Canonical ESO Trait Mapping for Market & Trait Search Engines
 const ESO_TRAIT_ID_TO_NAME = {
     0: null,
-    // Weapon Traits (1-10, 25/26)
+    // Weapon Traits (1-10, 25)
     1: "Powered",
     2: "Charged",
     3: "Precise",
@@ -1869,7 +1897,7 @@ const ESO_TRAIT_ID_TO_NAME = {
     8: "Decisive",
     9: "Intricate",
     10: "Ornate",
-    // Armor Traits (11-20, 25/26)
+    // Armor Traits (11-20, 26)
     11: "Sturdy",
     12: "Impenetrable",
     13: "Reinforced",
@@ -1878,37 +1906,111 @@ const ESO_TRAIT_ID_TO_NAME = {
     16: "Infused",
     17: "Invigorating",
     18: "Divines",
-    19: "Intricate",
-    20: "Ornate",
-    // Jewelry Traits (21-24, 25, 27-35)
+    19: "Ornate",
+    20: "Intricate",
+    // Jewelry Traits (21-24, 27-33)
     21: "Healthy",
     22: "Arcane",
     23: "Robust",
-    24: "Intricate",
-    25: "Nirnhoned",
-    26: "Nirnhoned",
-    27: "Ornate",
-    28: "Protective",
-    29: "Swift",
-    30: "Triune",
-    31: "Bloodthirsty",
-    32: "Harmony",
-    33: "Swift",
-    34: "Protective",
-    35: "Infused"
+    24: "Ornate",
+    25: "Nirnhoned",  // Weapon Nirnhoned
+    26: "Nirnhoned",  // Armor Nirnhoned
+    27: "Intricate",  // Jewelry Intricate
+    28: "Swift",      // Jewelry Swift
+    29: "Harmony",    // Jewelry Harmony
+    30: "Triune",     // Jewelry Triune
+    31: "Bloodthirsty", // Jewelry Bloodthirsty
+    32: "Protective", // Jewelry Protective
+    33: "Infused",    // Jewelry Infused
+    // Companion Weapon Traits (34-42)
+    34: "Quickened", 35: "Prolific", 36: "Focused", 37: "Shattering", 38: "Aggressive",
+    39: "Soothing", 40: "Augmented", 41: "Bolstered", 42: "Vigorous",
+    // Companion Armor Traits (43-51)
+    43: "Quickened", 44: "Prolific", 45: "Focused", 46: "Shattering", 47: "Aggressive",
+    48: "Soothing", 49: "Augmented", 50: "Bolstered", 51: "Vigorous",
+    // Companion Jewelry Traits (52-60)
+    52: "Quickened", 53: "Prolific", 54: "Focused", 55: "Shattering", 56: "Aggressive",
+    57: "Soothing", 58: "Augmented", 59: "Bolstered", 60: "Vigorous"
+};
+
+const ESO_TRAIT_DESCRIPTIONS = {
+    // Weapon Traits
+    1: "Increases healing done by up to 9%.",
+    2: "Increases chance to apply status effects by up to 480%.",
+    3: "Increases Weapon and Spell Critical by up to 7.7%.",
+    4: "Increases weapon enchantment effect by up to 30% and reduces enchantment cooldown by up to 50%.",
+    5: "Increases total Armor by up to 3276.",
+    6: "Increases experience gained from kills by up to 9%.",
+    7: "Increases Armor Penetration by up to 3276.",
+    8: "Chance to gain 1 additional Ultimate when gaining Ultimate by up to 60%.",
+    9: "Increases Inspiration gained from deconstruction by up to 300%.",
+    10: "Increases sell price to merchants by 280%.",
+    // Armor Traits
+    11: "Reduces Block cost by up to 4%.",
+    12: "Increases Critical Resistance by up to 127.",
+    13: "Increases this item's Armor value by up to 16%.",
+    14: "Reduces Sprint, Roll Dodge, and Sneak cost by up to 5%.",
+    15: "Increases experience gained from kills by up to 11%.",
+    16: "Increases Armor Enchantment effect by up to 20%.",
+    17: "Increases Health, Magicka, and Stamina Recovery by up to 16.",
+    18: "Increases Mundus Stone effects by up to 9.1%.",
+    19: "Increases sell price to merchants by 280%.",
+    20: "Increases Inspiration gained from deconstruction by up to 300%.",
+    // Jewelry & Nirnhoned
+    21: "Increases Maximum Health by up to 957.",
+    22: "Increases Maximum Magicka by up to 870.",
+    23: "Increases Maximum Stamina by up to 870.",
+    24: "Increases sell price to merchants by 280%.",
+    25: "Increases Weapon and Spell Damage by up to 15%.",
+    26: "Increases Spell and Physical Resistance by up to 301.",
+    27: "Increases Inspiration gained from deconstruction by up to 300%.",
+    28: "Increases your Movement Speed by up to 7%.",
+    29: "Increases the damage, healing, resource restore, and damage shield strength of synergies you activate by up to 880.",
+    30: "Increases Maximum Health by up to 478, Maximum Magicka by up to 435, and Maximum Stamina by up to 435.",
+    31: "Increases your Damage done against enemies under 25% Health by up to 350.",
+    32: "Increases Spell and Physical Resistance by up to 1190.",
+    33: "Increases Jewelry Enchantment effectiveness by up to 60%.",
+    // Companion Traits
+    34: "Reduces ability cooldowns by up to 2.6%.",
+    35: "Increases Ultimate generation by up to 9%.",
+    36: "Increases Critical Strike Rating by up to 657.",
+    37: "Increases Penetration by up to 900.",
+    38: "Increases damage done by up to 1.2%.",
+    39: "Increases healing done by up to 2.6%.",
+    40: "Increases duration of buffs and debuffs by up to 4.4%.",
+    41: "Reduces damage taken by up to 2.9%.",
+    42: "Increases Max Health by up to 3.6%.",
+    43: "Reduces ability cooldowns by up to 2.6%.",
+    44: "Increases Ultimate generation by up to 9%.",
+    45: "Increases Critical Strike Rating by up to 657.",
+    46: "Increases Penetration by up to 900.",
+    47: "Increases damage done by up to 1.2%.",
+    48: "Increases healing done by up to 2.6%.",
+    49: "Increases duration of buffs and debuffs by up to 4.4%.",
+    50: "Reduces damage taken by up to 2.9%.",
+    51: "Increases Max Health by up to 3.6%.",
+    52: "Reduces ability cooldowns by up to 2.6%.",
+    53: "Increases Ultimate generation by up to 9%.",
+    54: "Increases Critical Strike Rating by up to 657.",
+    55: "Increases Penetration by up to 900.",
+    56: "Increases damage done by up to 1.2%.",
+    57: "Increases healing done by up to 2.6%.",
+    58: "Increases duration of buffs and debuffs by up to 4.4%.",
+    59: "Reduces damage taken by up to 2.9%.",
+    60: "Increases Max Health by up to 3.6%."
 };
 
 const TRAIT_NAME_TO_IDS = {
     "powered": [1],
     "charged": [2],
     "precise": [3],
-    "infused": [4, 16, 35],
+    "infused": [4, 16, 33],
     "defending": [5],
     "training": [6, 15],
     "sharpened": [7],
     "decisive": [8],
-    "intricate": [9, 19, 24],
-    "ornate": [10, 20, 27],
+    "intricate": [9, 20, 27],
+    "ornate": [10, 19, 24],
     "sturdy": [11],
     "impenetrable": [12],
     "reinforced": [13],
@@ -1920,11 +2022,20 @@ const TRAIT_NAME_TO_IDS = {
     "healthy": [21],
     "arcane": [22],
     "robust": [23],
-    "protective": [28, 34],
-    "swift": [29, 33],
+    "swift": [28],
+    "harmony": [29],
     "triune": [30],
     "bloodthirsty": [31],
-    "harmony": [32]
+    "protective": [32],
+    "quickened": [34, 43, 52],
+    "prolific": [35, 44, 53],
+    "focused": [36, 45, 54],
+    "shattering": [37, 46, 55],
+    "aggressive": [38, 47, 56],
+    "soothing": [39, 48, 57],
+    "augmented": [40, 49, 58],
+    "bolstered": [41, 50, 59],
+    "vigorous": [42, 51, 60]
 };
 
 
@@ -1965,7 +2076,7 @@ app.get("/api/market/listings", async (req, res) => {
         const matchedIds = TRAIT_NAME_TO_IDS[traitKey] || (!isNaN(parseInt(traitStr, 10)) ? [parseInt(traitStr, 10)] : []);
         if (matchedIds.length > 0) {
             const placeholders = matchedIds.map(() => '?').join(', ');
-            conditions.push(`gtl.trait_id IN (${placeholders})`);
+            conditions.push(`COALESCE(NULLIF(gtl.trait_id, 0), CASE WHEN i.category IN ('Apparel', 'Armor', 'Weapons', 'Jewelry') THEN CAST(json_extract(i.metadata, '$.trait_id') AS INTEGER) ELSE 0 END, 0) IN (${placeholders})`);
             params.push(...matchedIds);
         }
     }
@@ -2035,7 +2146,7 @@ app.get("/api/market/listings", async (req, res) => {
                 gtl.location,
                 gtl.level,
                 gtl.quality,
-                gtl.trait_id,
+                COALESCE(NULLIF(gtl.trait_id, 0), CASE WHEN i.category IN ('Apparel', 'Armor', 'Weapons', 'Jewelry') THEN CAST(json_extract(i.metadata, '$.trait_id') AS INTEGER) ELSE 0 END, 0) AS trait_id,
                 gtl.expires_at,
                 gtl.discovered_at,
                 COALESCE(gtl.item_name, i.name) AS item_name,
@@ -2073,7 +2184,13 @@ app.get("/api/market/listings", async (req, res) => {
             } catch (e) {
                 row.item_metadata = {};
             }
-            row.trait_name = row.trait_name || (row.trait_id ? ESO_TRAIT_ID_TO_NAME[row.trait_id] : null) || null;
+            if (row.item_name) {
+                row.item_name = cleanEsoItemName(row.item_name);
+            }
+            const effectiveTraitId = row.trait_id || (row.item_metadata?.trait_id ? parseInt(row.item_metadata.trait_id, 10) : 0);
+            row.trait_id = effectiveTraitId;
+            row.trait_name = row.trait_name || (effectiveTraitId ? ESO_TRAIT_ID_TO_NAME[effectiveTraitId] : null) || null;
+            row.trait_description = (effectiveTraitId ? ESO_TRAIT_DESCRIPTIONS[effectiveTraitId] : null) || (row.item_metadata?.trait_description ? row.item_metadata.trait_description : null) || null;
             return row;
         });
 
@@ -2138,11 +2255,23 @@ app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
         for (const item of listings) {
             const { game_item_id, item_name, name, price, quantity, active_stacks, seller_name, guild_name, location, level, quality, trait_id, expires_at } = item;
             const displayName = item_name || name || null;
+            const cleanDisplayName = displayName ? cleanEsoItemName(displayName) : null;
             if (game_item_id && price && guild_name) {
                 const stackQty = Math.max(1, parseInt(quantity, 10) || 1);
                 const stacksCount = Math.max(1, parseInt(active_stacks, 10) || 1);
                 const unitPrice = Math.max(1, parseInt(price, 10) || 1);
                 const sellerHandle = seller_name || "@Unknown";
+                let validTraitId = parseInt(trait_id, 10) || 0;
+                if (validTraitId < 0 || validTraitId > 60) validTraitId = 0;
+
+                // Reconcile legacy trait_id = 0 row if fresh scan has valid trait_id > 0
+                if (validTraitId > 0) {
+                    await dbRun(`
+                        DELETE FROM guild_trader_listings
+                        WHERE game_item_id = ? AND server = ? AND guild_name = ? AND seller_name = ?
+                          AND price = ? AND quantity = ? AND level = ? AND quality = ? AND trait_id = 0
+                    `, [game_item_id, targetServer, guild_name, sellerHandle, unitPrice, stackQty, level || 1, quality || 1]);
+                }
 
                 await dbRun(`
                     INSERT INTO guild_trader_listings 
@@ -2154,7 +2283,7 @@ app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
                         discovered_at = CURRENT_TIMESTAMP,
                         location = CASE WHEN excluded.location != 'Guild Trader' THEN excluded.location ELSE location END,
                         expires_at = COALESCE(excluded.expires_at, expires_at);
-                `, [game_item_id, displayName, targetServer, sellerHandle, unitPrice, stackQty, stacksCount, guild_name, location || "Guild Trader", level || 1, quality || 1, trait_id || 0, expires_at || null]);
+                `, [game_item_id, cleanDisplayName, targetServer, sellerHandle, unitPrice, stackQty, stacksCount, guild_name, location || "Guild Trader", level || 1, quality || 1, validTraitId, expires_at || null]);
                 insertedCount++;
                 affectedItemIds.add(game_item_id);
                 scannedGuilds.add(guild_name);
