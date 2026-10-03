@@ -105,7 +105,7 @@ export async function fetchMarketListings(params = {}) {
         return await response.json();
     } catch (error) {
         console.error('Error fetching market listings:', error);
-        return { total: 0, listings: [] };
+        return { total: 0, listings: [], error: error.message || 'Unable to load listings.' };
     }
 }
 

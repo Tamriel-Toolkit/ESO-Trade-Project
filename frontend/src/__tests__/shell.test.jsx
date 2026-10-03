@@ -100,8 +100,9 @@ describe('utility control parity', () => {
     expect(doubles.theme.togglePlatform).toHaveBeenCalledOnce();
     await user.click(screen.getByRole('button', { name: 'Europe (EU)' }));
     expect(doubles.theme.toggleServerLocation).toHaveBeenCalledOnce();
-    await user.click(screen.getByRole('button', { name: 'System' }));
-    expect(doubles.theme.setTheme).toHaveBeenCalledWith('system');
+    expect(screen.getByRole('button', { name: 'Light' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'System' })).toBeDisabled();
+    expect(screen.getByText('Light and system themes are not available yet.')).toBeVisible();
     await user.keyboard('{Escape}');
     expect(trigger).toHaveFocus();
     expect(trigger).toHaveAttribute('aria-expanded', 'false');

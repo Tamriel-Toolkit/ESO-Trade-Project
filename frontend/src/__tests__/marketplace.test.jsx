@@ -1,11 +1,12 @@
 import React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 import Marketplace from '../pages/Marketplace';
 import SavedSearchesCard from '../components/SavedSearchesCard';
 import * as api from '../api/api';
+import { SettingsProvider, useSettings } from '../context/SettingsContext';
 
 vi.mock('../components/ui/navbar', () => ({ default: () => <nav aria-label="Test navigation" /> }));
 const auth = vi.hoisted(() => ({ user: null }));
@@ -27,27 +28,153 @@ function CurrentLocation() {
   const location = useLocation();
   return <output aria-label="Current location" data-route-state={JSON.stringify(location.state)}>{location.pathname}{location.search}{location.hash}</output>;
 }
-const openMarket = (path = '/marketplace') => render(<MemoryRouter initialEntries={[path]}><Marketplace /><CurrentLocation /></MemoryRouter>);
+const openMarket = (path = '/marketplace', controls = null) => render(<MemoryRouter initialEntries={[path]}><SettingsProvider>{controls}<Marketplace /><CurrentLocation /></SettingsProvider></MemoryRouter>);
+
+function PreferenceControls() {
+  const settings = useSettings();
+  return <>
+    <button onClick={() => settings.setItemsPerPage('50')}>Use 50 results</button>
+    <button onClick={() => settings.setItemsPerPage('100')}>Use 100 results</button>
+    <button onClick={() => settings.setDefaultMinDealScore('1.5')}>Use 1.5 score</button>
+    <button onClick={() => settings.setDefaultMinDealScore('1.0')}>Use 1.0 score</button>
+    <button onClick={() => settings.setLayoutMode('compact')}>Use compact layout</button>
+    <button onClick={() => settings.setAutoRefreshInterval('off')}>Disable refresh</button>
+  </>;
+}
 
 beforeEach(() => {
+  localStorage.clear();
   auth.user = null;
   api.fetchTaxonomy.mockResolvedValue({ Jewelry: ['Ring'], Materials: ['Style Material'] });
   api.fetchMarketListings.mockResolvedValue({ listings: [ring], total: 278 });
   api.fetchCatalogItems.mockResolvedValue({ items: [], total: 0 });
   api.fetchSavedSearches.mockResolvedValue({ success: true, saved_searches: [] });
 });
+afterEach(() => vi.useRealTimers());
+
+describe('marketplace preference behavior', () => {
+  it('applies persisted preferences and resets offsets on live page-size and threshold changes', async () => {
+    localStorage.setItem('eso-setting-items-per-page', '50');
+    localStorage.setItem('eso-setting-min-deal-score', '1.25');
+    localStorage.setItem('eso-setting-layout-mode', 'compact');
+    const user = userEvent.setup();
+    openMarket('/marketplace', <PreferenceControls />);
+    const card = await screen.findByRole('button', { name: 'View Coup De Grâce Ring' });
+    expect(card.parentElement).toHaveClass('is-compact');
+    expect(api.fetchMarketListings).toHaveBeenLastCalledWith(expect.objectContaining({ limit: 50, offset: 0 }));
+    await user.click(screen.getByLabelText('Go to next page'));
+    await waitFor(() => expect(api.fetchMarketListings).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 50 })));
+    await user.click(screen.getByRole('button', { name: 'Use 100 results' }));
+    await waitFor(() => expect(api.fetchMarketListings).toHaveBeenLastCalledWith(expect.objectContaining({ limit: 100, offset: 0 })));
+    await user.click(screen.getByRole('button', { name: 'Deals only · 1.25x+ value' }));
+    await user.click(screen.getByLabelText('Go to next page'));
+    await waitFor(() => expect(api.fetchMarketListings).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 100, min_value_index: 1.25 })));
+    await user.click(screen.getByRole('button', { name: 'Use 1.5 score' }));
+    await waitFor(() => expect(api.fetchMarketListings).toHaveBeenLastCalledWith(expect.objectContaining({ limit: 100, offset: 0, min_value_index: 1.5 })));
+    expect(screen.getByRole('button', { name: 'Deals only · 1.5x+ value' })).toHaveAttribute('aria-pressed', 'true');
+    // The client must not truncate or re-filter results returned by the API.
+    expect(screen.getByRole('button', { name: 'View Coup De Grâce Ring' })).toBeVisible();
+  });
+
+  it('changes the layout immediately without an unnecessary API request', async () => {
+    const user = userEvent.setup();
+    openMarket('/marketplace', <PreferenceControls />);
+    const card = await screen.findByRole('button', { name: 'View Coup De Grâce Ring' });
+    expect(card.parentElement).not.toHaveClass('is-compact');
+    const count = api.fetchMarketListings.mock.calls.length;
+    await user.click(screen.getByRole('button', { name: 'Use compact layout' }));
+    expect(card.parentElement).toHaveClass('is-compact');
+    expect(api.fetchMarketListings).toHaveBeenCalledTimes(count);
+  });
+
+  it('serializes refreshes, preserves cards/focus on failure, retries, and stops when disabled', async () => {
+    vi.useFakeTimers();
+    localStorage.setItem('eso-setting-auto-refresh', '15');
+    const view = openMarket('/marketplace', <PreferenceControls />);
+    await act(async () => {});
+    const card = screen.getByRole('button', { name: 'View Coup De Grâce Ring' });
+    act(() => card.focus());
+    let finishRefresh;
+    api.fetchMarketListings.mockImplementationOnce(() => new Promise(resolve => { finishRefresh = resolve; }));
+    await act(() => vi.advanceTimersByTimeAsync(15000));
+    expect(api.fetchMarketListings).toHaveBeenCalledTimes(2);
+    expect(card).toHaveFocus();
+    await act(() => vi.advanceTimersByTimeAsync(60000));
+    expect(api.fetchMarketListings).toHaveBeenCalledTimes(2);
+    await act(async () => finishRefresh({ error: 'API unavailable', total: 0, listings: [] }));
+    expect(card).toHaveFocus();
+    expect(card).toBeVisible();
+    expect(screen.getByRole('alert')).toHaveTextContent('last successful request');
+    await act(() => vi.advanceTimersByTimeAsync(15000));
+    expect(api.fetchMarketListings).toHaveBeenCalledTimes(3);
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    await act(async () => fireEvent.click(screen.getByRole('button', { name: 'Disable refresh' })));
+    const count = api.fetchMarketListings.mock.calls.length;
+    await act(() => vi.advanceTimersByTimeAsync(120000));
+    expect(api.fetchMarketListings).toHaveBeenCalledTimes(count);
+    view.unmount();
+  });
+
+  it('ignores old-query responses and clears polling when unmounted', async () => {
+    vi.useFakeTimers();
+    localStorage.setItem('eso-setting-auto-refresh', '30');
+    const view = openMarket();
+    await act(async () => {});
+    let finishOldQuery;
+    api.fetchMarketListings.mockImplementationOnce(() => new Promise(resolve => { finishOldQuery = resolve; }));
+    await act(() => vi.advanceTimersByTimeAsync(30000));
+    api.fetchMarketListings.mockResolvedValue({ total: 0, listings: [] });
+    await act(async () => fireEvent.change(screen.getByRole('combobox', { name: 'Category' }), { target: { value: 'Materials' } }));
+    expect(api.fetchMarketListings).toHaveBeenLastCalledWith(expect.objectContaining({ category: 'Materials' }));
+    await act(async () => finishOldQuery({ total: 278, listings: [ring] }));
+    expect(screen.queryByRole('button', { name: 'View Coup De Grâce Ring' })).not.toBeInTheDocument();
+    view.unmount();
+    const count = api.fetchMarketListings.mock.calls.length;
+    await act(() => vi.advanceTimersByTimeAsync(120000));
+    expect(api.fetchMarketListings).toHaveBeenCalledTimes(count);
+  });
+
+  it('returns to a valid page if refreshed observations reduce the page count', async () => {
+    vi.useFakeTimers();
+    localStorage.setItem('eso-setting-auto-refresh', '60');
+    openMarket();
+    await act(async () => {});
+    await act(async () => fireEvent.click(screen.getByLabelText('Go to next page')));
+    expect(api.fetchMarketListings).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 20 }));
+    api.fetchMarketListings.mockResolvedValue({ total: 1, listings: [ring] });
+    await act(() => vi.advanceTimersByTimeAsync(60000));
+    expect(api.fetchMarketListings).toHaveBeenLastCalledWith(expect.objectContaining({ offset: 0 }));
+    expect(screen.getByRole('button', { name: 'View Coup De Grâce Ring' })).toBeVisible();
+  });
+
+  it('shows a retryable error instead of claiming an initial API failure is an empty market', async () => {
+    api.fetchMarketListings.mockResolvedValueOnce({ total: 0, listings: [], error: 'Unavailable' });
+    const user = userEvent.setup();
+    openMarket();
+    expect(await screen.findByRole('alert')).toHaveTextContent('Unable to refresh listings');
+    expect(screen.queryByText('No Guild Trader Scans Logged')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Retry listings' }));
+    expect(await screen.findByRole('button', { name: 'View Coup De Grâce Ring' })).toBeVisible();
+  });
+});
 
 describe('marketplace presentation parity', () => {
   it('preserves the historical feathers example: three stacks, 300 items, and separate unit/stack prices', async () => {
     // Same observed record as docs/design/issue-132/fixtures.js; read from the isolated API copy.
     api.fetchMarketListings.mockResolvedValue({ total: 1, listings: [{ listing_id: 10000762, game_item_id: 212134, item_name: 'Tide-Born Feathers', item_icon: 'styleitemicon_u46_solsticeargonians.png', item_category: 'Materials', item_subcategory: 'Style Material', price: 2100, quantity: 100, active_stacks: 3, quality: 1, guild_name: 'Lost Ark', seller_name: '@wangpm001', location: 'Gonfalon Bay, High Isle', discovered_at: '2026-09-03 01:32:23', observed_avg_price: 2100, value_index: 1 }] });
-    openMarket();
+    openMarket('/marketplace', <PreferenceControls />);
     const offer = await screen.findByRole('button', { name: 'View Tide-Born Feathers' });
     expect(offer).toHaveTextContent('3 stacks');
     expect(offer).toHaveTextContent('100 each · 300 items total');
     expect(offer).toHaveTextContent('2,100g / item');
     expect(offer).toHaveTextContent('210,000g / stack');
     expect(offer).not.toHaveTextContent(/\dx deal/);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: 'Use 1.0 score' }));
+    expect(await screen.findByText('1.0x deal')).toBeVisible();
+    await user.click(screen.getByRole('button', { name: 'Use 1.5 score' }));
+    await screen.findByRole('button', { name: 'View Tide-Born Feathers' });
+    expect(screen.queryByText('1.0x deal')).not.toBeInTheDocument();
   });
   it('keeps observed pricing and deal badges, opens details by keyboard, and retains the search command', async () => {
     const user = userEvent.setup();
