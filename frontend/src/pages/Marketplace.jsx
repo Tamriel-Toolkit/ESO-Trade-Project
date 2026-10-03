@@ -48,6 +48,7 @@ import Navbar from "@/components/ui/navbar";
 import SavedSearchesCard, { PinnedSearchChips } from "@/components/SavedSearchesCard";
 import { useTheme } from "@/components/theme-provider";
 import { useAuth } from "@/context/AuthContext";
+import { useSettings } from "@/context/SettingsContext";
 import {
   fetchTaxonomy,
   fetchMarketListings,
@@ -61,7 +62,6 @@ import { cleanEsoText, renderEsoFormattedText, getEsoIconUrl } from "@/lib/utils
 import { useDialogFocus } from "@/hooks/useDialogFocus";
 import "@/styles/marketplace.css";
 
-const DEAL_THRESHOLD = 1.2;
 const LISTING_SORT_VALUES = new Set([
   "value_index",
   "trait_asc",
@@ -153,6 +153,9 @@ const formatLastSeen = (timestamp) => {
 function Marketplace() {
   const { serverLocation, setServerLocation, platform, setPlatform } = useTheme();
   const { user } = useAuth();
+  const { autoRefreshInterval, defaultMinDealScore, itemsPerPage: preferredPageSize, layoutMode } = useSettings();
+  const itemsPerPage = Number(preferredPageSize);
+  const dealThreshold = Number(defaultMinDealScore);
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
@@ -209,12 +212,20 @@ function Marketplace() {
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 20;
+  const paginationKey = `${itemsPerPage}:${dealsOnly ? dealThreshold : ""}`;
+  const [paginationSettings, setPaginationSettings] = useState(paginationKey);
+  // Reset before committing the new query, so a preference change never fetches
+  // an old page offset with a different page size or deal filter.
+  if (paginationSettings !== paginationKey) {
+    setPaginationSettings(paginationKey);
+    setCurrentPage(1);
+  }
 
   // Data & Selection State
   const [itemsData, setItemsData] = useState([]);
   const [totalItems, setTotalItems] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
+  const [listingError, setListingError] = useState("");
   const [selectedItem, setSelectedItem] = useState(null);
 
   // Fetch Taxonomy on Mount
@@ -278,6 +289,9 @@ function Marketplace() {
   // Fetch native listing observations.
   useEffect(() => {
     setIsLoading(true);
+    setListingError("");
+    setItemsData([]);
+    setTotalItems(0);
     const offset = (currentPage - 1) * itemsPerPage;
 
     const params = {
@@ -294,19 +308,42 @@ function Marketplace() {
     if (selectedHubLocation) params.location = selectedHubLocation;
     if (selectedMaxAge) params.max_age = selectedMaxAge;
     if (sortOption) params.sort = sortOption;
-    if (dealsOnly) params.min_value_index = DEAL_THRESHOLD;
+    if (dealsOnly) params.min_value_index = dealThreshold;
 
     let isActive = true;
-    fetchMarketListings(params).then((res) => {
-      if (isActive) {
+    let refreshTimer;
+    const refreshMs = autoRefreshInterval === "off" ? 0 : Number(autoRefreshInterval) * 1000;
+    async function loadListings() {
+      try {
+        const res = await fetchMarketListings(params);
+        if (!isActive) return;
+        if (res.error) throw new Error(res.error);
+        // Refreshed observations may remove the last page. Refetch a valid page
+        // instead of presenting an empty search while matches still exist.
+        const lastPage = Math.max(1, Math.ceil((res.total || 0) / itemsPerPage));
+        if (currentPage > lastPage) {
+          setCurrentPage(lastPage);
+          return;
+        }
         setItemsData(res.listings || []);
         setTotalItems(res.total || 0);
-        setIsLoading(false);
+        setListingError("");
+      } catch {
+        if (isActive) setListingError("Unable to refresh listings. Any visible results are from the last successful request.");
+      } finally {
+        if (isActive) {
+          setIsLoading(false);
+          // Wait after completion: slow requests cannot pile up, and background
+          // refreshes keep the existing cards and keyboard focus in place.
+          if (refreshMs) refreshTimer = setTimeout(loadListings, refreshMs);
+        }
       }
-    });
+    }
+    loadListings();
 
     return () => {
       isActive = false;
+      clearTimeout(refreshTimer);
     };
   }, [
     serverLocation,
@@ -321,6 +358,9 @@ function Marketplace() {
     dealsOnly,
     currentPage,
     savedSearchRunId,
+    itemsPerPage,
+    dealThreshold,
+    autoRefreshInterval,
   ]);
 
   // Derived subcategories list based on selected category
@@ -849,7 +889,7 @@ function Marketplace() {
             }`}
           >
             <Sparkles className="size-3.5 text-primary" />
-            <span>Deals only · 1.2x+ value</span>
+            <span>Deals only · {dealThreshold}x+ value</span>
           </Button>
 
           {(selectedCategory || selectedSubcategory || selectedTrait || selectedRarity || selectedHubLocation || selectedMaxAge || searchQuery || dealsOnly) && (
@@ -893,12 +933,18 @@ function Marketplace() {
 
         {/* Active Listings Grid */}
         <div className="min-w-0 space-y-4">
+          {listingError && (
+            <div role="alert" className="eso-card p-4 text-sm">
+              <p>{listingError}</p>
+              <Button variant="outline" size="sm" className="mt-2" onClick={() => setSavedSearchRunId((value) => value + 1)}>Retry listings</Button>
+            </div>
+          )}
           {isLoading ? (
             <div className="eso-card flex flex-col items-center justify-center p-12 text-center">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mb-3"></div>
               <p className="text-sm text-muted-foreground" role="status">Loading items…</p>
             </div>
-          ) : itemsData.length === 0 ? (
+          ) : listingError && itemsData.length === 0 ? null : itemsData.length === 0 ? (
             <div className="eso-card flex flex-col items-center justify-center p-12 text-center">
               <Store className="size-12 text-primary/60 mb-3" />
               <h3 className="font-sans text-xl font-bold text-foreground mb-1">
@@ -916,7 +962,7 @@ function Marketplace() {
               </div>
             </div>
           ) : (
-            <div className="exchange-listing-grid">
+            <div className={`exchange-listing-grid ${layoutMode === "compact" ? "is-compact" : ""}`}>
               {itemsData.map((item, idx) => {
                 const isSelected = selectedItem && (
                   (item.listing_id && selectedItem.listing_id === item.listing_id) ||
@@ -960,7 +1006,7 @@ function Marketplace() {
                         </div>
                       </div>
                       {/* Value Index Badge */}
-                      {item.value_index && item.value_index >= DEAL_THRESHOLD && (
+                      {Number.isFinite(item.value_index) && item.value_index >= dealThreshold && (
                         <span className="exchange-deal"><Zap className="size-3" />{item.value_index.toFixed(1)}x deal</span>
                       )}
                     </CardHeader>

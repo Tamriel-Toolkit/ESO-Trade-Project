@@ -3,9 +3,11 @@ import { Settings, Globe, Monitor, Gamepad2, Moon, Sun, Laptop, Zap, Radio, Chev
 import { useTheme } from '@/components/theme-provider';
 import { EsoTooltip } from '@/components/ui/tooltip';
 import { useLocation } from 'react-router-dom';
+import SettingsModal from '@/components/settings/SettingsModal';
 
 export default function SettingsMenu({ syncStatus, onOpenDevModal }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
   const menuRef = useRef(null);
   const location = useLocation();
   const { platform, togglePlatform, serverLocation, toggleServerLocation, theme, setTheme } = useTheme();
@@ -23,9 +25,10 @@ export default function SettingsMenu({ syncStatus, onOpenDevModal }) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen]);
 
-  useEffect(() => { setIsOpen(false); }, [location.key]);
+  useEffect(() => { setIsOpen(false); setIsPreferencesOpen(false); }, [location.key]);
 
   return (
+    <>
     <div className="exchange-settings relative" ref={menuRef}
       onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setIsOpen(false); }}
       onKeyDown={(event) => { if (event.key === 'Escape' && isOpen) { event.preventDefault(); event.stopPropagation(); setIsOpen(false); menuRef.current?.querySelector('button')?.focus(); } }}>
@@ -182,8 +185,10 @@ export default function SettingsMenu({ syncStatus, onOpenDevModal }) {
                 <button
                   type="button"
                   onClick={() => setTheme('light')}
+                  disabled
+                  aria-describedby="unavailable-header-themes"
                   aria-pressed={theme === 'light'}
-                  className={`py-1.5 px-2 text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+                  className={`disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none py-1.5 px-2 text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer ${
                     theme === 'light'
                       ? 'bg-primary text-recess font-bold shadow'
                       : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
@@ -195,8 +200,10 @@ export default function SettingsMenu({ syncStatus, onOpenDevModal }) {
                 <button
                   type="button"
                   onClick={() => setTheme('system')}
+                  disabled
+                  aria-describedby="unavailable-header-themes"
                   aria-pressed={theme === 'system'}
-                  className={`py-1.5 px-2 text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+                  className={`disabled:opacity-50 disabled:cursor-not-allowed disabled:pointer-events-none py-1.5 px-2 text-xs flex items-center justify-center gap-1 transition-colors cursor-pointer ${
                     theme === 'system'
                       ? 'bg-primary text-recess font-bold shadow'
                       : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
@@ -206,7 +213,22 @@ export default function SettingsMenu({ syncStatus, onOpenDevModal }) {
                   <span>System</span>
                 </button>
               </div>
+              <p id="unavailable-header-themes" className="text-xs text-muted-foreground">
+                Light and system themes are not available yet.
+              </p>
             </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                menuRef.current?.querySelector('button')?.focus();
+                setIsPreferencesOpen(true);
+              }}
+              className="w-full flex items-center justify-between gap-2 border border-input px-3 py-2 text-foreground hover:bg-secondary"
+            >
+              Marketplace preferences <ChevronRight className="size-3.5" />
+            </button>
 
             {/* 5. Developer Sandbox (Non-Production Only) */}
             {!import.meta.env.PROD && (
@@ -232,5 +254,9 @@ export default function SettingsMenu({ syncStatus, onOpenDevModal }) {
         </div>
       )}
     </div>
+    {isPreferencesOpen && (
+      <SettingsModal isOpen onClose={() => setIsPreferencesOpen(false)} syncStatus={syncStatus} />
+    )}
+    </>
   );
 }

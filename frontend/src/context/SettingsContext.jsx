@@ -1,88 +1,41 @@
-import React, { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState } from 'react';
 
 const SettingsContext = createContext();
 
+function useStoredSetting(key, fallback, allowedValues) {
+  const [value, setValue] = useState(() => {
+    try {
+      const stored = localStorage.getItem(key);
+      return allowedValues.includes(stored) ? stored : fallback;
+    } catch {
+      return fallback;
+    }
+  });
+
+  const update = (next) => {
+    const normalized = String(next);
+    if (!allowedValues.includes(normalized)) return;
+    setValue(normalized);
+    // Preferences still work for this session when browser storage is unavailable.
+    try { localStorage.setItem(key, normalized); } catch { /* Storage may be disabled. */ }
+  };
+
+  return [value, update];
+}
+
 export function SettingsProvider({ children }) {
-  const [autoRefreshInterval, setAutoRefreshIntervalState] = useState(() => {
-    try {
-      return localStorage.getItem('eso-setting-auto-refresh') || '30';
-    } catch {
-      return '30';
-    }
-  });
-
-  const [defaultMinDealScore, setDefaultMinDealScoreState] = useState(() => {
-    try {
-      return localStorage.getItem('eso-setting-min-deal-score') || '1.0';
-    } catch {
-      return '1.0';
-    }
-  });
-
-  const [itemsPerPage, setItemsPerPageState] = useState(() => {
-    try {
-      return localStorage.getItem('eso-setting-items-per-page') || '20';
-    } catch {
-      return '20';
-    }
-  });
-
-  const [layoutMode, setLayoutModeState] = useState(() => {
-    try {
-      return localStorage.getItem('eso-setting-layout-mode') || 'grid';
-    } catch {
-      return 'grid';
-    }
-  });
-
-  const [soundNotifications, setSoundNotificationsState] = useState(() => {
-    try {
-      return localStorage.getItem('eso-setting-sound-notify') === 'true';
-    } catch {
-      return false;
-    }
-  });
-
-  const setAutoRefreshInterval = (val) => {
-    setAutoRefreshIntervalState(val);
-    try { localStorage.setItem('eso-setting-auto-refresh', val); } catch (e) { console.warn(e); }
-  };
-
-  const setDefaultMinDealScore = (val) => {
-    setDefaultMinDealScoreState(val);
-    try { localStorage.setItem('eso-setting-min-deal-score', val); } catch (e) { console.warn(e); }
-  };
-
-  const setItemsPerPage = (val) => {
-    setItemsPerPageState(val);
-    try { localStorage.setItem('eso-setting-items-per-page', val); } catch (e) { console.warn(e); }
-  };
-
-  const setLayoutMode = (val) => {
-    setLayoutModeState(val);
-    try { localStorage.setItem('eso-setting-layout-mode', val); } catch (e) { console.warn(e); }
-  };
-
-  const setSoundNotifications = (val) => {
-    setSoundNotificationsState(val);
-    try { localStorage.setItem('eso-setting-sound-notify', String(val)); } catch (e) { console.warn(e); }
-  };
+  const [autoRefreshInterval, setAutoRefreshInterval] = useStoredSetting('eso-setting-auto-refresh', 'off', ['off', '15', '30', '60']);
+  const [defaultMinDealScore, setDefaultMinDealScore] = useStoredSetting('eso-setting-min-deal-score', '1.2', ['1.0', '1.2', '1.25', '1.5']);
+  const [itemsPerPage, setItemsPerPage] = useStoredSetting('eso-setting-items-per-page', '20', ['20', '50', '100']);
+  const [layoutMode, setLayoutMode] = useStoredSetting('eso-setting-layout-mode', 'grid', ['grid', 'compact']);
 
   return (
-    <SettingsContext.Provider
-      value={{
-        autoRefreshInterval,
-        setAutoRefreshInterval,
-        defaultMinDealScore,
-        setDefaultMinDealScore,
-        itemsPerPage,
-        setItemsPerPage,
-        layoutMode,
-        setLayoutMode,
-        soundNotifications,
-        setSoundNotifications
-      }}
-    >
+    <SettingsContext.Provider value={{
+      autoRefreshInterval, setAutoRefreshInterval,
+      defaultMinDealScore, setDefaultMinDealScore,
+      itemsPerPage, setItemsPerPage,
+      layoutMode, setLayoutMode,
+    }}>
       {children}
     </SettingsContext.Provider>
   );
@@ -90,8 +43,6 @@ export function SettingsProvider({ children }) {
 
 export function useSettings() {
   const context = useContext(SettingsContext);
-  if (!context) {
-    throw new Error('useSettings must be used within a SettingsProvider');
-  }
+  if (!context) throw new Error('useSettings must be used within a SettingsProvider');
   return context;
 }

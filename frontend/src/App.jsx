@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { ThemeProvider } from './components/theme-provider.jsx';
 import { AuthProvider } from './context/AuthContext.jsx';
+import { SettingsProvider } from './context/SettingsContext.jsx';
 import Home from './pages/Home.jsx';
 import Login from './pages/Login.jsx';
 import Marketplace from './pages/Marketplace.jsx';
@@ -17,21 +18,23 @@ function App() {
   return (
     <ThemeProvider defaultTheme="dark">
       <AuthProvider>
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/marketplace" element={<Marketplace />} />
-            <Route path="/requests" element={<RequestBoard />} />
-            <Route path="/my-orders" element={<MyOrders />} />
-            <Route path="/requests/my-orders" element={<MyOrders />} />
-            <Route path="/builds" element={<BuildExplorer />} />
-            <Route path="/traits" element={<TraitTracker />} />
-            <Route path="/characters" element={<CharacterManager />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-          <Footer />
-        </BrowserRouter>
+        <SettingsProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/marketplace" element={<Marketplace />} />
+              <Route path="/requests" element={<RequestBoard />} />
+              <Route path="/my-orders" element={<MyOrders />} />
+              <Route path="/requests/my-orders" element={<MyOrders />} />
+              <Route path="/builds" element={<BuildExplorer />} />
+              <Route path="/traits" element={<TraitTracker />} />
+              <Route path="/characters" element={<CharacterManager />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+            <Footer />
+          </BrowserRouter>
+        </SettingsProvider>
       </AuthProvider>
     </ThemeProvider>
   );

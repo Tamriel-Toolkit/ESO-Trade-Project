@@ -26,26 +26,25 @@ This living document provides the prioritized execution queue for both human mai
 | Rank | Issue | Area | Severity | Status | Blocked By | Strategic Rationale |
 |:---:|:---|:---|:---:|:---:|:---:|:---|
 | **1** | #82 | Feature Plan | FEATURE | 🟡 Next Up | None | Saved search presets sidebar & quick-filter drawer for authenticated users in Marketplace UI. |
-| **2** | #107 | Catalog / Architecture | FEATURE | ⚪ Queued | None | Removes competitor integrations, makes native ESOTrade listings authoritative, and restores reliable same-origin catalog icon delivery. |
-| **3** | #16 | Config / Env | MINOR | ⚪ Queued | None | Adds documented `.env.example` file for backend and frontend. |
-| **4** | #74 | Pipeline / Deps | MINOR | ⚪ Queued | None | Adds playwright to backend/data-pipeline/requirements.txt. |
-| **5** | #76 | Backend / Config | MINOR | ⚪ Queued | None | Configures trust proxy setting for express rate limiters behind reverse proxies. |
-| **6** | #78 | Backend / Security | MINOR | ⚪ Queued | None | Deprecates legacy unsalted SHA-256 password fallback in favor of strict bcrypt verification. |
-| **7** | #70 | Backend / DB | NITPICK | ⚪ Queued | None | Handles and logs schema migration and transaction rollback errors. |
-| **8** | #75 | Pipeline / Logging | NITPICK | ⚪ Queued | None | Logs network and parsing exceptions in live trader extractor instead of silent pass. |
-| **9** | #79 | Frontend / Infra | NITPICK | ⚪ Queued | None | Adds standard start script to frontend/package.json for production deployment. |
-| **10** | #80 | Frontend / QA | NITPICK | ⚪ Queued | None | Configures Vitest and React Testing Library for frontend component unit tests. |
-| **11** | #104 | Frontend / Design | FEATURE | ⚪ Queued | None | Centralized Design System Tokens, CSS/Tailwind Variable Architecture, and UI Style Guide Documentation. |
-| **12** | #100 | Frontend / Search | FEATURE | ⚪ Queued | None | Deep-linked structured URL query parameters (`set`, `category`, `slot`, `weight`, `trait`) for Marketplace navigation. |
-| **13** | #103 | Requests / Messaging | FEATURE | ⚪ Queued | None | Direct 1-on-1 In-App Messaging & Negotiation Chat for Claimed Trade Requests. |
-| **14** | #105 | Profiles / Social | FEATURE | ⚪ Queued | None | Dedicated Public & Personal User Profile Pages with Trader Showcase, Crafter Badges, and Feedback Reputation. |
-| **15** | #106 | Builds / Social | FEATURE | ⚪ Queued | None | Build Visibility Controls (Public vs Private/Draft), Personal Saved Builds Dashboard, and 1-Click Fork/Bookmark Community Builds. |
-| **16** | #15 | Documentation | MINOR | ⚪ Queued | None | Expands root `README.md` with system overview, architecture, and getting-started guide. |
-| **17** | #14 | Documentation | MINOR | ⚪ Queued | None | Fixes PostgreSQL references in `DatabaseSchema.md` to reflect SQLite 3. |
-| **18** | #22 | Documentation | NITPICK | ⚪ Queued | None | Adds setup, watcher daemon, and ingestion guide in `backend/data-pipeline/README.md`. |
-| **19** | #23 | Documentation | NITPICK | ⚪ Queued | None | Adds deployment guide and production configuration documentation. |
-| **20** | #19 | Database / Perf | NITPICK | ⚪ Queued | None | Adds SQLite FTS5 Full-Text Search virtual table for sub-millisecond item catalog lookups. |
-| **21** | #21 | Testing / QA | NITPICK | ⚪ Queued | None | Expands unit & integration test coverage across all Express endpoints and Python parsers. |
+| **2** | #16 | Config / Env | MINOR | ⚪ Queued | None | Adds documented `.env.example` file for backend and frontend. |
+| **3** | #74 | Pipeline / Deps | MINOR | ⚪ Queued | None | Adds playwright to backend/data-pipeline/requirements.txt. |
+| **4** | #76 | Backend / Config | MINOR | ⚪ Queued | None | Configures trust proxy setting for express rate limiters behind reverse proxies. |
+| **5** | #78 | Backend / Security | MINOR | ⚪ Queued | None | Deprecates legacy unsalted SHA-256 password fallback in favor of strict bcrypt verification. |
+| **6** | #70 | Backend / DB | NITPICK | ⚪ Queued | None | Handles and logs schema migration and transaction rollback errors. |
+| **7** | #75 | Pipeline / Logging | NITPICK | ⚪ Queued | None | Logs network and parsing exceptions in live trader extractor instead of silent pass. |
+| **8** | #79 | Frontend / Infra | NITPICK | ⚪ Queued | None | Adds standard start script to frontend/package.json for production deployment. |
+| **9** | #80 | Frontend / QA | NITPICK | ⚪ Queued | None | Configures Vitest and React Testing Library for frontend component unit tests. |
+| **10** | #104 | Frontend / Design | FEATURE | ⚪ Queued | None | Centralized Design System Tokens, CSS/Tailwind Variable Architecture, and UI Style Guide Documentation. |
+| **11** | #100 | Frontend / Search | FEATURE | ⚪ Queued | None | Deep-linked structured URL query parameters (`set`, `category`, `slot`, `weight`, `trait`) for Marketplace navigation. |
+| **12** | #103 | Requests / Messaging | FEATURE | ⚪ Queued | None | Direct 1-on-1 In-App Messaging & Negotiation Chat for Claimed Trade Requests. |
+| **13** | #105 | Profiles / Social | FEATURE | ⚪ Queued | None | Dedicated Public & Personal User Profile Pages with Trader Showcase, Crafter Badges, and Feedback Reputation. |
+| **14** | #106 | Builds / Social | FEATURE | ⚪ Queued | None | Build Visibility Controls (Public vs Private/Draft), Personal Saved Builds Dashboard, and 1-Click Fork/Bookmark Community Builds. |
+| **15** | #15 | Documentation | MINOR | ⚪ Queued | None | Expands root `README.md` with system overview, architecture, and getting-started guide. |
+| **16** | #14 | Documentation | MINOR | ⚪ Queued | None | Fixes PostgreSQL references in `DatabaseSchema.md` to reflect SQLite 3. |
+| **17** | #22 | Documentation | NITPICK | ⚪ Queued | None | Adds setup, watcher daemon, and ingestion guide in `backend/data-pipeline/README.md`. |
+| **18** | #23 | Documentation | NITPICK | ⚪ Queued | None | Adds deployment guide and production configuration documentation. |
+| **19** | #19 | Database / Perf | NITPICK | ⚪ Queued | None | Adds SQLite FTS5 Full-Text Search virtual table for sub-millisecond item catalog lookups. |
+| **20** | #21 | Testing / QA | NITPICK | ⚪ Queued | None | Expands unit & integration test coverage across all Express endpoints and Python parsers. |
 
 ---
 

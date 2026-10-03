@@ -12,6 +12,10 @@ const ThemeContext = createContext({
   toggleServerLocation: () => null,
 });
 
+// Only the approved dark palette is implemented. Keep unsupported persisted
+// preferences from appearing active until light/system theming is delivered.
+const availableThemes = new Set(["dark"]);
+
 export function ThemeProvider({
   children,
   defaultTheme = "dark",
@@ -19,9 +23,10 @@ export function ThemeProvider({
 }) {
   const [theme, setThemeState] = useState(() => {
     try {
-      return localStorage.getItem(storageKey) || defaultTheme;
+      const stored = localStorage.getItem(storageKey) || defaultTheme;
+      return availableThemes.has(stored) ? stored : "dark";
     } catch {
-      return defaultTheme;
+      return availableThemes.has(defaultTheme) ? defaultTheme : "dark";
     }
   });
 
@@ -43,7 +48,7 @@ export function ThemeProvider({
 
   useEffect(() => {
     const root = document.documentElement;
-    root.classList.remove("light", "dark");
+    root.classList.remove("light", "dark", "system");
     root.classList.add(theme);
 
     try {
@@ -54,11 +59,11 @@ export function ThemeProvider({
   }, [theme, storageKey]);
 
   const setTheme = (newTheme) => {
-    setThemeState(newTheme);
+    if (availableThemes.has(newTheme)) setThemeState(newTheme);
   };
 
   const toggleTheme = () => {
-    setThemeState((prev) => (prev === "dark" ? "light" : "dark"));
+    setThemeState("dark");
   };
 
   const setPlatform = (newPlatform) => {

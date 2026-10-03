@@ -23,6 +23,15 @@
 .exchange-market-filters .exchange-field > span { margin-top: 4px; }
 .exchange-market-results { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
 .exchange-listing-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.exchange-listing-grid.is-compact { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+.exchange-listing-grid.is-compact .exchange-offer-heading { padding: 12px 12px 0; gap: 8px; }
+.exchange-listing-grid.is-compact .exchange-offer-content { padding: 12px; }
+.exchange-listing-grid.is-compact .exchange-offer-icon { width: 36px; height: 36px; }
+.exchange-listing-grid.is-compact .exchange-offer-icon img { width: 28px; height: 28px; }
+.exchange-listing-grid.is-compact .exchange-offer-name { font-size: 14px; }
+.exchange-listing-grid.is-compact .exchange-offer-price { font-size: 18px; }
+.exchange-listing-grid.is-compact .exchange-offer-average { margin-top: 8px; }
+.exchange-listing-grid.is-compact .exchange-offer-trader { margin-top: 8px; padding-top: 8px; }
 .exchange-offer { cursor: pointer; transition: border-color .16s, background-color .16s; min-width: 0; background: linear-gradient(120deg, var(--secondary), var(--card) 80%); }
 .exchange-offer:hover, .exchange-offer.is-selected { border-color: var(--primary); }
 .exchange-offer.is-selected { background: var(--secondary); }
