@@ -1,99 +1,121 @@
 ---
 name: eso-trade-issue-reviewer
 description: >-
-  Use this skill whenever the user asks to "review an issue", "review the next issue",
-  "review the current issue in the queue", or assess the status, necessity, scope, and
-  solutions for any GitHub issue on RyanS4/ESO-Trade-Project. Evaluates 4 core dimensions
-  (large-scale impact/necessity, amendments/closure/reprioritization, 1-5 proposed solutions
-  with a recommended tag, and additional considerations) and renders a uniform table at the
-  bottom of the output.
+  Review a specified GitHub issue or the next roadmap issue for ESO-Trade-Project.
+  Build implementation-ready context, assess urgency, scope, necessity, and impact,
+  and present a six-column decision table with 1–3 implementation options and one
+  recommendation. Wait for the user's response before implementation or GitHub changes.
+  Applies to requests such as "review issue #X", "review the next issue", and
+  "review the current issue in the queue".
 ---
 
-# ESO Trade Project — Standardized Issue Review Skill
+# ESO Trade Project — Issue Review Before Implementation
 
-This skill defines the mandatory protocol for reviewing any GitHub issue on the **ESO-Trade-Project** repository (e.g., when asked *"review an issue"*, *"review the next issue"*, *"review the current issue in the queue"*, or *"review issue #X"*).
+Prepare a grounded review as though you will implement the selected approach
+immediately after the user responds. Understand the current application, trace the
+issue through the relevant code, and give the user a concrete decision to make.
+The review itself ends with the assessment table and a pause; anticipated follow-up
+work does not authorize implementation.
 
-Whenever an issue review is requested, you must perform an intensive technical and contextual assessment, and append the **Uniform Issue Assessment Table** at the bottom of the response.
+## Resolve the issue and current state
 
----
+- For an explicit issue number or URL, read that issue's full body, acceptance
+  criteria, relevant discussion, and linked pull requests.
+- For "next issue" or "current issue in the queue", read the live master roadmap,
+  [Issue #35](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/35), and select
+  the single item marked `🟡 Next Up`. This live issue is authoritative; do not select
+  work from a stale local `.agents/PRIORITY_QUEUE.md` snapshot or conversation memory.
+- Use the repository's current remote to resolve its owner/name. Prefer an available
+  GitHub connector or CLI; an older owner name in documentation is not authoritative.
+- Confirm the issue's current open/closed state, blockers, and related PR status.
+  Distinguish proposed work, draft implementation, and code actually merged.
+- If the roadmap is unavailable or has multiple Next Up items, state the limitation
+  and ask the user to identify the target. Do not invent a queue selection. Continue
+  any useful context inspection that does not depend on that selection.
 
-## 1. Contextual Foundations (Always Keep in Mind)
+## Build context for the expected implementation
 
-When reviewing any issue, ground your analysis in the three pillars of the project:
-1. **What We Are Building**:
-   A real-time, authentic Tamriel trading intelligence platform, live guild trader index, character equipment loadout manager, trait research matrix, and public crafting request board for *The Elder Scrolls Online* (ESO).
-2. **Who We Are Building It For**:
-   - **Active Traders & Buyers**: Seeking real, unmanipulated guild trader listings across Tamriel capitals without traveling kiosk to kiosk.
-   - **Crafters & Master Crafters**: Tracking 9-trait research progress and fulfilling custom gear orders for gold bounties.
-   - **Theorycrafters & Everyday Players**: Planning gear sets, matching market prices to build requirements, and managing character loadouts.
-3. **Cross-System Impact**:
-   - **Lua Addon (`addon/ESOTrade/`)**: Runs in-game on the official ESO Lua API (`EVENT_TRADING_HOUSE_RESPONSE_RECEIVED`). Must strictly respect ZOS Terms of Service (no memory tampering, no direct network calls in Lua).
-   - **Data Pipeline (`backend/data-pipeline/`)**: `watcher.py` desktop daemon and `parse_esotrade_addon.py` sync engine. Must avoid race conditions, file corruption, and self-trigger loops.
-   - **Backend API & SQLite (`backend/server.js`)**: Port 5001, Express, SQLite (`eso_catalog.db`), bcrypt auth, session cookies, rate limiting, and local icon proxy caching.
-   - **Frontend UI (`frontend/`)**: React 19, Vite, Tailwind CSS v4, Gilded Exchange visual theme (#111214 charcoal, #e6c15a gold, Cinzel typography).
+Read `.agents/AGENTS.md` and any applicable repository instructions. Inspect the
+current branch, working-tree changes, and relevant differences from the default
+branch so conclusions identify which version of the code they describe.
 
----
+Develop enough understanding to explain:
 
-## 2. The 4 Mandatory Assessment Dimensions
+- What the application is trying to accomplish, who benefits from this issue, and
+  how it fits the current product rather than only the issue author's original plan.
+- The current behavior, intended behavior, and evidence for the gap. Trace the
+  relevant path through UI, API, storage, ingestion, addon, or automation as applicable.
+- The likely root cause or missing capability, affected files, existing patterns
+  worth reusing, and tests that already cover or fail to cover the behavior.
+- Existing work that changes the decision: merged fixes, open PRs, duplicate issues,
+  partial implementations, blockers, and outdated acceptance criteria.
+- What the recommended implementation would change, how to verify it, and any
+  required migration, configuration, deployment, or permission decision.
 
-Every issue review must critically analyze the following four dimensions:
+Keep inspection proportional to the issue; do not turn every review into a full
+repository audit. Use source code and current issue/PR evidence to support claims.
+Separate verified findings from assumptions and identify missing evidence plainly.
+Safe diagnostic checks are allowed when useful; avoid commands that mutate the
+user's databases or application state during review.
 
-### 1. Large-Scale Impact & Current Necessity *(Most Important)*
-- **Impact Assessment**: What does this issue change across the architecture, user experience, developer workflow, or data integrity?
-- **Is It Still Needed?**: Is this issue still relevant today? Did recent pull requests, migrations, or design overhauls (such as the Gilded Exchange restyle or bcrypt auth migration) already resolve it, make it obsolete, or alter its requirements?
-- **User & System Beneficiaries**: Who gains value from this fix/feature (players, crafters, server stability, security)?
+Preserve the project's core constraints when evaluating options: authentic native
+addon listings, discoverable active listings, official ESO addon APIs, the UESP
+catalog and set/icon metadata pipeline, and backend-cached icon delivery. Verify
+current architecture in code rather than copying stale technical summaries.
 
-### 2. Amendments, Closure, or Reprioritization
-- **Amendments**: Should the issue scope, acceptance criteria, or target files be amended based on recent codebase changes?
-- **Closure Recommendation**: Should the issue be closed as completed, obsolete, or duplicate?
-- **Reprioritization**: Should another issue be prioritized *before* this one (e.g. an unlisted blocker, security prerequisite, or foundation dependency)?
-- *Default*: If no amendments, closures, or priority changes are warranted, this field **MUST default to `N/A`**.
+## Make the decision concrete
 
-### 3. Proposed Solutions (1–5 Proposals with `(Recommended)`)
-- Formulate between **1 and 5 concrete, technical implementation proposals**.
-- Clearly explain the architectural mechanism of each proposal.
-- Exactly one proposal **MUST be labeled `(Recommended)`**, representing the best architectural approach balancing reliability, simplicity, and project constraints.
+Assess these six dimensions for each reviewed issue:
 
-### 4. Additional Comments or Considerations
-- Highlight edge cases, security implications, migration safety, ZOS TOS constraints, performance bottlenecks, or backward compatibility concerns.
-- *Default*: If there are no additional considerations, this field **MUST default to `N/A`**.
+1. **Issue and title:** Link the issue number and use its current title. Note whether
+   it is open, closed, already implemented, or partially implemented when relevant.
+2. **Urgency:** Choose `Critical`, `High`, `Medium`, or `Low`, with a concise reason
+   based on present security/data risk, user impact, dependencies, and timing. Assess
+   independently of the current roadmap rank. Mention any warranted order change.
+3. **Keep issue / refine scope:** Choose `KEEP`, `REFINE`, or `REMOVE`. Justify it.
+   For `REFINE`, specify concrete scope or acceptance-criteria changes, including
+   what should be excluded or split out. `REMOVE` means recommend retiring the issue,
+   not deleting its history or taking action now.
+4. **Proposed implementations:** Give **1–3 concrete, distinct options**, each with
+   its mechanism and meaningful tradeoff. Mark **exactly one** as
+   `**(Recommended)**`. Favor the smallest reliable approach that meets the current
+   need; do not pad the list with implausible alternatives. If closure is warranted,
+   give an evidence-backed closure/verification option rather than inventing code work.
+5. **Continue or close:** Recommend `CONTINUE` or `CLOSE`, with a reason. If continuing
+   depends on another issue, use `CONTINUE — blocked by #X` and explain the prerequisite.
+   For closure, distinguish completed, duplicate, obsolete, or not planned. These are
+   recommendations only, not issue state changes.
+6. **Impact:** State `High`, `Medium`, or `Low`; explain who benefits and the expected
+   user, system, or development outcome. Include the main cost, regression risk, or
+   cross-system consequence. Distinguish impact from urgency: valuable work can wait.
 
----
+## Required response format
 
-## 3. Review Workflow & Execution Steps
+Start with a short context paragraph describing the verified current behavior,
+why the issue matters now, and the affected implementation areas. Include relevant
+file or GitHub links. If needed, add a brief verification approach and material
+uncertainties before the table so the recommended work is ready to resume.
 
-1. **Locate & Read the Issue**:
-   - If reviewing "the current/next issue in the queue", inspect [`.agents/PRIORITY_QUEUE.md`](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/PRIORITY_QUEUE.md) or query Master Tracking Issue [#35](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/35) to find the active Rank #1 item marked `🟡 Next Up`.
-   - Read the target issue's full text, acceptance criteria, and labels using GitHub MCP tool `issue_read` (owner: `RyanS4`, repo: `ESO-Trade-Project`).
-2. **Inspect Current Repository State**:
-   - Check related source code, tests, and unstaged changes (`git status`, `git diff`).
-   - Determine if prerequisite issues have been merged, if work is already partially drafted, or if requirements have evolved.
-3. **Draft Technical Summary & Findings**:
-   - Present the issue summary, technical root cause, affected files, and architecture context.
-4. **Append Uniform Table at Bottom**:
-   - The response **MUST ALWAYS CONCLUDE** with the Uniform Assessment Table specified in Section 4.
+Tell the user before the table that you will wait for their response before acting.
+End with **one table using these exact six columns**, one row per reviewed issue.
+Keep cells readable; use `<br>` for separate options inside a cell. Do not substitute
+the former four-column or two-column assessment formats.
 
----
+| Issue and title | Urgency | Keep issue / refine scope | Proposed implementations (1–3) | Continue or close | Impact |
+|---|---|---|---|---|---|
+| [#N — Current issue title](ISSUE_URL) | High — evidence-based reason | REFINE — specific scope and acceptance-criteria changes | 1. **(Recommended)** Concrete approach and tradeoff.<br>2. Alternative and tradeoff, only if useful. | CONTINUE — reason and any prerequisite | High — beneficiaries, expected outcome, and main risk/cost |
 
-## 4. Standard Uniform Assessment Table Format
+## Pause and follow-up
 
-The table **must appear at the very bottom** of the review output. Use either the standard 4-column layout or the 2-column key-value layout below:
+**After presenting the review table, stop and await the user's response.** During
+the review, do not implement changes, create a branch or PR, edit GitHub issues or
+the roadmap, close issues, or modify project files. The user explicitly wants to
+choose the next action after reviewing the assessment.
 
-### Primary Format: 4-Column Layout
-
-```markdown
-| Large-Scale Impact & Necessity *(Critical)* | Amendments, Closure, or Reprioritization | Proposed Solutions (1–5 Proposals) | Additional Comments & Considerations |
-|---|---|---|---|
-| **Impact**: [High / Moderate / Low / Negligible]<br>**Still Needed?**: [Yes / No / Obsolete / Partially Implemented]<br><br>[Concise breakdown of system-wide consequences, who benefits, and why it is or is not needed today.] | [Amendments needed, closure recommendation, or prerequisite issue to prioritize first. Defaults to **N/A**] | 1. **(Recommended)** [Primary recommended solution]<br><br>2. [Alternative solution proposal]<br><br>3. [Optional additional solution] | [Cross-system impact, ZOS TOS compliance, performance, or security notes. Defaults to **N/A**] |
-```
-
-### Alternative Format: 2-Column Responsive Layout (For Detailed Multi-Paragraph Evaluations)
-
-```markdown
-| Dimension | Assessment & Findings |
-|---|---|
-| **1. Large-Scale Impact & Necessity** *(Critical)* | **Impact**: [High / Moderate / Low / Negligible]<br>**Still Needed?**: [Yes / No / Obsolete / Partially Implemented]<br>**Evaluation**: [Comprehensive analysis of system-wide impact, who benefits, and current necessity.] |
-| **2. Amendments, Closure, or Reprioritization** | [Specific amendments to scope/criteria, closure recommendation, or reprioritization before/after another issue. Defaults to **N/A**] |
-| **3. Proposed Solutions (1–5 Proposals)** | 1. **(Recommended) [Title]**: [Detailed technical proposal]<br>2. **[Title]**: [Alternative technical proposal]<br>3. **[Title]**: [Alternative technical proposal] |
-| **4. Additional Comments & Considerations** | [Security, database integrity, ZOS TOS, performance, or edge cases. Defaults to **N/A**] |
-```
+If the response requests clarification or revises the approach, answer or revise
+the review without treating it as implementation approval. If it authorizes work,
+carry the gathered context forward and follow the issue-implementer workflow in
+`../eso-trade-issue-implementer/SKILL.md` for the approved scope. Recheck issue/PR
+and working-tree state when resuming, especially after a delay. Do not repeat the
+whole review unless new evidence changes the decision. A request to close or amend
+the issue authorizes that requested action, not unrelated implementation work.
