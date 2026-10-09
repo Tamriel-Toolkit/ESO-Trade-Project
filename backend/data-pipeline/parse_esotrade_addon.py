@@ -15,6 +15,7 @@ import time
 import urllib.error
 import urllib.request
 import ssl
+from savedvariables_validation import validate_savedvariables_structure
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -162,8 +163,9 @@ def reset_esotrade_scans_on_disk(file_path):
     if not file_path or not os.path.exists(file_path):
         return False
     try:
-        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+        with open(file_path, "r", encoding="utf-8") as f:
             content = f.read()
+        validate_savedvariables_structure(content)
 
         scans_pos = content.find('["Scans"]')
         if scans_pos == -1:
@@ -230,8 +232,12 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
         return 0
 
     print(f"Reading custom ESOTrade SavedVariables from: {sv_file}...")
-    with open(sv_file, "r", encoding="utf-8", errors="ignore") as f:
-        content = f.read()
+    try:
+        with open(sv_file, "r", encoding="utf-8") as f:
+            content = f.read()
+        validate_savedvariables_structure(content)
+    except (UnicodeError, ValueError) as error:
+        raise RuntimeError(f"SavedVariables validation failed; Scans were retained for retry: {error}") from error
 
     auth_token = os.environ.get("ESOTRADE_AUTH_TOKEN")
 
@@ -269,6 +275,15 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
 
     item_blocks = list(re.finditer(r'\{([^}]+)\}', scans_text)) if scans_text.strip() else []
     print(f"Discovered {len(item_blocks)} custom ESOTrade in-game scanned items!")
+
+    # Validate price/quantity before opening SQLite, so malformed records cannot
+    # partially synchronize or get cleared as if they had been imported.
+    for block in item_blocks:
+        for field, required in (("Price", True), ("Qty", False)):
+            field_key = f'["{field}"]'
+            match = re.search(r'\["' + field + r'"\]\s*=\s*(\d+)\s*(?=[,}]|$)', block.group(1))
+            if (required or field_key in block.group(1)) and (not match or int(match.group(1)) <= 0):
+                raise RuntimeError(f"Invalid scan {field}; Scans were retained for retry.")
 
     listings = []
     server = "NA"

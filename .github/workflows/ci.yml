@@ -15,6 +15,7 @@ jobs:
   backend-and-pipeline:
     name: Backend API & Data Pipeline Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     steps:
       - name: Checkout Repository
@@ -56,17 +57,12 @@ jobs:
         env:
           NODE_ENV: test
         run: |
-          node data-pipeline/test_api_endpoints.js
+          npm test
 
-      - name: Run Python SQLite Database Query Validation
+      - name: Run Isolated Python Regression Suites
         working-directory: backend/data-pipeline
         run: |
-          python test_db_queries.py
-
-      - name: Run Watcher Feedback Loop Regression Tests
-        working-directory: backend/data-pipeline
-        run: |
-          python test_watcher.py
+          python -B -m unittest -v test_db_queries test_ttl_purge test_catalog test_watcher test_parser_failures
 
   frontend-build:
     name: Frontend Production Build

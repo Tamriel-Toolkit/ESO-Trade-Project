@@ -4,7 +4,9 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "test": "node data-pipeline/test_api_endpoints.js",
+    "test": "npm run test:api && npm run test:failures",
+    "test:api": "node data-pipeline/test_api_endpoints.js",
+    "test:failures": "node --test data-pipeline/test_backend_failures.js",
     "start": "node server.js"
   },
   "keywords": [],

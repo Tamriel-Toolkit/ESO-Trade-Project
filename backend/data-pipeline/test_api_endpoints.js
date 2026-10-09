@@ -1,8 +1,8 @@
-const fs = require('fs');
 const http = require('http');
 const crypto = require('crypto');
-const { spawn } = require('child_process');
 const path = require('path');
+const assert = require('node:assert/strict');
+const { createSandbox } = require('../test-support/sandbox');
 const sqlite3 = require('sqlite3').verbose();
 const {
     createSchemaMigrationRunner,
@@ -11,36 +11,15 @@ const {
 } = require('../database_helpers');
 const { runProxyTrustTests } = require('../test_proxy_trust');
 
-const PORT = 5002;
-const SERVER_PATH = path.join(__dirname, '..', 'server.js');
-const EPHEMERAL_DB = process.env.DB_PATH || path.join(__dirname, `scratch_test_${Date.now()}.db`);
+let PORT;
+const sandbox = createSandbox();
+const EPHEMERAL_DB = sandbox.dbPath;
 const PREMIGRATION_LEGACY_USER_ID = 90;
 const PREMIGRATION_LEGACY_PASSWORD = 'PreMigrationLegacy123!';
 
-console.log("Starting temporary test server on port " + PORT + " with sandbox DB: " + path.basename(EPHEMERAL_DB) + "...");
-
-let serverProcess = null;
-
-function startTestServer() {
-    const child = spawn('node', [SERVER_PATH], {
-        env: { ...process.env, PORT: PORT, DB_PATH: EPHEMERAL_DB, NODE_ENV: process.env.NODE_ENV || 'test', ENABLE_DEV_ENDPOINTS: 'true' },
-        stdio: 'pipe'
-    });
-
-    child.stdout.on('data', (data) => {
-        // console.log(`[Server]: ${data}`);
-    });
-
-    child.stderr.on('data', (data) => {
-        console.error(`[Server Error]: ${data}`);
-    });
-
-    return child;
-}
+console.log("Starting isolated test server with sandbox DB: " + path.basename(EPHEMERAL_DB) + "...");
 
 function seedPreMigrationLegacyAccount() {
-    if (process.env.DB_PATH) return Promise.resolve();
-
     return new Promise((resolve, reject) => {
         const seedDb = new sqlite3.Database(EPHEMERAL_DB, (openErr) => {
             if (openErr) return reject(openErr);
@@ -98,7 +77,9 @@ function httpGet(path, headers = {}) {
                     resolve({ status: res.statusCode, headers: res.headers, raw: data });
                 }
             });
-        }).on('error', err => reject(err));
+        }).on('error', err => reject(err)).setTimeout(10000, function () {
+            this.destroy(new Error('Test GET request timed out'));
+        });
     });
 }
 
@@ -123,6 +104,7 @@ function httpPost(path, body = {}, headers = {}) {
                 }
             });
         });
+        req.setTimeout(10000, () => req.destroy(new Error('Test POST request timed out')));
         req.on('error', err => reject(err));
         req.write(payload);
         req.end();
@@ -145,6 +127,7 @@ function httpDelete(path, headers = {}) {
                 }
             });
         });
+        req.setTimeout(10000, () => req.destroy(new Error('Test DELETE request timed out')));
         req.on('error', err => reject(err));
         req.end();
     });
@@ -171,6 +154,7 @@ function httpPatch(path, body = {}, headers = {}) {
                 }
             });
         });
+        req.setTimeout(10000, () => req.destroy(new Error('Test PATCH request timed out')));
         req.on('error', err => reject(err));
         req.write(payload);
         req.end();
@@ -302,31 +286,31 @@ async function testDatabaseFailureHandling() {
 }
 
 async function runTests() {
-    await testDatabaseFailureHandling();
-    await seedPreMigrationLegacyAccount();
-    serverProcess = startTestServer();
-
-    // Poll server health up to 10 seconds for robust startup across all runner environments
-    let serverReady = false;
-    for (let attempt = 0; attempt < 20; attempt++) {
-        try {
-            const probe = await httpGet('/api/taxonomy');
-            if (probe.status === 200) {
-                serverReady = true;
-                break;
-            }
-        } catch (e) {
-            await new Promise(r => setTimeout(r, 500));
-        }
-    }
-    if (!serverReady) {
-        throw new Error("Temporary test server failed to start within 10 seconds.");
-    }
-
-    let createdUserId = null;
-
     try {
-        if (!process.env.DB_PATH) {
+        await testDatabaseFailureHandling();
+        await seedPreMigrationLegacyAccount();
+        PORT = await sandbox.start();
+
+        // Poll server health up to 10 seconds for robust startup across all runner environments
+        let serverReady = false;
+        for (let attempt = 0; attempt < 20; attempt++) {
+            try {
+                const probe = await httpGet('/api/taxonomy');
+                if (probe.status === 200) {
+                    serverReady = true;
+                    break;
+                }
+            } catch (e) {
+                await new Promise(r => setTimeout(r, 500));
+            }
+        }
+        if (!serverReady) {
+            throw new Error("Temporary test server failed to start within 10 seconds.");
+        }
+
+        let createdUserId = null;
+
+        {
             console.log("\n0. Testing pre-migration legacy-account audit and disablement...");
             let migratedLegacyRows = [];
             for (let attempt = 0; attempt < 20; attempt++) {
@@ -360,6 +344,8 @@ async function runTests() {
 
         console.log("\n1. Testing GET /api/taxonomy...");
         const taxRes = await httpGet('/api/taxonomy');
+        assert.equal(taxRes.status, 200);
+        assert.ok(Object.keys(taxRes.data).length > 0);
         console.log(`   Status: ${taxRes.status}, Categories found: ${Object.keys(taxRes.data).length}`);
 
         console.log("\n2. Testing full catalog route...");
@@ -371,6 +357,8 @@ async function runTests() {
 
         console.log("\n3. Testing GET /api/market/listings?server=NA&limit=3...");
         const listingRes = await httpGet('/api/market/listings?server=NA&limit=3');
+        assert.equal(listingRes.status, 200);
+        assert.deepEqual(listingRes.data.listings.map(row => row.game_item_id).sort((a, b) => a - b), [97227, 150001]);
         console.log(`   Status: ${listingRes.status}, Total matches: ${listingRes.data.total}, Sample listings returned: ${listingRes.data.listings.length}`);
         if (listingRes.data.listings.length > 0) {
             const l = listingRes.data.listings[0];
@@ -383,7 +371,7 @@ async function runTests() {
         const sampleIcon = itemsRes.data.items[0]?.icon_url || '/esoui/art/icons/gear_generic.dds';
         const iconFilename = sampleIcon.split('/').pop().replace(/\.dds$/i, '.png');
         const iconRes = await httpGet(`/api/icons/${iconFilename}`);
-        if (iconRes.status !== 200 || !String(iconRes.headers['content-type']).startsWith('image/')) {
+        if (iconRes.status !== 200 || !String(iconRes.headers['content-type']).startsWith('image/png')) {
             throw new Error(`Local icon route failed with status ${iconRes.status}`);
         }
         if (!String(iconRes.headers['cache-control']).includes('max-age=')) {
@@ -1423,17 +1411,9 @@ async function runTests() {
         console.error("API test failed:", err);
         process.exitCode = 1;
     } finally {
-        if (serverProcess) serverProcess.kill();
-        // Give server process a brief moment to release file lock before unlinking test DB
-        setTimeout(() => {
-            try {
-                if (fs.existsSync(EPHEMERAL_DB) && !process.env.DB_PATH) {
-                    fs.unlinkSync(EPHEMERAL_DB);
-                }
-            } catch (e) {}
-            process.exit(process.exitCode || 0);
-        }, 300);
+        // Wait for the server/database to close before removing the owned temporary directory.
+        await sandbox.dispose();
     }
 }
 
-runTests();
+runTests().catch(error => { console.error(error); process.exitCode = 1; });

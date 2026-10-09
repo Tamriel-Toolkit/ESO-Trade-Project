@@ -11,8 +11,7 @@
 
 const assert = require("assert");
 const http = require("http");
-const { spawn } = require("child_process");
-const path = require("path");
+const { createSandbox } = require('./test-support/sandbox');
 const express = require("express");
 const { rateLimit } = require("express-rate-limit");
 const { parseTrustProxyConfig, configureTrustProxy } = require("./proxy_config");
@@ -76,11 +75,11 @@ async function runProxyTrustTests() {
         app.get("/ip", (req, res) => res.json({ ip: req.ip }));
 
         const testServer = await startEphemeralServer(app);
+        try {
         const res = await fetch(`http://127.0.0.1:${testServer.port}/ip`, {
             headers: { "x-forwarded-for": "203.0.113.195" }
         });
         const data = await res.json();
-        testServer.close();
 
         assert(
             data.ip === "127.0.0.1" || data.ip === "::ffff:127.0.0.1" || data.ip === "::1",
@@ -88,6 +87,7 @@ async function runProxyTrustTests() {
         );
         assert.notStrictEqual(data.ip, "203.0.113.195", "Direct server must NOT trust spoofed X-Forwarded-For");
         console.log(`   Direct deployment correctly ignored X-Forwarded-For (resolved ${data.ip})!`);
+        } finally { await testServer.close(); }
     }
 
     // -------------------------------------------------------------------------
@@ -102,6 +102,7 @@ async function runProxyTrustTests() {
         const testServer = await startEphemeralServer(app);
 
         // Legitimate single-proxy header
+        try {
         const resLegit = await fetch(`http://127.0.0.1:${testServer.port}/ip`, {
             headers: { "x-forwarded-for": "203.0.113.195" }
         });
@@ -116,8 +117,8 @@ async function runProxyTrustTests() {
         const dataSpoof = await resSpoof.json();
         assert.strictEqual(dataSpoof.ip, "203.0.113.195", "Expected single-hop proxy to ignore forged upstream IP 198.51.100.1");
 
-        testServer.close();
         console.log("   Single proxy hop resolved client IP and prevented multi-hop spoofing!");
+        } finally { await testServer.close(); }
     }
 
     // -------------------------------------------------------------------------
@@ -142,6 +143,7 @@ async function runProxyTrustTests() {
 
         const testServer = await startEphemeralServer(app);
         const url = `http://127.0.0.1:${testServer.port}/api/test-rate-limit`;
+        try {
 
         // Client A: 203.0.113.10 sends 2 requests (allowed) + 1 request (throttled)
         const reqA1 = await fetch(url, { headers: { "x-forwarded-for": "203.0.113.10" } });
@@ -157,8 +159,8 @@ async function runProxyTrustTests() {
         const reqB1 = await fetch(url, { headers: { "x-forwarded-for": "203.0.113.20" } });
         assert.strictEqual(reqB1.status, 200, "Client B must NOT be throttled by Client A's traffic");
 
-        testServer.close();
         console.log("   Rate limiter correctly isolated distinct client IPs behind proxy!");
+        } finally { await testServer.close(); }
     }
 
     // -------------------------------------------------------------------------
@@ -166,30 +168,12 @@ async function runProxyTrustTests() {
     // -------------------------------------------------------------------------
     console.log("\n5. Testing server fail-fast on invalid TRUST_PROXY...");
     {
-        const serverPath = path.join(__dirname, "server.js");
-        const exitCode = await new Promise((resolve) => {
-            const child = spawn("node", [serverPath], {
-                env: {
-                    ...process.env,
-                    PORT: "5003",
-                    NODE_ENV: "development",
-                    TRUST_PROXY: "malformed_proxy_ip_syntax"
-                },
-                stdio: "pipe"
-            });
-
-            let stderrData = "";
-            child.stderr.on("data", (d) => { stderrData += d.toString(); });
-            child.on("close", (code) => {
-                assert(
-                    stderrData.includes("Invalid TRUST_PROXY configuration"),
-                    `Expected fail-fast error in stderr, got: ${stderrData}`
-                );
-                resolve(code);
-            });
-        });
-
-        assert.notStrictEqual(exitCode, 0, "Server must exit with non-zero code on invalid TRUST_PROXY");
+        const sandbox = createSandbox();
+        try {
+            await assert.rejects(sandbox.start({ trustProxy: 'malformed_proxy_ip_syntax' }), /Invalid TRUST_PROXY/);
+        } finally {
+            await sandbox.dispose();
+        }
         console.log("   Server correctly failed fast on invalid TRUST_PROXY configuration!");
     }
 
