@@ -63,8 +63,8 @@ class WatcherFeedbackLoopTests(unittest.TestCase):
             scan_time = int(time.time())
             scan_rows = []
             repeated_search_page = (
-                "listing-uid-1", "listing-uid-2", "listing-uid-3",
-                "listing-uid-1", "listing-uid-2", "listing-uid-3",
+                "101", "102", "103",
+                "101", "102", "103",
             )
             for index, uid in enumerate(repeated_search_page, 1):
                 scan_rows.append(
@@ -72,7 +72,7 @@ class WatcherFeedbackLoopTests(unittest.TestCase):
                     f'["Name"] = "Tide-Born Feathers", ["Price"] = 210000, ["Qty"] = 100, '
                     f'["Guild"] = "Regression Test Guild", ["Seller"] = "@StackSeller", '
                     f'["Location"] = "Regression Trader", ["Level"] = 50, ["Quality"] = 4, '
-                    f'["Trait"] = 3, ["Time"] = {scan_time} }},\n'
+                    f'["Trait"] = 3, ["Time"] = {scan_time}, ["GuildId"] = "88", ["TimeRemaining"] = 86400 }},\n'
                 )
             content = (
                 'ESOTrade_SavedVariables = {\n'
@@ -94,7 +94,7 @@ class WatcherFeedbackLoopTests(unittest.TestCase):
             with closing(sqlite3.connect(database)) as verification:
                 row = verification.execute("""
                     SELECT quantity, active_stacks, total_price, price
-                    FROM guild_trader_listings
+                    FROM guild_trader_active_listings
                     WHERE game_item_id = 123
                 """).fetchone()
             self.assertEqual((100, 3, 210000, 2100.0), row)
@@ -133,7 +133,7 @@ class WatcherFeedbackLoopTests(unittest.TestCase):
                 'ESOTrade_SavedVariables = {\n'
                 '    ["Server"] = "NA",\n'
                 '    ["Scans"] = {\n'
-                '        [1] = { ["UID"] = "uid-lockpicks-1", ["ItemId"] = 456, '
+                '        [1] = { ["UID"] = "201", ["GuildId"] = "88", ["ItemId"] = 456, '
                 '["Name"] = "Lockpicks", ["Price"] = 744, ["Qty"] = 200, '
                 '["Guild"] = "Thieves Guild", ["Seller"] = "@LockPicker", '
                 '["Location"] = "Abah\'s Landing", ["Level"] = 1, ["Quality"] = 1, '
@@ -152,7 +152,7 @@ class WatcherFeedbackLoopTests(unittest.TestCase):
             with closing(sqlite3.connect(database)) as verification:
                 row = verification.execute("""
                     SELECT quantity, active_stacks, total_price, price
-                    FROM guild_trader_listings
+                    FROM guild_trader_active_listings
                     WHERE game_item_id = 456
                 """).fetchone()
             # 744 total / 200 qty = 3.72 unit price, exactly preserving 744g stack purchase price
@@ -293,7 +293,7 @@ class WatcherFeedbackLoopTests(unittest.TestCase):
                 'ESOTrade_SavedVariables = {\n'
                 '    ["PlayerName"] = "TestHero",\n'
                 '    ["Scans"] = {\n'
-                '        [1] = { ["UID"] = "native-test-1", ["ItemId"] = 123, '
+                f'        [1] = {{ ["UID"] = "301", ["GuildId"] = "88", ["Time"] = {int(time.time())}, ["ItemId"] = 123, '
                 '["Name"] = "Native Test Item", ["Price"] = 100, ["Qty"] = 1, '
                 '["Guild"] = "Test Trading Guild", ["Seller"] = "@TestSeller" },\n'
                 '    },\n'
@@ -327,7 +327,8 @@ class WatcherFeedbackLoopTests(unittest.TestCase):
                 self.assertEqual(1, verification.execute("SELECT COUNT(*) FROM characters").fetchone()[0])
                 self.assertEqual(1, verification.execute("SELECT COUNT(*) FROM character_gear").fetchone()[0])
                 self.assertEqual(1, verification.execute("SELECT COUNT(*) FROM character_trait_research").fetchone()[0])
-                self.assertEqual(1, verification.execute("SELECT COUNT(*) FROM guild_trader_listings").fetchone()[0])
+                self.assertEqual(1, verification.execute("SELECT COUNT(*) FROM guild_trader_active_listings").fetchone()[0])
+                self.assertEqual(1, verification.execute("SELECT COUNT(*) FROM native_listing_outbox").fetchone()[0])
 
     def test_commit_failure_rolls_back_and_retains_scans(self):
         class FailingCursor:
@@ -347,6 +348,9 @@ class WatcherFeedbackLoopTests(unittest.TestCase):
                 self.closed = False
 
             def cursor(self):
+                return self.cursor_instance
+
+            def execute(self, *_args, **_kwargs):
                 return self.cursor_instance
 
             def commit(self):
@@ -371,6 +375,9 @@ class WatcherFeedbackLoopTests(unittest.TestCase):
 
             connection = FailingConnection()
             with mock.patch.object(parse_esotrade_addon.sqlite3, "connect", return_value=connection), \
+                    mock.patch.object(parse_esotrade_addon, "ensure_schema"), \
+                    mock.patch.object(parse_esotrade_addon, "parse_records", return_value=([], [])), \
+                    mock.patch.object(parse_esotrade_addon, "purge_records"), \
                     mock.patch.dict(os.environ, {"ESOTRADE_AUTH_TOKEN": ""}):
                 with self.assertRaisesRegex(RuntimeError, "Scans were retained for retry"):
                     parse_esotrade_addon.parse_and_sync_esotrade(saved_variables)

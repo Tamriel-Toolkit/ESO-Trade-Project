@@ -11,7 +11,7 @@ function createSandbox() {
     const backend = path.join(root, 'backend');
     fs.mkdirSync(path.join(backend, 'exports'), { recursive: true });
     const source = path.resolve(__dirname, '..');
-    for (const name of ['server.js', 'database_helpers.js', 'scan_transaction.js', 'proxy_config.js', 'curated_builds.js', 'eso_sets.json', 'set_weights.json']) {
+    for (const name of ['server.js', 'database_helpers.js', 'scan_transaction.js', 'listing_lifecycle.js', 'listing_lifecycle.sql', 'proxy_config.js', 'curated_builds.js', 'eso_sets.json', 'set_weights.json']) {
         fs.copyFileSync(path.join(source, name), path.join(backend, name));
     }
     fs.cpSync(path.join(source, 'assets'), path.join(backend, 'assets'), { recursive: true });
