@@ -26,6 +26,7 @@ const { rateLimit } = require("express-rate-limit");
 const sqlite3 = require("sqlite3").verbose();
 const { seedCuratedMetaBuilds } = require("./curated_builds");
 const { createSchemaMigrationRunner, rollbackTransaction } = require("./database_helpers");
+const { withScanTransaction } = require("./scan_transaction");
 const { configureTrustProxy, parseTrustProxyConfig } = require("./proxy_config");
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -2238,88 +2239,91 @@ app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
 
     try {
 
-        // AUTOMATED CHARACTER AUTO-DISCOVERY: Upsert scanner character into account roster
-        if (player_name) {
-            await dbRun(`
-                INSERT INTO characters (user_id, name, class, level, alliance, master_crafter_unlocked, last_sync_at)
-                VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(name) DO UPDATE SET
-                    user_id = excluded.user_id,
-                    class = COALESCE(excluded.class, class),
-                    level = COALESCE(excluded.level, level),
-                    alliance = COALESCE(excluded.alliance, alliance),
-                    master_crafter_unlocked = excluded.master_crafter_unlocked,
-                    last_sync_at = CURRENT_TIMESTAMP;
-            `, [userId, player_name, player_class || "Dragonknight", player_level || 50, player_alliance || 1, master_crafter || 0]);
-        }
+        const result = await withScanTransaction(dbPath, async (dbRun) => {
+            // AUTOMATED CHARACTER AUTO-DISCOVERY: Upsert scanner character into account roster
+            if (player_name) {
+                await dbRun(`
+                    INSERT INTO characters (user_id, name, class, level, alliance, master_crafter_unlocked, last_sync_at)
+                    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(name) DO UPDATE SET
+                        user_id = excluded.user_id,
+                        class = COALESCE(excluded.class, class),
+                        level = COALESCE(excluded.level, level),
+                        alliance = COALESCE(excluded.alliance, alliance),
+                        master_crafter_unlocked = excluded.master_crafter_unlocked,
+                        last_sync_at = CURRENT_TIMESTAMP;
+                `, [userId, player_name, player_class || "Dragonknight", player_level || 50, player_alliance || 1, master_crafter || 0]);
+            }
 
-        let insertedCount = 0;
-        const affectedItemIds = new Set();
-        const scannedGuilds = new Set();
-        const batchStartTime = new Date().toISOString().replace('T', ' ').substring(0, 19);
+            let insertedCount = 0;
+            const affectedItemIds = new Set();
+            const scannedGuilds = new Set();
+            const batchStartTime = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
-        for (const item of listings) {
-            const { game_item_id, item_name, name, price, total_price, quantity, active_stacks, seller_name, guild_name, location, level, quality, trait_id, expires_at } = item;
-            const displayName = item_name || name || null;
-            const cleanDisplayName = displayName ? cleanEsoItemName(displayName) : null;
-            if (game_item_id && price && guild_name) {
-                const stackQty = Math.max(1, parseInt(quantity, 10) || 1);
-                const stacksCount = Math.max(1, parseInt(active_stacks, 10) || 1);
-                const rawTotalPrice = total_price != null ? parseInt(total_price, 10) : null;
-                const rawUnitPrice = parseFloat(price);
-                const effectiveTotalPrice = rawTotalPrice != null && !isNaN(rawTotalPrice) && rawTotalPrice > 0
-                    ? rawTotalPrice
-                    : Math.max(1, Math.round((!isNaN(rawUnitPrice) ? rawUnitPrice : 1) * stackQty));
-                const unitPrice = !isNaN(rawUnitPrice) && rawUnitPrice > 0
-                    ? Math.round(rawUnitPrice * 100) / 100
-                    : Math.round((effectiveTotalPrice / stackQty) * 100) / 100;
-                const sellerHandle = seller_name || "@Unknown";
-                let validTraitId = parseInt(trait_id, 10) || 0;
-                if (validTraitId < 0 || validTraitId > 60) validTraitId = 0;
+            for (const item of listings) {
+                const { game_item_id, item_name, name, price, total_price, quantity, active_stacks, seller_name, guild_name, location, level, quality, trait_id, expires_at } = item;
+                const displayName = item_name || name || null;
+                const cleanDisplayName = displayName ? cleanEsoItemName(displayName) : null;
+                if (game_item_id && price && guild_name) {
+                    const stackQty = Math.max(1, parseInt(quantity, 10) || 1);
+                    const stacksCount = Math.max(1, parseInt(active_stacks, 10) || 1);
+                    const rawTotalPrice = total_price != null ? parseInt(total_price, 10) : null;
+                    const rawUnitPrice = parseFloat(price);
+                    const effectiveTotalPrice = rawTotalPrice != null && !isNaN(rawTotalPrice) && rawTotalPrice > 0
+                        ? rawTotalPrice
+                        : Math.max(1, Math.round((!isNaN(rawUnitPrice) ? rawUnitPrice : 1) * stackQty));
+                    const unitPrice = !isNaN(rawUnitPrice) && rawUnitPrice > 0
+                        ? Math.round(rawUnitPrice * 100) / 100
+                        : Math.round((effectiveTotalPrice / stackQty) * 100) / 100;
+                    const sellerHandle = seller_name || "@Unknown";
+                    let validTraitId = parseInt(trait_id, 10) || 0;
+                    if (validTraitId < 0 || validTraitId > 60) validTraitId = 0;
 
-                // Reconcile legacy trait_id = 0 row if fresh scan has valid trait_id > 0
-                if (validTraitId > 0) {
+                    // Reconcile legacy trait_id = 0 row if fresh scan has valid trait_id > 0
+                    if (validTraitId > 0) {
+                        await dbRun(`
+                            DELETE FROM guild_trader_listings
+                            WHERE game_item_id = ? AND server = ? AND guild_name = ? AND seller_name = ?
+                              AND price = ? AND quantity = ? AND level = ? AND quality = ? AND trait_id = 0
+                        `, [game_item_id, targetServer, guild_name, sellerHandle, unitPrice, stackQty, level || 1, quality || 1]);
+                    }
+
+                    await dbRun(`
+                        INSERT INTO guild_trader_listings
+                        (game_item_id, item_name, server, seller_name, price, total_price, quantity, active_stacks, guild_name, location, level, quality, trait_id, expires_at, discovered_at)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        ON CONFLICT(game_item_id, server, guild_name, seller_name, price, quantity, level, quality, trait_id) DO UPDATE SET
+                            item_name = COALESCE(excluded.item_name, item_name),
+                            total_price = COALESCE(excluded.total_price, total_price),
+                            active_stacks = excluded.active_stacks,
+                            discovered_at = CURRENT_TIMESTAMP,
+                            location = CASE WHEN excluded.location != 'Guild Trader' THEN excluded.location ELSE location END,
+                            expires_at = COALESCE(excluded.expires_at, expires_at);
+                    `, [game_item_id, cleanDisplayName, targetServer, sellerHandle, unitPrice, effectiveTotalPrice, stackQty, stacksCount, guild_name, location || "Guild Trader", level || 1, quality || 1, validTraitId, expires_at || null]);
+                    insertedCount++;
+                    affectedItemIds.add(game_item_id);
+                    scannedGuilds.add(guild_name);
+                }
+            }
+
+            // Full Kiosk Reconciliation: Mark items as sold/removed if not refreshed in this kiosk scan batch
+            if (scannedGuilds.size > 0) {
+                for (const gName of scannedGuilds) {
                     await dbRun(`
                         DELETE FROM guild_trader_listings
-                        WHERE game_item_id = ? AND server = ? AND guild_name = ? AND seller_name = ?
-                          AND price = ? AND quantity = ? AND level = ? AND quality = ? AND trait_id = 0
-                    `, [game_item_id, targetServer, guild_name, sellerHandle, unitPrice, stackQty, level || 1, quality || 1]);
+                        WHERE guild_name = ? AND server = ? AND discovered_at < ?;
+                    `, [gName, targetServer, batchStartTime]);
                 }
-
-                await dbRun(`
-                    INSERT INTO guild_trader_listings 
-                    (game_item_id, item_name, server, seller_name, price, total_price, quantity, active_stacks, guild_name, location, level, quality, trait_id, expires_at, discovered_at)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                    ON CONFLICT(game_item_id, server, guild_name, seller_name, price, quantity, level, quality, trait_id) DO UPDATE SET
-                        item_name = COALESCE(excluded.item_name, item_name),
-                        total_price = COALESCE(excluded.total_price, total_price),
-                        active_stacks = excluded.active_stacks,
-                        discovered_at = CURRENT_TIMESTAMP,
-                        location = CASE WHEN excluded.location != 'Guild Trader' THEN excluded.location ELSE location END,
-                        expires_at = COALESCE(excluded.expires_at, expires_at);
-                `, [game_item_id, cleanDisplayName, targetServer, sellerHandle, unitPrice, effectiveTotalPrice, stackQty, stacksCount, guild_name, location || "Guild Trader", level || 1, quality || 1, validTraitId, expires_at || null]);
-                insertedCount++;
-                affectedItemIds.add(game_item_id);
-                scannedGuilds.add(guild_name);
             }
-        }
 
-        // Full Kiosk Reconciliation: Mark items as sold/removed if not refreshed in this kiosk scan batch
-        if (scannedGuilds.size > 0) {
-            for (const gName of scannedGuilds) {
-                await dbRun(`
-                    DELETE FROM guild_trader_listings
-                    WHERE guild_name = ? AND server = ? AND discovered_at < ?;
-                `, [gName, targetServer, batchStartTime]);
-            }
-        }
-
-        res.json({
-            success: true,
-            message: `Successfully ingested ${insertedCount} native listings for ${affectedItemIds.size} items.`,
-            count: insertedCount,
-            observed_items: affectedItemIds.size
+            return {
+                success: true,
+                message: `Successfully ingested ${insertedCount} native listings for ${affectedItemIds.size} items.`,
+                count: insertedCount,
+                observed_items: affectedItemIds.size
+            };
         });
+        res.json(result);
     } catch (err) {
         console.error("Error in upload-scans:", err.message);
         res.status(500).json({ error: err.message });

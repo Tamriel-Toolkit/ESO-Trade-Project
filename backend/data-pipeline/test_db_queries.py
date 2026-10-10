@@ -1,6 +1,5 @@
 import sqlite3
-import json
-import os
+import unittest
 
 def ensure_schema_and_seed(cursor, conn):
     cursor.execute("""
@@ -40,12 +39,13 @@ def ensure_schema_and_seed(cursor, conn):
         cursor.executemany("INSERT OR IGNORE INTO items VALUES (?, ?, ?, ?, ?, ?, ?)", sample_items)
         conn.commit()
 
-def test_db():
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    db_path = os.environ.get("DB_PATH", os.path.abspath(os.path.join(script_dir, "..", "exports", "eso_catalog.db")))
-    os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    print(f"Connecting to database at {db_path}...")
-    conn = sqlite3.connect(db_path)
+def create_test_database():
+    # Ignore DB_PATH: this regression must never open the developer catalog.
+    conn = sqlite3.connect(":memory:")
+    return conn
+
+
+def check_queries(case, conn):
     cursor = conn.cursor()
 
     ensure_schema_and_seed(cursor, conn)
@@ -60,6 +60,7 @@ def test_db():
     """
     cursor.execute(query_1)
     rows = cursor.fetchall()
+    case.assertEqual({1129, 1321, 1727, 2501, 4317}, {row[0] for row in rows})
     for row in rows:
         print(f"  ID: {row[0]:<6} | Name: {row[1]:<35} | Rarity: {row[3]}")
 
@@ -74,6 +75,7 @@ def test_db():
     """
     cursor.execute(query_2)
     rows = cursor.fetchall()
+    case.assertEqual({68447, 68448, 68449, 68450, 68451}, {row[0] for row in rows})
     for row in rows:
         print(f"  ID: {row[0]:<6} | Name: {row[1]:<35} | {row[2]} ({row[3]})")
 
@@ -87,10 +89,17 @@ def test_db():
     """
     cursor.execute(query_3)
     rows = cursor.fetchall()
+    case.assertEqual({"Weapon": 8, "Armor": 7, "Other": 1, "Furnishing": 1,
+                      "Consumable": 1, "Recipe": 1}, dict(rows))
     for row in rows:
         print(f"  Category: {row[0]:<15} | Count: {row[1]}")
 
-    conn.close()
+
+class DatabaseQueryTests(unittest.TestCase):
+    def test_queries(self):
+        conn = create_test_database()
+        self.addCleanup(conn.close)
+        check_queries(self, conn)
 
 if __name__ == "__main__":
-    test_db()
+    unittest.main()
