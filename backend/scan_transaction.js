@@ -23,7 +23,10 @@ async function withScanTransaction(dbPath, operation) {
         await run('PRAGMA foreign_keys = ON');
         await run('BEGIN IMMEDIATE TRANSACTION');
         began = true;
-        const result = await operation(run);
+        const get = (sql, params = []) => new Promise((resolve, reject) => {
+            connection.get(sql, params, (error, row) => error ? reject(error) : resolve(row));
+        });
+        const result = await operation(run, get);
         await run('COMMIT');
         return result;
     } catch (error) {

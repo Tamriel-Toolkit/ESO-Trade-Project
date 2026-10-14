@@ -51,6 +51,7 @@ jobs:
           if [ -f requirements.txt ]; then
             pip install -r requirements.txt
           fi
+          pip install -r test-requirements.txt
 
       - name: Run Backend Integration Test Suite
         working-directory: backend
@@ -62,7 +63,7 @@ jobs:
       - name: Run Isolated Python Regression Suites
         working-directory: backend/data-pipeline
         run: |
-          python -B -m unittest -v test_db_queries test_ttl_purge test_catalog test_watcher test_parser_failures
+          python -B -m unittest -v test_db_queries test_ttl_purge test_catalog test_watcher test_parser_failures test_listing_lifecycle test_addon_lifecycle
 
   frontend-build:
     name: Frontend Production Build

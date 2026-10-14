@@ -1,5 +1,5 @@
 -- ============================================================================
--- ESO Trade Addon v1.6.2 (Attribute-Aware Native In-Game Kiosk & Gear Scanner)
+-- ESO Trade Addon v1.7.0 (UID observations, expiry & confirmed purchases)
 -- Captures 100% real Item ID, Level, Quality, Trait, Guild, Location, and Equipped Gear.
 -- ============================================================================
 
@@ -11,6 +11,7 @@ ESOTrade.name = "ESOTrade"
 ESOTradeVars = ESOTradeVars or {
     Server = "NA",
     Scans = {},
+    Purchases = {},
     PlayerName = "",
     PlayerClass = 1,
     PlayerLevel = 50,
@@ -81,6 +82,10 @@ local function NormalizeTradingHouseUid(uid)
     return normalizedUid
 end
 
+local function CurrentServer()
+    return string.find(GetWorldName() or "", "EU") and "EU" or "NA"
+end
+
 -- Rebuild an in-memory UID lookup after login or /reloadui. This also compacts
 -- repeated UID-bearing entries that may already be present in SavedVariables.
 -- Legacy entries without an identity are unsafe to count because the old event
@@ -92,13 +97,14 @@ local function RebuildTradingHouseScanIndex()
 
     for _, scan in ipairs(ESOTradeVars.Scans or {}) do
         local uid = scan and scan.UID and tostring(scan.UID) or ""
-        if uid ~= "" and uid ~= "0" then
-            local existingPosition = positionsByUid[uid]
+        if uid ~= "" and uid ~= "0" and scan.GuildId and scan.Time then
+            local key = (scan.Server or ESOTradeVars.Server or CurrentServer()) .. ":" .. uid
+            local existingPosition = positionsByUid[key]
             if existingPosition then
                 compactedScans[existingPosition] = scan
             else
                 table.insert(compactedScans, scan)
-                positionsByUid[uid] = #compactedScans
+                positionsByUid[key] = #compactedScans
             end
         else
             discardedLegacyScanCount = discardedLegacyScanCount + 1
@@ -120,15 +126,80 @@ local function StoreTradingHouseScan(scan)
         return nil
     end
 
-    local existingPosition = ESOTrade.scanPositionsByUid[uid]
+    local key = (scan.Server or CurrentServer()) .. ":" .. uid
+    local existingPosition = ESOTrade.scanPositionsByUid[key]
     if existingPosition then
         ESOTradeVars.Scans[existingPosition] = scan
         return false
     end
 
     table.insert(ESOTradeVars.Scans, scan)
-    ESOTrade.scanPositionsByUid[uid] = #ESOTradeVars.Scans
+    ESOTrade.scanPositionsByUid[key] = #ESOTradeVars.Scans
     return true
+end
+
+local function CurrentTraderIdentity()
+    local guildId, guildName = GetCurrentTradingHouseGuildDetails()
+    if not guildId or guildId <= 0 or not guildName or guildName == "" then return nil end
+    return tostring(guildId), guildName
+end
+
+-- Official post-hooks only observe player actions; they never initiate a buy.
+-- Capture by UID as well as index: AGS purchases use the UID function and may
+-- have no valid pendingPurchaseIndex. Uncorrelated purchases fail closed.
+local function StagePurchase(uid, purchasePrice)
+    ESOTrade.pendingPurchase = nil
+    uid = NormalizeTradingHouseUid(uid)
+    local guildId = CurrentTraderIdentity()
+    if not guildId or not string.match(uid, "^[1-9]%d*$")
+        or type(purchasePrice) ~= "number" or purchasePrice <= 0 then return end
+    local position = ESOTrade.scanPositionsByUid and ESOTrade.scanPositionsByUid[CurrentServer() .. ":" .. uid]
+    local scan = position and ESOTradeVars.Scans[position]
+    -- The official UID purchase call itself supplies identity, even when AGS
+    -- buys a cached result that was never in our search callback. If a scan is
+    -- present, contradictory context remains unsafe and is rejected.
+    if scan and (scan.GuildId ~= guildId or scan.Price ~= purchasePrice) then return end
+    ESOTrade.pendingPurchase = {
+        UID = uid, GuildId = guildId, Server = CurrentServer(), Time = GetTimeStamp()
+    }
+end
+
+local function ClearPurchaseContext()
+    ESOTrade.pendingPurchase = nil
+    ESOTrade.inFlightPurchase = nil
+    ESOTrade.purchaseAmbiguous = nil
+end
+
+local function CaptureConfirmedPurchase(result)
+    local purchase = ESOTrade.inFlightPurchase
+    local guildId = CurrentTraderIdentity()
+    if result == TRADING_HOUSE_RESULT_SUCCESS and not ESOTrade.purchaseAmbiguous
+        and purchase and purchase.GuildId == guildId and purchase.Server == CurrentServer()
+        and GetTimeStamp() - purchase.Time <= 60 then
+        ESOTradeVars.Purchases = ESOTradeVars.Purchases or {}
+        local alreadyRecorded = false
+        for _, recorded in ipairs(ESOTradeVars.Purchases) do
+            if recorded.UID == purchase.UID and recorded.GuildId == purchase.GuildId
+                and (recorded.Server or ESOTradeVars.Server) == purchase.Server then
+                alreadyRecorded = true
+            end
+        end
+        if not alreadyRecorded then
+            table.insert(ESOTradeVars.Purchases, {
+                UID = purchase.UID, GuildId = purchase.GuildId, Server = purchase.Server, Time = GetTimeStamp()
+            })
+        end
+        local remainingScans = {}
+        for _, scan in ipairs(ESOTradeVars.Scans or {}) do
+            if scan.UID ~= purchase.UID or (scan.Server or ESOTradeVars.Server) ~= purchase.Server then
+                table.insert(remainingScans, scan)
+            end
+        end
+        ESOTradeVars.Scans = remainingScans
+        RebuildTradingHouseScanIndex()
+        d("|c00FF00[ESOTrade]|r Confirmed purchase queued for marketplace removal.")
+    end
+    ClearPurchaseContext()
 end
 
 -- Export equipped gear loadout for the active character
@@ -250,6 +321,10 @@ end
 
 -- Callback: Fired when Trading House (Guild Trader) search/browse data arrives from ESO server
 local function OnTradingHouseResponse(eventCode, responseType, result)
+    if responseType == TRADING_HOUSE_RESULT_PURCHASE_PENDING then
+        CaptureConfirmedPurchase(result)
+        return
+    end
     -- Text/name lookup, purchase, post, and listings-management responses can
     -- arrive while the previous search page remains readable. Only consume a
     -- successfully completed search response or that stale page is duplicated.
@@ -262,9 +337,7 @@ local function OnTradingHouseResponse(eventCode, responseType, result)
 
     -- Detect Current Kiosk Guild Name dynamically from ESO API
     local guildId, guildName = GetCurrentTradingHouseGuildDetails()
-    if not guildName or guildName == "" then
-        guildName = "Active Guild Trader"
-    end
+    if not guildId or guildId <= 0 or not guildName or guildName == "" then return end
 
     -- Dynamically resolve real Zone & City location from ESO API
     local locationName = GetDynamicLocationName()
@@ -296,6 +369,8 @@ local function OnTradingHouseResponse(eventCode, responseType, result)
             
             local scan = {
                 UID       = NormalizeTradingHouseUid(uid),
+                Server    = serverName,
+                GuildId   = tostring(guildId),
                 ItemId    = itemId,
                 Link      = itemLink,
                 Name      = name,
@@ -309,7 +384,8 @@ local function OnTradingHouseResponse(eventCode, responseType, result)
                 Guild     = guildName,
                 Location  = locationName,
                 Scanner   = GetUnitName("player") or "Hero",
-                Time      = now
+                Time      = now,
+                TimeRemaining = timeRemaining
             }
 
             local storeResult = StoreTradingHouseScan(scan)
@@ -349,12 +425,34 @@ local function OnAddOnLoaded(eventCode, addOnName)
     EVENT_MANAGER:UnregisterForEvent(ESOTrade.name, EVENT_ADD_ON_LOADED)
 
     local discardedLegacyScanCount = RebuildTradingHouseScanIndex()
+    ESOTradeVars.Purchases = ESOTradeVars.Purchases or {}
     if discardedLegacyScanCount > 0 then
-        d("|cFFFF00[ESOTrade]|r Removed " .. discardedLegacyScanCount .. " legacy scan record(s) without listing UIDs. Revisit the trader to capture clean results.")
+        d("|cFFFF00[ESOTrade]|r Removed " .. discardedLegacyScanCount .. " legacy scan record(s) without complete UID/guild metadata. Revisit the trader to capture clean results.")
     end
 
     -- Register for Trading House response event
     EVENT_MANAGER:RegisterForEvent(ESOTrade.name, EVENT_TRADING_HOUSE_RESPONSE_RECEIVED, OnTradingHouseResponse)
+    SecurePostHook("SetPendingItemPurchase", function(index)
+        local _, _, _, _, _, _, price, _, uid = GetTradingHouseSearchResultItemInfo(index)
+        StagePurchase(uid, price)
+    end)
+    SecurePostHook("SetPendingItemPurchaseByItemUniqueId", StagePurchase)
+    SecurePostHook("ClearPendingItemPurchase", function() ESOTrade.pendingPurchase = nil end)
+    SecurePostHook("ConfirmPendingItemPurchase", function()
+        if ESOTrade.inFlightPurchase or ESOTrade.purchaseAmbiguous then
+            ESOTrade.inFlightPurchase = nil
+            ESOTrade.purchaseAmbiguous = true
+        else
+            ESOTrade.inFlightPurchase = ESOTrade.pendingPurchase
+            if ESOTrade.inFlightPurchase then ESOTrade.inFlightPurchase.Time = GetTimeStamp() end
+        end
+        ESOTrade.pendingPurchase = nil
+    end)
+    for _, eventId in ipairs({ EVENT_TRADING_HOUSE_OPERATION_TIME_OUT,
+        EVENT_TRADING_HOUSE_RESPONSE_TIMEOUT, EVENT_TRADING_HOUSE_ERROR,
+        EVENT_TRADING_HOUSE_SELECTED_GUILD_CHANGED, EVENT_CLOSE_TRADING_HOUSE }) do
+        EVENT_MANAGER:RegisterForEvent(ESOTrade.name, eventId, ClearPurchaseContext)
+    end
 
     -- Register Slash Commands (/esotrade, /esotrade clear, /esotrade status, /esotrade gear, /esotrade traits, /esotrade testach <id>)
     SLASH_COMMANDS["/esotrade"] = function(option)
@@ -405,7 +503,7 @@ local function OnAddOnLoaded(eventCode, addOnName)
     EVENT_MANAGER:RegisterForEvent(ESOTrade.name, EVENT_SMITHING_TRAIT_RESEARCH_COMPLETED, RefreshCharacterData)
     EVENT_MANAGER:RegisterForEvent(ESOTrade.name, EVENT_SMITHING_TRAIT_RESEARCH_STARTED, RefreshCharacterData)
 
-    d("|c00FF00[ESOTrade Addon v1.6.2 Loaded]|r Automatic metadata, gear & trait research sync active for character '" .. (ESOTradeVars.PlayerName or "Hero") .. "' on " .. (GetWorldName() or "NA"))
+    d("|c00FF00[ESOTrade Addon v1.7.0 Loaded]|r Automatic metadata, gear & trait research sync active for character '" .. (ESOTradeVars.PlayerName or "Hero") .. "' on " .. (GetWorldName() or "NA"))
 end
 
 EVENT_MANAGER:RegisterForEvent(ESOTrade.name, EVENT_ADD_ON_LOADED, OnAddOnLoaded)

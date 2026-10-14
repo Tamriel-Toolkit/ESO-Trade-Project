@@ -37,7 +37,7 @@ def validate_savedvariables_structure(content):
                 raise ValueError("Unbalanced SavedVariables delimiters")
     if stack or in_string or not saw_table:
         raise ValueError("Incomplete SavedVariables table")
-    for field in ("Scans", "Gear", "TraitResearch"):
+    for field in ("Scans", "Purchases", "Gear", "TraitResearch"):
         key = f'["{field}"]'
         if key in content and not re.search(re.escape(key) + r'\s*=\s*\{', content):
             raise ValueError(f"SavedVariables {field} must be a table")

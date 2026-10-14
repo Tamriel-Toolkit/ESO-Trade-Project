@@ -27,6 +27,7 @@ const sqlite3 = require("sqlite3").verbose();
 const { seedCuratedMetaBuilds } = require("./curated_builds");
 const { createSchemaMigrationRunner, rollbackTransaction } = require("./database_helpers");
 const { withScanTransaction } = require("./scan_transaction");
+const { schemaStatements: listingLifecycleSchema, validateLifecycle, applyLifecycle, purgeLifecycle } = require("./listing_lifecycle");
 const { configureTrustProxy, parseTrustProxyConfig } = require("./proxy_config");
 const app = express();
 const PORT = process.env.PORT || 5001;
@@ -724,6 +725,9 @@ function initializeDatabaseSchema() {
         db.run("CREATE INDEX IF NOT EXISTS idx_listings_expires_at ON guild_trader_listings(expires_at);");
         db.run("CREATE INDEX IF NOT EXISTS idx_listings_server_item ON guild_trader_listings(server, game_item_id);");
         db.run("CREATE INDEX IF NOT EXISTS idx_listings_server ON guild_trader_listings(server);");
+        listingLifecycleSchema.forEach((sql, index) => {
+            runSchemaMigration(`listing-lifecycle.${index}`, sql);
+        });
         db.run("CREATE INDEX IF NOT EXISTS idx_build_items_build_id ON build_items(build_id);");
         db.run("CREATE INDEX IF NOT EXISTS idx_builds_class_role ON builds(class, role);");
         db.run("CREATE INDEX IF NOT EXISTS idx_trait_research_lookup ON character_trait_research(character_id, research_status, equipment_type, trait_id);");
@@ -1011,11 +1015,11 @@ const dbAll = (sql, params = []) => new Promise((resolve, reject) => {
  */
 async function purgeExpiredListings() {
     try {
-        const result = await dbRun("DELETE FROM guild_trader_listings WHERE expires_at IS NOT NULL AND datetime(expires_at) < datetime('now')");
-        if (result && result.changes > 0) {
-            console.log(`[TTL Purge] Purged ${result.changes} expired guild trader listings.`);
+        const count = await withScanTransaction(dbPath, purgeLifecycle);
+        if (count > 0) {
+            console.log(`[TTL Purge] Purged ${count} expired or over-30-day guild trader listings.`);
         }
-        return result ? result.changes : 0;
+        return count;
     } catch (err) {
         console.error("[TTL Purge Error] Failed to purge expired listings:", err.message);
         return 0;
@@ -1033,7 +1037,7 @@ setTimeout(purgeExpiredListings, 2000);
  */
 app.get("/api/status", async (req, res) => {
     try {
-        const listingRow = await dbGet("SELECT COUNT(*) as count, MAX(discovered_at) as latest_scan FROM guild_trader_listings");
+        const listingRow = await dbGet("SELECT COUNT(*) as count, MAX(discovered_at) as latest_scan FROM guild_trader_active_listings");
         const catalogRow = await dbGet("SELECT COUNT(*) as count FROM items");
         const charRow = await dbGet("SELECT MAX(last_sync_at) as latest_char_sync FROM characters");
         
@@ -1564,7 +1568,7 @@ app.get("/api/listings/personalized/:character_id", async (req, res) => {
         // Count total matches for pagination
         const countQuery = `
             SELECT COUNT(*) AS total
-            FROM guild_trader_listings gtl
+            FROM guild_trader_active_listings gtl
             WHERE gtl.server = ? AND gtl.game_item_id NOT IN (
                 SELECT game_item_id 
                 FROM knowledge 
@@ -1597,7 +1601,7 @@ app.get("/api/listings/personalized/:character_id", async (req, res) => {
                 obs.observed_avg_price,
                 obs.observed_listing_count,
                 CASE WHEN gtl.price > 0 THEN CAST(obs.observed_avg_price AS REAL) / gtl.price ELSE 0 END AS value_index
-            FROM guild_trader_listings gtl
+            FROM guild_trader_active_listings gtl
             JOIN items i ON gtl.game_item_id = i.game_item_id
             LEFT JOIN (
                 SELECT game_item_id, server,
@@ -1605,7 +1609,7 @@ app.get("/api/listings/personalized/:character_id", async (req, res) => {
                        MAX(price) AS observed_max_price,
                        ROUND(AVG(price)) AS observed_avg_price,
                        COUNT(*) AS observed_listing_count
-                FROM guild_trader_listings
+                FROM guild_trader_active_listings
                 WHERE price > 0
                 GROUP BY game_item_id, server
             ) obs ON gtl.game_item_id = obs.game_item_id AND gtl.server = obs.server
@@ -1678,7 +1682,7 @@ app.get("/api/watchlist/:character_id", async (req, res) => {
                        MAX(price) AS observed_max_price,
                        ROUND(AVG(price)) AS observed_avg_price,
                        COUNT(*) AS observed_listing_count
-                FROM guild_trader_listings
+                FROM guild_trader_active_listings
                 WHERE price > 0
                 GROUP BY game_item_id
             ) obs ON w.game_item_id = obs.game_item_id
@@ -1820,7 +1824,7 @@ app.get("/api/watchlist/:character_id/alerts", async (req, res) => {
                 i.subcategory AS item_subcategory,
                 i.rarity AS item_rarity
             FROM watchlists w
-            JOIN guild_trader_listings gtl ON w.game_item_id = gtl.game_item_id
+            JOIN guild_trader_active_listings gtl ON w.game_item_id = gtl.game_item_id
             JOIN items i ON w.game_item_id = i.game_item_id
             WHERE w.character_id = ? AND gtl.price <= w.target_price;
         `;
@@ -2123,12 +2127,12 @@ app.get("/api/market/listings", async (req, res) => {
     try {
         const countQuery = `
             SELECT COUNT(*) as total
-            FROM guild_trader_listings gtl
+            FROM guild_trader_active_listings gtl
             JOIN items i ON gtl.game_item_id = i.game_item_id
             LEFT JOIN (
                 SELECT game_item_id, server,
                        ROUND(AVG(price)) AS observed_avg_price
-                FROM guild_trader_listings
+                FROM guild_trader_active_listings
                 WHERE price > 0
                 GROUP BY game_item_id, server
             ) obs ON gtl.game_item_id = obs.game_item_id AND gtl.server = obs.server
@@ -2165,7 +2169,7 @@ app.get("/api/market/listings", async (req, res) => {
                 obs.observed_avg_price,
                 obs.observed_listing_count,
                 CASE WHEN gtl.price > 0 AND obs.observed_avg_price > 0 THEN CAST(obs.observed_avg_price AS REAL) / gtl.price ELSE 0 END AS value_index
-            FROM guild_trader_listings gtl
+            FROM guild_trader_active_listings gtl
             JOIN items i ON gtl.game_item_id = i.game_item_id
             LEFT JOIN (
                 SELECT game_item_id, server,
@@ -2173,7 +2177,7 @@ app.get("/api/market/listings", async (req, res) => {
                        MAX(price) AS observed_max_price,
                        ROUND(AVG(price)) AS observed_avg_price,
                        COUNT(*) AS observed_listing_count
-                FROM guild_trader_listings
+                FROM guild_trader_active_listings
                 WHERE price > 0
                 GROUP BY game_item_id, server
             ) obs ON gtl.game_item_id = obs.game_item_id AND gtl.server = obs.server
@@ -2221,12 +2225,48 @@ app.get("/api/market/listings", async (req, res) => {
  * ingests into central database, making them instantly visible to User B on the web app.
  */
 app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+        return res.status(400).json({error: 'Expected an upload object.'});
+    }
     const { server, listings, player_name, player_class, player_level, player_alliance, master_crafter } = req.body;
     const targetServer = server || "NA";
 
     const userId = await getAuthUserId(req);
     if (!userId) {
         return res.status(401).json({ error: "Authentication required to upload market scans." });
+    }
+
+    if (req.body.lifecycle_version !== undefined) {
+        try {
+            const payload = validateLifecycle(req.body);
+            const result = await withScanTransaction(dbPath, async (run, get) => {
+                if (player_name) {
+                    if (typeof player_name !== 'string' || player_name.length > 160) {
+                        const error = new Error('Invalid player_name.'); error.status = 400; throw error;
+                    }
+                    if ((player_class != null && !['Dragonknight', 'Sorcerer', 'Nightblade', 'Warden', 'Necromancer', 'Templar', 'Arcanist'].includes(player_class))
+                        || (player_level != null && (!Number.isInteger(player_level) || player_level < 1 || player_level > 50))
+                        || (player_alliance != null && ![1, 2, 3].includes(player_alliance))
+                        || (master_crafter != null && ![0, 1].includes(master_crafter))) {
+                        const error = new Error('Invalid scanner character metadata.'); error.status = 400; throw error;
+                    }
+                    const character = await get('SELECT user_id FROM characters WHERE name = ?', [player_name]);
+                    if (character?.user_id && character.user_id !== userId) {
+                        const error = new Error('Character belongs to another user.'); error.status = 403; throw error;
+                    }
+                    await run(`INSERT INTO characters (user_id, name, class, level, alliance, master_crafter_unlocked, last_sync_at)
+                        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                        ON CONFLICT(name) DO UPDATE SET class = excluded.class, level = excluded.level,
+                            alliance = excluded.alliance, master_crafter_unlocked = excluded.master_crafter_unlocked,
+                            last_sync_at = CURRENT_TIMESTAMP`,
+                    [userId, player_name, player_class || 'Dragonknight', player_level || 50, player_alliance || 1, master_crafter || 0]);
+                }
+                return applyLifecycle(run, get, payload);
+            });
+            return res.json(result);
+        } catch (error) {
+            return res.status(error.status || 500).json({error: error.status ? error.message : 'Listing lifecycle synchronization failed.'});
+        }
     }
 
     if (!Array.isArray(listings) || listings.length === 0) {
@@ -2257,8 +2297,6 @@ app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
 
             let insertedCount = 0;
             const affectedItemIds = new Set();
-            const scannedGuilds = new Set();
-            const batchStartTime = new Date().toISOString().replace('T', ' ').substring(0, 19);
 
             for (const item of listings) {
                 const { game_item_id, item_name, name, price, total_price, quantity, active_stacks, seller_name, guild_name, location, level, quality, trait_id, expires_at } = item;
@@ -2296,25 +2334,19 @@ app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
                             item_name = COALESCE(excluded.item_name, item_name),
                             total_price = COALESCE(excluded.total_price, total_price),
                             active_stacks = excluded.active_stacks,
-                            discovered_at = CURRENT_TIMESTAMP,
+                            discovered_at = guild_trader_listings.discovered_at,
                             location = CASE WHEN excluded.location != 'Guild Trader' THEN excluded.location ELSE location END,
-                            expires_at = COALESCE(excluded.expires_at, expires_at);
+                            expires_at = CASE WHEN expires_at IS NULL THEN excluded.expires_at
+                                WHEN excluded.expires_at IS NULL THEN expires_at
+                                ELSE MIN(datetime(expires_at), datetime(excluded.expires_at)) END;
                     `, [game_item_id, cleanDisplayName, targetServer, sellerHandle, unitPrice, effectiveTotalPrice, stackQty, stacksCount, guild_name, location || "Guild Trader", level || 1, quality || 1, validTraitId, expires_at || null]);
                     insertedCount++;
                     affectedItemIds.add(game_item_id);
-                    scannedGuilds.add(guild_name);
                 }
             }
 
-            // Full Kiosk Reconciliation: Mark items as sold/removed if not refreshed in this kiosk scan batch
-            if (scannedGuilds.size > 0) {
-                for (const gName of scannedGuilds) {
-                    await dbRun(`
-                        DELETE FROM guild_trader_listings
-                        WHERE guild_name = ? AND server = ? AND discovered_at < ?;
-                    `, [gName, targetServer, batchStartTime]);
-                }
-            }
+            // Ordinary searches (including filtered/paged/chunked results) only
+            // provide positive observations, never proof that another row sold.
 
             return {
                 success: true,
@@ -2361,7 +2393,12 @@ if (isDevMode) {
         }
 
         try {
-            await dbRun("DELETE FROM guild_trader_listings;");
+            await withScanTransaction(dbPath, async run => {
+                await run("DELETE FROM guild_trader_listings;");
+                await run("DELETE FROM native_listing_observations;");
+                await run("DELETE FROM native_listing_tombstones;");
+                await run("DELETE FROM native_listing_groups;");
+            });
             res.json({
                 success: true,
                 message: "Successfully cleared all native market listings."
@@ -3672,10 +3709,10 @@ app.get("/api/builds/:id/deals", async (req, res) => {
                 SELECT 
                     g.*,
                     obs.observed_avg_price
-                FROM guild_trader_listings g
+                FROM guild_trader_active_listings g
                 LEFT JOIN (
                     SELECT game_item_id, server, ROUND(AVG(price)) AS observed_avg_price
-                    FROM guild_trader_listings
+                    FROM guild_trader_active_listings
                     WHERE price > 0
                     GROUP BY game_item_id, server
                 ) obs ON g.game_item_id = obs.game_item_id AND g.server = obs.server
@@ -4052,7 +4089,7 @@ app.get("/api/characters/:id/trait-matches", async (req, res) => {
                     gtl.seller_name,
                     gtl.quality,
                     gtl.server
-                FROM guild_trader_listings gtl
+                FROM guild_trader_active_listings gtl
                 JOIN items i ON i.game_item_id = gtl.game_item_id
                 WHERE gtl.server = ?
                   AND gtl.trait_id = ?
@@ -4330,7 +4367,7 @@ app.get("/api/requests", (req, res) => {
                    MAX(price) AS observed_max_price,
                    ROUND(AVG(price)) AS observed_avg_price,
                    COUNT(*) AS observed_listing_count
-            FROM guild_trader_listings
+            FROM guild_trader_active_listings
             WHERE price > 0
             GROUP BY game_item_id, server
         ) obs ON obs.game_item_id = tr.game_item_id AND obs.server = tr.server

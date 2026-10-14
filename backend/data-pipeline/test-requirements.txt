@@ -1,0 +1,2 @@
+# Test-only Lua 5.1 execution; not needed by the desktop watcher.
+lupa==2.6
