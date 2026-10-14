@@ -11,6 +11,16 @@ Live listing observations come only from the ESOTrade addon.
 
 The master catalog is separate. Refresh it with `fetch_and_ingest.py` followed by `populate_sqlite.py`. Item images are fetched by the backend on first use and then served from the local cache.
 
+If a scan references an item missing from your catalog, recognized listings and
+purchase updates still sync. Unresolved observations are committed to a local
+catalog-recovery queue before SavedVariables are cleared. The watcher checks
+this queue every 30 seconds and imports entries once a catalog refresh supplies
+their item IDs, without requiring another in-game scan or file change. Original
+observation times and expiry are preserved. Purchased, expired, or over-30-day-old
+entries cannot return to the marketplace. Do not delete the local database while
+it contains retained observations. A separate central API also needs an up-to-date
+catalog; rejected remote deliveries remain in the outbox for retry.
+
 ## Listing availability
 
 Each scanned listing keeps its real ESO ID, so repeating searches, changing

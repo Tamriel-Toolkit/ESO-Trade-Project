@@ -7,7 +7,7 @@ import subprocess
 import sys
 import time
 from contextlib import closing
-from listing_lifecycle import purge_records, deliver_outbox
+from listing_lifecycle import purge_records, deliver_outbox, recover_catalog_records
 
 
 sys.stdout.reconfigure(encoding="utf-8")
@@ -85,6 +85,12 @@ def start_watching(poll_interval=2, purge_interval=PURGE_INTERVAL_SECONDS):
         while True:
             current_time = time.time()
             if current_time - last_retry_time >= RETRY_INTERVAL_SECONDS:
+                try:
+                    recovered = recover_catalog_records(DB_PATH)
+                    if recovered:
+                        print(f"[Catalog] Recovered {recovered} retained observations after catalog refresh.")
+                except Exception as error:
+                    print(f"[Catalog] Recovery unavailable: {type(error).__name__}; observations retained for retry.")
                 try:
                     deliver_outbox(DB_PATH, SERVER_URL)
                 except Exception as error:

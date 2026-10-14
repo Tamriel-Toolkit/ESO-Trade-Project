@@ -63,6 +63,17 @@ window and cannot affect the marketplace.
 
 Observed minimum, maximum, average, count, and value index are query-time aggregates grouped by `game_item_id` and server. They are not persisted as a second market dataset.
 
+The desktop-only `native_listing_catalog_pending` table holds validated native
+observations whose item ID is absent from `items`. Its `(server, uid)` primary key
+deduplicates replays; the JSON payload preserves the newest genuine observation
+and its original timing, with separate scanner metadata for eventual delivery.
+There is intentionally no catalog foreign key on this holding table. It commits
+atomically alongside recognized observations, purchases, and the delivery outbox.
+Conflicting identities still fail validation. Every 30 seconds the watcher moves
+up to 500 now-resolvable entries into the normal lifecycle and outbox in one
+transaction. Purchases and expiry/30-day retention also remove pending entries,
+so catalog recovery cannot resurrect unavailable stock.
+
 ## User-owned data
 
 Accounts and sessions live in `users` and `sessions`. Character state uses `characters`, `knowledge`, `character_gear`, `character_trait_research`, and `user_inventory`. Builds use `builds`, `build_items`, and `user_saved_builds`. Public orders use `trade_requests`; users set the offered gold amount explicitly.

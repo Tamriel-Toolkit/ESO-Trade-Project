@@ -17,7 +17,7 @@ import urllib.error
 import urllib.request
 import ssl
 from savedvariables_validation import validate_savedvariables_structure
-from listing_lifecycle import ensure_schema, parse_records, apply_records, queue_records, deliver_outbox, purge_records
+from listing_lifecycle import ensure_schema, parse_records, apply_records, queue_records, deliver_outbox, purge_records, defer_catalog_records
 
 sys.stdout.reconfigure(encoding='utf-8')
 
@@ -320,18 +320,24 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
 
         try:
             ensure_schema(conn)
-            observations, purchases = parse_records(content, valid_ids)
+            observations, purchases = parse_records(content)
             conn.execute("PRAGMA foreign_keys = ON")
             conn.execute("BEGIN IMMEDIATE")
+            imported_observations, deferred_count = [], 0
+            metadata = {
+                "player_name": player_name, "player_class": player_class_name,
+                "player_level": player_level, "player_alliance": player_alliance,
+                "master_crafter": master_crafter,
+            }
             for target_server in ("NA", "EU"):
                 regional_observations = [item for item in observations if item["server"] == target_server]
                 regional_purchases = [item for item in purchases if item["server"] == target_server]
+                regional_observations, deferred = defer_catalog_records(
+                    conn, target_server, regional_observations, regional_purchases, valid_ids, metadata)
+                imported_observations.extend(regional_observations)
+                deferred_count += deferred
                 apply_records(conn, target_server, regional_observations, regional_purchases)
-                queue_records(conn, target_server, regional_observations, regional_purchases, {
-                    "player_name": player_name, "player_class": player_class_name,
-                    "player_level": player_level, "player_alliance": player_alliance,
-                    "master_crafter": master_crafter,
-                })
+                queue_records(conn, target_server, regional_observations, regional_purchases, metadata)
             purge_records(conn)
         except (ValueError, sqlite3.Error) as error:
             conn.rollback()
@@ -342,7 +348,7 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
         listings = {
             (o["server"], o["game_item_id"], o["guild_name"], o["seller_name"], o["total_price"],
              o["quantity"], o["level"], o["quality"], o["trait_id"])
-            for o in observations
+            for o in imported_observations
         }
 
         # Always auto-discover playing character in local SQLite
@@ -668,6 +674,11 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
             f"(listings={len(listings)}, characters={1 if player_name else 0}, "
             f"gear_items={synced_gear_count}, trait_records={synced_traits_count})."
         )
+        if deferred_count:
+            print(f"[Catalog] {deferred_count} observations referenced missing catalog items. "
+                  "Unexpired, unpurchased observations are saved in the local catalog-recovery queue. "
+                  "Refresh the UESP catalog; the watcher will retry them automatically. "
+                  "Recognized listings and purchases have been committed.")
 
         deliver_outbox(DEFAULT_DB_PATH, server_url, auth_token)
 

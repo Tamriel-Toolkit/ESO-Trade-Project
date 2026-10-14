@@ -189,6 +189,114 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual(content, self.saved.read_text(encoding="utf-8"))
         self.assertEqual([], list(Path(self.temp.name).glob('.esotrade-clear-*')))
 
+    def unknown_scan(self, uid="201", **kwargs):
+        return self.scan(uid, **kwargs).replace('["ItemId"] = 123', '["ItemId"] = 999')
+
+    def pending_count(self):
+        return self.connection.execute("SELECT COUNT(*) FROM native_listing_catalog_pending").fetchone()[0]
+
+    def test_catalog_gap_does_not_block_known_scans_or_purchases(self):
+        scans = [self.scan(), self.scan("102"), self.unknown_scan()]
+        self.import_file(scans, [self.purchase()])
+        self.import_file(scans, [self.purchase()])
+        self.assertEqual([(1, 3.72, 744)], self.active())
+        self.assertEqual(1, self.pending_count())
+        self.assertIn('["Scans"] = {}', self.saved.read_text(encoding="utf-8"))
+        payloads = [json.loads(row[0]) for row in self.connection.execute("SELECT payload FROM native_listing_outbox")]
+        self.assertTrue(any(p.get("purchases") for p in payloads))
+        self.assertTrue(all(o["game_item_id"] == 123 for p in payloads for o in p.get("observations", [])))
+
+    def test_catalog_recovery_survives_restart_and_preserves_latest_observation(self):
+        self.import_file([self.unknown_scan(captured=self.now - 50, remaining=150)])
+        self.import_file([self.unknown_scan(captured=self.now - 100, remaining=500)])
+        self.assertEqual(0, self.outbox_count())
+        self.assertEqual(0, lifecycle.recover_catalog_records(self.db))
+        self.connection.execute("INSERT INTO items VALUES (999)")
+        self.connection.commit()
+        saved_bytes = self.saved.read_bytes()
+        self.assertEqual(1, lifecycle.recover_catalog_records(self.db))
+        self.assertEqual(0, lifecycle.recover_catalog_records(self.db))
+        self.assertEqual(saved_bytes, self.saved.read_bytes())
+        self.assertEqual(0, self.pending_count())
+        self.assertEqual((self.now - 50, self.now + 100), self.connection.execute(
+            "SELECT observed_at, expires_at FROM native_listing_observations").fetchone())
+        payload = json.loads(self.connection.execute("SELECT payload FROM native_listing_outbox").fetchone()[0])
+        self.assertEqual(self.now - 50, payload["observations"][0]["observed_at"])
+        self.assertIn("player_class", payload)
+
+    def test_recovery_failure_rolls_back_and_leaves_pending_for_retry(self):
+        self.import_file([self.unknown_scan()])
+        self.connection.execute("INSERT INTO items VALUES (999)")
+        self.connection.commit()
+        with mock.patch.object(lifecycle, "queue_records", side_effect=sqlite3.OperationalError("disk full")):
+            with self.assertRaises(sqlite3.OperationalError):
+                lifecycle.recover_catalog_records(self.db)
+        self.assertEqual(1, self.pending_count())
+        self.assertEqual([], self.active())
+        self.assertEqual(0, self.outbox_count())
+
+    def test_pending_commit_failure_preserves_source_and_all_events(self):
+        content = 'ESOTradeVars = { ["Scans"] = {' + self.scan() + ',' + self.unknown_scan() + '} }'
+        self.saved.write_text(content, encoding="utf-8")
+        with mock.patch.object(parser, "commit_local_sync", side_effect=RuntimeError("commit failed")):
+            with self.assertRaises(RuntimeError):
+                parser.parse_and_sync_esotrade(str(self.saved))
+        self.assertEqual(content, self.saved.read_text(encoding="utf-8"))
+        self.assertEqual(0, self.pending_count())
+        self.assertEqual([], self.active())
+        self.assertEqual(0, self.outbox_count())
+
+    def test_unknown_item_link_keeps_native_identity_instead_of_catalog_fallback(self):
+        scan = self.scan().replace('["ItemId"] = 123', '["ItemId"] = 123, ["Link"] = "|H1:item:999:0|h|h"')
+        self.import_file([scan])
+        self.assertEqual([], self.active())
+        self.assertEqual((999,), self.connection.execute("SELECT game_item_id FROM native_listing_catalog_pending").fetchone())
+
+    def test_unknown_items_still_validate_attributes_and_guild_scope(self):
+        self.import_file([self.unknown_scan()])
+        for scan in (self.unknown_scan().replace('["Qty"] = 200', '["Qty"] = 1'),
+                     self.unknown_scan().replace('["GuildId"] = "88"', '["GuildId"] = "89"'),
+                     self.unknown_scan("202", remaining=-1)):
+            content = 'ESOTradeVars = { ["Scans"] = {' + self.scan() + ',' + scan + '} }'
+            self.saved.write_text(content, encoding="utf-8")
+            with self.assertRaisesRegex(RuntimeError, "Scans were retained"):
+                parser.parse_and_sync_esotrade(str(self.saved))
+            self.assertEqual(content, self.saved.read_text(encoding="utf-8"))
+        self.assertEqual(1, self.pending_count())
+        self.assertEqual([], self.active())
+
+    def test_purchased_expired_and_stale_pending_scans_cannot_reappear(self):
+        self.import_file([self.unknown_scan(), self.unknown_scan("202", captured=self.now - 31 * 86400),
+                          self.unknown_scan("203", captured=self.now - 100, remaining=10)])
+        self.assertEqual(1, self.pending_count())
+        self.import_file([], [self.purchase("201")])
+        self.import_file([self.unknown_scan()])
+        self.assertEqual(0, self.pending_count())
+        self.connection.execute("INSERT INTO items VALUES (999)")
+        self.connection.commit()
+        self.assertEqual(0, lifecycle.recover_catalog_records(self.db))
+        self.assertEqual([], self.active())
+
+    def test_pending_is_scoped_by_megaserver(self):
+        na = self.unknown_scan().replace('["GuildId"]', '["Server"] = "NA", ["GuildId"]')
+        eu = self.unknown_scan().replace('["GuildId"]', '["Server"] = "EU", ["GuildId"]')
+        purchase = self.purchase("201").replace('["GuildId"]', '["Server"] = "NA", ["GuildId"]')
+        self.import_file([na, eu], [purchase])
+        self.assertEqual(1, self.pending_count())
+        self.connection.execute("INSERT INTO items VALUES (999)")
+        self.connection.commit()
+        lifecycle.recover_catalog_records(self.db)
+        self.assertEqual([("EU",)], self.connection.execute("SELECT server FROM guild_trader_active_listings").fetchall())
+
+    def test_older_rescan_after_catalog_refresh_does_not_lose_newer_pending_scan(self):
+        self.import_file([self.unknown_scan(captured=self.now - 10, remaining=100)])
+        self.connection.execute("INSERT INTO items VALUES (999)")
+        self.connection.commit()
+        self.import_file([self.unknown_scan(captured=self.now - 20, remaining=100)])
+        self.assertEqual((self.now - 10, self.now + 90), self.connection.execute(
+            "SELECT observed_at, expires_at FROM native_listing_observations").fetchone())
+        self.assertEqual(0, self.pending_count())
+
 
 if __name__ == "__main__":
     unittest.main()

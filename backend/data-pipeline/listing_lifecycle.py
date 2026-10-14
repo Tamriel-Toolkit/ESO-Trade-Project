@@ -26,6 +26,11 @@ def ensure_schema(connection):
         payload_hash TEXT PRIMARY KEY, payload TEXT NOT NULL, attempts INTEGER NOT NULL DEFAULT 0,
         next_attempt INTEGER NOT NULL DEFAULT 0, blocked_token_hash TEXT, last_error TEXT
     )""")
+    connection.execute("""CREATE TABLE IF NOT EXISTS native_listing_catalog_pending (
+        server TEXT NOT NULL, uid TEXT NOT NULL, game_item_id INTEGER NOT NULL,
+        observed_at INTEGER NOT NULL, payload TEXT NOT NULL, metadata TEXT NOT NULL,
+        PRIMARY KEY (server, uid)
+    )""")
     connection.commit()
 
 
@@ -45,7 +50,8 @@ def table_text(content, name):
     return content[start:end - 1]
 
 
-def parse_records(content, valid_ids):
+def parse_records(content):
+    # Catalog membership is handled after validation, without losing native IDs.
     now = int(time.time())
     header = re.search(r'\["Server"\]\s*=\s*"(NA|EU)"', content)
     default_server = header.group(1) if header else "NA"
@@ -84,10 +90,8 @@ def parse_records(content, valid_ids):
         if remaining is not None:
             number(remaining, "TimeRemaining", 0, RETENTION_SECONDS)
         link_id = re.search(r"\|H\d+:item:(\d+):", block)
-        item_id = int(link_id.group(1)) if link_id and int(link_id.group(1)) in valid_ids else field(block, "ItemId")
-        if item_id not in valid_ids:
-            # Do not silently discard an observation and clear its source file.
-            raise ValueError("Scanned item is missing from the local catalog; refresh the catalog before retrying")
+        item_id = number(int(link_id.group(1)) if link_id else field(block, "ItemId"),
+                         "ItemId", 1, 2147483647)
         item = {
             "uid": uid, "guild_id": guild_id, "game_item_id": item_id, "server": region(block),
             "item_name": re.sub(r"\^[a-zA-Z]+", "", field(block, "Name", "")).strip(),
@@ -111,9 +115,9 @@ def parse_records(content, valid_ids):
     return observations, purchases
 
 
-def apply_records(connection, server, observations, purchases):
-    now = int(time.time())
+def validate_identities(connection, server, observations, purchases):
     scopes = {}
+    pending = {}
     for item in observations + purchases:
         key = item["uid"]
         if key in scopes and scopes[key] != item["guild_id"]:
@@ -123,6 +127,12 @@ def apply_records(connection, server, observations, purchases):
             UNION SELECT guild_id FROM native_listing_tombstones WHERE server = ? AND uid = ?""", (server, key, server, key)).fetchall()
         if any(row[0] != item["guild_id"] for row in rows):
             raise ValueError("Listing UID belongs to a different guild")
+        row = connection.execute("SELECT payload FROM native_listing_catalog_pending WHERE server = ? AND uid = ?",
+                                 (server, key)).fetchone()
+        if row:
+            pending[key] = json.loads(row[0])
+            if pending[key]["guild_id"] != item["guild_id"]:
+                raise ValueError("Listing UID belongs to a different guild")
     identities = {}
     immutable = ("guild_id", "game_item_id", "seller_name", "total_price", "quantity", "level", "quality", "trait_id")
     for item in observations:
@@ -131,7 +141,61 @@ def apply_records(connection, server, observations, purchases):
         current = tuple(item[key] for key in immutable)
         if (existing and existing != current) or (item["uid"] in identities and identities[item["uid"]] != current):
             raise ValueError("Conflicting listing UID attributes")
+        if item["uid"] in pending and tuple(pending[item["uid"]][key] for key in immutable) != current:
+            raise ValueError("Conflicting listing UID attributes")
         identities[item["uid"]] = current
+
+
+def defer_catalog_records(connection, server, observations, purchases, valid_ids, metadata=None):
+    """Keep unknown items durably in the caller's ingestion transaction."""
+    validate_identities(connection, server, observations, purchases)
+    known, deferred = [], 0
+    for item in observations:
+        if item["game_item_id"] in valid_ids:
+            row = connection.execute("SELECT payload FROM native_listing_catalog_pending WHERE server = ? AND uid = ?",
+                                     (server, item["uid"])).fetchone()
+            if row:
+                retained = json.loads(row[0])
+                if retained["observed_at"] > item["observed_at"]:
+                    item = retained
+            known.append(item)
+            continue
+        # Do not silently discard an observation and clear its source file.
+        connection.execute("""INSERT INTO native_listing_catalog_pending VALUES (?, ?, ?, ?, ?, ?)
+            ON CONFLICT(server, uid) DO UPDATE SET observed_at = excluded.observed_at,
+                payload = excluded.payload, metadata = excluded.metadata
+            WHERE excluded.observed_at > native_listing_catalog_pending.observed_at""",
+            (server, item["uid"], item["game_item_id"], item["observed_at"],
+             json.dumps(item, sort_keys=True), json.dumps(metadata or {}, sort_keys=True)))
+        deferred += 1
+    return known, deferred
+
+
+def recover_catalog_records(db_path):
+    """Promote retained scans after catalog refresh, even without a file change."""
+    if not os.path.exists(db_path):
+        return 0
+    with closing(sqlite3.connect(db_path)) as connection, connection:
+        if not connection.execute("SELECT 1 FROM sqlite_master WHERE name = 'native_listing_catalog_pending'").fetchone():
+            return 0
+        connection.execute("PRAGMA foreign_keys = ON")
+        connection.execute("BEGIN IMMEDIATE")
+        purge_catalog_pending(connection)
+        rows = connection.execute("""SELECT p.payload, p.metadata FROM native_listing_catalog_pending p
+            JOIN items i ON i.game_item_id = p.game_item_id ORDER BY p.server, p.uid LIMIT 500""").fetchall()
+        batches = {}
+        for payload, metadata in rows:
+            item = json.loads(payload)
+            batches.setdefault((item["server"], metadata), []).append(item)
+        for (server, metadata), items in batches.items():
+            apply_records(connection, server, items, [])
+            queue_records(connection, server, items, [], json.loads(metadata))
+        return len(rows)
+
+
+def apply_records(connection, server, observations, purchases):
+    now = int(time.time())
+    validate_identities(connection, server, observations, purchases)
     for item in observations:
         if item["observed_at"] < now - RETENTION_SECONDS:
             continue
@@ -157,6 +221,7 @@ def apply_records(connection, server, observations, purchases):
             (server, item["uid"], item["guild_id"], item["game_item_id"], item["item_name"], item["seller_name"],
              item["total_price"], item["quantity"], item["guild_name"], item["location"], item["level"],
              item["quality"], item["trait_id"], item["observed_at"], expiry, server, item["uid"]))
+        connection.execute("DELETE FROM native_listing_catalog_pending WHERE server = ? AND uid = ?", (server, item["uid"]))
     for item in purchases:
         if item["purchased_at"] < now - RETENTION_SECONDS:
             continue
@@ -164,6 +229,7 @@ def apply_records(connection, server, observations, purchases):
             ON CONFLICT(server, uid) DO UPDATE SET purchased_at = MAX(purchased_at, excluded.purchased_at)""",
             (server, item["uid"], item["guild_id"], item["purchased_at"]))
         connection.execute("DELETE FROM native_listing_observations WHERE server = ? AND uid = ?", (server, item["uid"]))
+        connection.execute("DELETE FROM native_listing_catalog_pending WHERE server = ? AND uid = ?", (server, item["uid"]))
 
 
 def queue_records(connection, server, observations, purchases, metadata=None):
@@ -242,4 +308,15 @@ def purge_records(connection):
             (expires_at IS NOT NULL AND expires_at <= CAST(strftime('%s', 'now') AS INTEGER))
             OR observed_at < CAST(strftime('%s', 'now') AS INTEGER) - 2592000""").rowcount
         connection.execute("DELETE FROM native_listing_tombstones WHERE purchased_at < CAST(strftime('%s', 'now') AS INTEGER) - 2592300")
+    purge_catalog_pending(connection)
     return count
+
+
+def purge_catalog_pending(connection):
+    if connection.execute("SELECT 1 FROM sqlite_master WHERE name = 'native_listing_catalog_pending'").fetchone():
+        connection.execute("""DELETE FROM native_listing_catalog_pending
+            WHERE observed_at < CAST(strftime('%s', 'now') AS INTEGER) - 2592000
+            OR (json_extract(payload, '$.time_remaining') IS NOT NULL
+                AND observed_at + json_extract(payload, '$.time_remaining') <= CAST(strftime('%s', 'now') AS INTEGER))
+            OR EXISTS (SELECT 1 FROM native_listing_tombstones t
+                WHERE t.server = native_listing_catalog_pending.server AND t.uid = native_listing_catalog_pending.uid)""")
