@@ -4,12 +4,13 @@
   "description": "",
   "main": "server.js",
   "scripts": {
-    "test": "npm run test:api && npm run test:failures && npm run test:lifecycle && npm run test:marketplace",
+    "test": "npm run test:auth && npm run test:api && npm run test:failures && npm run test:lifecycle && npm run test:marketplace",
     "test:marketplace": "node --test data-pipeline/test_marketplace_filters.js",
     "test:lifecycle": "node --test data-pipeline/test_listing_lifecycle.js",
     "test:api": "node data-pipeline/test_api_endpoints.js",
     "test:failures": "node --test data-pipeline/test_backend_failures.js",
-    "start": "node server.js"
+    "start": "node server.js",
+    "test:auth": "node --test test_auth_password_hashing.js"
   },
   "keywords": [],
   "author": "",

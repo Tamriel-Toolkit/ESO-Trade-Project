@@ -22,7 +22,7 @@ const helmet = require("helmet");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const crypto = require("crypto");
-const bcrypt = require("bcryptjs");
+const { hashPassword, isBcryptHash, verifyPassword } = require("./auth_helpers");
 const { rateLimit } = require("express-rate-limit");
 const sqlite3 = require("sqlite3").verbose();
 const { seedCuratedMetaBuilds } = require("./curated_builds");
@@ -37,25 +37,7 @@ let server = null;
 // Configure topology-safe reverse proxy trust before rate limiters & route handlers
 configureTrustProxy(app);
 
-const BCRYPT_SALT_ROUNDS = 12;
-const BCRYPT_HASH_PATTERN = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
 
-function hashPassword(password) {
-    return bcrypt.hashSync(password || "", BCRYPT_SALT_ROUNDS);
-}
-
-function isBcryptHash(storedHash) {
-    return typeof storedHash === "string" && BCRYPT_HASH_PATTERN.test(storedHash);
-}
-
-function verifyPassword(password, storedHash) {
-    if (!password || !isBcryptHash(storedHash)) return false;
-    try {
-        return bcrypt.compareSync(password, storedHash);
-    } catch {
-        return false;
-    }
-}
 
 // Clean raw ESO grammatical gender/number suffixes (^n, ^p, ^ns, ^m, ^f, ^d) from item names
 function cleanEsoItemName(name) {
@@ -4727,5 +4709,8 @@ module.exports = {
     get server() { return server; },
     gracefulShutdown,
     configureTrustProxy,
-    parseTrustProxyConfig
+    parseTrustProxyConfig,
+    hashPassword,
+    isBcryptHash,
+    verifyPassword
 };
