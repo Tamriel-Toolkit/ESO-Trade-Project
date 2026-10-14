@@ -63,7 +63,7 @@ jobs:
       - name: Run Isolated Python Regression Suites
         working-directory: backend/data-pipeline
         run: |
-          python -B -m unittest -v test_db_queries test_ttl_purge test_catalog test_watcher test_parser_failures test_listing_lifecycle test_addon_lifecycle
+          python -B -m unittest -v test_db_queries test_ttl_purge test_catalog test_watcher test_parser_failures test_listing_lifecycle test_addon_lifecycle test_fetch_and_ingest
 
   frontend-build:
     name: Frontend Production Build

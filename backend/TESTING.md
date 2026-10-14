@@ -9,7 +9,7 @@ npm test
 Run from `backend/data-pipeline/` with Python 3.11 or later:
 
 ```sh
-python -B -m unittest -v test_db_queries test_ttl_purge test_catalog test_watcher test_parser_failures
+python -B -m unittest -v test_db_queries test_ttl_purge test_catalog test_watcher test_parser_failures test_listing_lifecycle test_addon_lifecycle test_fetch_and_ingest
 ```
 
 CI explicitly runs both commands. Frontend testing is separate.
@@ -43,6 +43,7 @@ CI explicitly runs both commands. Frontend testing is separate.
 | `test_ttl_purge.py` | Production expiry-trigger SQL: expired insert, active/null expiry, selective update deletion |
 | `test_watcher.py` | Repeated stacks, exact pricing, self-write suppression, no-token local sync, commit-failure scan preservation |
 | `test_parser_failures.py` | Truncated/unbalanced files, invalid UTF-8, invalid price/quantity, missing files, safe reset refusal, actual SQLite rollback |
+| `test_fetch_and_ingest.py` | Integer parsing error paths, missing keys, default overrides, quality string parsing, item type resolution, normalization |
 
 ## Safety fixes exposed by the tests
 
