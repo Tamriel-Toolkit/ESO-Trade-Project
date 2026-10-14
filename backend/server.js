@@ -1,6 +1,7 @@
 const fs = require("fs");
 const path = require("path");
 const dotenv = require("dotenv");
+const { appendEquipmentFilters } = require('./marketplace_filters');
 
 // Load environment variables from backend/.env or root .env
 dotenv.config({ path: path.resolve(__dirname, ".env") });
@@ -2064,6 +2065,12 @@ app.get("/api/market/listings", async (req, res) => {
     const conditions = ["gtl.server = ?"];
     const params = [targetServer];
 
+    try {
+        appendEquipmentFilters(req.query, conditions, params);
+    } catch (error) {
+        return res.status(400).json({ error: error.message });
+    }
+
     if (search) {
         conditions.push("(i.name LIKE ? OR gtl.item_name LIKE ?)");
         params.push(`%${search}%`, `%${search}%`);
@@ -2107,7 +2114,8 @@ app.get("/api/market/listings", async (req, res) => {
     if (max_age) {
         const ageDays = parseInt(max_age, 10);
         if (!isNaN(ageDays) && ageDays > 0) {
-            conditions.push(`datetime(gtl.discovered_at) >= datetime('now', '-${ageDays} days')`);
+            conditions.push("datetime(gtl.discovered_at) >= datetime('now', ?)");
+            params.push(`-${ageDays} days`);
         }
     } else if (hide_stale === "true" || hide_stale === "1" || hide_stale === true) {
         conditions.push("datetime(gtl.discovered_at) >= datetime('now', '-7 days')");
@@ -2123,6 +2131,7 @@ app.get("/api/market/listings", async (req, res) => {
     if (sort === "newest") orderBy = "ORDER BY gtl.discovered_at DESC";
     if (sort === "trait_asc") orderBy = "ORDER BY gtl.trait_id ASC, value_index DESC";
     if (sort === "trait_desc") orderBy = "ORDER BY gtl.trait_id DESC, value_index DESC";
+    orderBy += ", gtl.id ASC";
 
     try {
         const countQuery = `
@@ -2658,7 +2667,8 @@ const SAVED_SEARCH_FILTER_KEYS = new Set([
     "location",
     "max_age",
     "sort",
-    "deals_only"
+    "deals_only",
+    "set", "slot", "weight", "weapon", "min_value_index"
 ]);
 
 function normalizeSavedSearchFilters(rawFilters) {
@@ -2691,6 +2701,12 @@ function normalizeSavedSearchFilters(rawFilters) {
     if (normalized.server && !["NA", "EU"].includes(normalized.server)) return null;
     if (normalized.platform && !["PC", "Xbox", "PlayStation"].includes(normalized.platform)) return null;
     if (normalized.view && !["listings", "catalog"].includes(normalized.view)) return null;
+    try {
+        appendEquipmentFilters(normalized, [], []);
+    } catch {
+        return null;
+    }
+    if (normalized.min_value_index && (!Number.isFinite(Number(normalized.min_value_index)) || Number(normalized.min_value_index) <= 0 || Number(normalized.min_value_index) > 100)) return null;
 
     return normalized;
 }

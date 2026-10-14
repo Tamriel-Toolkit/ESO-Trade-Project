@@ -2,7 +2,7 @@ import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, useLocation } from 'react-router-dom';
+import { MemoryRouter, useLocation, useNavigate } from 'react-router-dom';
 import Marketplace from '../pages/Marketplace';
 import SavedSearchesCard from '../components/SavedSearchesCard';
 import * as api from '../api/api';
@@ -29,6 +29,99 @@ function CurrentLocation() {
   return <output aria-label="Current location" data-route-state={JSON.stringify(location.state)}>{location.pathname}{location.search}{location.hash}</output>;
 }
 const openMarket = (path = '/marketplace', controls = null) => render(<MemoryRouter initialEntries={[path]}><SettingsProvider>{controls}<Marketplace /><CurrentLocation /></SettingsProvider></MemoryRouter>);
+
+function HistoryControls() {
+  const navigate = useNavigate();
+  return <><button onClick={() => navigate(-1)}>Back</button><button onClick={() => navigate(1)}>Forward</button><button onClick={() => navigate('/marketplace?server=NA')}>Bare search</button></>;
+}
+const currentParams = () => new URL(screen.getByLabelText('Current location').textContent, 'https://example.test').searchParams;
+
+describe('bookmark and history synchronization', () => {
+  it('restores every filter, removes absent parameters, and resets page offsets before fetching', async () => {
+    const user = userEvent.setup();
+    const url = '/marketplace?server=EU&search=ring&set=Deadly+Strike&category=Jewelry&subcategory=Ring&slot=ring&trait=Infused&rarity=4&location=Summerset&max_age=7&sort=price_asc&deals=1&min_value_index=1.75';
+    openMarket(url, <HistoryControls />);
+    await screen.findByRole('button', { name: 'View Coup De Grâce Ring' });
+    const original = { limit: 20, offset: 0, server: 'EU', search: 'ring', set: 'Deadly Strike', category: 'Jewelry', subcategory: 'Ring', slot: 'ring', trait: 'Infused', rarity: '4', location: 'Summerset', max_age: '7', sort: 'price_asc', min_value_index: 1.75 };
+    expect(api.fetchMarketListings).toHaveBeenLastCalledWith(original);
+    expect(screen.getByRole('combobox', { name: 'Last seen' })).toHaveValue('7');
+    expect(screen.getByRole('button', { name: 'Deals only · 1.75x+ value' })).toHaveAttribute('aria-pressed', 'true');
+    await user.click(screen.getByLabelText('Go to next page'));
+    api.fetchMarketListings.mockClear();
+    await user.click(screen.getByRole('button', { name: 'Bare search' }));
+    expect(api.fetchMarketListings).toHaveBeenCalledExactlyOnceWith({ limit: 20, offset: 0, server: 'NA', sort: 'value_index' });
+    expect(screen.getByRole('combobox', { name: 'Quality' })).toHaveValue('');
+    expect(screen.getByRole('combobox', { name: 'Last seen' })).toHaveValue('');
+    expect(screen.getByRole('searchbox')).toHaveValue('');
+    expect(screen.queryByLabelText('Remove set filter')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Back', exact: true }));
+    expect(api.fetchMarketListings).toHaveBeenLastCalledWith(original);
+    expect(screen.getByRole('combobox', { name: 'Quality' })).toHaveValue('4');
+    await user.click(screen.getByRole('button', { name: 'Forward', exact: true }));
+    expect(api.fetchMarketListings.mock.lastCall[0]).not.toHaveProperty('set');
+  });
+
+  it('groups typing into one history entry and preserves spaces; discrete changes and reset are navigable', async () => {
+    const user = userEvent.setup();
+    openMarket('/marketplace', <HistoryControls />);
+    await screen.findByRole('button', { name: 'View Coup De Grâce Ring' });
+    await user.type(screen.getByRole('searchbox'), 'deadly ring');
+    expect(currentParams().get('search')).toBe('deadly ring');
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Quality' }), '4');
+    expect(currentParams().get('rarity')).toBe('4');
+    await user.click(screen.getByRole('button', { name: 'Back', exact: true }));
+    expect(screen.getByRole('searchbox')).toHaveValue('deadly ring');
+    expect(currentParams().has('rarity')).toBe(false);
+    await user.click(screen.getByRole('button', { name: 'Back', exact: true }));
+    expect(screen.getByRole('searchbox')).toHaveValue('');
+    await user.click(screen.getByRole('button', { name: 'Forward', exact: true }));
+    await user.click(screen.getByRole('button', { name: 'Reset Filters' }));
+    expect(currentParams().toString()).toBe('server=NA&platform=PC');
+    await user.click(screen.getByRole('button', { name: 'Back', exact: true }));
+    expect(screen.getByRole('searchbox')).toHaveValue('deadly ring');
+  });
+
+  it('removes exact equipment chips and saves/restores the effective deal threshold independently of preferences', async () => {
+    const user = userEvent.setup();
+    auth.user = { id: 1 };
+    localStorage.setItem('eso-setting-min-deal-score', '1.0');
+    const stored = { server: 'EU', set: 'Staff Set', weapon: 'ice-staff', deals_only: true, min_value_index: '1.75' };
+    api.fetchSavedSearches.mockResolvedValue({ success: true, saved_searches: [{ id: 1, name: 'Ice staff deals', filter_params: stored }] });
+    api.createSavedSearch.mockImplementation(async (name, filter_params) => ({ success: true, saved_search: { id: 2, name, filter_params } }));
+    openMarket('/marketplace', <HistoryControls />);
+    await user.click(await screen.findByRole('button', { name: 'Apply Ice staff deals' }));
+    expect(currentParams().get('min_value_index')).toBe('1.75');
+    expect(currentParams().get('weapon')).toBe('ice-staff');
+    expect(api.fetchMarketListings).toHaveBeenLastCalledWith(expect.objectContaining({ server: 'EU', set: 'Staff Set', weapon: 'ice-staff', min_value_index: 1.75 }));
+    await user.type(screen.getByRole('textbox', { name: 'Search name' }), 'Copy');
+    await user.click(screen.getByRole('button', { name: 'Save search' }));
+    expect(api.createSavedSearch).toHaveBeenCalledWith('Copy', expect.objectContaining(stored));
+    await user.click(screen.getByLabelText('Remove weapon filter'));
+    expect(currentParams().has('weapon')).toBe(false);
+    expect(api.fetchMarketListings.mock.lastCall[0]).not.toHaveProperty('weapon');
+    await user.click(screen.getByRole('button', { name: 'Back', exact: true }));
+    expect(currentParams().get('weapon')).toBe('ice-staff');
+  });
+
+  it('normalizes malformed links without loops or hidden invalid control values', async () => {
+    openMarket('/marketplace?server=bad&trait=invalid&rarity=99&max_age=nope&sort=bad&slot=999&deals=1&min_value_index=-1');
+    await screen.findByRole('button', { name: 'View Coup De Grâce Ring' });
+    expect(currentParams().toString()).toBe('server=NA&platform=PC&deals=1&min_value_index=1.2');
+    expect(api.fetchMarketListings).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('combobox', { name: 'Trait' })).toHaveValue('');
+  });
+
+  it('changes the linked server without discarding other criteria and restores it on Back', async () => {
+    const user = userEvent.setup();
+    openMarket('/marketplace?server=EU&set=Deadly+Strike&slot=ring&trait=Bloodthirsty', <HistoryControls />);
+    await screen.findByRole('button', { name: 'View Coup De Grâce Ring' });
+    await user.selectOptions(screen.getByRole('combobox', { name: 'Marketplace server' }), 'NA');
+    expect(Object.fromEntries(currentParams())).toMatchObject({ server: 'NA', set: 'Deadly Strike', slot: 'ring', trait: 'Bloodthirsty' });
+    expect(api.fetchMarketListings).toHaveBeenLastCalledWith(expect.objectContaining({ server: 'NA', set: 'Deadly Strike', slot: 'ring', trait: 'Bloodthirsty' }));
+    await user.click(screen.getByRole('button', { name: 'Back', exact: true }));
+    expect(screen.getByRole('combobox', { name: 'Marketplace server' })).toHaveValue('EU');
+  });
+});
 
 function PreferenceControls() {
   const settings = useSettings();
@@ -216,7 +309,7 @@ describe('marketplace presentation parity', () => {
     await screen.findByRole('button', { name: 'View Coup De Grâce Ring' });
     expect(api.fetchMarketListings).toHaveBeenLastCalledWith({ limit: 20, offset: 0, server: 'NA', search: 'ring', category: 'Jewelry', subcategory: 'Ring', rarity: '4', trait: 'Infused', location: 'Summerset', sort: 'price_asc' });
     const location = new URL(screen.getByLabelText('Current location').textContent, 'https://example.test');
-    expect(Object.fromEntries(location.searchParams)).toEqual({ view: 'listings', search: 'ring', category: 'Jewelry', subcategory: 'Ring', rarity: '4', trait: 'Infused', location: 'Summerset', sort: 'price_asc', source: 'bookmark' });
+    expect(Object.fromEntries(location.searchParams)).toEqual({ server: 'NA', platform: 'PC', view: 'listings', search: 'ring', category: 'Jewelry', subcategory: 'Ring', rarity: '4', trait: 'Infused', location: 'Summerset', sort: 'price_asc', source: 'bookmark' });
     expect(location.hash).toBe('#offers');
     expect(screen.getByLabelText('Current location')).toHaveAttribute('data-route-state', JSON.stringify({ from: '/characters' }));
     expect(screen.getByRole('heading', { name: 'Marketplace', level: 1 })).toBeVisible();
@@ -250,7 +343,7 @@ describe('marketplace presentation parity', () => {
     expect(screen.getByRole('button', { name: 'Deals only · 1.2x+ value' })).toHaveAttribute('aria-pressed', 'true');
     await user.type(screen.getByRole('textbox', { name: 'Search name' }), 'Current search');
     await user.click(screen.getByRole('button', { name: 'Save search' }));
-    expect(api.createSavedSearch).toHaveBeenCalledWith('Current search', { ...filters, view: 'listings' });
+    expect(api.createSavedSearch).toHaveBeenCalledWith('Current search', { ...filters, view: 'listings', set: '', slot: '', weight: '', weapon: '', min_value_index: '1.2' });
     expect(api.fetchCatalogItems).not.toHaveBeenCalled();
   });
 

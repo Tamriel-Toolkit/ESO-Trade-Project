@@ -43,7 +43,9 @@ import {
   CardFooter
 } from "@/components/ui/card";
 
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import { useMarketplaceFilters } from '@/hooks/useMarketplaceFilters';
+import { hasMarketCriteria, normalizeMarketFilters, savedMarketFilters } from '@/lib/marketplaceFilters';
 import Navbar from "@/components/ui/navbar";
 import SavedSearchesCard, { PinnedSearchChips } from "@/components/SavedSearchesCard";
 import { useTheme } from "@/components/theme-provider";
@@ -61,17 +63,6 @@ import {
 import { cleanEsoText, renderEsoFormattedText, getEsoIconUrl } from "@/lib/utils";
 import { useDialogFocus } from "@/hooks/useDialogFocus";
 import "@/styles/marketplace.css";
-
-const LISTING_SORT_VALUES = new Set([
-  "value_index",
-  "trait_asc",
-  "trait_desc",
-  "rarity_desc",
-  "rarity_asc",
-  "price_asc",
-  "price_desc",
-  "newest",
-]);
 
 const RARITY_MAP = {
   1: { label: "Normal", color: "border-gray-600 text-gray-300 bg-gray-900/40" },
@@ -151,29 +142,29 @@ const formatLastSeen = (timestamp) => {
 };
 
 function Marketplace() {
-  const { serverLocation, setServerLocation, platform, setPlatform } = useTheme();
+  const theme = useTheme();
   const { user } = useAuth();
   const { autoRefreshInterval, defaultMinDealScore, itemsPerPage: preferredPageSize, layoutMode } = useSettings();
   const itemsPerPage = Number(preferredPageSize);
-  const dealThreshold = Number(defaultMinDealScore);
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
+  const { filters, updateFilters, finishTyping } = useMarketplaceFilters({ ...theme, defaultMinDealScore });
+  const { server: serverLocation, platform, category: selectedCategory, subcategory: selectedSubcategory,
+    trait: selectedTrait, rarity: selectedRarity, location: selectedHubLocation, max_age: selectedMaxAge,
+    search: searchQuery, sort: sortOption, deals: dealsOnly,
+    set: selectedSet, slot: selectedSlot, weight: selectedWeight, weapon: selectedWeapon } = filters;
+  const dealThreshold = Number(filters.min_value_index || defaultMinDealScore);
+  const setSearchQuery = (search) => updateFilters({ search }, { typingSearch: true });
+  const setSelectedSubcategory = (subcategory) => updateFilters({ subcategory, slot: '', weight: '', weapon: '' });
+  const setSelectedTrait = (trait) => updateFilters({ trait });
+  const setSelectedRarity = (rarity) => updateFilters({ rarity });
+  const setSelectedHubLocation = (location) => updateFilters({ location });
+  const setSelectedMaxAge = (max_age) => updateFilters({ max_age });
+  const setSortOption = (sort) => updateFilters({ sort });
+  const setDealsOnly = (deals) => updateFilters({ deals, min_value_index: String(dealThreshold) });
 
   // State Management
   const [taxonomy, setTaxonomy] = useState({});
-  const [selectedCategory, setSelectedCategory] = useState(searchParams.get("category") || "");
-  const [selectedSubcategory, setSelectedSubcategory] = useState(searchParams.get("subcategory") || "");
-  const [selectedTrait, setSelectedTrait] = useState(searchParams.get("trait") || "");
-  const [selectedRarity, setSelectedRarity] = useState(searchParams.get("rarity") || "");
-  const [selectedHubLocation, setSelectedHubLocation] = useState(searchParams.get("location") || "");
-  const [selectedMaxAge, setSelectedMaxAge] = useState("");
-  const [searchQuery, setSearchQuery] = useState(searchParams.get("search") || "");
-  const [sortOption, setSortOption] = useState(() => {
-    const requestedSort = searchParams.get("sort");
-    return LISTING_SORT_VALUES.has(requestedSort) ? requestedSort : "value_index";
-  });
-  const [dealsOnly, setDealsOnly] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
   const [savedSearches, setSavedSearches] = useState([]);
   const [savedSearchesLoading, setSavedSearchesLoading] = useState(false);
@@ -183,36 +174,9 @@ function Marketplace() {
   const [savedSearchRunId, setSavedSearchRunId] = useState(0);
   const savedSearchPanelRef = useDialogFocus(savedSearchDrawerOpen, () => setSavedSearchDrawerOpen(false));
 
-  // Sync URL search parameters on change
-  useEffect(() => {
-    const q = searchParams.get("search");
-    const t = searchParams.get("trait");
-    const cat = searchParams.get("category");
-    const subcat = searchParams.get("subcategory");
-    const srt = searchParams.get("sort");
-    if (q !== null && q !== undefined) setSearchQuery(q);
-    if (t !== null && t !== undefined) setSelectedTrait(t);
-    if (cat !== null && cat !== undefined) setSelectedCategory(cat);
-    if (subcat !== null && subcat !== undefined) setSelectedSubcategory(subcat);
-    if (srt !== null && srt !== undefined && LISTING_SORT_VALUES.has(srt)) setSortOption(srt);
-    setCurrentPage(1);
-  }, [searchParams]);
-
-  // Old catalog bookmarks now open listings without discarding their other filters or anchor.
-  useEffect(() => {
-    if (searchParams.get("view") === "catalog") {
-      const listingParams = new URLSearchParams(searchParams);
-      listingParams.set("view", "listings");
-      navigate({ pathname: location.pathname, search: `?${listingParams}`, hash: location.hash }, {
-        replace: true,
-        state: location.state,
-      });
-    }
-  }, [searchParams, navigate, location.pathname, location.hash, location.state]);
-
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
-  const paginationKey = `${itemsPerPage}:${dealsOnly ? dealThreshold : ""}`;
+  const paginationKey = `${itemsPerPage}:${JSON.stringify(filters)}`;
   const [paginationSettings, setPaginationSettings] = useState(paginationKey);
   // Reset before committing the new query, so a preference change never fetches
   // an old page offset with a different page size or deal filter.
@@ -235,32 +199,7 @@ function Marketplace() {
     });
   }, []);
 
-  const currentSavedSearchFilters = useMemo(() => ({
-    server: serverLocation,
-    platform,
-    view: "listings",
-    search: searchQuery,
-    category: selectedCategory,
-    subcategory: selectedSubcategory,
-    trait: selectedTrait,
-    rarity: selectedRarity,
-    location: selectedHubLocation,
-    max_age: selectedMaxAge,
-    sort: sortOption,
-    deals_only: dealsOnly,
-  }), [
-    serverLocation,
-    platform,
-    searchQuery,
-    selectedCategory,
-    selectedSubcategory,
-    selectedTrait,
-    selectedRarity,
-    selectedHubLocation,
-    selectedMaxAge,
-    sortOption,
-    dealsOnly,
-  ]);
+  const currentSavedSearchFilters = savedMarketFilters(filters);
 
   useEffect(() => {
     let isActive = true;
@@ -304,6 +243,10 @@ function Marketplace() {
     };
 
     params.server = serverLocation;
+    if (selectedSet) params.set = selectedSet;
+    if (selectedSlot) params.slot = selectedSlot;
+    if (selectedWeight) params.weight = selectedWeight;
+    if (selectedWeapon) params.weapon = selectedWeapon;
     if (selectedTrait) params.trait = selectedTrait;
     if (selectedHubLocation) params.location = selectedHubLocation;
     if (selectedMaxAge) params.max_age = selectedMaxAge;
@@ -347,6 +290,7 @@ function Marketplace() {
     };
   }, [
     serverLocation,
+    selectedSet, selectedSlot, selectedWeight, selectedWeapon,
     selectedCategory,
     selectedSubcategory,
     selectedTrait,
@@ -381,39 +325,21 @@ function Marketplace() {
   };
 
   const handleResetFilters = () => {
-    setSelectedCategory("");
-    setSelectedSubcategory("");
-    setSelectedTrait("");
-    setSelectedRarity("");
-    setSelectedHubLocation("");
-    setSelectedMaxAge("");
-    setSearchQuery("");
-    setSortOption("value_index");
-    setDealsOnly(false);
+    updateFilters({ server: serverLocation, platform }, { reset: true });
     setCurrentPage(1);
     setSelectedItem(null);
   };
 
   const handleSaveSearch = async (name) => {
     if (!user) {
-      navigate('/login', { state: { from: { pathname: '/marketplace' } } });
+      navigate('/login', { state: { from: location } });
       return false;
     }
 
     setSavedSearchesMutating(true);
     setSavedSearchError("");
     const trimmedName = name.trim();
-    const hasActiveCriteria = Boolean(
-      currentSavedSearchFilters.search ||
-      currentSavedSearchFilters.category ||
-      currentSavedSearchFilters.subcategory ||
-      currentSavedSearchFilters.trait ||
-      currentSavedSearchFilters.rarity ||
-      currentSavedSearchFilters.location ||
-      currentSavedSearchFilters.max_age ||
-      currentSavedSearchFilters.deals_only ||
-      currentSavedSearchFilters.sort !== "value_index"
-    );
+    const hasActiveCriteria = hasMarketCriteria(filters);
     const filtersToSave = {
       ...currentSavedSearchFilters,
       search: hasActiveCriteria ? currentSavedSearchFilters.search : trimmedName,
@@ -437,30 +363,9 @@ function Marketplace() {
   };
 
   const handleApplySavedSearch = (savedSearch) => {
-    const filters = savedSearch.filter_params || {};
-    const hasStoredCriteria = Boolean(
-      filters.search ||
-      filters.category ||
-      filters.subcategory ||
-      filters.trait ||
-      filters.rarity ||
-      filters.location ||
-      filters.max_age ||
-      filters.deals_only ||
-      (filters.sort && filters.sort !== "value_index" && filters.sort !== "suggested_desc")
-    );
-    const nextSearch = filters.search || (hasStoredCriteria ? "" : savedSearch.name);
-    setServerLocation(filters.server === "EU" ? "EU" : "NA");
-    setPlatform(["PC", "Xbox", "PlayStation"].includes(filters.platform) ? filters.platform : "PC");
-    setSearchQuery(nextSearch);
-    setSelectedCategory(filters.category || "");
-    setSelectedSubcategory(filters.subcategory || "");
-    setSelectedTrait(filters.trait || "");
-    setSelectedRarity(filters.rarity || "");
-    setSelectedHubLocation(filters.location || "");
-    setSelectedMaxAge(filters.max_age || "");
-    setSortOption(LISTING_SORT_VALUES.has(filters.sort) ? filters.sort : "value_index");
-    setDealsOnly(filters.deals_only === true);
+    const saved = normalizeMarketFilters(savedSearch.filter_params || {}, { min_value_index: defaultMinDealScore });
+    if (!hasMarketCriteria(saved)) saved.search = savedSearch.name;
+    updateFilters(saved, { reset: true });
     setCurrentPage(1);
     setSelectedItem(null);
     setSavedSearchRunId((current) => current + 1);
@@ -504,7 +409,7 @@ function Marketplace() {
     onApply: handleApplySavedSearch,
     onTogglePin: handleToggleSavedSearchPin,
     onDelete: handleDeleteSavedSearch,
-    onLogin: () => navigate('/login', { state: { from: { pathname: '/marketplace' } } }),
+    onLogin: () => navigate('/login', { state: { from: location } }),
   };
 
   const handleClearListings = async () => {
@@ -546,6 +451,13 @@ function Marketplace() {
 
           {/* Action Controls & Dev Tools */}
           <div className="flex flex-wrap items-center gap-3">
+            <label className="exchange-field">
+              <span>Server</span>
+              <NativeSelect aria-label="Marketplace server" value={serverLocation} onChange={e => updateFilters({ server: e.target.value })}>
+                <NativeSelectOption value="NA">North America</NativeSelectOption>
+                <NativeSelectOption value="EU">Europe</NativeSelectOption>
+              </NativeSelect>
+            </label>
             {/* Development: Clear Listings (Visible for dev testing) */}
             {user?.role === "admin" && (
               <EsoTooltip content="Development: Clear all native listing observations from SQLite" side="bottom">
@@ -579,8 +491,8 @@ function Marketplace() {
           <div className="exchange-market-search">
             <Search className="size-5 text-primary" aria-hidden="true" />
             <input type="search" aria-label="Search items by name" placeholder="Search items by name"
-              value={searchQuery} onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }} />
-            {searchQuery && <button type="button" aria-label="Clear item search" onClick={() => setSearchQuery("")}><X className="size-4" /></button>}
+              value={searchQuery} onBlur={() => { updateFilters({ search: searchQuery.trim() }, { replace: true }); finishTyping(); }} onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }} />
+            {searchQuery && <button type="button" aria-label="Clear item search" onClick={() => updateFilters({ search: '' })}><X className="size-4" /></button>}
           </div>
         {/* Quick Selectors Bar: Major Trading Hubs & Popular Trade Presets */}
         <div className="exchange-market-quick">
@@ -600,6 +512,7 @@ function Marketplace() {
                 className="w-full bg-recess border-border text-foreground text-xs h-9"
               >
                 <NativeSelectOption value="">All Trading Hubs</NativeSelectOption>
+                {selectedHubLocation && !MAJOR_TRADE_HUBS.some(h => h.location === selectedHubLocation) && <NativeSelectOption value={selectedHubLocation}>{selectedHubLocation}</NativeSelectOption>}
                 <NativeSelectOptGroup label="Major Capital Hubs">
                   {MAJOR_TRADE_HUBS.filter(h => h.location).map((hub) => (
                     <NativeSelectOption key={hub.name} value={hub.location}>
@@ -627,16 +540,7 @@ function Marketplace() {
                 onChange={(e) => {
                   const val = e.target.value;
                   const preset = POPULAR_SEARCH_PRESETS.find(p => p.label === val);
-                  if (preset) {
-                    setSelectedCategory(preset.category || "");
-                    setSelectedSubcategory(preset.subcategory || "");
-                    setSelectedRarity(preset.rarity || "");
-                  } else {
-                    setSelectedCategory("");
-                    setSelectedSubcategory("");
-                    setSelectedRarity("");
-                  }
-                  setSearchQuery("");
+                  updateFilters({ category: preset?.category || '', subcategory: preset?.subcategory || '', rarity: preset?.rarity || '', search: '', set: '', slot: '', weight: '', weapon: '' });
                   setCurrentPage(1);
                 }}
                 className="w-full bg-recess border-border text-foreground text-xs h-9"
@@ -656,10 +560,7 @@ function Marketplace() {
           {(selectedHubLocation || (selectedCategory && POPULAR_SEARCH_PRESETS.some(p => p.category === selectedCategory))) && (
             <button
               onClick={() => {
-                setSelectedHubLocation("");
-                setSelectedCategory("");
-                setSelectedSubcategory("");
-                setSelectedRarity("");
+                updateFilters({ location: '', category: '', subcategory: '', rarity: '', set: '', slot: '', weight: '', weapon: '' });
                 setCurrentPage(1);
               }}
               className="text-xs font-sans text-muted-foreground hover:text-foreground underline shrink-0 cursor-pointer self-end md:self-center"
@@ -679,13 +580,13 @@ function Marketplace() {
         <NativeSelect aria-label="Category"
           value={selectedCategory}
           onChange={(e) => {
-            setSelectedCategory(e.target.value);
-            setSelectedSubcategory("");
+            updateFilters({ category: e.target.value, subcategory: '', slot: '', weight: '', weapon: '' });
             setCurrentPage(1);
           }}
           className="w-full bg-recess border-border text-foreground"
         >
           <NativeSelectOption value="">All Categories</NativeSelectOption>
+          {selectedCategory && !Object.hasOwn(taxonomy, selectedCategory) && <NativeSelectOption value={selectedCategory}>{selectedCategory}</NativeSelectOption>}
           <NativeSelectOptGroup label="Categories">
             {Object.keys(taxonomy).map((cat) => (
               <NativeSelectOption key={cat} value={cat}>
@@ -705,12 +606,13 @@ function Marketplace() {
             setSelectedSubcategory(e.target.value);
             setCurrentPage(1);
           }}
-          disabled={availableSubcategories.length === 0}
+          disabled={availableSubcategories.length === 0 && !selectedSubcategory}
           className="w-full bg-recess border-border text-foreground"
         >
           <NativeSelectOption value="">
             {availableSubcategories.length > 0 ? "All Subcategories" : "Subcategory"}
           </NativeSelectOption>
+          {selectedSubcategory && !availableSubcategories.includes(selectedSubcategory) && <NativeSelectOption value={selectedSubcategory}>{selectedSubcategory}</NativeSelectOption>}
           {availableSubcategories.length > 0 && (
             <NativeSelectOptGroup label="Subcategories">
               {availableSubcategories.map((sub) => (
@@ -892,7 +794,12 @@ function Marketplace() {
             <span>Deals only · {dealThreshold}x+ value</span>
           </Button>
 
-          {(selectedCategory || selectedSubcategory || selectedTrait || selectedRarity || selectedHubLocation || selectedMaxAge || searchQuery || dealsOnly) && (
+          {['set', 'slot', 'weight', 'weapon'].filter(key => filters[key]).map(key => (
+            <Button key={key} variant="outline" size="sm" onClick={() => updateFilters({ [key]: '' })} aria-label={`Remove ${key} filter`}>
+              {key === 'set' ? 'Set' : key === 'slot' ? 'Slot' : key === 'weight' ? 'Weight' : 'Weapon'}: {filters[key]} <X className="size-3" />
+            </Button>
+          ))}
+          {hasMarketCriteria(filters) && (
             <Button
               variant="ghost"
               size="sm"

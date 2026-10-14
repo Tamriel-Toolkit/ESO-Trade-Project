@@ -41,7 +41,7 @@ describe('character presentation parity', () => {
 
   it('preserves structured market destinations without changing category/trait contracts', () => {
     const weapon = new URL(getMarketplaceUrlForTrait('Blacksmithing', 'Axe', 'Precise'), 'https://example.test');
-    expect(Object.fromEntries(weapon.searchParams)).toEqual({ view: 'listings', trait: 'Precise', category: 'Weapons', subcategory: 'One-Handed Axe' });
+    expect(Object.fromEntries(weapon.searchParams)).toEqual({ server: 'NA', platform: 'PC', weapon: 'axe', trait: 'Precise', category: 'Weapons', subcategory: 'One-Handed Axe' });
     const armor = new URL(getMarketplaceUrlForTrait('Clothier', 'Robe', 'Divines'), 'https://example.test');
     expect(armor.searchParams.get('subcategory')).toBe('Light Armor');
     const jewelry = new URL(getMarketplaceUrlForTrait('Jewelry', 'Ring', 'Bloodthirsty'), 'https://example.test');
@@ -67,7 +67,7 @@ describe('character presentation parity', () => {
   ])('preserves %s / %s structured search navigation', (discipline, equipment, category, subcategory) => {
     const url = new URL(getMarketplaceUrlForTrait(discipline, equipment, 'Infused'), 'https://example.test');
     expect(url.pathname).toBe('/marketplace');
-    expect(Object.fromEntries(url.searchParams)).toEqual({ view: 'listings', trait: 'Infused', category, subcategory });
+    expect(Object.fromEntries(url.searchParams)).toMatchObject({ server: 'NA', trait: 'Infused', category, subcategory });
   });
 });
 
