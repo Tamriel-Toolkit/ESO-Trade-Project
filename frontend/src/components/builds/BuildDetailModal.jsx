@@ -11,6 +11,7 @@ import { AnatomicalEquipmentDiagram } from "@/components/character/AnatomicalEqu
 import { getEsoIconUrl } from "@/lib/utils";
 import { EsoTooltip } from "@/components/ui/tooltip";
 import { useDialogFocus } from "@/hooks/useDialogFocus";
+import { buildMarketplaceUrl } from '@/lib/marketplaceFilters';
 import "@/styles/requests-builds.css";
 
 const ROLE_COLORS = {
@@ -115,64 +116,9 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose, onBuil
     };
 
     const handleSearchMarketplace = (targetItem, setName) => {
-        const params = new URLSearchParams();
-        params.set("view", "listings");
-
-        const itemObj = (typeof targetItem === "object" && targetItem !== null) ? targetItem : {};
-        const rawName = itemObj.item_name || (typeof targetItem === "string" ? targetItem : "");
-        const rawSet = itemObj.set_name || setName || "";
-        const trait = itemObj.trait_name;
-
-        // 1. Search Query: Set name if available
-        const isGeneric = !rawName || 
-            / (Legs|Head|Chest|Shoulders|Waist|Feet|Hands|Ring 1|Ring 2|Necklace|Main Hand|Off Hand)$/i.test(rawName) ||
-            /^Monster (Helm|Shoulders)/i.test(rawName);
-
-        const query = (isGeneric && rawSet) ? rawSet : (rawSet || rawName || "");
-        if (query.trim()) {
-            params.set("search", query.trim());
-        }
-
-        // 2. Trait Filter
-        if (trait && trait !== "None" && trait !== "Unknown") {
-            params.set("trait", trait);
-        }
-
-        // 3. Category / Subcategory Filter based on armor weight or weapon/jewelry type
-        const weight = itemObj.armor_weight;
-        const itemType = (itemObj.item_type || "").toLowerCase();
-        const weaponType = (itemObj.weapon_type || "").toLowerCase();
-
-        if (weight) {
-            params.set("category", "Apparel");
-            if (weight === "Light") params.set("subcategory", "Light Armor");
-            else if (weight === "Medium") params.set("subcategory", "Medium Armor");
-            else if (weight === "Heavy") params.set("subcategory", "Heavy Armor");
-        } else if (itemType.includes("dagger") || weaponType === "dagger") {
-            params.set("category", "Weapons");
-            params.set("subcategory", "Dagger");
-        } else if (itemType.includes("bow") || weaponType === "bow") {
-            params.set("category", "Weapons");
-            params.set("subcategory", "Bow");
-        } else if (itemType.includes("staff") || weaponType.includes("staff")) {
-            params.set("category", "Weapons");
-            params.set("subcategory", itemType.includes("resto") ? "Restoration Staff" : "Destruction Staff");
-        } else if (itemType.includes("axe") || weaponType.includes("axe")) {
-            params.set("category", "Weapons");
-            params.set("subcategory", itemType.includes("two") ? "Two-Handed Axe" : "One-Handed Axe");
-        } else if (itemType.includes("sword") || weaponType.includes("sword")) {
-            params.set("category", "Weapons");
-            params.set("subcategory", itemType.includes("two") ? "Two-Handed Sword" : "One-Handed Sword");
-        } else if (itemType.includes("mace") || weaponType.includes("mace")) {
-            params.set("category", "Weapons");
-            params.set("subcategory", itemType.includes("two") ? "Two-Handed Mace" : "One-Handed Mace");
-        } else if (itemType.includes("ring") || itemType.includes("neck") || itemType.includes("jewelry")) {
-            params.set("category", "Jewelry");
-            if (itemType.includes("neck")) params.set("subcategory", "Necklace");
-            else if (itemType.includes("ring")) params.set("subcategory", "Ring");
-        }
-
-        navigate(`/marketplace?${params.toString()}`);
+        // Set identity and equipment metadata constrain the search, not item-name guesses.
+        const item = typeof targetItem === 'object' && targetItem ? targetItem : { item_name: targetItem };
+        navigate(buildMarketplaceUrl({ ...item, set_name: item.set_name || setName }, server));
         onClose();
     };
 

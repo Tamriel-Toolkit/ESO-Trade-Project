@@ -111,7 +111,7 @@ describe('build presentation and workflow parity', () => {
     fireEvent.click(screen.getByRole('button', { name: 'EU', exact: true }));
     await waitFor(() => expect(mocks.fetchBuildDeals).toHaveBeenLastCalledWith(1, { server: 'EU', characterId: 1 }));
     fireEvent.click(await screen.findByRole('button', { name: 'Search market' }));
-    expect(Object.fromEntries(new URLSearchParams(screen.getByLabelText('Current location').textContent))).toEqual({ view: 'listings', search: 'Deadly Strike', trait: 'Bloodthirsty', category: 'Jewelry', subcategory: 'Ring' });
+    expect(Object.fromEntries(new URLSearchParams(screen.getByLabelText('Current location').textContent))).toEqual({ server: 'EU', platform: 'PC', set: 'Deadly Strike', slot: 'ring', trait: 'Bloodthirsty', category: 'Jewelry', subcategory: 'Ring' });
     expect(onClose).toHaveBeenCalledOnce();
   });
 });

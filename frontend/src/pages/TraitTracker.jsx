@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { EsoSelect } from "@/components/ui/eso-select";
 import { EsoTooltip } from "@/components/ui/tooltip";
+import { researchMarketplaceUrl } from '@/lib/marketplaceFilters';
 import '../styles/characters.css';
 
 const DISCIPLINE_CONFIG = {
@@ -137,67 +138,8 @@ const TRAIT_DESCRIPTIONS = {
  * Generates a clean marketplace navigation URL using structured category, subcategory, and trait filters
  * instead of raw keyword substring searches.
  */
-export function getMarketplaceUrlForTrait(craftingType, equipmentType, traitName) {
-    const params = new URLSearchParams();
-    params.set("view", "listings");
-    if (traitName) params.set("trait", traitName);
-
-    const eqLower = (equipmentType || "").toLowerCase();
-    const craftLower = (craftingType || "").toLowerCase();
-
-    if (craftLower.includes("blacksmith")) {
-        if (["axe", "mace", "sword"].includes(eqLower)) {
-            params.set("category", "Weapons");
-            params.set("subcategory", `One-Handed ${equipmentType}`);
-        } else if (eqLower === "dagger") {
-            params.set("category", "Weapons");
-            params.set("subcategory", "Dagger");
-        } else if (eqLower === "battle axe") {
-            params.set("category", "Weapons");
-            params.set("subcategory", "Two-Handed Axe");
-        } else if (eqLower === "maul") {
-            params.set("category", "Weapons");
-            params.set("subcategory", "Two-Handed Mace");
-        } else if (eqLower === "greatsword") {
-            params.set("category", "Weapons");
-            params.set("subcategory", "Two-Handed Sword");
-        } else {
-            // Heavy Armor pieces (Cuirass, Helm, Pauldrons, Gauntlets, Girdle, Greaves, Sabatons)
-            params.set("category", "Apparel");
-            params.set("subcategory", "Heavy Armor");
-        }
-    } else if (craftLower.includes("clothier")) {
-        if (["robe", "jerkin", "hat", "epaulets", "gloves", "sash", "breeches", "shoes"].includes(eqLower)) {
-            params.set("category", "Apparel");
-            params.set("subcategory", "Light Armor");
-        } else {
-            // Medium Armor pieces (Jack, Helmet, Arm Cops, Bracers, Belt, Guards, Boots)
-            params.set("category", "Apparel");
-            params.set("subcategory", "Medium Armor");
-        }
-    } else if (craftLower.includes("woodwork")) {
-        if (eqLower === "bow") {
-            params.set("category", "Weapons");
-            params.set("subcategory", "Bow");
-        } else if (eqLower.includes("staff") || eqLower.includes("staves")) {
-            if (eqLower.includes("restoration") || eqLower.includes("resto")) {
-                params.set("category", "Weapons");
-                params.set("subcategory", "Restoration Staff");
-            } else {
-                params.set("category", "Weapons");
-                params.set("subcategory", "Destruction Staff");
-            }
-        } else if (eqLower === "shield") {
-            params.set("category", "Apparel");
-            params.set("subcategory", "Shield");
-        }
-    } else if (craftLower.includes("jewelry")) {
-        params.set("category", "Jewelry");
-        if (eqLower === "necklace") params.set("subcategory", "Necklace");
-        else if (eqLower === "ring") params.set("subcategory", "Ring");
-    }
-
-    return `/marketplace?${params.toString()}`;
+export function getMarketplaceUrlForTrait(craftingType, equipmentType, traitName, server = 'NA') {
+    return researchMarketplaceUrl(craftingType, equipmentType, traitName, server);
 }
 
 export function TraitTracker() {
@@ -597,7 +539,7 @@ export function TraitTracker() {
                                                     </span>
                                                 </div>
                                                 <button
-                                                    onClick={() => navigate(getMarketplaceUrlForTrait(m.crafting_type, m.equipment_type, m.trait_name))}
+                                                    onClick={() => navigate(getMarketplaceUrlForTrait(m.crafting_type, m.equipment_type, m.trait_name, server))}
                                                     className="px-3 py-1.5 bg-[#e6c15a] hover:bg-[#e6c15a] text-black font-cinzel font-bold text-xs uppercase tracking-wider transition-all flex items-center gap-1 cursor-pointer shadow"
                                                 >
                                                     Market <ChevronRight className="size-3" />
@@ -710,7 +652,7 @@ export function TraitTracker() {
                                                                             ? `Missing trait. Cheapest kiosk deal: ${marketFodder.cheapest_listing.price.toLocaleString()}g @ ${marketFodder.cheapest_listing.location}. Click to buy.`
                                                                             : `Missing trait. Click to search Marketplace. ${TRAIT_DESCRIPTIONS[t.trait_name] || ""}`;
 
-                                                                const marketUrl = getMarketplaceUrlForTrait(activeDisciplineData.crafting_type, line.equipment_type, t.trait_name);
+                                                                const marketUrl = getMarketplaceUrlForTrait(activeDisciplineData.crafting_type, line.equipment_type, t.trait_name, server);
 
                                                                 return (
                                                                     <td 
