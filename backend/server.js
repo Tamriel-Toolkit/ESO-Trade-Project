@@ -4727,5 +4727,8 @@ module.exports = {
     get server() { return server; },
     gracefulShutdown,
     configureTrustProxy,
-    parseTrustProxyConfig
+    parseTrustProxyConfig,
+    hashPassword,
+    isBcryptHash,
+    verifyPassword
 };
