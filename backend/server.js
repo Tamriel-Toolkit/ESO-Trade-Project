@@ -2548,7 +2548,7 @@ app.post("/api/auth/register", async (req, res) => {
             VALUES (?, ?, ?, ?, ?, 'user');
         `, [username, email, pwHash, handle, apiToken]);
 
-        const user = await dbGet(`SELECT id, username, email, eso_handle, role, api_token, created_at FROM users WHERE id = ?;`, [result.lastID]);
+        const user = await dbGet(`SELECT id, username, email, eso_handle, role, created_at FROM users WHERE id = ?;`, [result.lastID]);
         const session = await createSession(user.id);
 
         res.cookie(AUTH_COOKIE_NAME, session.token, getAuthCookieOptions());
@@ -2643,7 +2643,7 @@ app.get("/api/auth/me", async (req, res) => {
     }
 
     try {
-        const user = await dbGet(`SELECT id, username, email, eso_handle, role, api_token, created_at FROM users WHERE id = ?;`, [userId]);
+        const user = await dbGet(`SELECT id, username, email, eso_handle, role, created_at FROM users WHERE id = ?;`, [userId]);
         if (!user) return res.status(404).json({ error: "User not found." });
         res.json({ success: true, user });
     } catch (err) {

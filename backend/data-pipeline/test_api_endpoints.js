@@ -437,6 +437,9 @@ async function runTests() {
         if (meRes.status !== 200 || meRes.data.user?.username !== testUser.username) {
             throw new Error(`Auth /me failed with status ${meRes.status}`);
         }
+        if (meRes.data.user?.api_token || meRes.data.user?.password_hash) {
+            throw new Error("GET /api/auth/me leaked sensitive user credentials (api_token/password_hash)!");
+        }
 
         console.log("\n9b. Testing development fixtures use bcrypt-only credentials...");
         const fixtureHashes = await testDbAll("SELECT id, password_hash FROM users WHERE id IN (1, 2) ORDER BY id;");
