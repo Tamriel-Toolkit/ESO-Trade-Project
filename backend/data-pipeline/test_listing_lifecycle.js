@@ -220,3 +220,22 @@ with closing(sqlite3.connect(':memory:')) as db:
         trait_id, discovered_at, expires_at FROM guild_trader_active_listings ORDER BY game_item_id`);
     assert.deepEqual(central.map(row => Object.values(row)), JSON.parse(python.stdout));
 });
+
+test('disjoint single-guild page uploads preserve unseen UIDs until positive purchase, expiry, or staleness', async t => {
+    const {send, listings, sandbox} = await fixture(t);
+    const baseTime = now() - 120;
+    // Page 0 at guild 88 observes UIDs 301 and 302.
+    assert.equal((await send([
+        observation('301', {observed_at: baseTime}),
+        observation('302', {observed_at: baseTime}),
+    ])).status, 200);
+    // Later scan at the same guild 88 returns only UID 303 (e.g. shifted page or final page).
+    assert.equal((await send([
+        observation('303', {observed_at: baseTime + 60}),
+    ])).status, 200);
+    let rows = await listings();
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].active_stacks, 3);
+    const storedUids = (await query(sandbox.dbPath, "SELECT uid FROM native_listing_observations WHERE guild_id = '88' ORDER BY uid")).map(r => r.uid);
+    assert.deepEqual(storedUids, ['301', '302', '303']);
+});

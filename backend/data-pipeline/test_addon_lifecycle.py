@@ -120,6 +120,27 @@ class AddonLifecycleTests(unittest.TestCase):
         self.assertEqual("EU", self.lua.eval('ESOTradeVars.Purchases[1].Server'))
         self.assertEqual(3, self.lua.eval('#ESOTradeVars.Scans'))
 
+    def test_multi_page_completion_empty_results_and_page_shifts_never_delete_unseen_uids(self):
+        self.lua.execute('''
+            page = 0; hasMore = true
+            function GetTradingHouseSearchResultsInfo() return #rows, page, hasMore end
+        ''')
+        self.scan()
+        # Page 1 completes pagination (hasMore = false) with a shifted/partial subset of UIDs.
+        self.lua.execute('''
+            page = 1; hasMore = false; rows = {"9007199254740995"}
+            events[EVENT_TRADING_HOUSE_RESPONSE_RECEIVED](0, TRADING_HOUSE_RESULT_SEARCH_PENDING, TRADING_HOUSE_RESULT_SUCCESS)
+        ''')
+        # Subsequent empty final page (0 items, hasMore = false) at the same guild trader.
+        self.lua.execute('''
+            page = 0; hasMore = false; rows = {}
+            events[EVENT_TRADING_HOUSE_RESPONSE_RECEIVED](0, TRADING_HOUSE_RESULT_SEARCH_PENDING, TRADING_HOUSE_RESULT_SUCCESS)
+        ''')
+        self.assertEqual(3, self.lua.eval('#ESOTradeVars.Scans'))
+        self.assertEqual(0, self.lua.eval('#ESOTradeVars.Purchases'))
+        uids = [self.lua.eval(f'ESOTradeVars.Scans[{i}].UID') for i in (1, 2, 3)]
+        self.assertEqual(["9007199254740993", "9007199254740994", "9007199254740995"], uids)
+
 
 if __name__ == "__main__":
     unittest.main()

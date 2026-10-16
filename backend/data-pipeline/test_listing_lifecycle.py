@@ -297,6 +297,16 @@ class LifecycleTests(unittest.TestCase):
             "SELECT observed_at, expires_at FROM native_listing_observations").fetchone())
         self.assertEqual(0, self.pending_count())
 
+    def test_disjoint_guild_pages_and_empty_scans_never_reconcile_absence(self):
+        self.import_file([self.scan("101"), self.scan("102")])
+        # Later scan at the same guild ("88") sees only a shifted/new UID ("103"), then an empty scan table.
+        self.import_file([self.scan("103", captured=self.now + 30)])
+        self.import_file([])
+        self.assertEqual([(3, 3.72, 744)], self.active())
+        uids = [row[0] for row in self.connection.execute(
+            "SELECT uid FROM native_listing_observations WHERE guild_id = '88' ORDER BY uid").fetchall()]
+        self.assertEqual(["101", "102", "103"], uids)
+
 
 if __name__ == "__main__":
     unittest.main()

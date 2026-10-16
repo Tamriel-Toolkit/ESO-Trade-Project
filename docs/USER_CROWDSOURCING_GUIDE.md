@@ -35,9 +35,11 @@ Listings also disappear at their reported ESO expiry, or after **30 days without
 a genuine rescan**, whichever comes first. Automated cleanup removes their
 stored records hourly while API reads hide them immediately. Purchases made by
 players without the addon are not observable: the site is an observations-based
-marketplace, not a guarantee that stock is still available. Ordinary filtered or
-paged searches never remove listings simply because they were not returned.
-Full-trader absence reconciliation is deferred to feasibility issue #144.
+marketplace, not a guarantee that stock is still available. Ordinary filtered, unfiltered, or paged searches—including paging to the final
+page or receiving zero results—never remove listings simply because they were
+not returned. As documented in [Listing Lifecycle & Absence Feasibility](LISTING_LIFECYCLE.md)
+(`#144`), ESO's offset-paginated trading-house API lacks snapshot isolation across
+pages, so unseen listings are never deleted by absence.
 
 ## Reliable remote delivery
 
