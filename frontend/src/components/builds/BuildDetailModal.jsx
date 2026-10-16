@@ -447,7 +447,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose, onBuil
                                                 <div className="text-sm font-sans font-bold text-foreground mt-0.5 flex flex-wrap items-center gap-2">
                                                     <span>Estimated cost:</span>
                                                     {dealsData.total_estimated_gold > 0 ? (
-                                                        <span className="text-[#f0d07a] tabular-nums text-base">
+                                                        <span className="text-primary-hover tabular-nums text-base">
                                                             {dealsData.total_estimated_gold.toLocaleString()}g
                                                         </span>
                                                     ) : diffData?.missing_count > 0 && build?.items?.some(i => i.is_tradeable) ? (
@@ -585,7 +585,7 @@ export function BuildDetailModal({ buildId, initialTab = "gear", onClose, onBuil
                                                                         <EsoTooltip content={`Search marketplace for ${diff.target_item.item_name}`} side="left">
                                                                             <button
                                                                                 onClick={() => handleSearchMarketplace(diff.target_item, diff.target_item.set_name)}
-                                                                                className="px-3 py-1.5 rounded-none bg-primary hover:bg-[#f0d07a] text-black font-sans font-bold text-sm tracking-normal transition-all flex items-center gap-1.5 shadow-md cursor-pointer shrink-0"
+                                                                                className="px-3 py-1.5 rounded-none bg-primary hover:bg-primary-hover text-black font-sans font-bold text-sm tracking-normal transition-all flex items-center gap-1.5 shadow-md cursor-pointer shrink-0"
                                                                             >
                                                                                 <Search className="size-3.5" /> Search market
                                                                             </button>

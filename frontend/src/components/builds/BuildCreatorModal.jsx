@@ -281,7 +281,7 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                             </div>
                             <Link 
                                 to="/login" 
-                                className="px-3 py-1 bg-primary hover:bg-[#f0d07a] text-black font-sans font-bold text-sm tracking-normal transition-all shrink-0"
+                                className="px-3 py-1 bg-primary hover:bg-primary-hover text-black font-sans font-bold text-sm tracking-normal transition-all shrink-0"
                             >
                                 Sign In
                             </Link>
@@ -606,11 +606,11 @@ export function BuildCreatorModal({ onClose, onBuildCreated }) {
                                     <button
                                         key={setObj.name}
                                         onClick={() => handleSelectSetForSlot(setObj)}
-                                        className="w-full p-3 rounded-none bg-recess hover:bg-[#292824] border border-border hover:border-primary/60 transition-all text-left flex flex-col gap-1.5 group cursor-pointer"
+                                        className="w-full p-3 rounded-none bg-recess hover:bg-surface-elevated border border-border hover:border-primary/60 transition-all text-left flex flex-col gap-1.5 group cursor-pointer"
                                     >
                                         <div className="flex items-start justify-between gap-2">
                                             <div>
-                                                <div className="font-sans font-bold text-sm text-foreground group-hover:text-[#f0d07a] transition-colors">
+                                                <div className="font-sans font-bold text-sm text-foreground group-hover:text-primary-hover transition-colors">
                                                     {setObj.name}
                                                 </div>
                                                 <div className="text-xs text-muted-foreground flex items-center gap-1.5 flex-wrap">

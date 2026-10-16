@@ -12,21 +12,61 @@ Reference: [C composition and captures](design/issue-132/README.md), [integrated
 
 The signature is charcoal-and-gold metalwork, recognizable ESO item art, Cinzel identity, and aligned trading information. It should feel like a crafted guild trading house with a practical working interface. Preserve the ESO square and existing icon language; no new logo or official endorsement is introduced.
 
-| Token | Value | Use |
-| --- | --- | --- |
-| Background | `#111214` | Main canvas |
-| Recess | `#0b0c0e` | Inputs and icon wells |
-| Card | `#19191b` | Main content surfaces |
-| Secondary | `#202022` | Raised/selected group surfaces |
-| Foreground | `#efe5cf` | Main content |
-| Muted foreground | `#afa797` | Secondary text |
-| Primary | `#e6c15a` | Gold identity, selection, and prices |
-| Primary foreground | `#171510` | Text on gold buttons |
-| Border | `#403c33` | Decorative separators |
-| Input boundary | `#8c806b` | Essential field edges |
-| Focus | `#e6c15a` | Unobscured keyboard outline |
+| Token | CSS Variable / Tailwind Utility | Value | Use |
+| --- | --- | --- | --- |
+| Background | `--background` / `bg-background` | `#111214` | Main canvas |
+| Recess | `--recess` / `bg-recess` | `#0b0c0e` | Inputs and icon wells |
+| Card | `--card` / `bg-card` | `#19191b` | Main content surfaces |
+| Secondary | `--secondary` / `bg-secondary` | `#202022` | Raised/selected group surfaces |
+| Surface Elevated | `--surface-elevated` / `bg-surface-elevated` | `#26241d` | Warm hover/active row and tab highlight surface |
+| Surface Subtle | `--surface-subtle` / `bg-surface-subtle` | `#171719` | Recessed equipment and summary wells |
+| Foreground | `--foreground` / `text-foreground` | `#efe5cf` | Main content |
+| Muted foreground | `--muted-foreground` / `text-muted-foreground` | `#afa797` | Secondary text |
+| Primary | `--primary` / `text-primary`, `bg-primary` | `#e6c15a` | Gold identity, selection, and prices |
+| Primary foreground | `--primary-foreground` / `text-primary-foreground` | `#171510` | Text on gold buttons |
+| Primary hover | `--primary-hover` / `bg-primary-hover`, `text-primary-hover` | `#f0d07a` | Interactive gold hover state and emphasized totals |
+| Primary inset | `--primary-inset` / `border-primary-inset` | `#9e8139` | Inner bevel frame on primary gold actions |
+| Border | `--border` / `border-border` | `#403c33` | Decorative separators |
+| Border accent | `--border-accent` / `border-border-accent` | `#867044` | Warm gold card hover and ornamental frame border |
+| Border subtle | `--border-subtle` / `border-border-subtle` | `#665132` | Subtle warm gold border for timers, badges, and plinths |
+| Input boundary | `--input` / `border-input` | `#8c806b` | Essential field edges |
+| Focus | `--ring` / `outline-ring` | `#e6c15a` | Unobscured keyboard outline |
 
-Tokens are declared in `frontend/src/styles/tokens.css` and exposed through Tailwind v4 semantic utilities. ESO quality/alliance/status colors retain textual labels; they are not interchangeable brand accents. Fine separators are decorative; essential controls need stronger boundaries.
+### ESO Item Quality, Status, and Alliance Tokens
+
+All semantic foreground, status, and ESO quality tokens maintain $\ge 4.5:1$ contrast across `--background`, `--recess`, `--card`, `--secondary`, and `--surface-elevated`:
+
+| Category | Token | CSS Variable / Tailwind Utility | Value | Use |
+| --- | --- | --- | --- | --- |
+| Quality 1 (Normal / Trash) | Normal | `--quality-normal` / `text-quality-normal`, `border-quality-normal` | `#d1d5db` | Normal quality item labels and borders |
+| Quality 2 (Fine) | Fine | `--quality-fine` / `text-quality-fine`, `border-quality-fine` | `#4ade80` | Fine (green) item labels and borders |
+| Quality 3 (Superior) | Superior | `--quality-superior` / `text-quality-superior`, `border-quality-superior` | `#60a5fa` | Superior (blue) item labels and borders |
+| Quality 4 (Epic) | Epic | `--quality-epic` / `text-quality-epic`, `border-quality-epic` | `#c084fc` | Epic (purple) item labels and borders |
+| Quality 5 (Legendary) | Legendary | `--quality-legendary` / `text-quality-legendary`, `border-quality-legendary` | `#e6c15a` | Legendary (gold) item labels and borders |
+| Status | Success / Deal | `--status-success` / `text-status-success` | `#81d6a1` | Below-average deal indicators and completion feedback |
+| Status | Warning / Stale | `--status-warning` / `text-status-warning` | `#f0c36d` | Stale scan warnings and expiring claim timers |
+| Status | Info | `--status-info` / `text-status-info` | `#7dd3fc` | Fresh scan timestamps and informational badges |
+| Status | Destructive | `--destructive` / `text-destructive` | `#fb9292` | Error banners and destructive actions |
+| Alliance | Aldmeri Dominion | `--alliance-ad` / `text-alliance-ad` | `#e6c15a` | Aldmeri Dominion semantic accent |
+| Alliance | Ebonheart Pact | `--alliance-ep` / `text-alliance-ep` | `#f87171` | Ebonheart Pact semantic accent |
+| Alliance | Daggerfall Covenant | `--alliance-dc` / `text-alliance-dc` | `#60a5fa` | Daggerfall Covenant semantic accent |
+
+### Control Height and Spacing Scales
+
+- **Control heights**: `--control-xs` (`32px` / `2rem`), `--control-sm` (`36px` / `2.25rem`), `--control-md` (`40px` / `2.5rem`), `--control-lg` (`44px` / `2.75rem`).
+- **Spacing steps**: `--space-1` (`4px`), `--space-2` (`8px`), `--space-3` (`12px`), `--space-4` (`16px`), `--space-6` (`24px`), `--space-8` (`32px`).
+
+Tokens are declared in `frontend/src/styles/tokens.css` and exposed through Tailwind v4 `@theme inline` semantic utilities. ESO quality/alliance/status colors retain textual labels; they are not interchangeable brand accents. Fine separators are decorative; essential controls need stronger boundaries.
+
+### Token Migration Status & Follow-Up Inventory (#104)
+
+- **Fully migrated to semantic tokens (zero raw hex literals)**:
+  - All shared stylesheets: `frontend/src/index.css`, `frontend/src/styles/exchange.css`, `frontend/src/styles/home.css`, `frontend/src/styles/marketplace.css`, `frontend/src/styles/requests-builds.css`, and `frontend/src/styles/characters.css`.
+  - All shared UI primitives (`frontend/src/components/ui/*.jsx`, with `alliance-icons.jsx` retaining only intrinsic SVG crest artwork fills/strokes).
+  - Core pages and modals: `Home.jsx`, `Marketplace.jsx`, `Login.jsx`, `RequestBoard.jsx`, `MyOrders.jsx`, `BuildExplorer.jsx`, `BuildPlanner.jsx`, `RequestCard.jsx`, `BuildCreatorModal.jsx`, and `BuildDetailModal.jsx`.
+- **Inventoried inline JSX hex classes deferred to dedicated page acceptance issues**:
+  - `frontend/src/pages/CharacterManager.jsx` (99 arbitrary hex class occurrences) and `frontend/src/components/character/CharacterProfileModal.jsx` (52 occurrences) → tracked under **[#129](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/129)** (*Restyle Character Manager roster, creation dialog, and profile modal*).
+  - `frontend/src/components/character/AnatomicalEquipmentDiagram.jsx` (83 occurrences) and `frontend/src/pages/TraitTracker.jsx` (96 occurrences) → tracked under **[#130](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/130)** (*Redesign Anatomical Equipment Diagram and Trait Research Matrix*).
 
 ## Typography, composition, and motion
 

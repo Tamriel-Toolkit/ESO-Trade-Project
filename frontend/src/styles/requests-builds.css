@@ -25,7 +25,7 @@
 .rb-order-tabs button[aria-pressed=true] { color: var(--primary); background: var(--secondary); box-shadow: inset 0 -2px var(--primary); }
 .rb-request-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; align-items: stretch; }
 .rb-request-card { display: flex; flex-direction: column; min-width: 0; transition: border-color .16s; }
-.rb-request-card:hover { border-color: #867044; }
+.rb-request-card:hover { border-color: var(--border-accent); }
 .rb-request-identity { padding: 20px; display: grid; gap: 16px; }
 .rb-request-badges { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
 .rb-request-badges > div { flex-wrap: wrap; }
@@ -44,7 +44,7 @@
 .rb-request-people { display: grid; gap: 8px; font-size: 13px; }
 .rb-person-row { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
 .rb-person-row > span:last-child { overflow-wrap: anywhere; font-weight: 500; }
-.rb-claim-timer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 10px; border: 1px solid #665132; font-size: 12px; }
+.rb-claim-timer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 10px; border: 1px solid var(--border-subtle); font-size: 12px; }
 .rb-claim-timer > span { flex-wrap: wrap; overflow-wrap: anywhere; }
 .rb-copy-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .rb-copy-actions button { flex: 1; min-height: 40px; padding: 8px 10px; font-size: 13px; border-color: var(--input); color: var(--foreground); }
@@ -60,7 +60,7 @@
 .rb-build-refinements > div > span { font-size: 12px; color: var(--muted-foreground); }
 .rb-build-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
 .rb-build-card { padding: 20px; display: flex; flex-direction: column; justify-content: space-between; gap: 20px; transition: border-color .16s; min-width: 0; }
-.rb-build-card:hover { border-color: #867044; }
+.rb-build-card:hover { border-color: var(--border-accent); }
 .rb-build-card h3 { font-family: var(--heading); font-size: 21px; font-weight: 400; line-height: 1.4; margin: 15px 0 6px; overflow-wrap: anywhere; }
 .rb-build-card .rb-build-meta { display: flex; justify-content: space-between; flex-wrap: wrap; align-items: center; gap: 8px; }
 .rb-build-meta > div { flex-wrap: wrap; }
@@ -69,7 +69,7 @@
 .rb-build-sets > div:first-child { font-size: 12px; color: var(--muted-foreground); margin-bottom: 6px; }
 .rb-build-sets ul { list-style: none; display: flex; flex-wrap: wrap; gap: 4px 0; padding: 0; margin: 0; font-size: 13px; line-height: 1.55; }
 .rb-build-sets li { color: var(--foreground); overflow-wrap: anywhere; }
-.rb-build-sets li:not(:last-child)::after { content: ' / '; color: #7a715f; padding-inline: 7px; }
+.rb-build-sets li:not(:last-child)::after { content: ' / '; color: var(--muted-foreground); padding-inline: 7px; }
 .rb-build-availability { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; border-top: 1px solid var(--border); padding-top: 14px; margin-bottom: 14px; font-size: 12px; }
 .rb-build-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .rb-build-actions button { padding: 9px 8px; font-size: 13px; }

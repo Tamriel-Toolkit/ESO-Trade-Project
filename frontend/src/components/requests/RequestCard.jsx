@@ -15,19 +15,19 @@ import { getEsoIconUrl } from "@/lib/utils";
 import "@/styles/requests-builds.css";
 
 const RARITY_COLORS = {
-  1: "border-gray-500 text-gray-300",
-  2: "border-emerald-500 text-emerald-400",
-  3: "border-blue-500 text-blue-400",
-  4: "border-purple-500 text-purple-400",
-  5: "border-primary text-primary"
+  1: "border-quality-normal/60 text-quality-normal",
+  2: "border-quality-fine/60 text-quality-fine",
+  3: "border-quality-superior/60 text-quality-superior",
+  4: "border-quality-epic/60 text-quality-epic",
+  5: "border-quality-legendary text-quality-legendary"
 };
 
 const RARITY_BG = {
-  1: "bg-gray-950/40",
-  2: "bg-emerald-950/40",
-  3: "bg-blue-950/40",
-  4: "bg-purple-950/40",
-  5: "bg-primary/15"
+  1: "bg-quality-normal/10",
+  2: "bg-quality-fine/10",
+  3: "bg-quality-superior/10",
+  4: "bg-quality-epic/10",
+  5: "bg-quality-legendary/15"
 };
 
 const RARITY_NAMES = {
@@ -292,7 +292,7 @@ export function RequestCard({
           <EsoTooltip content="Copy in-game whisper command: /w @BuyerHandle ...">
             <button
               onClick={() => handleCopy(whisperText, "whisper")}
-              className="flex-1 py-1 px-2 bg-secondary border border-border hover:border-primary text-xs font-sans text-[#f0d07a] hover:text-white transition-all cursor-pointer flex items-center justify-center gap-1"
+              className="flex-1 py-1 px-2 bg-secondary border border-border hover:border-primary text-xs font-sans text-primary-hover hover:text-white transition-all cursor-pointer flex items-center justify-center gap-1"
             >
               {copiedType === "whisper" ? (
                 <>
@@ -344,7 +344,7 @@ export function RequestCard({
               <button
                 onClick={() => onClaim(request.id)}
                 disabled={isClaiming || !currentUser}
-                className="w-full py-2 bg-primary hover:bg-[#f0d07a] text-black font-sans font-bold text-sm tracking-normal transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-2 bg-primary hover:bg-primary-hover text-black font-sans font-bold text-sm tracking-normal transition-all cursor-pointer shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Hammer className="size-3.5 text-black" />
                 <span>{currentUser ? "Claim order" : "Sign in to claim"}</span>

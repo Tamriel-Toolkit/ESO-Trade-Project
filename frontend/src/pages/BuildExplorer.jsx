@@ -20,7 +20,7 @@ const CLASS_OPTIONS = [
     { value: "Necromancer", label: "Necromancer", icon: <Skull className="size-4 text-cyan-400" /> },
     { value: "Nightblade", label: "Nightblade", icon: <Sword className="size-4 text-red-400" /> },
     { value: "Sorcerer", label: "Sorcerer", icon: <Zap className="size-4 text-purple-400" /> },
-    { value: "Templar", label: "Templar", icon: <Sun className="size-4 text-[#f0d07a]" /> },
+    { value: "Templar", label: "Templar", icon: <Sun className="size-4 text-primary-hover" /> },
     { value: "Warden", label: "Warden", icon: <Sparkles className="size-4 text-emerald-400" /> }
 ];
 
@@ -246,7 +246,7 @@ export function BuildExplorer() {
                                     </div>
 
                                     {/* Title & Author */}
-                                    <h3 className="font-sans font-bold text-lg text-foreground group-hover:text-[#f0d07a] transition-colors mb-1">
+                                    <h3 className="font-sans font-bold text-lg text-foreground group-hover:text-primary-hover transition-colors mb-1">
                                         {build.title}
                                     </h3>
                                     <p className="text-sm text-muted-foreground mb-3">

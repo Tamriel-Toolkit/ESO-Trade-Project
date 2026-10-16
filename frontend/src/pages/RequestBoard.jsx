@@ -457,13 +457,13 @@ export function RequestBoard() {
             <div className="pt-2 flex items-center justify-center gap-3">
               <button
                 onClick={handleResetFilters}
-                className="px-4 py-2 bg-secondary hover:bg-[#292824] border border-border text-sm font-sans text-muted-foreground hover:text-white transition-colors cursor-pointer"
+                className="px-4 py-2 bg-secondary hover:bg-surface-elevated border border-border text-sm font-sans text-muted-foreground hover:text-white transition-colors cursor-pointer"
               >
                 Reset Filters
               </button>
               <button
                 onClick={() => setIsModalOpen(true)}
-                className="px-5 py-2 bg-primary hover:bg-[#f0d07a] text-black font-sans font-bold text-sm tracking-normal transition-colors shadow"
+                className="px-5 py-2 bg-primary hover:bg-primary-hover text-black font-sans font-bold text-sm tracking-normal transition-colors shadow"
               >
                 + Post request
               </button>

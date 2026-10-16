@@ -42,7 +42,7 @@
 .exchange-offer-icon span { color: var(--primary); font: 12px var(--heading); }
 .exchange-offer-name { font-size: 16px; line-height: 1.45; font-weight: 600; overflow-wrap: anywhere; }
 .exchange-offer-meta { display: flex; gap: 4px 8px; flex-wrap: wrap; margin-top: 4px; font-size: 12px; line-height: 1.6; color: var(--muted-foreground); }
-.exchange-deal { display: flex; align-items: center; gap: 4px; flex-shrink: 0; color: #81d6a1; font-size: 12px; margin-left: auto; }
+.exchange-deal { display: flex; align-items: center; gap: 4px; flex-shrink: 0; color: var(--status-success); font-size: 12px; margin-left: auto; }
 .exchange-offer-content { padding: 18px; }
 .exchange-offer-quote { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
 .exchange-offer-stacks { display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; }

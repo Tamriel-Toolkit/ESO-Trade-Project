@@ -3,6 +3,7 @@
 @font-face { font-family: Cinzel; font-style: normal; font-weight: 600 900; font-display: swap; src: url('/fonts/cinzel-latin-600-normal.woff2') format('woff2'); }
 
 :root {
+  /* Core Surfaces */
   --background: #111214;
   --recess: #0b0c0e;
   --foreground: #efe5cf;
@@ -10,19 +11,64 @@
   --card-foreground: #efe5cf;
   --popover: #202022;
   --popover-foreground: #efe5cf;
-  --primary: #e6c15a;
-  --primary-foreground: #171510;
   --secondary: #202022;
   --secondary-foreground: #efe5cf;
   --muted: #202022;
   --muted-foreground: #afa797;
+  --surface-elevated: #26241d;
+  --surface-subtle: #171719;
+
+  /* Brand & Interactive Accents */
+  --primary: #e6c15a;
+  --primary-foreground: #171510;
+  --primary-hover: #f0d07a;
+  --primary-inset: #9e8139;
   --accent: #e6c15a;
   --accent-foreground: #171510;
-  --destructive: #fb9292;
+
+  /* Borders, Inputs, Focus & Chrome */
   --border: #403c33;
+  --border-accent: #867044;
+  --border-subtle: #665132;
   --input: #8c806b;
   --ring: #e6c15a;
+  --selection-bg: #6b5629;
+  --scrollbar-thumb: #625b4d;
+  --overlay-backdrop: rgb(0 0 0 / 0.73);
+  --overlay-shadow: rgb(0 0 0 / 0.53);
+
+  /* Semantic Status & Feedback (WCAG AA >= 4.5:1 on all dark surfaces) */
+  --destructive: #fb9292;
+  --status-success: #81d6a1;
+  --status-warning: #f0c36d;
+  --status-info: #7dd3fc;
+
+  /* ESO Item Quality Scale (Normal/Trash, Fine, Superior, Epic, Legendary) */
+  --quality-normal: #d1d5db;
+  --quality-fine: #4ade80;
+  --quality-superior: #60a5fa;
+  --quality-epic: #c084fc;
+  --quality-legendary: #e6c15a;
+
+  /* ESO Alliance Accents */
+  --alliance-ad: #e6c15a;
+  --alliance-ep: #f87171;
+  --alliance-dc: #60a5fa;
+
+  /* Typography, Radius, Control Heights & Spacing Scale */
   --radius: 0;
+  --control-xs: 2rem;
+  --control-sm: 2.25rem;
+  --control-md: 2.5rem;
+  --control-lg: 2.75rem;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+
+  /* Derived & Legacy Aliases */
   --text: var(--muted-foreground);
   --text-h: var(--foreground);
   --bg: var(--background);
@@ -44,14 +90,31 @@
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-inset: var(--primary-inset);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-subtle: var(--surface-subtle);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-status-success: var(--status-success);
+  --color-status-warning: var(--status-warning);
+  --color-status-info: var(--status-info);
+  --color-quality-normal: var(--quality-normal);
+  --color-quality-fine: var(--quality-fine);
+  --color-quality-superior: var(--quality-superior);
+  --color-quality-epic: var(--quality-epic);
+  --color-quality-legendary: var(--quality-legendary);
+  --color-alliance-ad: var(--alliance-ad);
+  --color-alliance-ep: var(--alliance-ep);
+  --color-alliance-dc: var(--alliance-dc);
   --color-border: var(--border);
+  --color-border-accent: var(--border-accent);
+  --color-border-subtle: var(--border-subtle);
   --color-input: var(--input);
   --color-ring: var(--ring);
   --font-sans: var(--sans);
@@ -61,3 +124,4 @@
   --radius-md: 0;
   --radius-lg: 0;
 }
+

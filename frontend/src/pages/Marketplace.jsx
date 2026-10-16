@@ -65,11 +65,11 @@ import { useDialogFocus } from "@/hooks/useDialogFocus";
 import "@/styles/marketplace.css";
 
 const RARITY_MAP = {
-  1: { label: "Normal", color: "border-gray-600 text-gray-300 bg-gray-900/40" },
-  2: { label: "Fine", color: "border-green-600 text-green-400 bg-green-950/40" },
-  3: { label: "Superior", color: "border-blue-600 text-blue-400 bg-blue-950/40" },
-  4: { label: "Epic", color: "border-purple-600 text-purple-400 bg-purple-950/40" },
-  5: { label: "Legendary", color: "border-primary text-primary bg-amber-950/40" },
+  1: { label: "Normal", color: "border-quality-normal/60 text-quality-normal bg-quality-normal/10" },
+  2: { label: "Fine", color: "border-quality-fine/60 text-quality-fine bg-quality-fine/10" },
+  3: { label: "Superior", color: "border-quality-superior/60 text-quality-superior bg-quality-superior/10" },
+  4: { label: "Epic", color: "border-quality-epic/60 text-quality-epic bg-quality-epic/10" },
+  5: { label: "Legendary", color: "border-quality-legendary text-quality-legendary bg-quality-legendary/15" },
 };
 
 const ESO_TRAIT_NAMES = {
@@ -1094,12 +1094,12 @@ function Marketplace() {
                       const scanDate = selectedItem.discovered_at || selectedItem.updated_at;
                       const isStale = scanDate && ((new Date() - new Date(scanDate)) / (1000 * 3600 * 24) > 7);
                       return (
-                        <div className={`pt-2 border-t border-border/60 flex items-center justify-between text-xs font-mono ${isStale ? 'text-amber-400' : ''}`}>
+                        <div className={`pt-2 border-t border-border/60 flex items-center justify-between text-xs font-mono ${isStale ? 'text-status-warning' : ''}`}>
                           <span className="text-muted-foreground flex items-center gap-1.5 font-sans">
-                            <Clock className={`size-3.5 shrink-0 ${isStale ? 'text-amber-400' : 'text-[#38bdf8]'}`} />
+                            <Clock className={`size-3.5 shrink-0 ${isStale ? 'text-status-warning' : 'text-status-info'}`} />
                             <span>Last Seen Scan:</span>
                           </span>
-                          <span className={`font-bold ${isStale ? 'text-amber-400' : 'text-[#38bdf8]'}`}>
+                          <span className={`font-bold ${isStale ? 'text-status-warning' : 'text-status-info'}`}>
                             {isStale ? `⚠️ Stale (${formatLastSeen(scanDate)})` : formatLastSeen(scanDate || selectedItem.created_at)}
                           </span>
                         </div>
