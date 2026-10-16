@@ -5,6 +5,7 @@ const {
     annotateUnifiedDiff,
     formatFindingComment,
     buildGitHubReviewPayload,
+    determineReviewOutcome,
     parseAgyOutput,
 } = require('./run_pr_review');
 
@@ -126,3 +127,48 @@ test('parseAgyOutput extracts structured_output from stream-json result event', 
     assert.equal(parsed.verdict, 'APPROVE');
     assert.deepEqual(parsed.findings, []);
 });
+
+test('determineReviewOutcome returns "Ready" when reviewer finds 0 issues', () => {
+    const cleanReview = {
+        verdict: 'APPROVE',
+        overall_summary: 'Clean PR, safe to merge.',
+        findings: [],
+    };
+    const cleanPayload = {
+        inlineComments: [],
+        fallbackComments: [],
+    };
+
+    const outcome = determineReviewOutcome(cleanReview, cleanPayload);
+    assert.equal(outcome.hasIssues, false);
+    assert.equal(outcome.targetLabel, 'Ready');
+    assert.equal(outcome.obsoleteLabel, 'Re-Review');
+});
+
+test('determineReviewOutcome returns "Re-Review" when reviewer finds issues or requests changes', () => {
+    const issuesReview = {
+        verdict: 'REQUEST_CHANGES',
+        overall_summary: 'Found regression in pricing logic.',
+        findings: [
+            {
+                severity: 'P1',
+                difficulty: 'Low',
+                file: 'backend/pricing.js',
+                line: 50,
+                title: 'Unhandled null price',
+                description: 'Price can be null.',
+                suggested_fix: 'Add null check.',
+            },
+        ],
+    };
+    const issuesPayload = {
+        inlineComments: [{ path: 'backend/pricing.js', line: 50, body: 'fix needed' }],
+        fallbackComments: [],
+    };
+
+    const outcome = determineReviewOutcome(issuesReview, issuesPayload);
+    assert.equal(outcome.hasIssues, true);
+    assert.equal(outcome.targetLabel, 'Re-Review');
+    assert.equal(outcome.obsoleteLabel, 'Ready');
+});
+

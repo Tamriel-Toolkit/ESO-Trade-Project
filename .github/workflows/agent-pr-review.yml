@@ -60,6 +60,8 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
           PR_AUTHOR: ${{ github.event.pull_request.user.login || github.actor }}
           REVIEW_LABEL_NAME: ${{ github.event.label.name || 'Review' }}
+          READY_LABEL_NAME: ${{ vars.READY_LABEL_NAME || 'Ready' }}
+          RE_REVIEW_LABEL_NAME: ${{ vars.RE_REVIEW_LABEL_NAME || 'Re-Review' }}
           ALLOWED_REVIEW_AUTHORS: ${{ vars.ALLOWED_REVIEW_AUTHORS || '["RyanS4"]' }}
           AGY_MODEL: ${{ vars.AGY_MODEL || 'gemini-3.8-flash-high' }}
           AGY_EFFORT: 'high'

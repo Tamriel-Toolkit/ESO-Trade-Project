@@ -25,6 +25,8 @@ const DEFAULT_MODEL = 'gemini-3.8-flash-high';
 const DEFAULT_EFFORT = 'high';
 const DEFAULT_ALLOWED_AUTHORS = ['RyanS4'];
 const REQUIRED_LABEL = 'Review';
+const READY_LABEL = 'Ready';
+const RE_REVIEW_LABEL = 'Re-Review';
 
 const SEVERITY_LABELS = {
     P0: 'P0 (Critical)',
@@ -217,6 +219,29 @@ function buildGitHubReviewPayload(reviewResult, validLinesByFile, model = DEFAUL
         summaryBody: summaryHeader,
         inlineComments,
         fallbackComments,
+    };
+}
+
+/**
+ * Evaluates review findings to determine the next status label.
+ * - Applies "Ready" if 0 findings/issues were identified and verdict is clean.
+ * - Applies "Re-Review" if any findings, inline comments, fallback comments, or REQUEST_CHANGES exist.
+ */
+function determineReviewOutcome(reviewResult, payload = {}) {
+    const findings = Array.isArray(reviewResult?.findings) ? reviewResult.findings : [];
+    const inlineComments = Array.isArray(payload?.inlineComments) ? payload.inlineComments : [];
+    const fallbackComments = Array.isArray(payload?.fallbackComments) ? payload.fallbackComments : [];
+    const verdict = String(reviewResult?.verdict || '').toUpperCase();
+
+    const readyLabel = process.env.READY_LABEL_NAME || READY_LABEL;
+    const reReviewLabel = process.env.RE_REVIEW_LABEL_NAME || RE_REVIEW_LABEL;
+
+    const hasIssues = findings.length > 0 || inlineComments.length > 0 || fallbackComments.length > 0 || verdict === 'REQUEST_CHANGES';
+
+    return {
+        hasIssues,
+        targetLabel: hasIssues ? reReviewLabel : readyLabel,
+        obsoleteLabel: hasIssues ? readyLabel : reReviewLabel,
     };
 }
 
@@ -487,20 +512,47 @@ async function main() {
         });
     }
 
+    // Determine status label: "Ready" if 0 findings/issues, "Re-Review" if issues found
+    const triggerLabel = process.env.REVIEW_LABEL_NAME || REQUIRED_LABEL;
+    const { hasIssues, targetLabel, obsoleteLabel } = determineReviewOutcome(reviewResult, payload);
+
+    // Remove the obsolete status label if present (e.g., remove "Re-Review" when now clean, or "Ready" when issues found)
+    try {
+        await githubRequest(`${apiBase}/issues/${prNumber}/labels/${encodeURIComponent(obsoleteLabel)}`, {
+            method: 'DELETE',
+            token,
+        });
+    } catch {
+        // Obsolete label was not on the PR
+    }
+
+    // Apply the outcome label ("Ready" when 0 issues, "Re-Review" when issues found)
+    try {
+        await githubRequest(`${apiBase}/issues/${prNumber}/labels`, {
+            method: 'POST',
+            token,
+            body: { labels: [targetLabel] },
+        });
+        console.log(`Applied label "${targetLabel}" to PR #${prNumber} (hasIssues: ${hasIssues}).`);
+    } catch (err) {
+        console.warn(`Could not apply label "${targetLabel}": ${err.message}`);
+    }
+
     // Remove the "Review" trigger label so re-applying it later can trigger a fresh review
     if (process.env.REMOVE_REVIEW_LABEL !== 'false') {
         try {
-            await githubRequest(`${apiBase}/issues/${prNumber}/labels/${encodeURIComponent(REQUIRED_LABEL)}`, {
+            await githubRequest(`${apiBase}/issues/${prNumber}/labels/${encodeURIComponent(triggerLabel)}`, {
                 method: 'DELETE',
                 token,
             });
+            console.log(`Removed trigger label "${triggerLabel}" from PR #${prNumber}.`);
         } catch {
             // Ignore if label was already removed
         }
     }
 
     console.log(
-        `Posted PR #${prNumber} review with ${payload.inlineComments.length} inline comment(s) and ${payload.fallbackComments.length} general comment(s).`
+        `Posted PR #${prNumber} review with ${payload.inlineComments.length} inline comment(s) and ${payload.fallbackComments.length} general comment(s). Status label: "${targetLabel}".`
     );
 }
 
@@ -516,6 +568,7 @@ module.exports = {
     annotateUnifiedDiff,
     formatFindingComment,
     buildGitHubReviewPayload,
+    determineReviewOutcome,
     parseAgyOutput,
     renderPromptTemplate,
 };
