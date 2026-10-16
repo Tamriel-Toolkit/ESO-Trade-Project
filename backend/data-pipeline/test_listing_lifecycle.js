@@ -220,3 +220,36 @@ with closing(sqlite3.connect(':memory:')) as db:
         trait_id, discovered_at, expires_at FROM guild_trader_active_listings ORDER BY game_item_id`);
     assert.deepEqual(central.map(row => Object.values(row)), JSON.parse(python.stdout));
 });
+
+test('disjoint single-guild page uploads, guild-switch sequences, and empty uploads preserve unseen UIDs across guilds', async t => {
+    const {upload, send, listings, sandbox} = await fixture(t);
+    const baseTime = now() - 120;
+    const guildB = (uid, overrides = {}) => observation(uid, {guild_id: '89', guild_name: 'Second Guild', ...overrides});
+    // Guild A (88) initial page observes UIDs 301 and 302.
+    assert.equal((await send([
+        observation('301', {observed_at: baseTime}),
+        observation('302', {observed_at: baseTime}),
+    ])).status, 200);
+    // Switch to Guild B (89) and observe UIDs 401 and 402.
+    assert.equal((await send([
+        guildB('401', {observed_at: baseTime + 30}),
+        guildB('402', {observed_at: baseTime + 30}),
+    ])).status, 200);
+    // Switch back to Guild A (88) and upload a disjoint page containing only UID 303.
+    assert.equal((await send([
+        observation('303', {observed_at: baseTime + 60}),
+    ])).status, 200);
+    // Empty observation-only uploads (both lifecycle v1 and legacy) are rejected without deleting any stored rows,
+    // and an empty-observations purchase batch removes only its targeted UID.
+    assert.equal((await send([], [])).status, 400);
+    assert.equal((await upload({server: 'NA', listings: []})).status, 400);
+    assert.equal((await send([], [{uid: '499', guild_id: '89', purchased_at: baseTime + 90}])).status, 200);
+    const rows = (await listings()).sort((a, b) => a.guild_name.localeCompare(b.guild_name));
+    assert.equal(rows.length, 2);
+    assert.deepEqual(rows.map(r => ({guild: r.guild_name, stacks: r.active_stacks})), [
+        {guild: 'Second Guild', stacks: 2},
+        {guild: 'Test Guild', stacks: 3},
+    ]);
+    const stored = await query(sandbox.dbPath, 'SELECT guild_id, uid FROM native_listing_observations ORDER BY guild_id, uid');
+    assert.deepEqual(stored.map(r => `${r.guild_id}:${r.uid}`), ['88:301', '88:302', '88:303', '89:401', '89:402']);
+});

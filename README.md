@@ -20,5 +20,6 @@ Modern, high-performance market trading intelligence platform, live guild trader
 
 ## Documentation
 - [UI Components & Design System](docs/UI_COMPONENTS.md) — Standardized UI component catalog, styling tokens, accessibility guidelines, and custom Tooltip specification.
+- [Listing Lifecycle & Absence Feasibility](docs/LISTING_LIFECYCLE.md) — Evidence-based UID listing lifecycle, purchase tombstones, expiry rules, and ESO API absence-reconciliation feasibility analysis.
 - [Backend Architecture & API](backend/README.md) — API endpoints, SQLite schema, rate limiting, and session authentication.
 - [Data Pipeline & Ingestion](backend/data-pipeline/README.md) — Automated Lua SavedVariables ingestion, real-time market scrapers, and desktop watcher daemon.

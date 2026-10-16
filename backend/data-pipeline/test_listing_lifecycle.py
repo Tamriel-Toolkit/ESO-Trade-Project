@@ -297,6 +297,22 @@ class LifecycleTests(unittest.TestCase):
             "SELECT observed_at, expires_at FROM native_listing_observations").fetchone())
         self.assertEqual(0, self.pending_count())
 
+    def test_disjoint_guild_pages_and_empty_scans_never_reconcile_absence(self):
+        guild_b = lambda uid, **kw: (
+            self.scan(uid, **kw)
+            .replace('["GuildId"] = "88"', '["GuildId"] = "89"')
+            .replace('["Guild"] = "Test Guild"', '["Guild"] = "Second Guild"')
+        )
+        # Guild A ("88") -> Guild B ("89") -> Guild A ("88") disjoint page -> empty scan table.
+        self.import_file([self.scan("101"), self.scan("102")])
+        self.import_file([guild_b("201", captured=self.now + 10), guild_b("202", captured=self.now + 10)])
+        self.import_file([self.scan("103", captured=self.now + 30)])
+        self.import_file([])
+        self.assertEqual([(2, 3.72, 744), (3, 3.72, 744)], sorted(self.active()))
+        by_guild = self.connection.execute(
+            "SELECT guild_id, uid FROM native_listing_observations ORDER BY guild_id, uid").fetchall()
+        self.assertEqual([("88", "101"), ("88", "102"), ("88", "103"), ("89", "201"), ("89", "202")], by_guild)
+
 
 if __name__ == "__main__":
     unittest.main()
