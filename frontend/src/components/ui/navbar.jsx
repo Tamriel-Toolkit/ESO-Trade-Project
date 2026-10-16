@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation } from "react-router-dom";
 import {
   ChevronDown,
+  ChevronRight,
   ShoppingCart,
   Package,
   Users,
@@ -22,6 +23,8 @@ function Navbar() {
   const openedByHoverRef = useRef(null);
   const requestsMenuRef = useRef(null);
   const charactersMenuRef = useRef(null);
+  const mobileNavRef = useRef(null);
+  const [mobileNavHasMore, setMobileNavHasMore] = useState(false);
 
   const location = useLocation();
 
@@ -103,6 +106,23 @@ function Navbar() {
     if (closeTimeoutRef.current) clearTimeout(closeTimeoutRef.current);
   }, []);
 
+  useEffect(() => {
+    const nav = mobileNavRef.current;
+    let mounted = true;
+    const updateOverflow = () => {
+      if (mounted) setMobileNavHasMore(nav.scrollLeft + nav.clientWidth < nav.scrollWidth - 1);
+    };
+    updateOverflow();
+    nav.addEventListener('scroll', updateOverflow, { passive: true });
+    window.addEventListener('resize', updateOverflow);
+    document.fonts?.ready.then(updateOverflow);
+    return () => {
+      mounted = false;
+      nav.removeEventListener('scroll', updateOverflow);
+      window.removeEventListener('resize', updateOverflow);
+    };
+  }, []);
+
   const isActive = (path) => path === '/my-orders'
     ? ['/my-orders', '/requests/my-orders'].includes(location.pathname)
     : location.pathname === path;
@@ -148,7 +168,7 @@ function Navbar() {
               aria-current={isActive('/') ? 'page' : undefined}
               className={`px-3 xl:px-4 py-2 text-xs xl:text-sm  font-sans font-bold   transition-colors border-b-2 whitespace-nowrap shrink-0 ${
                 isActive('/')
-                  ? 'border-primary text-primary bg-primary/10 shadow-none'
+                  ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
@@ -160,7 +180,7 @@ function Navbar() {
               aria-current={isActive('/marketplace') ? 'page' : undefined}
               className={`px-3 xl:px-4 py-2 text-xs xl:text-sm  font-sans font-bold   transition-colors border-b-2 whitespace-nowrap shrink-0 ${
                 isActive('/marketplace')
-                  ? 'border-primary text-primary bg-primary/10 shadow-none'
+                  ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
@@ -181,9 +201,11 @@ function Navbar() {
                 aria-expanded={openDropdown === 'requests'}
                 aria-controls="requests-navigation"
                 className={`px-3 xl:px-4 py-2 text-xs xl:text-sm  font-sans font-bold   transition-colors border-b-2 whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-                  isRequestsActive || openDropdown === 'requests'
-                    ? 'border-primary text-primary bg-primary/10 shadow-none'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                  isRequestsActive
+                    ? 'border-primary text-primary'
+                    : openDropdown === 'requests'
+                      ? 'border-transparent text-foreground bg-secondary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                 }`}
               >
                 <span>Requests</span>
@@ -206,7 +228,7 @@ function Navbar() {
                         to="/requests"
                         aria-current={isActive('/requests') ? 'page' : undefined}
                         className={`flex items-start gap-3 p-2.5 transition-colors group ${
-                          isActive('/requests') ? 'bg-primary/15 border-l-2 border-primary' : 'hover:bg-secondary'
+                          isActive('/requests') ? 'border-l-2 border-primary' : 'hover:bg-secondary'
                         }`}
                       >
                         <ShoppingCart className="size-4.5 text-primary shrink-0 mt-0.5" />
@@ -224,13 +246,13 @@ function Navbar() {
                         to="/my-orders"
                         aria-current={isActive('/my-orders') ? 'page' : undefined}
                         className={`flex items-start gap-3 p-2.5 transition-colors group ${
-                          isActive('/my-orders') ? 'bg-primary/15 border-l-2 border-primary' : 'hover:bg-secondary'
+                          isActive('/my-orders') ? 'border-l-2 border-primary' : 'hover:bg-secondary'
                         }`}
                       >
                         <Package className="size-4.5 text-primary shrink-0 mt-0.5" />
                         <div>
                           <div className="text-xs font-sans font-bold text-foreground group-hover:text-primary ">
-                            My Orders
+                            My orders
                           </div>
                           <p className="text-xs text-muted-foreground leading-tight mt-0.5">
                             Your requests and claimed orders
@@ -248,7 +270,7 @@ function Navbar() {
               aria-current={isActive('/builds') ? 'page' : undefined}
               className={`px-3 xl:px-4 py-2 text-xs xl:text-sm  font-sans font-bold   transition-colors border-b-2 whitespace-nowrap shrink-0 ${
                 isActive('/builds')
-                  ? 'border-primary text-primary bg-primary/10 shadow-none'
+                  ? 'border-primary text-primary'
                   : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
               }`}
             >
@@ -269,9 +291,11 @@ function Navbar() {
                 aria-expanded={openDropdown === 'characters'}
                 aria-controls="characters-navigation"
                 className={`px-3 xl:px-4 py-2 text-xs xl:text-sm  font-sans font-bold   transition-colors border-b-2 whitespace-nowrap flex items-center gap-1.5 cursor-pointer ${
-                  isCharactersActive || openDropdown === 'characters'
-                    ? 'border-primary text-primary bg-primary/10 shadow-none'
-                    : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
+                  isCharactersActive
+                    ? 'border-primary text-primary'
+                    : openDropdown === 'characters'
+                      ? 'border-transparent text-foreground bg-secondary'
+                      : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border'
                 }`}
               >
                 <span>Characters</span>
@@ -294,7 +318,7 @@ function Navbar() {
                         to="/characters"
                         aria-current={isActive('/characters') ? 'page' : undefined}
                         className={`flex items-start gap-3 p-2.5 transition-colors group ${
-                          isActive('/characters') ? 'bg-primary/15 border-l-2 border-primary' : 'hover:bg-secondary'
+                          isActive('/characters') ? 'border-l-2 border-primary' : 'hover:bg-secondary'
                         }`}
                       >
                         <Users className="size-4.5 text-primary shrink-0 mt-0.5" />
@@ -312,7 +336,7 @@ function Navbar() {
                         to="/traits"
                         aria-current={isActive('/traits') ? 'page' : undefined}
                         className={`flex items-start gap-3 p-2.5 transition-colors group ${
-                          isActive('/traits') ? 'bg-primary/15 border-l-2 border-primary' : 'hover:bg-secondary'
+                          isActive('/traits') ? 'border-l-2 border-primary' : 'hover:bg-secondary'
                         }`}
                       >
                         <Sparkles className="size-4.5 text-primary shrink-0 mt-0.5" />
@@ -343,13 +367,13 @@ function Navbar() {
         </div>
 
         {/* Mobile & Tablet Navigation Links (< lg) */}
-        <div className="border-t border-border bg-recess lg:hidden">
-          <nav className="exchange-mobile-links exchange-container py-2 flex items-center gap-1 overflow-x-auto" aria-label="Main navigation">
+        <div className="exchange-mobile-shell relative border-t border-border bg-recess lg:hidden">
+          <nav ref={mobileNavRef} className="exchange-mobile-links exchange-container py-2 flex items-center gap-1 overflow-x-auto" aria-label="Main navigation">
             <Link
               to="/"
               aria-current={isActive('/') ? 'page' : undefined}
               className={`px-2.5 sm:px-3 py-1 text-xs  font-sans font-semibold  whitespace-nowrap border shrink-0 ${
-                isActive('/') ? 'border-primary/60 bg-primary/10 text-primary' : 'border-transparent text-muted-foreground'
+                isActive('/') ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               Home
@@ -358,7 +382,7 @@ function Navbar() {
               to="/marketplace"
               aria-current={isActive('/marketplace') ? 'page' : undefined}
               className={`px-2.5 sm:px-3 py-1 text-xs  font-sans font-semibold  whitespace-nowrap border shrink-0 ${
-                isActive('/marketplace') ? 'border-primary/60 bg-primary/10 text-primary' : 'border-transparent text-muted-foreground'
+                isActive('/marketplace') ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               Marketplace
@@ -367,25 +391,25 @@ function Navbar() {
               to="/requests"
               aria-current={isActive('/requests') ? 'page' : undefined}
               className={`px-2.5 sm:px-3 py-1 text-xs  font-sans font-semibold  whitespace-nowrap border shrink-0 ${
-                isActive('/requests') ? 'border-primary/60 bg-primary/10 text-primary' : 'border-transparent text-muted-foreground'
+                isActive('/requests') ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
-              Item Requests
+              Requests
             </Link>
             <Link
               to="/my-orders"
               aria-current={isActive('/my-orders') ? 'page' : undefined}
               className={`px-2.5 sm:px-3 py-1 text-xs  font-sans font-semibold  whitespace-nowrap border shrink-0 ${
-                isActive('/my-orders') ? 'border-primary/60 bg-primary/10 text-primary' : 'border-transparent text-muted-foreground'
+                isActive('/my-orders') ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
-              My Orders
+              My orders
             </Link>
             <Link
               to="/builds"
               aria-current={isActive('/builds') ? 'page' : undefined}
               className={`px-2.5 sm:px-3 py-1 text-xs  font-sans font-semibold  whitespace-nowrap border shrink-0 ${
-                isActive('/builds') ? 'border-primary/60 bg-primary/10 text-primary' : 'border-transparent text-muted-foreground'
+                isActive('/builds') ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               Builds
@@ -394,7 +418,7 @@ function Navbar() {
               to="/characters"
               aria-current={isActive('/characters') ? 'page' : undefined}
               className={`px-2.5 sm:px-3 py-1 text-xs  font-sans font-semibold  whitespace-nowrap border shrink-0 ${
-                isActive('/characters') ? 'border-primary/60 bg-primary/10 text-primary' : 'border-transparent text-muted-foreground'
+                isActive('/characters') ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               Characters
@@ -403,12 +427,15 @@ function Navbar() {
               to="/traits"
               aria-current={isActive('/traits') ? 'page' : undefined}
               className={`px-2.5 sm:px-3 py-1 text-xs  font-sans font-semibold  whitespace-nowrap border shrink-0 ${
-                isActive('/traits') ? 'border-primary/60 bg-primary/10 text-primary' : 'border-transparent text-muted-foreground'
+                isActive('/traits') ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
               }`}
             >
               Trait research
             </Link>
           </nav>
+          {mobileNavHasMore && (
+            <span className="exchange-mobile-more" aria-hidden="true"><ChevronRight className="size-4" /></span>
+          )}
         </div>
 
         {/* Ornate Bottom Accent Line */}

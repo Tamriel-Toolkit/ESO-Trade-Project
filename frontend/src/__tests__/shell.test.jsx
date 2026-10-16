@@ -48,7 +48,7 @@ describe('navigation and product identity', () => {
     expect(requests).toHaveFocus();
     expect(requests).toHaveAttribute('aria-expanded', 'false');
     await user.keyboard('{Enter}');
-    await user.click(screen.getByRole('link', { name: /My Orders Your requests/ }));
+    await user.click(screen.getByRole('link', { name: /My orders Your requests/ }));
     expect(screen.getByLabelText('Current destination')).toHaveTextContent('/my-orders');
     expect(requests).toHaveAttribute('aria-expanded', 'false');
   });
@@ -72,7 +72,22 @@ describe('navigation and product identity', () => {
     renderShell(<Navbar />, '/requests/my-orders');
     const mobile = screen.getAllByRole('navigation', { name: 'Main navigation' })[1];
     expect(within(mobile).getAllByRole('link').map(link => link.getAttribute('href'))).toEqual(['/', '/marketplace', '/requests', '/my-orders', '/builds', '/characters', '/traits']);
-    expect(within(mobile).getByRole('link', { name: 'My Orders' })).toHaveAttribute('aria-current', 'page');
+    expect(within(mobile).getByRole('link', { name: 'Requests' })).toHaveAttribute('href', '/requests');
+    expect(within(mobile).getByRole('link', { name: 'My orders' })).toHaveAttribute('aria-current', 'page');
+  });
+
+  it('shows a mobile overflow cue until the rail reaches its last link', () => {
+    const { container } = renderShell(<Navbar />);
+    const mobile = screen.getAllByRole('navigation', { name: 'Main navigation' })[1];
+    Object.defineProperties(mobile, {
+      clientWidth: { configurable: true, value: 300 },
+      scrollWidth: { configurable: true, value: 900 },
+      scrollLeft: { configurable: true, writable: true, value: 0 },
+    });
+    act(() => window.dispatchEvent(new Event('resize')));
+    expect(container.querySelector('.exchange-mobile-more')).toBeInTheDocument();
+    act(() => { mobile.scrollLeft = 600; mobile.dispatchEvent(new Event('scroll')); });
+    expect(container.querySelector('.exchange-mobile-more')).not.toBeInTheDocument();
   });
 });
 
@@ -92,7 +107,9 @@ describe('utility control parity', () => {
     renderShell(<SettingsMenu syncStatus={{ status: 'offline' }} onOpenDevModal={vi.fn()} />);
     const trigger = screen.getByRole('button', { name: 'Settings' });
     await user.click(trigger);
-    expect(screen.getByRole('group', { name: 'Game Platform' })).toBeVisible();
+    expect(screen.getByRole('group', { name: 'Platform' })).toBeVisible();
+    expect(screen.getByText('Service status')).toBeVisible();
+    expect(screen.getByText('Not connected')).toBeVisible();
     expect(screen.getByRole('button', { name: 'PC / Mac' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'North America (NA)' })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('button', { name: 'Dark' })).toHaveAttribute('aria-pressed', 'true');
@@ -135,7 +152,7 @@ describe('utility control parity', () => {
     renderShell(<UserMenu />);
     const trigger = screen.getByRole('button', { name: 'Account menu' });
     await user.click(trigger);
-    expect(screen.getByRole('link', { name: 'Characters and equipment' })).toHaveAttribute('href', '/characters');
+    expect(screen.getByRole('link', { name: 'Characters' })).toHaveAttribute('href', '/characters');
     await user.click(screen.getByRole('button', { name: 'Sign Out' }));
     expect(doubles.auth.logout).toHaveBeenCalledOnce();
     expect(trigger).toHaveFocus();

@@ -219,7 +219,7 @@ export function MyOrders() {
         <div className="exchange-page-heading">
           <div>
             <p className="exchange-eyebrow"><Package className="size-4" /> Your trading activity</p>
-            <h1>My orders & claims</h1>
+            <h1>My orders</h1>
             <p className="text-muted-foreground text-sm md:text-sm mt-1">
               Track your requests, claimed orders, and deliveries.
             </p>

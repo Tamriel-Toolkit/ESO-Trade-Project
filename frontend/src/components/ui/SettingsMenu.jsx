@@ -53,9 +53,6 @@ export default function SettingsMenu({ syncStatus, onOpenDevModal }) {
       {/* Popover Dropdown Menu */}
       {isOpen && (
         <div id="settings-popover" className="exchange-settings-popover bg-card border border-input shadow-2xl z-50">
-          {/* Top Gold Accent Line */}
-          <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-primary to-transparent"></div>
-
           {/* Menu Header */}
           <div className="px-4 py-3 border-b border-border bg-recess flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -64,39 +61,39 @@ export default function SettingsMenu({ syncStatus, onOpenDevModal }) {
                 Settings
               </span>
             </div>
-            <span className="text-xs font-mono text-muted-foreground  px-1.5 py-0.5 bg-secondary border border-border">
+            <span className="min-w-0 text-right text-xs text-muted-foreground break-words">
               {platform} · {serverLocation}
             </span>
           </div>
 
-          <div className="p-4 space-y-4 text-xs">
-            {/* 1. Live Sync Telemetry & Connection Status */}
-            <div className="p-3 bg-recess border border-border space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="font-sans text-xs font-bold text-muted-foreground  flex items-center gap-1.5">
+          <div className="p-4 space-y-4 text-sm">
+            {/* Service information reflects the API response, not a local game watcher. */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-sans text-sm font-semibold text-foreground flex items-center gap-1.5">
                   <Radio className="size-3.5 text-primary" />
-                  Connection status
+                  Service status
                 </span>
                 <span className={`inline-flex items-center gap-1 text-xs font-mono font-bold px-1.5 py-0.5 ${
                   syncStatus?.status === 'online'
-                    ? 'text-emerald-400 bg-emerald-950/40 border border-emerald-800/40'
-                    : 'text-amber-400 bg-amber-950/40 border border-amber-800/40'
+                    ? 'text-status-success'
+                    : 'text-status-warning'
                 }`}>
-                  <span className={`size-1.5 rounded-full ${syncStatus?.status === 'online' ? 'bg-emerald-400 ' : 'bg-amber-400'}`}></span>
-                  {syncStatus?.status === 'online' ? 'Connected' : syncStatus?.status === 'checking' ? 'Checking' : 'Unavailable'}
+                  <span className={`size-1.5 rounded-full ${syncStatus?.status === 'online' ? 'bg-status-success' : 'bg-status-warning'}`}></span>
+                  {syncStatus?.status === 'online' ? 'Connected' : syncStatus?.status === 'checking' ? 'Checking' : 'Not connected'}
                 </span>
               </div>
 
               <div className="text-xs text-muted-foreground pt-1">
-                <span className="text-muted-foreground block text-xs">Latest scan</span>
-                <span className="font-mono text-foreground">{syncStatus?.latestScan || 'None'}</span>
+                <span className="block">Latest recorded scan</span>
+                <span className="block text-foreground break-words">{syncStatus?.latestScan || 'None'}</span>
               </div>
             </div>
 
             {/* 2. Game Platform Selector */}
             <div className="space-y-1.5">
               <span id="settings-platform-label" className="text-xs font-sans font-semibold text-muted-foreground block">
-                Game Platform
+                Platform
               </span>
               <div role="group" aria-labelledby="settings-platform-label" className="grid grid-cols-2 gap-1 bg-recess p-1 border border-border">
                 <button
@@ -131,7 +128,7 @@ export default function SettingsMenu({ syncStatus, onOpenDevModal }) {
             {/* 3. Megaserver Region Selector */}
             <div className="space-y-1.5">
               <span id="settings-region-label" className="text-xs font-sans font-semibold text-muted-foreground block">
-                Megaserver Region
+                Region
               </span>
               <div role="group" aria-labelledby="settings-region-label" className="grid grid-cols-2 gap-1 bg-recess p-1 border border-border">
                 <button
