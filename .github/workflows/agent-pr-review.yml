@@ -43,10 +43,13 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha || github.ref }}
           fetch-depth: 0
 
-      - name: Setup Node.js 20
+      - name: Setup Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
+
+      - name: Sync Review Tooling from main
+        run: git checkout origin/main -- .agents/scripts/run_pr_review.js .agents/prompts/pr_review_prompt.md .agents/schemas/pr_review_schema.json
 
       - name: Run Gemini 3.8 Flash (High) PR Review
         env:

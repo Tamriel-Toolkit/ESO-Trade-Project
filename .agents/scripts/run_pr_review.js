@@ -304,6 +304,8 @@ function runAgyReview(prompt, {
         '--output-format', 'stream-json',
         '--model', model,
         '--effort', effort,
+        '--new-project',
+        '--dangerously-skip-permissions',
         '--disable-slash-commands',
         '--json-schema', schemaPath,
         '--print-timeout', '10m',
@@ -315,7 +317,7 @@ function runAgyReview(prompt, {
     }) + '\n';
 
     const result = spawnSync(agyBin, args, {
-        cwd: REPO_ROOT,
+        cwd: os.tmpdir(),
         input: stdinPayload,
         encoding: 'utf8',
         maxBuffer: 50 * 1024 * 1024,
@@ -335,27 +337,41 @@ function runAgyReview(prompt, {
 async function githubRequest(url, { method = 'GET', token, body, accept = 'application/vnd.github+json' } = {}) {
     const headers = {
         Accept: accept,
+        Connection: 'close',
         'User-Agent': 'ESO-Trade-Project-Agentic-Reviewer',
         'X-GitHub-Api-Version': '2022-11-28',
     };
     if (token) headers.Authorization = `Bearer ${token}`;
     if (body !== undefined) headers['Content-Type'] = 'application/json';
 
-    const response = await fetch(url, {
-        method,
-        headers,
-        body: body !== undefined ? JSON.stringify(body) : undefined,
-    });
+    let lastError;
+    for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+            const response = await fetch(url, {
+                method,
+                headers,
+                body: body !== undefined ? JSON.stringify(body) : undefined,
+            });
 
-    if (!response.ok) {
-        const text = await response.text();
-        throw new Error(`GitHub API ${method} ${url} failed (${response.status}): ${text}`);
+            if (!response.ok) {
+                const text = await response.text();
+                throw new Error(`GitHub API ${method} ${url} failed (${response.status}): ${text}`);
+            }
+            if (accept.includes('diff')) {
+                return response.text();
+            }
+            if (response.status === 204) return null;
+            return response.json();
+        } catch (err) {
+            lastError = err;
+            if (attempt < 3 && !String(err.message || '').startsWith('GitHub API ')) {
+                await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+                continue;
+            }
+            throw err;
+        }
     }
-    if (accept.includes('diff')) {
-        return response.text();
-    }
-    if (response.status === 204) return null;
-    return response.json();
+    throw lastError;
 }
 
 function extractLinkedIssueNumbers(text) {
