@@ -1,0 +1,81 @@
+name: Agentic PR Review
+
+on:
+  pull_request:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'Pull Request number to review'
+        required: true
+        type: number
+
+concurrency:
+  group: agent-pr-review-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  review:
+    name: Gemini 3.8 Flash (High) PR Review
+    # Only trigger when the "Review" label is applied and both PR author and actor are designated authors (default: ["RyanS4"])
+    if: >-
+      (
+        (github.event_name == 'pull_request' && github.event.label.name == 'Review') ||
+        github.event_name == 'workflow_dispatch'
+      ) &&
+      contains(fromJSON(vars.ALLOWED_REVIEW_AUTHORS || '["RyanS4"]'), github.actor) &&
+      (
+        github.event_name == 'workflow_dispatch' ||
+        contains(fromJSON(vars.ALLOWED_REVIEW_AUTHORS || '["RyanS4"]'), github.event.pull_request.user.login)
+      )
+    runs-on: ${{ fromJSON(vars.REVIEW_RUNNER || '"self-hosted"') }}
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout PR Branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.ref }}
+          fetch-depth: 0
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Ensure Antigravity CLI (agy) is Installed
+        shell: bash
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          export PATH="$HOME/.local/bin:$LOCALAPPDATA/agy/bin:$PATH"
+          if ! command -v agy >/dev/null 2>&1 && ! command -v agy.exe >/dev/null 2>&1; then
+            echo "Installing Antigravity CLI (agy)..."
+            curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --skip-aliases --skip-path
+          fi
+          # On a cloud runner without a local Google AI subscription keyring session, configure API key provider if GEMINI_API_KEY is supplied
+          if [ -n "${GEMINI_API_KEY:-}" ] && [ "${RUNNER_ENVIRONMENT:-}" = "github-hosted" ]; then
+            mkdir -p "$HOME/.gemini/antigravity-cli"
+            echo '{"modelProvider":"gemini"}' > "$HOME/.gemini/antigravity-cli/settings.json"
+          fi
+
+      - name: Run Gemini 3.8 Flash (High) PR Review
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+          GITHUB_ACTOR: ${{ github.actor }}
+          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login || github.actor }}
+          REVIEW_LABEL_NAME: ${{ github.event.label.name || 'Review' }}
+          ALLOWED_REVIEW_AUTHORS: ${{ vars.ALLOWED_REVIEW_AUTHORS || '["RyanS4"]' }}
+          AGY_MODEL: ${{ vars.AGY_MODEL || 'gemini-3.8-flash-high' }}
+          AGY_EFFORT: 'high'
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          node .agents/scripts/run_pr_review.js

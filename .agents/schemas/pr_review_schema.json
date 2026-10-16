@@ -1,0 +1,53 @@
+{
+  "type": "object",
+  "properties": {
+    "verdict": {
+      "type": "string",
+      "enum": ["APPROVE", "COMMENT", "REQUEST_CHANGES"]
+    },
+    "overall_summary": {
+      "type": "string"
+    },
+    "findings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": ["P0", "P1", "P2", "P3"]
+          },
+          "difficulty": {
+            "type": "string",
+            "enum": ["Trivial", "Low", "Medium", "High"]
+          },
+          "file": {
+            "type": "string"
+          },
+          "line": {
+            "type": "integer"
+          },
+          "title": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "suggested_fix": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "severity",
+          "difficulty",
+          "file",
+          "line",
+          "title",
+          "description",
+          "suggested_fix"
+        ]
+      }
+    }
+  },
+  "required": ["verdict", "overall_summary", "findings"]
+}
