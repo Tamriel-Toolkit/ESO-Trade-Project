@@ -39,20 +39,26 @@
 .exchange-dev input { min-height: 40px; border-color: var(--input); font-size: 14px; }
 .exchange-dev button { min-height: 36px; }
 .exchange-dev h2 { font-family: var(--heading); font-size: 22px; font-weight: 400; }
-.exchange-nav-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 88px; }
+.exchange-nav-inner { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 72px; }
 .exchange-wordmark { font-family: var(--heading); }
 .exchange-brand-name { display: flex; flex-direction: column; font-size: 24px; line-height: 1.15; font-weight: 600; }
 .exchange-brand-name span { font-size: 13px; letter-spacing: .16em; font-weight: 400; color: var(--foreground); margin-top: 4px; }
 .exchange-nav-links > a, .exchange-nav-links > div > button { min-height: 44px; background: transparent; font-size: 14px; font-weight: 400; padding-inline: 12px; position: relative; }
-.exchange-nav-links > a.border-primary::after, .exchange-nav-links > div > button.border-primary::after { content: ''; position: absolute; width: 6px; height: 6px; background: var(--primary); transform: rotate(45deg); bottom: -4px; left: calc(50% - 3px); }
+.exchange-nav-links > div > button[aria-expanded=true] { background: var(--secondary); }
+.exchange-nav-popover a[aria-current=page] > div > div { color: var(--primary); }
 .exchange-nav-popover a { min-height: 54px; }
 .exchange-nav-popover a > div > div { font-size: 14px; font-weight: 600; }
 .exchange-nav-popover p { font-size: 12px; margin-top: 4px; line-height: 1.4; }
+.exchange-mobile-shell { padding-right: 32px; }
+.exchange-mobile-links { scrollbar-color: var(--border-accent) var(--recess); scrollbar-width: auto; }
+.exchange-mobile-links::-webkit-scrollbar-thumb { background: var(--border-accent); }
 .exchange-mobile-links a { min-height: 38px; display: inline-flex; align-items: center; border-width: 0 0 2px; font-size: 13px; }
-.exchange-settings-popover { position: absolute; right: 0; margin-top: 8px; width: 360px; max-height: calc(100dvh - 108px); overflow-y: auto; }
+.exchange-mobile-more { position: absolute; right: 0; top: 0; bottom: 8px; display: flex; align-items: center; justify-content: center; width: 32px; color: var(--primary); pointer-events: none; }
+.exchange-settings-popover { position: absolute; right: 0; margin-top: 8px; width: min(360px, calc(100vw - 32px)); max-height: calc(100dvh - 96px); overflow-y: auto; overflow-wrap: anywhere; }
 .exchange-settings-popover button { min-height: 40px; font-size: 14px; }
 .exchange-settings-popover label { font-size: 12px; }
-.exchange-settings-popover > div:first-child, .exchange-account-popover > div:first-child, .exchange-nav-popover > div > div:first-child { height: 1px; background: var(--border); }
+.exchange-account-popover { width: min(288px, calc(100vw - 32px)); max-height: calc(100dvh - 96px); overflow-y: auto; overflow-wrap: anywhere; }
+.exchange-nav-popover > div > div:first-child { height: 1px; background: var(--border); }
 .exchange-account-popover a, .exchange-account-popover button { min-height: 40px; font-size: 14px; }
 .exchange-nav :is(.exchange-settings, .exchange-user-menu) > button { border-width: 1px; }
 @media (max-width: 640px) {
@@ -65,4 +71,10 @@
   .exchange-brand-name { font-size: 21px; }
   .exchange-brand-name span { font-size: 12px; letter-spacing: .08em; }
   .exchange-settings-popover, .exchange-account-popover { position: fixed; top: 72px; right: 16px; margin-top: 0; width: min(360px, calc(100vw - 32px)); max-height: calc(100dvh - 88px); overflow-y: auto; }
+}
+@media (max-width: 380px) {
+  .exchange-brand-name { display: none; }
+}
+@media (max-width: 300px) {
+  .exchange-settings-popover [role=group] { grid-template-columns: minmax(0, 1fr); }
 }

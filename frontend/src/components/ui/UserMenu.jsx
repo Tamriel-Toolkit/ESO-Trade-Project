@@ -28,14 +28,12 @@ export default function UserMenu() {
     setIsOpen(false);
   }, [location.key]);
 
-  const userTooltip = user ? `@${user.username}` : "Guest Account";
-
   return (
     <div className="exchange-user-menu relative" ref={menuRef}
       onBlur={(event) => { if (!event.currentTarget.contains(event.relatedTarget)) setIsOpen(false); }}
       onKeyDown={(event) => { if (event.key === 'Escape' && isOpen) { event.preventDefault(); event.stopPropagation(); setIsOpen(false); menuRef.current?.querySelector('button')?.focus(); } }}>
       {/* Profile Icon Trigger Button */}
-      <EsoTooltip content={userTooltip} side="bottom">
+      <EsoTooltip content="Account menu" side="bottom">
         <button
           type="button"
           onClick={() => setIsOpen(!isOpen)}
@@ -43,11 +41,9 @@ export default function UserMenu() {
           aria-expanded={isOpen}
           aria-controls="account-popover"
           className={`size-10 flex items-center justify-center rounded-none border-2 transition-colors cursor-pointer ${
-            user
-              ? 'bg-secondary border-primary text-primary shadow-none font-mono font-bold text-sm hover:bg-secondary'
-              : isOpen
-                ? 'bg-primary/20 border-primary text-primary shadow-none'
-                : 'bg-secondary border-primary/40 text-muted-foreground hover:text-primary hover:border-primary hover:bg-secondary shadow-sm'
+            isOpen
+              ? 'bg-primary/20 border-primary text-primary'
+              : 'bg-secondary border-primary/40 text-muted-foreground hover:text-primary hover:border-primary hover:bg-secondary'
           }`}
         >
           {user ? (
@@ -60,27 +56,19 @@ export default function UserMenu() {
 
       {/* Popover Dropdown Menu */}
       {isOpen && (
-        <div id="account-popover" className="exchange-account-popover absolute right-0 mt-2 w-72 bg-card border border-input shadow-2xl z-50">
-          {/* Top Gold Accent Line */}
-          <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-primary to-transparent"></div>
-
+        <div id="account-popover" className="exchange-account-popover absolute right-0 mt-2 bg-card border border-input shadow-2xl z-50">
           {user ? (
             /* Authenticated User Menu */
             <div>
               {/* User Header */}
               <div className="px-4 py-3 border-b border-border bg-recess">
-                <div className="flex items-center gap-2.5">
-                  <div className="size-8 bg-secondary border border-primary/40 flex items-center justify-center text-xs font-bold font-mono text-primary">
-                    {user.username.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 break-words">
-                    <span className="font-sans text-sm font-bold text-foreground block break-all">
-                      @{user.username}
-                    </span>
-                    <span className="text-xs font-mono text-muted-foreground block break-all">
-                      {user.email || 'Merchant Account'}
-                    </span>
-                  </div>
+                <div className="min-w-0 break-words">
+                  <span className="font-sans text-sm font-bold text-foreground block break-all">
+                    @{user.username}
+                  </span>
+                  <span className="text-xs font-mono text-muted-foreground block break-all">
+                    {user.email || 'Merchant Account'}
+                  </span>
                 </div>
               </div>
 
@@ -92,7 +80,7 @@ export default function UserMenu() {
                 >
                   <span className="flex items-center gap-2 font-sans">
                     <Shield className="size-3.5 text-primary" />
-                    <span>Characters and equipment</span>
+                    <span>Characters</span>
                   </span>
                   <ChevronRight className="size-3 text-muted-foreground" />
                 </Link>
@@ -133,11 +121,11 @@ export default function UserMenu() {
                 <div className="flex items-center gap-2">
                   <User className="size-4 text-primary" />
                   <span className="font-sans text-xs font-bold text-foreground  ">
-                    Your account
+                    Not signed in
                   </span>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                  Sign in to ESO Marketplace to manage your characters and saved searches.
+                  Sign in to access your characters, requests, and saved searches.
                 </p>
               </div>
 
