@@ -48,22 +48,6 @@ jobs:
         with:
           node-version: 20
 
-      - name: Ensure Antigravity CLI (agy) is Installed
-        shell: bash
-        env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: |
-          export PATH="$HOME/.local/bin:$LOCALAPPDATA/agy/bin:$PATH"
-          if ! command -v agy >/dev/null 2>&1 && ! command -v agy.exe >/dev/null 2>&1; then
-            echo "Installing Antigravity CLI (agy)..."
-            curl -fsSL https://antigravity.google/cli/install.sh | bash -s -- --skip-aliases --skip-path
-          fi
-          # On a cloud runner without a local Google AI subscription keyring session, configure API key provider if GEMINI_API_KEY is supplied
-          if [ -n "${GEMINI_API_KEY:-}" ] && [ "${RUNNER_ENVIRONMENT:-}" = "github-hosted" ]; then
-            mkdir -p "$HOME/.gemini/antigravity-cli"
-            echo '{"modelProvider":"gemini"}' > "$HOME/.gemini/antigravity-cli/settings.json"
-          fi
-
       - name: Run Gemini 3.8 Flash (High) PR Review
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -77,5 +61,5 @@ jobs:
           AGY_MODEL: ${{ vars.AGY_MODEL || 'gemini-3.8-flash-high' }}
           AGY_EFFORT: 'high'
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: |
-          node .agents/scripts/run_pr_review.js
+        run: node .agents/scripts/run_pr_review.js
+
