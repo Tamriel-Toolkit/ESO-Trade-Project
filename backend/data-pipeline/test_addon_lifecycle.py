@@ -124,22 +124,38 @@ class AddonLifecycleTests(unittest.TestCase):
         self.lua.execute('''
             page = 0; hasMore = true
             function GetTradingHouseSearchResultsInfo() return #rows, page, hasMore end
+            function GetCurrentTradingHouseGuildDetails()
+                return guildId, guildId == 89 and "Second Guild" or "Test Guild"
+            end
         ''')
+        # Guild A (88) page 0 observes UIDs 9007199254740993 and 9007199254740994.
         self.scan()
-        # Page 1 completes pagination (hasMore = false) with a shifted/partial subset of UIDs.
+        # Switch to Guild B (89), observe its final page (hasMore = false) and an empty result page.
         self.lua.execute('''
-            page = 1; hasMore = false; rows = {"9007199254740995"}
+            guildId = 89; events[EVENT_TRADING_HOUSE_SELECTED_GUILD_CHANGED]()
+            page = 0; hasMore = false; rows = {"9007199254740996", "9007199254740997"}
+            events[EVENT_TRADING_HOUSE_RESPONSE_RECEIVED](0, TRADING_HOUSE_RESULT_SEARCH_PENDING, TRADING_HOUSE_RESULT_SUCCESS)
+            rows = {}
             events[EVENT_TRADING_HOUSE_RESPONSE_RECEIVED](0, TRADING_HOUSE_RESULT_SEARCH_PENDING, TRADING_HOUSE_RESULT_SUCCESS)
         ''')
-        # Subsequent empty final page (0 items, hasMore = false) at the same guild trader.
+        # Switch back to Guild A (88), observe a disjoint final page (hasMore = false) and an empty result page.
         self.lua.execute('''
+            guildId = 88; events[EVENT_TRADING_HOUSE_SELECTED_GUILD_CHANGED]()
+            page = 1; hasMore = false; rows = {"9007199254740995"}
+            events[EVENT_TRADING_HOUSE_RESPONSE_RECEIVED](0, TRADING_HOUSE_RESULT_SEARCH_PENDING, TRADING_HOUSE_RESULT_SUCCESS)
             page = 0; hasMore = false; rows = {}
             events[EVENT_TRADING_HOUSE_RESPONSE_RECEIVED](0, TRADING_HOUSE_RESULT_SEARCH_PENDING, TRADING_HOUSE_RESULT_SUCCESS)
         ''')
-        self.assertEqual(3, self.lua.eval('#ESOTradeVars.Scans'))
+        self.assertEqual(5, self.lua.eval('#ESOTradeVars.Scans'))
         self.assertEqual(0, self.lua.eval('#ESOTradeVars.Purchases'))
-        uids = [self.lua.eval(f'ESOTradeVars.Scans[{i}].UID') for i in (1, 2, 3)]
-        self.assertEqual(["9007199254740993", "9007199254740994", "9007199254740995"], uids)
+        observed = [(self.lua.eval(f'ESOTradeVars.Scans[{i}].GuildId'), self.lua.eval(f'ESOTradeVars.Scans[{i}].UID')) for i in range(1, 6)]
+        self.assertEqual([
+            ("88", "9007199254740993"),
+            ("88", "9007199254740994"),
+            ("89", "9007199254740996"),
+            ("89", "9007199254740997"),
+            ("88", "9007199254740995"),
+        ], observed)
 
 
 if __name__ == "__main__":

@@ -38,8 +38,9 @@ players without the addon are not observable: the site is an observations-based
 marketplace, not a guarantee that stock is still available. Ordinary filtered, unfiltered, or paged searches—including paging to the final
 page or receiving zero results—never remove listings simply because they were
 not returned. As documented in [Listing Lifecycle & Absence Feasibility](LISTING_LIFECYCLE.md)
-(`#144`), ESO's offset-paginated trading-house API lacks snapshot isolation across
-pages, so unseen listings are never deleted by absence.
+(`#144`), the official ESO trading-house API does not establish snapshot or
+completeness guarantees across paginated searches, so unseen listings are never
+deleted by absence.
 
 ## Reliable remote delivery
 
