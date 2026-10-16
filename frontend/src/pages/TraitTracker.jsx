@@ -154,7 +154,6 @@ export function TraitTracker() {
     const [traitData, setTraitData] = useState(null);
     const [marketMatches, setMarketMatches] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [matchesLoading, setMatchesLoading] = useState(false);
     const [searchFodderQuery, setSearchFodderQuery] = useState("");
 
     // Load user characters
@@ -188,7 +187,6 @@ export function TraitTracker() {
     // Load live market fodder matches
     const loadMarketMatches = async (charId, currentServer) => {
         if (!charId) return;
-        setMatchesLoading(true);
         try {
             const res = await fetchTraitMarketMatches(charId, { server: currentServer, limitPerTrait: 3 });
             if (res && res.success) {
@@ -196,8 +194,6 @@ export function TraitTracker() {
             }
         } catch (e) {
             console.error("Failed to load trait market matches:", e);
-        } finally {
-            setMatchesLoading(false);
         }
     };
 
