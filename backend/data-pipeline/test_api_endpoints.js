@@ -743,6 +743,29 @@ async function runTests() {
         if (authCharSync.status !== 200) throw new Error(`Expected 200 for auth characters/sync, got ${authCharSync.status}`);
         console.log("   Character sync auth & IDOR protection verified!");
 
+        console.log("\n27b. Testing POST /api/characters/sync character name validation & sanitization...");
+        const emptyNameSync = await httpPost('/api/characters/sync', { name: "   ", known_items: [1129] }, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (emptyNameSync.status !== 400) throw new Error(`Expected 400 for whitespace-only name in characters/sync, got ${emptyNameSync.status}`);
+
+        const invalidTypeSync = await httpPost('/api/characters/sync', { name: 12345, known_items: [1129] }, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (invalidTypeSync.status !== 400) throw new Error(`Expected 400 for non-string name in characters/sync, got ${invalidTypeSync.status}`);
+
+        const trimmedNameSync = await httpPost('/api/characters/sync', { name: "  PaddedHeroTest  ", known_items: [1129, "invalid", 1321] }, {
+            'Authorization': `Bearer ${bypassRes.data.token}`
+        });
+        if (trimmedNameSync.status !== 200 || !trimmedNameSync.data.character_id) {
+            throw new Error(`Expected 200 for trimmed character sync, got status ${trimmedNameSync.status}`);
+        }
+        const syncedItems = await testDbAll("SELECT game_item_id FROM knowledge WHERE character_id = ? ORDER BY game_item_id;", [trimmedNameSync.data.character_id]);
+        if (syncedItems.length !== 2 || syncedItems[0].game_item_id !== 1129 || syncedItems[1].game_item_id !== 1321) {
+            throw new Error(`Item array sanitization failed, got: ${JSON.stringify(syncedItems)}`);
+        }
+        console.log("   Character sync name validation & item array sanitization verified!");
+
         console.log("\n28. Testing POST /api/characters/upload-gear auth & IDOR protection...");
         const unauthGear = await httpPost('/api/characters/upload-gear', { character_name: "SecuredHeroTest", gear: [] });
         if (unauthGear.status !== 401) throw new Error(`Expected 401 for unauth upload-gear, got ${unauthGear.status}`);

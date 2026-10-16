@@ -1089,18 +1089,21 @@ app.post("/api/characters/sync", async (req, res) => {
 
     const { name, class: charClass, level, is_master_crafter, known_items } = req.body;
 
-    if (!name) {
+    if (!name || typeof name !== "string" || name.trim().length === 0) {
         return res.status(400).json({ error: "Character name is required." });
     }
 
+    const cleanName = name.trim();
+
     try {
-        const existingChar = await dbGet("SELECT id, user_id FROM characters WHERE name = ?", [name]);
+        // Begin immediate transaction to prevent concurrent modifications and TOCTOU race conditions
+        await dbRun("BEGIN IMMEDIATE TRANSACTION");
+
+        const existingChar = await dbGet("SELECT id, user_id FROM characters WHERE name = ?", [cleanName]);
         if (existingChar && existingChar.user_id && existingChar.user_id !== userId) {
+            await dbRun("ROLLBACK");
             return res.status(403).json({ error: "Forbidden: Character belongs to another user." });
         }
-
-        // Begin immediate transaction to prevent concurrent modifications
-        await dbRun("BEGIN IMMEDIATE TRANSACTION");
 
         // 1. Upsert character metadata
         await dbRun(`
@@ -1112,10 +1115,10 @@ app.post("/api/characters/sync", async (req, res) => {
                 is_master_crafter = excluded.is_master_crafter,
                 user_id = COALESCE(characters.user_id, excluded.user_id),
                 last_sync_at = excluded.last_sync_at;
-        `, [name, charClass || null, level ? parseInt(level, 10) : null, is_master_crafter ? 1 : 0, userId]);
+        `, [cleanName, charClass || null, level ? parseInt(level, 10) : null, is_master_crafter ? 1 : 0, userId]);
 
         // 2. Safely retrieve the character's primary key ID
-        const charRow = await dbGet("SELECT id FROM characters WHERE name = ?", [name]);
+        const charRow = await dbGet("SELECT id FROM characters WHERE name = ?", [cleanName]);
         const characterId = charRow.id;
 
         // 3. Clear old knowledge mappings
@@ -1123,16 +1126,21 @@ app.post("/api/characters/sync", async (req, res) => {
 
         // 4. Bulk insert newly synchronized item IDs
         if (Array.isArray(known_items) && known_items.length > 0) {
+            const validKnownItems = known_items
+                .map(item => parseInt(item, 10))
+                .filter(id => !isNaN(id));
+
             // SQLite has parameter bounds. We chunk the list of items to ensure safety.
             const chunkSize = 400; // 400 items * 2 parameters = 800 parameters, well within limit of 999
-            for (let i = 0; i < known_items.length; i += chunkSize) {
-                const chunk = known_items.slice(i, i + chunkSize);
+            for (let i = 0; i < validKnownItems.length; i += chunkSize) {
+                const chunk = validKnownItems.slice(i, i + chunkSize);
+                if (chunk.length === 0) continue;
                 const placeholders = chunk.map(() => "(?, ?, 1, CURRENT_TIMESTAMP)").join(", ");
                 const sql = `INSERT INTO knowledge (character_id, game_item_id, is_known, learned_at) VALUES ${placeholders}`;
                 
                 const params = [];
                 chunk.forEach(gameItemId => {
-                    params.push(characterId, parseInt(gameItemId, 10));
+                    params.push(characterId, gameItemId);
                 });
                 
                 await dbRun(sql, params);
