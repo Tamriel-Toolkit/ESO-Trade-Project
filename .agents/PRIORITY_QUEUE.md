@@ -3,7 +3,7 @@
 > **Live Status**: Canonical Roadmap & Priority Matrix  
 > **Master Tracking Issue on GitHub (Live Single Source of Truth)**: [Issue #35](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/35)  
 > **Repository Rules**: [.agents/AGENTS.md](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/AGENTS.md)  
-> **Last Evaluated**: 2026-08-30  
+> **Last Evaluated**: 2026-10-16
 
 This living document provides the prioritized execution queue for both human maintainers and autonomous AI agents. Whenever an issue is created or resolved, GitHub Issue #35 (the live runtime SSOT) and this document are updated.
 
@@ -25,31 +25,99 @@ This living document provides the prioritized execution queue for both human mai
 
 | Rank | Issue | Area | Severity | Status | Blocked By | Strategic Rationale |
 |:---:|:---|:---|:---:|:---:|:---:|:---|
-| **1** | #82 | Feature Plan | FEATURE | 🟡 Next Up | None | Saved search presets sidebar & quick-filter drawer for authenticated users in Marketplace UI. |
-| **2** | #16 | Config / Env | MINOR | ⚪ Queued | None | Adds documented `.env.example` file for backend and frontend. |
-| **3** | #74 | Pipeline / Deps | MINOR | ⚪ Queued | None | Adds playwright to backend/data-pipeline/requirements.txt. |
-| **4** | #76 | Backend / Config | MINOR | ⚪ Queued | None | Configures trust proxy setting for express rate limiters behind reverse proxies. |
-| **5** | #78 | Backend / Security | MINOR | ⚪ Queued | None | Deprecates legacy unsalted SHA-256 password fallback in favor of strict bcrypt verification. |
-| **6** | #70 | Backend / DB | NITPICK | ⚪ Queued | None | Handles and logs schema migration and transaction rollback errors. |
-| **7** | #75 | Pipeline / Logging | NITPICK | ⚪ Queued | None | Logs network and parsing exceptions in live trader extractor instead of silent pass. |
-| **8** | #79 | Frontend / Infra | NITPICK | ⚪ Queued | None | Adds standard start script to frontend/package.json for production deployment. |
-| **9** | #80 | Frontend / QA | NITPICK | ⚪ Queued | None | Configures Vitest and React Testing Library for frontend component unit tests. |
-| **10** | #104 | Frontend / Design | FEATURE | ⚪ Queued | None | Centralized Design System Tokens, CSS/Tailwind Variable Architecture, and UI Style Guide Documentation. |
-| **11** | #100 | Frontend / Search | FEATURE | ⚪ Queued | None | Deep-linked structured URL query parameters (`set`, `category`, `slot`, `weight`, `trait`) for Marketplace navigation. |
-| **12** | #103 | Requests / Messaging | FEATURE | ⚪ Queued | None | Direct 1-on-1 In-App Messaging & Negotiation Chat for Claimed Trade Requests. |
-| **13** | #105 | Profiles / Social | FEATURE | ⚪ Queued | None | Dedicated Public & Personal User Profile Pages with Trader Showcase, Crafter Badges, and Feedback Reputation. |
-| **14** | #106 | Builds / Social | FEATURE | ⚪ Queued | None | Build Visibility Controls (Public vs Private/Draft), Personal Saved Builds Dashboard, and 1-Click Fork/Bookmark Community Builds. |
-| **15** | #15 | Documentation | MINOR | ⚪ Queued | None | Expands root `README.md` with system overview, architecture, and getting-started guide. |
-| **16** | #14 | Documentation | MINOR | ⚪ Queued | None | Fixes PostgreSQL references in `DatabaseSchema.md` to reflect SQLite 3. |
-| **17** | #22 | Documentation | NITPICK | ⚪ Queued | None | Adds setup, watcher daemon, and ingestion guide in `backend/data-pipeline/README.md`. |
-| **18** | #23 | Documentation | NITPICK | ⚪ Queued | None | Adds deployment guide and production configuration documentation. |
-| **19** | #19 | Database / Perf | NITPICK | ⚪ Queued | None | Adds SQLite FTS5 Full-Text Search virtual table for sub-millisecond item catalog lookups. |
-| **20** | #21 | Testing / QA | NITPICK | ⚪ Queued | None | Expands unit & integration test coverage across all Express endpoints and Python parsers. |
+| **1** | #162 | API / Authorization | CRITICAL | 🟡 Next Up | None | Release blocker: reproduced authenticated cross-account character ownership transfer. |
+| **2** | #163 | Testing / Safety | MODERATE | ⚪ Queued | None | Prevent test execution from opening or mutating configured application data. |
+| **3** | #164 | Database / Concurrency | MODERATE | 🔴 Blocked | #163 | Own complete transactions and establish WAL/durability before increasing production concurrency. |
+| **4** | #165 | Data / Authenticity | MODERATE | 🔴 Blocked | #163 | Ensure the public web app starts from authentic catalog data, never fixture bootstrap. |
+| **5** | #166 | Web / API Configuration | MODERATE | ⚪ Queued | None | Fix the browser deployment contract before containerizing the web app. |
+| **6** | #167 | Security / Sessions | MODERATE | 🔴 Blocked | #162, #163, #166 | Define secure public-browser authentication and least-privilege ingestion access. |
+| **7** | #168 | Database / Migrations | MODERATE | 🔴 Blocked | #164, #165 | Make production schema evolution atomic, traceable and safely adopt existing data. |
+| **8** | #169 | Infrastructure / Web Deployment | FEAT | 🔴 Blocked | #162, #166, #165, #167 | Deploy the product as a browser web app with durable server storage and controlled ingress. |
+| **9** | #170 | CI / Supply Chain | MINOR | 🔴 Blocked | #163 | Make release artifacts reproducible and test the runtime actually deployed. |
+| **10** | #171 | Operations / Recovery | MODERATE | 🔴 Blocked | #164, #168, #169 | Prove recoverability of user data and native market state before launch. |
+| **11** | #172 | Operations / Observability | MODERATE | 🔴 Blocked | #164, #168, #169 | Expose real readiness and actionable failures before traffic is admitted. |
+| **12** | #173 | API / Resource Protection | MODERATE | 🔴 Blocked | #172 | Bound public-facing CPU, download and storage amplification. |
+| **13** | #174 | Web / Account Lifecycle | FEAT | 🔴 Blocked | #167, #168 | Give public web users a secure recovery path without developer access. |
+| **14** | #175 | Security / User Operations | FEAT | 🔴 Blocked | #167, #168 | Provide accountable privacy and abuse handling for a public user-generated-content web app. |
+| **15** | #176 | Web / Asset Caching | MINOR | 🔴 Blocked | #166, #169, #173 | Cache immutable local bytes safely and preserve recovery from missing upstream icons. |
+| **16** | #177 | Frontend / Resilience | MINOR | ⚪ Queued | None | Prevent a rendering exception from leaving the public web app blank. |
+| **17** | #178 | Frontend / Sharing | MINOR | 🔴 Blocked | #166, #167, #169, #175 | Support safe web deep links and previews without requiring desktop UI or unrelated social features. |
+| **18** | #179 | QA / Performance and Integrity | MODERATE | 🔴 Blocked | #164, #165, #169, #172, #173, #176 | Make completeness and measured performance explicit web launch gates. |
+| **19** | #180 | Ingestion / Offline Reliability | MODERATE | 🔴 Blocked | #167, #168, #162 | Reliably feed the web marketplace from native player-side observations. |
+| **20** | #181 | Ingestion / Windows Companion | FEAT | 🔴 Blocked | #180, #167, #170 | Provide a usable and trustworthy scan contributor companion while keeping the product web-based. |
+| **21** | #14 | Database / Docs | MINOR | 🔴 Blocked | #165, #168 | Documents the complete current SQLite schema, constraints, indexes, triggers, and migration rules. |
+| **22** | #15 | Documentation | MINOR | 🔴 Blocked | #166, #169, #174, #181 | Provides accurate onboarding for the current catalog, native addon, API, frontend, and icon architecture. |
+| **23** | #22 | Pipeline / Docs | MINOR | 🔴 Blocked | #165, #180, #181, #167 | Makes catalog and native-addon ingestion reproducible and supportable from a clean environment. |
+| **24** | #23 | Deployment / Docs | MINOR | 🔴 Blocked | #169, #168, #171, #172, #179 | Defines a supported production topology with persistent SQLite, icon caching, backups, and monitoring. |
+| **25** | #182 | Release / Production Gate | FEAT | 🔴 Blocked | #162, #163, #164, #165, #166, #167, #168, #169, #170, #171, #172, #173, #174, #175, #176, #177, #178, #179, #180, #181, #14, #15, #22, #23 | Final release sign-off after security, recovery, capacity, browser UX and contributor onboarding are proven. |
+| **26** | #103 | Requests / Messaging | FEATURE | ⚪ Queued | None | Adds authorized order-specific buyer and crafter communication after core stability work. |
+| **27** | #119 | UI / Navigation | MINOR | ⚪ Queued | None | Consistent navigation and utility presentation across every route. |
+| **28** | #120 | UI / Home | MINOR | ⚪ Queued | None | Clear product introduction and compact category discovery. |
+| **29** | #121 | UI / Market Search | MINOR | ⚪ Queued | None | Readable search, refinement, sorting, and saved-search hierarchy. |
+| **30** | #122 | UI / Market Listings | MINOR | ⚪ Queued | None | Clear item, price, stack, trader, and observation presentation. |
+| **31** | #147 | UI / Builds and Requests | FEATURE | ⚪ Queued | None | Scalable build library and request ledger: complete pagination, true set search, accessible summaries and restorable browsing; coordinate #123, #124 and #126. |
+| **32** | #123 | UI / Request Pages | MINOR | ⚪ Queued | None | Compact and consistent public and personal request pages. |
+| **33** | #124 | UI / Request Cards | MINOR | ⚪ Queued | None | Readable specifications, offers, statuses, and role-specific actions. |
+| **34** | #125 | UI / Request Form | MINOR | ⚪ Queued | None | Consistent item selection and request form presentation. |
+| **35** | #126 | UI / Build Gallery | MINOR | ⚪ Queued | None | Scannable build identity, metadata, and existing actions. |
+| **36** | #127 | UI / Build Details | MINOR | ⚪ Queued | None | Readable equipment, comparison metrics, and recorded-price context. |
+| **37** | #128 | UI / Build Form | MINOR | ⚪ Queued | None | Coherent equipment editor and nested set picker styling. |
+| **38** | #129 | UI / Characters | MINOR | ⚪ Queued | None | Concise roster copy and compact shared equipment layout. |
+| **39** | #130 | UI / Trait Research | MINOR | ⚪ Queued | None | Legible research status and accurate matching-listing labels. |
+| **40** | #131 | UI / Auth and Utility | MINOR | ⚪ Queued | None | Focused authentication, unknown-route, and development account presentation. |
+| **41** | #142 | UI / Appearance | FEATURE | ⚪ Queued | None | Adds accessible light and OS-following themes after shared tokens and core UI acceptance, before social feature expansion. |
+| **42** | #106 | Builds / Social | FEATURE | ⚪ Queued | None | Adds secure build visibility, derived bookmarks, and private-by-default community forks. |
+| **43** | #105 | Profiles / Privacy | FEATURE | ⚪ Queued | None | Delivers a privacy-conscious profile MVP before reputation or public contact features. |
+| **44** | #110 | Reputation / Safety | FEATURE | 🔴 Blocked | #105 | Adds verified post-trade reputation only with moderation, privacy, and anti-abuse safeguards. |
+
+---
+
+## 🌐 Public web production-readiness program
+
+**Product:** browser-based React/Vite web app with an Express/SQLite service. The standalone Windows watcher is a player-side native scan contributor companion, not a desktop marketplace or server-side game process.
+
+**Milestone:** [Public web launch readiness](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/milestone/1). **Launch acceptance:** #182. **Immediate release blocker / sole Next Up:** #162. Each issue contains concrete acceptance criteria and bidirectional dependency references; the matrix remains the execution source of truth. Phase grouping describes delivery outcomes; cross-cutting security and test-safety prerequisites run first where required.
+
+| Phase | Required work | Evidence before progressing |
+|:---|:---|:---|
+| 1 — Infrastructure and web foundations | #162, #163, #165, #166, #167, #169, #170 | Authorization fix, safe tests, authentic bootstrap, correct browser API origin, scoped sessions, reproducible HTTPS topology and release pipeline. |
+| 2 — Data durability and migrations | #164, #168, #171, #14 | Transaction ownership/WAL, validated migration ledger, off-host backups and a timed fresh-host restore. |
+| 3 — Observability, security and web resilience | #172, #173, #174, #175, #176, #177, #178, #179 | Real readiness/alerts, bounded resources, recovery/privacy operations, local caching, error containment, safe previews and measured completeness/capacity. |
+| 4 — Native contributor onboarding and launch acceptance | #180, #181, #182, #15, #22, #23 | Signed companion, durable offline capture, end-to-end native observation to browser search, verified operator/user docs and recorded release decision. |
+
+**Required documentation owners:** #14 (schema), #15 (onboarding), #22 (pipeline/companion) and #23 (deployment/recovery/operations). These existing issues are reused and linked to their actual implementation dependencies.
+
+**Existing optional enhancement backlog:** #103, #105, #106, #110, #119–#131, #142 and #147 retain their approved scopes. They are not automatically all required to launch. Existing user-facing routes must pass #182 usability/security checks; unready new features stay disabled. #119 coordinates the persistent shell with #177; #106/#147 coordinate detail/visibility behavior with #178. No closed/merged work is revived.
+
+**Invariant gates:** authentic catalog/native observations only; Id64 decimal strings end-to-end; committed matching listings remain discoverable immediately; no removal by scan absence; local browser icons; official Lua hooks only. Production load fixtures remain isolated.
 
 ---
 
 ## 🏆 Recently Completed / Merged
-- **`#9`** — `[Milestone] Structured Public Crafting & WTB Request Board` (In Review via PR #102)
+- **`#104`** — `[FEAT] Establish Tailwind v4 design tokens and incrementally migrate core UI` (Closed/Merged)
+- **`#144`** — `[FEAT] Validate feasibility of trustworthy full-trader absence reconciliation` (Closed/Merged)
+- **`#100`** — `[FEAT] Complete bidirectional deep-linked Marketplace filter state` (Closed/Merged)
+- **`#118`** — `[FEAT] Implement evidence-based guild trader listing lifecycle and purchase removals` (Closed/Merged)
+- **`#21`** — `[MODERATE] Expand backend and data-pipeline regression coverage for the current architecture` (Closed/Merged)
+- **`#138`** — `[MODERATE] Unit price integer rounding discards true stack listing price and inflates marketplace totals` (Closed/Merged)
+- **`#134`** — `[MODERATE] Correct marketplace trait capture, mappings, and filtering` (Closed/Merged)
+- **`#132`** — `[FEAT] Establish a bespoke ESO-inspired visual identity and restyle the entire web app` (Closed/Completed via PR #133)
+- **`#80`** — `[NITPICK] Configure Vitest and React Testing Library for frontend component unit tests` (Closed/Completed)
+- **`#76`** — `[MODERATE] Configure topology-safe Express proxy trust and client IP rate limiting` (Closed/Merged)
+- **`#16`** — `[MINOR] Add complete backend and frontend environment configuration examples` (Closed/Merged)
+- **`#111`** — `[MODERATE] Repair priority queue mirror sync failures after issue closure events` (Closed/Merged)
+- **`#133`** — `Gilded Exchange restyle, ESO Marketplace rename, and catalog browsing retirement` (PR #133 Merged)
+- **`#70`** — `[MODERATE] Make schema migrations and transaction rollbacks observable and failure-safe` (Closed/Merged)
+- **`#115`** — `[MODERATE] Commit native parser SQLite synchronization before reporting success` (Closed/Merged)
+- **`#113`** — `[MODERATE] Prevent ESOTrade watcher self-trigger loop and empty resync storm` (Closed/Merged)
+- **`#78`** — `[CRITICAL] Remove legacy SHA-256 password verification and reset remaining legacy accounts` (Closed/Merged)
+- **`#107`** — `[FEAT] Remove external market integration and serve catalog icons locally` (Closed/Merged)
+- **`#19`** — `[NITPICK] No Full-Text Search (FTS) — catalog search uses LIKE patterns` (Closed/Merged)
+- **`#79`** — `[NITPICK] Add standard start script to frontend/package.json for production deployment` (Closed/Merged)
+- **`#75`** — `[NITPICK] Log network and parsing exceptions in live trader extractor instead of silent pass` (Closed/Merged)
+- **`#74`** — `[MINOR] Add playwright to backend/data-pipeline/requirements.txt` (Closed/Merged)
+- **`#82`** — `[FEAT] Saved search presets sidebar & quick-filter drawer for authenticated users in Marketplace UI` (Closed/Merged)
+- **`#9`** — `[Milestone] Structured Public Crafting & WTB Request Board` (Closed/Merged via PR #102)
 - **`#10`** — `[Milestone] Trait Research Tracker & Automated Market Matching Engine` (Closed/Merged via PR #101)
 - **`#8`** — `[Milestone] Smart Build Importer & Market Deal Recommendation Engine` (Closed/Merged via PR #99)
 - **`#37`** — `[MINOR] Auto-fit dropdown width to longest option name in EsoSelect and CharacterManager` (Closed/Merged via PR #98)
@@ -71,7 +139,6 @@ This living document provides the prioritized execution queue for both human mai
 - **`#60`** — `[MODERATE] Gate DEV-Only Clear Listings button from production Marketplace UI` (Closed/Merged)
 - **`#61`** — `[MODERATE] Add dotenv dependency and loader to backend server initialization` (Closed/Merged)
 - **`#62`** — `[MODERATE] Handle child process error event in scraper endpoint to prevent server crashes` (Closed/Merged)
-- **`#59`** — `Issue #59` (Closed/Merged)
 - **`#57`** — `[CRITICAL] Broken Access Control & IDOR: Unauthenticated mutations default to User 1 and arbitrary deletions allowed` (Resolved)
 - **`#84`** — `[MODERATE] Equipment and marketplace item icons failing to render due to raw DDS texture format` (Resolved)
 - **`#58`** — `[CRITICAL] Protect unauthenticated state-modifying sync and watchlist mutation endpoints` (Resolved)
