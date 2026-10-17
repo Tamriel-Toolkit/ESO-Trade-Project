@@ -6,7 +6,7 @@
   "scripts": {
     "test": "npm run test:api && npm run test:failures && npm run test:lifecycle && npm run test:marketplace && npm run test:auth",
     "test:marketplace": "node --test data-pipeline/test_marketplace_filters.js",
-    "test:lifecycle": "node --test data-pipeline/test_listing_lifecycle.js",
+    "test:lifecycle": "node --test data-pipeline/test_listing_lifecycle.js data-pipeline/test_scan_authorization.js",
     "test:api": "node data-pipeline/test_api_endpoints.js",
     "test:failures": "node --test data-pipeline/test_backend_failures.js",
     "start": "node server.js",

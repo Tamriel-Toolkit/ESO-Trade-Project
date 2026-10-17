@@ -119,50 +119,52 @@ test('native upload SQL failure rolls back the whole batch; replay is idempotent
     const { sandbox, request } = await fixture(t);
     const login = await request('/api/dev/bypass-login', post({ user_id: 1 }));
     const { token } = await login.json();
-    const upload = async listings => {
-        const options = post({ server: 'NA', listings, player_name: 'AtomicScanCharacter' });
+    const upload = async observations => {
+        const options = post({ lifecycle_version: 1, server: 'NA', observations, player_name: 'AtomicScanCharacter' });
         options.headers.Authorization = `Bearer ${token}`;
         return request('/api/market/upload-scans', options);
     };
-    const listing = { game_item_id: 1129, item_name: 'Isolated scan fixture', price: 3.72,
-        total_price: 744, quantity: 200, active_stacks: 2, seller_name: '@FailureFixture',
-        guild_name: 'Isolated fixture', level: 1, quality: 1, trait_id: 0 };
-    await query(sandbox.dbPath, `CREATE TRIGGER reject_scan_fixture BEFORE INSERT ON guild_trader_listings
+    const listing = { uid: '101', guild_id: '88', game_item_id: 1129, item_name: 'Isolated scan fixture',
+        total_price: 744, quantity: 200, seller_name: '@FailureFixture',
+        guild_name: 'Isolated fixture', level: 1, quality: 1, trait_id: 0,
+        observed_at: Math.floor(Date.now() / 1000), time_remaining: 86400 };
+    await query(sandbox.dbPath, `CREATE TRIGGER reject_scan_fixture BEFORE INSERT ON native_listing_observations
         WHEN NEW.seller_name = '@RejectedFixture' BEGIN SELECT RAISE(ABORT, 'fixture write failure'); END`);
-    const failed = await upload([listing, { ...listing, seller_name: '@RejectedFixture' }]);
+    const failed = await upload([listing, { ...listing, uid: '102', seller_name: '@RejectedFixture' }]);
     assert.equal(failed.status, 500);
     assert.equal(typeof (await failed.json()).error, 'string');
-    assert.deepEqual(await query(sandbox.dbPath, 'SELECT id FROM guild_trader_listings WHERE seller_name = ?', [listing.seller_name]), []);
+    assert.deepEqual(await query(sandbox.dbPath, 'SELECT uid FROM native_listing_observations'), []);
+    assert.deepEqual(await query(sandbox.dbPath, 'SELECT * FROM native_listing_groups'), []);
     assert.deepEqual(await query(sandbox.dbPath, 'SELECT id FROM characters WHERE name = ?', ['AtomicScanCharacter']), []);
-    await query(sandbox.dbPath, 'DROP TRIGGER reject_scan_fixture');
     for (let i = 0; i < 2; i++) {
-        const response = await upload([listing]);
+        const response = await upload([listing, { ...listing, uid: '102' }]);
         assert.equal(response.status, 200);
         await response.json();
     }
     assert.deepEqual(await query(sandbox.dbPath,
-        'SELECT active_stacks, price, total_price FROM guild_trader_listings WHERE seller_name = ?', [listing.seller_name]),
+        'SELECT active_stacks, price, total_price FROM guild_trader_active_listings WHERE seller_name = ?', [listing.seller_name]),
     [{ active_stacks: 2, price: 3.72, total_price: 744 }]);
 
-    // A later failure must restore an existing row deleted by trait reconciliation.
-    await query(sandbox.dbPath, `CREATE TRIGGER reject_scan_fixture BEFORE INSERT ON guild_trader_listings
-        WHEN NEW.seller_name = '@RejectedFixture' BEGIN SELECT RAISE(ABORT, 'fixture write failure'); END`);
-    const reconciled = await upload([{ ...listing, trait_id: 3 }, { ...listing, seller_name: '@RejectedFixture' }]);
-    assert.equal(reconciled.status, 500);
-    await reconciled.json();
-    assert.deepEqual(await query(sandbox.dbPath,
-        'SELECT trait_id, active_stacks FROM guild_trader_listings WHERE seller_name = ?', [listing.seller_name]),
-    [{ trait_id: 0, active_stacks: 2 }]);
+    // A later failure must restore an existing observation and scanner metadata updated earlier in the transaction.
+    await query(sandbox.dbPath, "UPDATE characters SET class = 'Templar', level = 25 WHERE name = 'AtomicScanCharacter'");
+    const before = await query(sandbox.dbPath, 'SELECT * FROM native_listing_observations ORDER BY uid');
+    const refreshed = await upload([{ ...listing, observed_at: listing.observed_at + 1 },
+        { ...listing, uid: '103', seller_name: '@RejectedFixture' }]);
+    assert.equal(refreshed.status, 500);
+    await refreshed.json();
+    assert.deepEqual(await query(sandbox.dbPath, 'SELECT * FROM native_listing_observations ORDER BY uid'), before);
+    assert.deepEqual(await query(sandbox.dbPath, 'SELECT class, level FROM characters WHERE name = ?', ['AtomicScanCharacter']),
+        [{ class: 'Templar', level: 25 }]);
 
     // A failing concurrent batch must not roll back a successful independent upload.
     const simultaneous = await Promise.all([
-        upload([{ ...listing, seller_name: '@ConcurrentGood', guild_name: 'Independent fixture' }]),
-        upload([{ ...listing, seller_name: '@RejectedFixture' }]),
+        upload([{ ...listing, uid: '104', seller_name: '@ConcurrentGood', guild_name: 'Independent fixture' }]),
+        upload([{ ...listing, uid: '105', seller_name: '@RejectedFixture' }]),
     ]);
     assert.deepEqual(simultaneous.map(response => response.status), [200, 500]);
     await Promise.all(simultaneous.map(response => response.json()));
     assert.equal((await query(sandbox.dbPath,
-        'SELECT id FROM guild_trader_listings WHERE seller_name = ?', ['@ConcurrentGood'])).length, 1);
+        'SELECT uid FROM native_listing_observations WHERE seller_name = ?', ['@ConcurrentGood'])).length, 1);
 });
 
 test('legacy listing migration backfills exact totals and is repeatable across restart', { timeout: 30000 }, async t => {

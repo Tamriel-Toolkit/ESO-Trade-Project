@@ -846,15 +846,12 @@ async function runTests() {
         console.log("   Watchlist negative/zero price validation verified!");
 
         console.log("\n35. Testing POST /api/market/upload-scans batch size limit (>2000 items)...");
-        const oversizedBatch = Array.from({ length: 2005 }, (_, i) => ({
-            game_item_id: 1129,
-            price: 100,
-            guild_name: "Test Guild"
-        }));
-        const batchLimitRes = await httpPost('/api/market/upload-scans', { server: "NA", listings: oversizedBatch }, {
+        const oversizedBatch = Array.from({ length: 2005 }, () => ({}));
+        const batchLimitRes = await httpPost('/api/market/upload-scans', { lifecycle_version: 1, server: "NA", observations: oversizedBatch }, {
             'Authorization': `Bearer ${bypassRes.data.token}`
         });
         if (batchLimitRes.status !== 400) throw new Error(`Expected 400 for oversized batch, got ${batchLimitRes.status}`);
+        assert.match(batchLimitRes.data.error, /1.+2,000 lifecycle records/);
         console.log("   Batch upload size limit enforcement verified!");
 
         console.log("\n36. Testing HttpOnly SameSite cookie authentication flow...");
@@ -1055,47 +1052,22 @@ async function runTests() {
         });
 
         console.log("\n46. Testing GET /api/market/listings with trait filter & sort...");
-        // Seed test listings with traits via upload-scans
+        // Current uploads use exact native identities; historical rows use the isolated DB directly.
+        await testDbRun(`INSERT INTO guild_trader_listings
+            (game_item_id, item_name, server, seller_name, price, total_price, quantity, active_stacks,
+             guild_name, location, level, quality, trait_id)
+            VALUES (68450, 'Briarheart Helmet', 'NA', '@TraitTester', 8000, 8000, 1, 1,
+                'Trait Test Guild', 'Mournhold', 50, 4, 0)`);
+        const traitObservation = (uid, game_item_id, item_name, total_price, quality, trait_id) => ({
+            uid, guild_id: '88', game_item_id, item_name, total_price, quantity: 1,
+            seller_name: '@TraitTester', guild_name: 'Trait Test Guild', location: 'Mournhold',
+            level: 50, quality, trait_id, observed_at: Math.floor(Date.now() / 1000), time_remaining: 86400,
+        });
         const seedTraitScanRes = await httpPost('/api/market/upload-scans', {
-            server: "NA",
-            listings: [
-                {
-                    game_item_id: 1129,
-                    price: 10000,
-                    quantity: 1,
-                    active_stacks: 1,
-                    seller_name: "@TraitTester",
-                    guild_name: "Trait Test Guild",
-                    location: "Mournhold",
-                    level: 50,
-                    quality: 5,
-                    trait_id: 3 // Precise
-                },
-                {
-                    game_item_id: 68447,
-                    price: 15000,
-                    quantity: 1,
-                    active_stacks: 1,
-                    seller_name: "@TraitTester",
-                    guild_name: "Trait Test Guild",
-                    location: "Mournhold",
-                    level: 50,
-                    quality: 4,
-                    trait_id: 18 // Divines
-                },
-                {
-                    game_item_id: 68450,
-                    price: 8000,
-                    quantity: 1,
-                    active_stacks: 1,
-                    seller_name: "@TraitTester",
-                    guild_name: "Trait Test Guild",
-                    location: "Mournhold",
-                    level: 50,
-                    quality: 4,
-                    trait_id: 0 // Legacy untraited row
-                }
-            ]
+            lifecycle_version: 1, server: 'NA', observations: [
+                traitObservation('1001', 1129, 'Lockpicks', 10000, 5, 3),
+                traitObservation('1002', 68447, 'Briarheart Arm Cops', 15000, 4, 18),
+            ],
         }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
 
         if (seedTraitScanRes.status !== 200) {
@@ -1124,29 +1096,17 @@ async function runTests() {
         }
         console.log(`   Trait filter 'Divines' verified: found ID ${divinesListing.trait_id}, name '${divinesListing.trait_name}'`);
 
-        // Test legacy row reconciliation: upload scan with trait_id: 18 for item 68450 (which was trait_id: 0)
+        // A native identity supersedes the matching stored legacy aggregate, including trait_id: 0.
         const reconcileScanRes = await httpPost('/api/market/upload-scans', {
-            server: "NA",
-            listings: [
-                {
-                    game_item_id: 68450,
-                    price: 8000,
-                    quantity: 1,
-                    active_stacks: 1,
-                    seller_name: "@TraitTester",
-                    guild_name: "Trait Test Guild",
-                    location: "Mournhold",
-                    level: 50,
-                    quality: 4,
-                    trait_id: 18 // Now authoritative Divines
-                }
-            ]
+            lifecycle_version: 1, server: 'NA', observations: [
+                traitObservation('1003', 68450, 'Briarheart Helmet', 8000, 4, 18),
+            ],
         }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
         if (reconcileScanRes.status !== 200) {
             throw new Error(`Failed to upload reconciliation scan: ${JSON.stringify(reconcileScanRes.data)}`);
         }
 
-        // Verify that item 68450 only has 1 active listing (the trait_id: 18 one) and trait_id: 0 was removed
+        // Verify that item 68450 only has 1 active listing (the trait_id: 18 one) and trait_id: 0 is hidden by native takeover
         const checkReconciled = await httpGet('/api/market/listings?server=NA&search=Briarheart+Helmet');
         const helmListings = checkReconciled.data.listings.filter(l => l.game_item_id === 68450 && l.seller_name === "@TraitTester");
         if (helmListings.length !== 1 || helmListings[0].trait_id !== 18) {
@@ -1388,23 +1348,13 @@ async function runTests() {
 
         console.log("\n57. Testing stack price preservation and fractional unit price in upload-scans and market listings (#138)...");
         const stackScanRes = await httpPost('/api/market/upload-scans', {
-            server: "NA",
-            listings: [
-                {
-                    game_item_id: 1129,
-                    item_name: "Lockpicks",
-                    price: 3.72,
-                    total_price: 744,
-                    quantity: 200,
-                    active_stacks: 1,
-                    seller_name: "@PricingTester",
-                    guild_name: "Pricing Test Guild",
-                    location: "Abah's Landing",
-                    level: 1,
-                    quality: 1,
-                    trait_id: 0
-                }
-            ]
+            lifecycle_version: 1, server: 'NA', observations: [{
+                uid: '9007199254740993', guild_id: '89', game_item_id: 1129,
+                item_name: 'Lockpicks', total_price: 744, quantity: 200,
+                seller_name: '@PricingTester', guild_name: 'Pricing Test Guild',
+                location: "Abah's Landing", level: 1, quality: 1, trait_id: 0,
+                observed_at: Math.floor(Date.now() / 1000), time_remaining: 86400,
+            }],
         }, { 'Authorization': `Bearer ${bypassRes.data.token}` });
         if (stackScanRes.status !== 200) {
             throw new Error(`Failed to upload stack pricing scan: ${JSON.stringify(stackScanRes.data)}`);
