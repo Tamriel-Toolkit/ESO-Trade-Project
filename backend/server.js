@@ -2238,144 +2238,59 @@ app.get("/api/market/listings", async (req, res) => {
 /**
  * POST /api/market/upload-scans
  * Crowdsourced scanner ingestion endpoint.
- * Accepts raw SavedVariables file content or JSON listings array from User A's client,
- * ingests into central database, making them instantly visible to User B on the web app.
+ * Accepts lifecycle-version-1 observations and purchases from authenticated native clients.
+ * Commits them atomically so they are immediately visible to other web app users.
  */
 app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
     if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
         return res.status(400).json({error: 'Expected an upload object.'});
     }
-    const { server, listings, player_name, player_class, player_level, player_alliance, master_crafter } = req.body;
-    const targetServer = server || "NA";
+    const { player_name, player_class, player_level, player_alliance, master_crafter } = req.body;
 
     const userId = await getAuthUserId(req);
     if (!userId) {
         return res.status(401).json({ error: "Authentication required to upload market scans." });
     }
 
-    if (req.body.lifecycle_version !== undefined) {
-        try {
-            const payload = validateLifecycle(req.body);
-            const result = await withScanTransaction(dbPath, async (run, get) => {
-                if (player_name) {
-                    if (typeof player_name !== 'string' || player_name.length > 160) {
-                        const error = new Error('Invalid player_name.'); error.status = 400; throw error;
-                    }
-                    if ((player_class != null && !['Dragonknight', 'Sorcerer', 'Nightblade', 'Warden', 'Necromancer', 'Templar', 'Arcanist'].includes(player_class))
-                        || (player_level != null && (!Number.isInteger(player_level) || player_level < 1 || player_level > 50))
-                        || (player_alliance != null && ![1, 2, 3].includes(player_alliance))
-                        || (master_crafter != null && ![0, 1].includes(master_crafter))) {
-                        const error = new Error('Invalid scanner character metadata.'); error.status = 400; throw error;
-                    }
-                    const character = await get('SELECT user_id FROM characters WHERE name = ?', [player_name]);
-                    if (character?.user_id && character.user_id !== userId) {
-                        const error = new Error('Character belongs to another user.'); error.status = 403; throw error;
-                    }
-                    await run(`INSERT INTO characters (user_id, name, class, level, alliance, master_crafter_unlocked, last_sync_at)
-                        VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                        ON CONFLICT(name) DO UPDATE SET class = excluded.class, level = excluded.level,
-                            alliance = excluded.alliance, master_crafter_unlocked = excluded.master_crafter_unlocked,
-                            last_sync_at = CURRENT_TIMESTAMP`,
-                    [userId, player_name, player_class || 'Dragonknight', player_level || 50, player_alliance || 1, master_crafter || 0]);
-                }
-                return applyLifecycle(run, get, payload);
-            });
-            return res.json(result);
-        } catch (error) {
-            return res.status(error.status || 500).json({error: error.status ? error.message : 'Listing lifecycle synchronization failed.'});
-        }
-    }
-
-    if (!Array.isArray(listings) || listings.length === 0) {
-        return res.status(400).json({ error: "Invalid listings array." });
-    }
-
-    if (listings.length > 2000) {
-        return res.status(400).json({ error: "Batch size exceeds maximum limit of 2,000 listings per request." });
+    // Retired aggregate uploads must never reach a write path, in any environment.
+    // Older contributors must upgrade; inventing UIDs for legacy rows is unsafe.
+    if (req.body.lifecycle_version !== 1) {
+        return res.status(400).json({
+            error: 'Unsupported scan protocol. Upgrade the ESOTrade addon and contributor to send lifecycle_version: 1.',
+            code: 'UNSUPPORTED_SCAN_PROTOCOL',
+            supported_lifecycle_version: 1,
+        });
     }
 
     try {
-
-        const result = await withScanTransaction(dbPath, async (dbRun) => {
-            // AUTOMATED CHARACTER AUTO-DISCOVERY: Upsert scanner character into account roster
+        const payload = validateLifecycle(req.body);
+        const result = await withScanTransaction(dbPath, async (run, get) => {
             if (player_name) {
-                await dbRun(`
-                    INSERT INTO characters (user_id, name, class, level, alliance, master_crafter_unlocked, last_sync_at)
-                    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                    ON CONFLICT(name) DO UPDATE SET
-                        user_id = excluded.user_id,
-                        class = COALESCE(excluded.class, class),
-                        level = COALESCE(excluded.level, level),
-                        alliance = COALESCE(excluded.alliance, alliance),
-                        master_crafter_unlocked = excluded.master_crafter_unlocked,
-                        last_sync_at = CURRENT_TIMESTAMP;
-                `, [userId, player_name, player_class || "Dragonknight", player_level || 50, player_alliance || 1, master_crafter || 0]);
-            }
-
-            let insertedCount = 0;
-            const affectedItemIds = new Set();
-
-            for (const item of listings) {
-                const { game_item_id, item_name, name, price, total_price, quantity, active_stacks, seller_name, guild_name, location, level, quality, trait_id, expires_at } = item;
-                const displayName = item_name || name || null;
-                const cleanDisplayName = displayName ? cleanEsoItemName(displayName) : null;
-                if (game_item_id && price && guild_name) {
-                    const stackQty = Math.max(1, parseInt(quantity, 10) || 1);
-                    const stacksCount = Math.max(1, parseInt(active_stacks, 10) || 1);
-                    const rawTotalPrice = total_price != null ? parseInt(total_price, 10) : null;
-                    const rawUnitPrice = parseFloat(price);
-                    const effectiveTotalPrice = rawTotalPrice != null && !isNaN(rawTotalPrice) && rawTotalPrice > 0
-                        ? rawTotalPrice
-                        : Math.max(1, Math.round((!isNaN(rawUnitPrice) ? rawUnitPrice : 1) * stackQty));
-                    const unitPrice = !isNaN(rawUnitPrice) && rawUnitPrice > 0
-                        ? Math.round(rawUnitPrice * 100) / 100
-                        : Math.round((effectiveTotalPrice / stackQty) * 100) / 100;
-                    const sellerHandle = seller_name || "@Unknown";
-                    let validTraitId = parseInt(trait_id, 10) || 0;
-                    if (validTraitId < 0 || validTraitId > 60) validTraitId = 0;
-
-                    // Reconcile legacy trait_id = 0 row if fresh scan has valid trait_id > 0
-                    if (validTraitId > 0) {
-                        await dbRun(`
-                            DELETE FROM guild_trader_listings
-                            WHERE game_item_id = ? AND server = ? AND guild_name = ? AND seller_name = ?
-                              AND price = ? AND quantity = ? AND level = ? AND quality = ? AND trait_id = 0
-                        `, [game_item_id, targetServer, guild_name, sellerHandle, unitPrice, stackQty, level || 1, quality || 1]);
-                    }
-
-                    await dbRun(`
-                        INSERT INTO guild_trader_listings
-                        (game_item_id, item_name, server, seller_name, price, total_price, quantity, active_stacks, guild_name, location, level, quality, trait_id, expires_at, discovered_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                        ON CONFLICT(game_item_id, server, guild_name, seller_name, price, quantity, level, quality, trait_id) DO UPDATE SET
-                            item_name = COALESCE(excluded.item_name, item_name),
-                            total_price = COALESCE(excluded.total_price, total_price),
-                            active_stacks = excluded.active_stacks,
-                            discovered_at = guild_trader_listings.discovered_at,
-                            location = CASE WHEN excluded.location != 'Guild Trader' THEN excluded.location ELSE location END,
-                            expires_at = CASE WHEN expires_at IS NULL THEN excluded.expires_at
-                                WHEN excluded.expires_at IS NULL THEN expires_at
-                                ELSE MIN(datetime(expires_at), datetime(excluded.expires_at)) END;
-                    `, [game_item_id, cleanDisplayName, targetServer, sellerHandle, unitPrice, effectiveTotalPrice, stackQty, stacksCount, guild_name, location || "Guild Trader", level || 1, quality || 1, validTraitId, expires_at || null]);
-                    insertedCount++;
-                    affectedItemIds.add(game_item_id);
+                if (typeof player_name !== 'string' || player_name.length > 160) {
+                    const error = new Error('Invalid player_name.'); error.status = 400; throw error;
                 }
+                if ((player_class != null && !['Dragonknight', 'Sorcerer', 'Nightblade', 'Warden', 'Necromancer', 'Templar', 'Arcanist'].includes(player_class))
+                    || (player_level != null && (!Number.isInteger(player_level) || player_level < 1 || player_level > 50))
+                    || (player_alliance != null && ![1, 2, 3].includes(player_alliance))
+                    || (master_crafter != null && ![0, 1].includes(master_crafter))) {
+                    const error = new Error('Invalid scanner character metadata.'); error.status = 400; throw error;
+                }
+                const character = await get('SELECT user_id FROM characters WHERE name = ?', [player_name]);
+                if (character?.user_id && character.user_id !== userId) {
+                    const error = new Error('Character belongs to another user.'); error.status = 403; throw error;
+                }
+                await run(`INSERT INTO characters (user_id, name, class, level, alliance, master_crafter_unlocked, last_sync_at)
+                    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(name) DO UPDATE SET class = excluded.class, level = excluded.level,
+                        alliance = excluded.alliance, master_crafter_unlocked = excluded.master_crafter_unlocked,
+                        last_sync_at = CURRENT_TIMESTAMP`,
+                [userId, player_name, player_class || 'Dragonknight', player_level || 50, player_alliance || 1, master_crafter || 0]);
             }
-
-            // Ordinary searches (including filtered/paged/chunked results) only
-            // provide positive observations, never proof that another row sold.
-
-            return {
-                success: true,
-                message: `Successfully ingested ${insertedCount} native listings for ${affectedItemIds.size} items.`,
-                count: insertedCount,
-                observed_items: affectedItemIds.size
-            };
+            return applyLifecycle(run, get, payload);
         });
-        res.json(result);
-    } catch (err) {
-        console.error("Error in upload-scans:", err.message);
-        res.status(500).json({ error: err.message });
+        return res.json(result);
+    } catch (error) {
+        return res.status(error.status || 500).json({error: error.status ? error.message : 'Listing lifecycle synchronization failed.'});
     }
 });
 

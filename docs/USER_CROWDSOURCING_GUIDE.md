@@ -44,6 +44,21 @@ deleted by absence.
 
 ## Reliable remote delivery
 
+The scan API accepts only **lifecycle version 1** in every environment. The current
+watcher/importer sends this version automatically. Older contributors that send
+an unversioned `listings` array must upgrade the addon and watcher/importer together;
+there is no development or production bypass. An authenticated unsupported upload
+returns HTTP 400 with `code: "UNSUPPORTED_SCAN_PROTOCOL"` and
+`supported_lifecycle_version: 1`, before changing any characters or listings.
+Unauthenticated uploads remain HTTP 401.
+
+Do not convert old aggregate rows by inventing listing IDs. Previously stored
+legacy listings remain readable under the existing expiry and native-takeover
+rules; this protocol change does not delete or migrate them. A versioned upload
+that names another account's character returns HTTP 403 and rolls back the whole
+batch. Valid owner updates, exact-ID purchases, and repeat deliveries retain their
+existing behavior.
+
 `ESOTRADE_AUTH_TOKEN` is required when uploading to a separate central API. Set
 `ESOTRADE_SERVER_URL` for the watcher, or pass `--server-url` to the importer.
 Use HTTPS for a remote deployment; plain HTTP is intended for localhost testing.

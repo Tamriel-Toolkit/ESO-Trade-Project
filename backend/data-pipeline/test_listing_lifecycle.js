@@ -119,20 +119,27 @@ test('30-day retention hides old native and legacy NULL-expiry rows immediately 
     assert.equal((await query(sandbox.dbPath, 'SELECT * FROM guild_trader_listings')).length, 0);
 });
 
-test('legacy rows are not assigned invented UIDs, filtered uploads preserve unrelated rows, takeover cannot double-count', async t => {
+test('stored legacy rows keep their identity; native takeover cannot double-count or resurrect purchases', async t => {
     const {upload, send, listings, sandbox} = await fixture(t);
     const legacy = {...observation('101'), price: 3.72, active_stacks: 3};
     delete legacy.uid; delete legacy.guild_id;
-    await upload({server: 'NA', listings: [legacy, {...legacy, seller_name: '@Other'}]});
-    await query(sandbox.dbPath, "UPDATE guild_trader_listings SET discovered_at = datetime('now', '-1 day')");
-    await upload({server: 'NA', listings: [legacy]});
+    // Historical rows are seeded directly in the disposable DB, never through a retired write API.
+    for (const seller of [legacy.seller_name, '@Other']) {
+        await query(sandbox.dbPath, `INSERT INTO guild_trader_listings
+            (game_item_id, item_name, server, guild_name, seller_name, price, total_price,
+             quantity, active_stacks, level, quality, trait_id, discovered_at)
+            VALUES (?, ?, 'NA', ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now', '-1 day'))`,
+        [legacy.game_item_id, legacy.item_name, legacy.guild_name, seller, legacy.price, legacy.total_price,
+            legacy.quantity, legacy.active_stacks, legacy.level, legacy.quality, legacy.trait_id]);
+    }
+    assert.equal((await upload({server: 'NA', listings: [legacy]})).status, 400);
     assert.equal((await listings()).length, 2);
     assert.equal((await query(sandbox.dbPath, 'SELECT * FROM native_listing_observations')).length, 0);
     await send([observation('101'), observation('102')]);
     let rows = await listings();
     assert.equal(rows.find(row => row.seller_name === '@TestSeller').active_stacks, 2);
     await send([], [{uid: '101', guild_id: '88', purchased_at: now()}, {uid: '102', guild_id: '88', purchased_at: now()}]);
-    await upload({server: 'NA', listings: [legacy]});
+    assert.equal((await upload({server: 'NA', listings: [legacy]})).status, 400);
     rows = await listings();
     assert.equal(rows.length, 1);
     assert.equal(rows[0].seller_name, '@Other');
