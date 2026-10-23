@@ -6,11 +6,22 @@ The Express/SQLite backend serves the master item catalog, local icon cache, acc
 
 ```bash
 cd backend
-npm install
+npm ci
 npm start
 ```
 
 The default API is `http://localhost:5001`. Set configuration variables in `backend/.env`.
+
+### Missing dependencies in a new worktree
+
+If startup reports `Cannot find module 'dotenv'` (or another declared dependency), run the following from this worktree's `backend` directory:
+
+```bash
+npm ci
+npm start
+```
+
+`npm ci` installs the versions in `package-lock.json`. Run it for every fresh clone or Git worktree; `node_modules` is ignored by Git and is not copied from your other checkout. Installing packages in the original checkout does not install them in a Codex review worktree.
 
 ## Environment Configuration
 

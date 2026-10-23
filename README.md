@@ -7,16 +7,18 @@ Modern, high-performance market trading intelligence platform, live guild trader
    ```bash
    cd backend
    cp .env.example .env
-   npm install
+   npm ci
    npm start
    ```
 2. **Frontend**:
    ```bash
    cd frontend
    cp .env.example .env
-   npm install
+   npm ci
    npm run dev
    ```
+
+Each clone or Git worktree needs its own dependency installation. Run `npm ci` in both `backend` and `frontend` before starting them, including in a Codex review worktree. Dependencies are not shared with your original checkout.
 
 ## Documentation
 - [UI Components & Design System](docs/UI_COMPONENTS.md) — Standardized UI component catalog, styling tokens, accessibility guidelines, and custom Tooltip specification.
