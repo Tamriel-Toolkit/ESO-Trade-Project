@@ -17,7 +17,7 @@ Comment exactly `/review` on an open PR, or run **Agentic PR Review** from the d
 The workflow has three jobs:
 
 1. Trusted default-branch code authorizes the requester and fetches immutable base/head comparison and Git blobs through GitHub's API. PR files are never checked out or executed. Symlinks remain blob text, never local file reads.
-2. A hosted job sends bounded context to Gemini with structured output. It has no GitHub write token and no model tools. Only `GEMINI_API_KEY` is supplied to the model-call process; do not use personal desktop credentials or a general-purpose agent CLI.
+2. A hosted job sends bounded context to Gemini with a structural output schema; local validation enforces string, numeric and finding-count limits because bounded provider schemas can be rejected as too complex. It has no GitHub write token and no model tools. Only `GEMINI_API_KEY` is supplied to the model-call process; do not use personal desktop credentials or a general-purpose agent CLI.
 3. A separate publisher validates output, rechecks revisions and posts advisory comments. It has no model key. It never approves or merges a PR.
 
 Set repository Actions secret `GEMINI_API_KEY`. Optional repository variable `REVIEW_MODEL` defaults to `gemini-3.8-flash`, the API model ID rather than the old CLI's `-high` alias. Model cost is bounded to eight sequential chunks per request, roughly 90,000 source characters per chunk and 12,000 output tokens per call. Maximum file context is 60,000 characters including patch and metadata. Oversized/binary/unavailable files, budget limits and comparison truncation are explicitly reported as incomplete. Reduce PR size or inspect uncovered files manually. Review artifacts expire after one day; do not place secrets in PR content.
@@ -31,7 +31,7 @@ Output states:
 
 One bot summary is updated. Inline comments are anchored only to exact valid diff lines and deduplicated for the same commit/location/title. Off-diff findings stay in the summary rather than being moved to unrelated lines. The metadata-only freshness workflow runs when CI is requested/completed for PRs or main pushes, rechecks open PR revisions, and never consumes upstream artifacts or PR code. Publication independently rechecks freshness. Automatic model reruns remain off to avoid surprise costs; `/review` is explicit enrollment for one revision.
 
-Actions are pinned to immutable commits; Dependabot proposes updates. The model API has no tool access even if PR text attempts prompt injection. Existing desktop runner registration is not used by these workflows.
+Actions are pinned to immutable commits; Dependabot proposes updates. The model API has no tool access even if PR text attempts prompt injection. The old desktop runner registration has been removed; these workflows use hosted runners.
 
 ## Roadmap publication
 

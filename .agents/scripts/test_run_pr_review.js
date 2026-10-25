@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { validate, parseModelResponse, isAuthorized, requestNumber, patchLines, makeChunks,
+const { providerSchema, validate, parseModelResponse, isAuthorized, requestNumber, patchLines, makeChunks,
     sameRevision, fingerprint, determineReviewOutcome, collect, review, publish, stale } = require('./run_pr_review');
 const { validateMirrorChanges, validateQueue, publishQueue } = require('./publish_queue');
 const good = () => ({ verdict: 'APPROVE', overall_summary: 'No supported defects.', findings: [] });
@@ -10,6 +10,16 @@ const snapshot = () => ({ repo: 'Tamriel-Toolkit/ESO-Trade-Project', number: 9, 
 const result = () => ({ head, base, complete: true, review: good(), skipped: [], coverage: [] });
 const pr = () => ({ state: 'open', head: { sha: head }, base: { sha: base }, changed_files: 1, title: 'Outside contributor', body: '', user: { login: 'new-contributor' }, labels: [] });
 const finding = (line = 1) => ({ severity: 'P1', difficulty: 'Low', file: file.filename, line, title: 'Concrete regression', description: 'A supported failure scenario.', suggested_fix: 'A local correction.' });
+
+test('provider grammar stays structural while local validation enforces all limits', () => {
+    const wire = providerSchema();
+    assert.equal(/minLength|maxLength|maxItems|minimum/.test(JSON.stringify(wire)), false);
+    assert.equal(wire.additionalProperties, false);
+    assert.deepEqual(wire.properties.findings.items.properties.severity.enum, ['P0', 'P1', 'P2', 'P3']);
+    assert.throws(() => validate({ ...good(), overall_summary: 'x'.repeat(12001) }));
+    assert.throws(() => validate({ ...good(), findings: Array.from({ length: 41 }, () => finding()) }));
+    assert.throws(() => validate({ ...good(), findings: [finding(0)] }));
+});
 
 test('permission gate authorizes requesters rather than PR authors; exact command only', () => {
     for (const p of ['admin', 'maintain', 'write']) assert.equal(isAuthorized(p), true);
@@ -59,6 +69,7 @@ test('model call has no tools or GitHub credentials; provider failures cannot lo
         assert.ok(url.startsWith('https://generativelanguage.googleapis.com/'));
         assert.equal(options.headers.Authorization, undefined);
         const body = JSON.parse(options.body); assert.equal(body.tools, undefined);
+        assert.deepEqual(body.generationConfig.responseJsonSchema, providerSchema());
         assert.ok(body.systemInstruction.parts[0].text.includes('UNTRUSTED DATA'));
         return { ok: true, json: async () => ({ candidates: [{ finishReason: 'STOP', content: { parts: [{ text: JSON.stringify(good()) }] } }] }) };
     } });

@@ -11,6 +11,19 @@ const LABELS = ['AI review complete', 'AI findings', 'AI review incomplete', 'AI
 const SHA = /^[a-f0-9]{40}$/;
 const MAX_FILE = 60000, MAX_CHUNK = 90000, MAX_CHUNKS = 8;
 
+function providerSchema(definition = schema) {
+    // Numeric/length bounds can explode the provider's constrained-decoding grammar.
+    // Keep the wire schema structural; validate every bound locally before publication.
+    const result = {};
+    for (const [key, value] of Object.entries(definition)) {
+        if (['minLength', 'maxLength', 'minItems', 'maxItems', 'minimum', 'maximum'].includes(key)) continue;
+        if (key === 'properties') result[key] = Object.fromEntries(Object.entries(value).map(([name, child]) => [name, providerSchema(child)]));
+        else if (key === 'items') result[key] = providerSchema(value);
+        else result[key] = value;
+    }
+    return result;
+}
+
 function validate(value, definition = schema, location = 'review') {
     const fail = () => { throw new Error(`Invalid structured output at ${location}`); };
     if (definition.type === 'object') {
@@ -122,7 +135,7 @@ async function review(snapshot, { key, model = 'gemini-3.8-flash', transport = f
             method: 'POST', headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(120000),
             body: JSON.stringify({ systemInstruction: { parts: [{ text: instruction }] },
                 contents: [{ role: 'user', parts: [{ text: JSON.stringify({ title: snapshot.title, description: snapshot.body, linkedIssues: snapshot.linkedIssues, files }) }] }],
-                generationConfig: { responseMimeType: 'application/json', responseJsonSchema: schema, maxOutputTokens: 12000 } }),
+                generationConfig: { responseMimeType: 'application/json', responseJsonSchema: providerSchema(), maxOutputTokens: 12000 } }),
         });
         if (!response.ok) {
             // Keep diagnostics useful without publishing a credential or the request payload.
@@ -232,4 +245,4 @@ async function main() {
     } else throw new Error('Expected collect, review, publish or stale');
 }
 if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });
-module.exports = { validate, parseModelResponse, isAuthorized, requestNumber, patchLines, makeChunks, sameRevision, fingerprint, determineReviewOutcome, collect, review, publish, stale };
+module.exports = { providerSchema, validate, parseModelResponse, isAuthorized, requestNumber, patchLines, makeChunks, sameRevision, fingerprint, determineReviewOutcome, collect, review, publish, stale };
