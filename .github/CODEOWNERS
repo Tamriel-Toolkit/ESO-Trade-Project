@@ -1,0 +1,8 @@
+# Route technical reviews to the primary maintainer. Membership alone grants no code ownership.
+* @RyanS4
+# Before adding writers, enable the separate human-review ruleset and update ownership
+# to active technical maintainers. Community moderators do not own merge approval.
+/.github/ @RyanS4
+/.agents/scripts/ @RyanS4
+/.agents/prompts/ @RyanS4
+/.agents/schemas/ @RyanS4

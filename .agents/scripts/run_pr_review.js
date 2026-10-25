@@ -1,574 +1,225 @@
 #!/usr/bin/env node
-/**
- * Agentic Pull Request Reviewer for ESO Trade Project
- *
- * Runs a standardized PR code review using Google Antigravity CLI (`agy`)
- * with `gemini-3.8-flash-high` (`--effort high`), gated on the "Review" label
- * and designated GitHub authors (default: ["RyanS4"]).
- *
- * Posts each finding as an individual GitHub PR review comment containing:
- *   - Severity (P0-P3)
- *   - Difficulty to Fix (Trivial, Low, Medium, High)
- *   - Description of Issue & Suggested Fix
- */
-
+'use strict';
 const fs = require('node:fs');
 const path = require('node:path');
-const os = require('node:os');
-const { spawnSync } = require('node:child_process');
+const crypto = require('node:crypto');
+const { createGitHubClient, pages } = require('./github_api');
+const schema = require('../schemas/pr_review_schema.json');
+const ROOT = path.resolve(__dirname, '../..');
+const SUMMARY_MARKER = '<!-- tamriel-ai-review:v2 -->';
+const LABELS = ['AI review complete', 'AI findings', 'AI review incomplete', 'AI review stale'];
+const SHA = /^[a-f0-9]{40}$/;
+const MAX_FILE = 60000, MAX_CHUNK = 90000, MAX_CHUNKS = 8;
 
-const REPO_ROOT = path.resolve(__dirname, '../..');
-const PROMPT_TEMPLATE_PATH = path.join(REPO_ROOT, '.agents/prompts/pr_review_prompt.md');
-const SCHEMA_PATH = path.join(REPO_ROOT, '.agents/schemas/pr_review_schema.json');
-
-const DEFAULT_MODEL = 'gemini-3.8-flash-high';
-const DEFAULT_EFFORT = 'high';
-const DEFAULT_ALLOWED_AUTHORS = ['RyanS4'];
-const REQUIRED_LABEL = 'Review';
-const READY_LABEL = 'Ready';
-const RE_REVIEW_LABEL = 'Re-Review';
-
-const SEVERITY_LABELS = {
-    P0: 'P0 (Critical)',
-    P1: 'P1 (High)',
-    P2: 'P2 (Medium)',
-    P3: 'P3 (Low)',
-};
-
-/**
- * Validates that the workflow was triggered with the "Review" label
- * and that both the PR author and triggering actor are designated authors.
- */
-function verifyTriggerGate({
-    eventName = process.env.GITHUB_EVENT_NAME || 'local',
-    labelName = process.env.REVIEW_LABEL_NAME || '',
-    prAuthor = process.env.PR_AUTHOR || '',
-    actor = process.env.GITHUB_ACTOR || '',
-    allowedAuthorsRaw = process.env.ALLOWED_REVIEW_AUTHORS || JSON.stringify(DEFAULT_ALLOWED_AUTHORS),
-}) {
-    let allowedAuthors;
-    try {
-        const parsed = JSON.parse(allowedAuthorsRaw);
-        allowedAuthors = Array.isArray(parsed) ? parsed : DEFAULT_ALLOWED_AUTHORS;
-    } catch {
-        allowedAuthors = String(allowedAuthorsRaw)
-            .split(',')
-            .map(s => s.trim())
-            .filter(Boolean);
-    }
-    const normalizedAllowed = new Set(allowedAuthors.map(a => a.toLowerCase()));
-
-    if (eventName === 'pull_request' || eventName === 'pull_request_target') {
-        if (labelName !== REQUIRED_LABEL) {
-            return {
-                allowed: false,
-                reason: `Skipped: applied label "${labelName}" is not "${REQUIRED_LABEL}".`,
-            };
+function validate(value, definition = schema, location = 'review') {
+    const fail = () => { throw new Error(`Invalid structured output at ${location}`); };
+    if (definition.type === 'object') {
+        if (!value || typeof value !== 'object' || Array.isArray(value)) fail();
+        for (const key of definition.required || []) if (!(key in value)) fail();
+        for (const [key, child] of Object.entries(value)) {
+            if (!definition.properties[key]) { if (definition.additionalProperties === false) fail(); }
+            else validate(child, definition.properties[key], `${location}.${key}`);
         }
-    }
-
-    if (prAuthor && !normalizedAllowed.has(prAuthor.toLowerCase())) {
-        return {
-            allowed: false,
-            reason: `Skipped: PR author "${prAuthor}" is not in designated authors [${allowedAuthors.join(', ')}].`,
-        };
-    }
-
-    if (actor && !normalizedAllowed.has(actor.toLowerCase())) {
-        return {
-            allowed: false,
-            reason: `Skipped: actor "${actor}" is not in designated authors [${allowedAuthors.join(', ')}].`,
-        };
-    }
-
-    return { allowed: true, allowedAuthors };
+    } else if (definition.type === 'array') {
+        if (!Array.isArray(value) || value.length > (definition.maxItems ?? Infinity)) fail();
+        value.forEach((child, index) => validate(child, definition.items, `${location}[${index}]`));
+    } else if (definition.type === 'integer') {
+        if (!Number.isInteger(value) || value < (definition.minimum ?? -Infinity)) fail();
+    } else if (typeof value !== definition.type) fail();
+    if (typeof value === 'string' && (value.trim().length < (definition.minLength ?? 0) || value.length > (definition.maxLength ?? Infinity))) fail();
+    if (definition.enum && !definition.enum.includes(value)) fail();
+    return value;
 }
-
-/**
- * Parses a unified git diff, annotating each right-side (+) or context line
- * with its exact 1-based file line number `[L<num>]` and recording which
- * `(file, line)` pairs are valid inline comment targets on the PR diff.
- */
-function annotateUnifiedDiff(rawDiff) {
-    const lines = String(rawDiff || '').split(/\r?\n/);
-    const annotated = [];
-    const validLinesByFile = new Map();
-
-    let currentFile = null;
-    let rightLine = null;
-
-    for (const line of lines) {
-        if (line.startsWith('diff --git ')) {
-            currentFile = null;
-            rightLine = null;
-            annotated.push(line);
-            continue;
-        }
-        if (line.startsWith('+++ b/')) {
-            currentFile = line.slice(6).trim();
-            if (!validLinesByFile.has(currentFile)) {
-                validLinesByFile.set(currentFile, new Set());
-            }
-            annotated.push(line);
-            continue;
-        }
-        if (line.startsWith('--- ')) {
-            annotated.push(line);
-            continue;
-        }
-        const hunkMatch = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
-        if (hunkMatch) {
-            rightLine = Number.parseInt(hunkMatch[1], 10);
-            annotated.push(line);
-            continue;
-        }
-
-        if (currentFile && rightLine !== null) {
-            if (line.startsWith('+')) {
-                validLinesByFile.get(currentFile).add(rightLine);
-                annotated.push(`[L${rightLine}] ${line}`);
-                rightLine += 1;
-                continue;
-            }
-            if (line.startsWith(' ')) {
-                validLinesByFile.get(currentFile).add(rightLine);
-                annotated.push(`[L${rightLine}] ${line}`);
-                rightLine += 1;
-                continue;
-            }
-            if (line.startsWith('-')) {
-                annotated.push(`[DEL] ${line}`);
-                continue;
-            }
-        }
-        annotated.push(line);
+function parseModelResponse(data) {
+    const candidate = data.candidates?.[0];
+    if (candidate?.finishReason !== 'STOP') throw new Error('Model response incomplete or blocked');
+    const parts = candidate.content?.parts;
+    if (!Array.isArray(parts) || parts.some(p => p.functionCall)) throw new Error('Unexpected model response');
+    return validate(JSON.parse(parts.filter(p => !p.thought).map(p => p.text || '').join('')));
+}
+function isAuthorized(permission) { return ['admin', 'maintain', 'write'].includes(permission); }
+function requestNumber(eventName, event, input) {
+    if (eventName === 'issue_comment') {
+        if (!event.issue?.pull_request || event.action !== 'created' || event.comment?.body?.trim() !== '/review') return null;
+        return event.issue.number;
     }
-
-    return {
-        annotatedDiff: annotated.join('\n'),
-        validLinesByFile,
+    if (eventName !== 'workflow_dispatch') return null;
+    const number = Number(input);
+    if (!Number.isSafeInteger(number) || number <= 0) throw new Error('Invalid PR number');
+    return number;
+}
+function patchLines(patch) {
+    const valid = new Set(); let right = null;
+    for (const line of (patch || '').split('\n')) {
+        const match = line.match(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,\d+)? @@/);
+        if (match) right = Number(match[1]);
+        else if (right !== null && (line.startsWith('+') || line.startsWith(' '))) valid.add(right++);
+    }
+    return valid;
+}
+function makeChunks(files) {
+    const chunks = [], skipped = []; let chunk = [], size = 0;
+    for (const file of files) {
+        const length = JSON.stringify(file).length;
+        if (!file.patch || !file.content || file.content.includes('\0') || length > MAX_FILE) {
+            skipped.push({ file: file.filename, reason: 'Binary, unavailable patch/content, or file exceeds review budget' }); continue;
+        }
+        if (size + length > MAX_CHUNK && chunk.length) { chunks.push(chunk); chunk = []; size = 0; }
+        chunk.push(file); size += length;
+    }
+    if (chunk.length) chunks.push(chunk);
+    for (const extra of chunks.slice(MAX_CHUNKS)) for (const f of extra) skipped.push({ file: f.filename, reason: 'Review chunk budget exceeded' });
+    return { chunks: chunks.slice(0, MAX_CHUNKS), skipped };
+}
+function sameRevision(pr, snapshot) { return pr.state === 'open' && pr.head.sha === snapshot.head && pr.base.sha === snapshot.base; }
+function fingerprint(finding, head) {
+    return crypto.createHash('sha256').update(JSON.stringify([head, finding.file, finding.line, finding.title.trim().toLowerCase()])).digest('hex').slice(0, 24);
+}
+function determineReviewOutcome(result) {
+    if (result.stale) return 'AI review stale';
+    if (!result.complete) return 'AI review incomplete';
+    validate(result.review);
+    return result.review.findings.length || result.review.verdict === 'REQUEST_CHANGES' ? 'AI findings' : 'AI review complete';
+}
+async function collect(request, repo, number, actor) {
+    const api = `/repos/${repo}`;
+    const permission = await request(`${api}/collaborators/${encodeURIComponent(actor)}/permission`);
+    if (!isAuthorized(permission.permission)) throw new Error('Review requests require Write, Maintain or Admin permission');
+    const pr = await request(`${api}/pulls/${number}`);
+    if (pr.state !== 'open' || !SHA.test(pr.head.sha) || !SHA.test(pr.base.sha)) throw new Error('Expected an open PR with immutable revisions');
+    const compare = await request(`${api}/compare/${pr.base.sha}...${pr.head.sha}`);
+    const coverage = [];
+    if ((compare.files || []).length !== pr.changed_files) coverage.push('GitHub comparison did not include every changed file');
+    const files = [];
+    for (const file of compare.files || []) {
+        let content = '';
+        if (file.patch && file.patch.length <= MAX_FILE && SHA.test(file.sha)) {
+            // Even symlinks are read as Git blob data, never resolved on the runner.
+            const blob = await request(`${api}/git/blobs/${file.sha}`);
+            if (blob.encoding === 'base64' && blob.size <= MAX_FILE) content = Buffer.from(blob.content, 'base64').toString('utf8');
+        }
+        files.push({ filename: file.filename, status: file.status, patch: file.patch || '', content });
+    }
+    const linkedIssues = [];
+    const numbers = [...new Set([...(`${pr.title}\n${pr.body || ''}`).matchAll(/\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)\s+#(\d+)/gi)].map(m => Number(m[1])))].slice(0, 3);
+    for (const issueNumber of numbers) {
+        const issue = await request(`${api}/issues/${issueNumber}`);
+        linkedIssues.push({ number: issueNumber, title: issue.title, body: (issue.body || '').slice(0, 12000) });
+    }
+    const snapshot = { version: 2, repo, number, head: pr.head.sha, base: pr.base.sha, actor,
+        title: pr.title, body: (pr.body || '').slice(0, 16000), files, linkedIssues, coverage };
+    if (!sameRevision(await request(`${api}/pulls/${number}`), snapshot)) throw new Error('PR changed during collection; request another review');
+    return snapshot;
+}
+async function review(snapshot, { key, model = 'gemini-3.8-flash', transport = fetch } = {}) {
+    if (!key) throw new Error('GEMINI_API_KEY repository secret is missing');
+    if (!/^[a-z0-9.-]+$/.test(model)) throw new Error('Invalid review model');
+    const { chunks, skipped } = makeChunks(snapshot.files);
+    const instruction = fs.readFileSync(path.join(ROOT, '.agents/prompts/pr_review_prompt.md'), 'utf8');
+    const findings = [], summaries = []; let requestsChanges = false;
+    for (const files of chunks) {
+        const response = await transport(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`, {
+            method: 'POST', headers: { 'x-goog-api-key': key, 'Content-Type': 'application/json' }, signal: AbortSignal.timeout(120000),
+            body: JSON.stringify({ systemInstruction: { parts: [{ text: instruction }] },
+                contents: [{ role: 'user', parts: [{ text: JSON.stringify({ title: snapshot.title, description: snapshot.body, linkedIssues: snapshot.linkedIssues, files }) }] }],
+                generationConfig: { responseMimeType: 'application/json', responseJsonSchema: schema, maxOutputTokens: 12000 } }),
+        });
+        if (!response.ok) throw new Error(`Model API failed (${response.status}); verify API key, quota and model access`);
+        const result = parseModelResponse(await response.json());
+        const names = new Set(files.map(f => f.filename));
+        if (result.findings.some(f => !names.has(f.file))) throw new Error('Model cited a file outside its reviewed chunk');
+        findings.push(...result.findings); summaries.push(result.overall_summary);
+        requestsChanges ||= result.verdict === 'REQUEST_CHANGES';
+    }
+    const unique = [...new Map(findings.map(f => [fingerprint(f, snapshot.head), f])).values()];
+    if (unique.length > 40) skipped.push({ file: '(review)', reason: 'Finding publication budget exceeded; showing first 40' });
+    return { version: 2, head: snapshot.head, base: snapshot.base, model,
+        complete: chunks.length > 0 && skipped.length === 0 && snapshot.coverage.length === 0,
+        skipped, coverage: snapshot.coverage, chunks: chunks.length,
+        review: { verdict: requestsChanges ? 'REQUEST_CHANGES' : unique.length ? 'COMMENT' : 'APPROVE',
+            overall_summary: summaries.join('\n\n').slice(0, 12000) || 'No reviewable text changes within the configured budget.', findings: unique.slice(0, 40) },
     };
 }
-
-/**
- * Formats an individual finding into the standardized GitHub PR comment body.
- */
-function formatFindingComment(finding, includeFileLocation = false) {
-    const severityLabel = SEVERITY_LABELS[finding.severity] || finding.severity || 'P2 (Medium)';
-    const difficulty = finding.difficulty || 'Low';
-    const locationLine = includeFileLocation && finding.file
-        ? `\n- **Location:** \`${finding.file}${finding.line ? `:${finding.line}` : ''}\``
-        : '';
-
-    return [
-        `### \`[${finding.severity || 'P2'}]\` ${finding.title}`,
-        `- **Severity:** \`${severityLabel}\``,
-        `- **Difficulty to Fix:** \`${difficulty}\`${locationLine}`,
-        `- **Description of Issue:** ${finding.description}`,
-        `- **Suggested Fix:** ${finding.suggested_fix}`,
-    ].join('\n');
+async function updateSummary(request, api, number, body) {
+    const comments = await pages(request, `${api}/issues/${number}/comments`);
+    const existing = comments.find(c => c.user?.login === 'github-actions[bot]' && c.body?.startsWith(SUMMARY_MARKER));
+    if (existing) await request(`${api}/issues/comments/${existing.id}`, 'PATCH', { body });
+    else await request(`${api}/issues/${number}/comments`, 'POST', { body });
 }
-
-/**
- * Splits findings into inline PR diff review comments and fallback top-level comments
- * if a finding references a line outside the diff hunks.
- */
-function buildGitHubReviewPayload(reviewResult, validLinesByFile, model = DEFAULT_MODEL) {
-    const findings = Array.isArray(reviewResult?.findings) ? reviewResult.findings : [];
-    const inlineComments = [];
-    const fallbackComments = [];
-
-    for (const finding of findings) {
-        const normalizedFile = String(finding.file || '').replace(/\\/g, '/').replace(/^\.\//, '');
-        const lineNum = Number.parseInt(finding.line, 10);
-        const fileLines = validLinesByFile.get(normalizedFile);
-
-        if (fileLines && Number.isInteger(lineNum) && lineNum > 0 && fileLines.has(lineNum)) {
-            inlineComments.push({
-                path: normalizedFile,
-                line: lineNum,
-                side: 'RIGHT',
-                body: formatFindingComment(finding, false),
-            });
-        } else if (fileLines && fileLines.size > 0) {
-            // Anchor to the closest changed line in that file if the exact line is outside the hunk
-            const sortedLines = Array.from(fileLines).sort((a, b) => a - b);
-            const closestLine = Number.isInteger(lineNum)
-                ? sortedLines.reduce((best, curr) => (Math.abs(curr - lineNum) < Math.abs(best - lineNum) ? curr : best), sortedLines[0])
-                : sortedLines[0];
-            inlineComments.push({
-                path: normalizedFile,
-                line: closestLine,
-                side: 'RIGHT',
-                body: formatFindingComment(finding, true),
-            });
-        } else {
-            fallbackComments.push(formatFindingComment(finding, true));
+async function setStatus(request, api, number, label) {
+    const current = await request(`${api}/issues/${number}/labels`);
+    for (const name of [...LABELS, 'Ready', 'Re-Review']) {
+        if (name !== label && current.some(l => l.name === name)) await request(`${api}/issues/${number}/labels/${encodeURIComponent(name)}`, 'DELETE');
+    }
+    await request(`${api}/issues/${number}/labels`, 'POST', { labels: [label] });
+}
+async function publish(request, snapshot, result) {
+    const api = `/repos/${snapshot.repo}`;
+    if (result.head !== snapshot.head || result.base !== snapshot.base) throw new Error('Artifact revision mismatch');
+    validate(result.review);
+    let pr = await request(`${api}/pulls/${snapshot.number}`);
+    if (pr.state !== 'open') return;
+    result.stale = !sameRevision(pr, snapshot);
+    const label = determineReviewOutcome(result);
+    const notes = [...(result.coverage || []), ...(result.skipped || []).map(s => `${s.file}: ${s.reason}`)];
+    const blocking = result.review.findings.filter(f => ['P0', 'P1'].includes(f.severity)).length;
+    const body = `${SUMMARY_MARKER}\n## ${label}\n\nReviewed head: \`${snapshot.head}\`\nBase: \`${snapshot.base}\`\n\n${result.review.overall_summary}\n\nFindings: ${result.review.findings.length}; P0/P1 recommendations: ${blocking}. This is advisory, not approval or merge authorization.\n${notes.length ? '\nCoverage limitations:\n' + notes.map(n => '- ' + n).join('\n') : ''}\n\n${result.stale ? '**The PR has changed. Request a fresh review.**' : 'Run `/review` to review the current revision.'}`;
+    await updateSummary(request, api, snapshot.number, body.slice(0, 60000));
+    if (!result.stale) {
+        const existing = await pages(request, `${api}/pulls/${snapshot.number}/comments`);
+        const inline = [], fallback = [];
+        for (const finding of result.review.findings) {
+            const marker = `<!-- ai-finding:${fingerprint(finding, snapshot.head)} -->`;
+            if (existing.some(c => c.user?.login === 'github-actions[bot]' && c.body?.includes(marker))) continue;
+            const text = `${marker}\n**[${finding.severity}] ${finding.title}**\n\n${finding.description}\n\nSuggested fix: ${finding.suggested_fix}\n\nDifficulty: ${finding.difficulty}`;
+            const file = snapshot.files.find(f => f.filename === finding.file);
+            if (!file) throw new Error('Finding outside snapshot');
+            if (patchLines(file.patch).has(finding.line) && file.status !== 'removed') inline.push({ path: finding.file, line: finding.line, side: 'RIGHT', body: text });
+            else fallback.push(`\n\n${text}\n\nLocation: \`${finding.file}:${finding.line}\``);
         }
+        if (fallback.length) await updateSummary(request, api, snapshot.number, (body + fallback.join('')).slice(0, 60000));
+        pr = await request(`${api}/pulls/${snapshot.number}`);
+        if (inline.length && sameRevision(pr, snapshot)) await request(`${api}/pulls/${snapshot.number}/reviews`, 'POST', {
+            commit_id: snapshot.head, event: 'COMMENT', body: 'Advisory findings for this revision; see the AI review summary for coverage.', comments: inline,
+        });
     }
-
-    const summaryHeader = [
-        `## Agentic PR Review (\`${model}\`)`,
-        '',
-        `**Verdict:** \`${reviewResult?.verdict || 'COMMENT'}\` | **Findings:** \`${findings.length}\``,
-        '',
-        reviewResult?.overall_summary || 'Automated review completed.',
-    ].join('\n');
-
-    return {
-        summaryBody: summaryHeader,
-        inlineComments,
-        fallbackComments,
-    };
+    pr = await request(`${api}/pulls/${snapshot.number}`);
+    if (pr.state === 'open') await setStatus(request, api, snapshot.number, sameRevision(pr, snapshot) ? label : 'AI review stale');
 }
-
-/**
- * Evaluates review findings to determine the next status label.
- * - Applies "Ready" if 0 findings/issues were identified and verdict is clean.
- * - Applies "Re-Review" if any findings, inline comments, fallback comments, or REQUEST_CHANGES exist.
- */
-function determineReviewOutcome(reviewResult, payload = {}) {
-    const findings = Array.isArray(reviewResult?.findings) ? reviewResult.findings : [];
-    const inlineComments = Array.isArray(payload?.inlineComments) ? payload.inlineComments : [];
-    const fallbackComments = Array.isArray(payload?.fallbackComments) ? payload.fallbackComments : [];
-    const verdict = String(reviewResult?.verdict || '').toUpperCase();
-
-    const readyLabel = process.env.READY_LABEL_NAME || READY_LABEL;
-    const reReviewLabel = process.env.RE_REVIEW_LABEL_NAME || RE_REVIEW_LABEL;
-
-    const hasIssues = findings.length > 0 || inlineComments.length > 0 || fallbackComments.length > 0 || verdict === 'REQUEST_CHANGES';
-
-    return {
-        hasIssues,
-        targetLabel: hasIssues ? reReviewLabel : readyLabel,
-        obsoleteLabel: hasIssues ? readyLabel : reReviewLabel,
-    };
+async function stale(request, repo, number) {
+    const api = `/repos/${repo}`;
+    const pr = await request(`${api}/pulls/${number}`);
+    if (pr.state !== 'open') return;
+    const comments = await pages(request, `${api}/issues/${number}/comments`);
+    const summary = comments.find(c => c.user?.login === 'github-actions[bot]' && c.body?.startsWith(SUMMARY_MARKER));
+    if (summary && (!summary.body.includes(`Reviewed head: \`${pr.head.sha}\``) || !summary.body.includes(`Base: \`${pr.base.sha}\``))) {
+        await setStatus(request, api, number, 'AI review stale');
+        if (!summary.body.includes('**STALE:**')) await request(`${api}/issues/comments/${summary.id}`, 'PATCH', { body: summary.body + '\n\n**STALE:** The PR revision changed. Request `/review` again.' });
+    } else if (!summary && pr.labels?.some(l => ['Ready', 'Re-Review'].includes(l.name))) await setStatus(request, api, number, 'AI review stale');
 }
-
-/**
- * Extracts the structured review object from `agy` JSON or stream-json output.
- */
-function parseAgyOutput(stdout) {
-    const trimmed = String(stdout || '').trim();
-    if (!trimmed) {
-        throw new Error('Empty output received from agy CLI.');
-    }
-
-    const lines = trimmed.split(/\r?\n/).filter(Boolean);
-    for (let i = lines.length - 1; i >= 0; i--) {
-        let parsed;
-        try {
-            parsed = JSON.parse(lines[i]);
-        } catch {
-            continue;
-        }
-
-        // stream-json terminal event: { event: "result", result: { status, structured_output, response } }
-        const envelope = parsed.event === 'result' && parsed.result ? parsed.result : parsed;
-        if (envelope.status && envelope.status !== 'SUCCESS') {
-            throw new Error(`agy CLI returned status ${envelope.status}: ${envelope.error || 'Unknown error'}`);
-        }
-        if (envelope.structured_output && typeof envelope.structured_output === 'object') {
-            return envelope.structured_output;
-        }
-        if (typeof envelope.response === 'string' && envelope.response.trim()) {
-            const rawJson = envelope.response
-                .trim()
-                .replace(/^```(?:json)?\s*/i, '')
-                .replace(/\s*```$/, '');
-            return JSON.parse(rawJson);
-        }
-        if (envelope.verdict && Array.isArray(envelope.findings)) {
-            return envelope;
-        }
-    }
-
-    throw new Error('Could not parse structured review output from agy CLI.');
-}
-
-/**
- * Resolves the `agy` executable path across Linux, macOS, and Windows.
- */
-function resolveAgyBinary() {
-    if (process.env.AGY_BIN && fs.existsSync(process.env.AGY_BIN)) {
-        return process.env.AGY_BIN;
-    }
-    const candidates = process.platform === 'win32'
-        ? [
-            path.join(process.env.LOCALAPPDATA || path.join(os.homedir(), 'AppData/Local'), 'agy/bin/agy.exe'),
-            'agy.exe',
-            'agy',
-        ]
-        : [
-            path.join(os.homedir(), '.local/bin/agy'),
-            '/usr/local/bin/agy',
-            'agy',
-        ];
-
-    for (const candidate of candidates) {
-        if (candidate.includes(path.sep) && fs.existsSync(candidate)) {
-            return candidate;
-        }
-    }
-    return candidates[candidates.length - 1];
-}
-
-/**
- * Executes the review prompt through `agy` using stream-json stdin so arbitrarily
- * large diffs work on both Windows and Linux without hitting OS argv limits.
- */
-function runAgyReview(prompt, {
-    model = process.env.AGY_MODEL || DEFAULT_MODEL,
-    effort = process.env.AGY_EFFORT || DEFAULT_EFFORT,
-    schemaPath = SCHEMA_PATH,
-    timeoutMs = 10 * 60 * 1000,
-} = {}) {
-    const agyBin = resolveAgyBinary();
-    const args = [
-        '--input-format', 'stream-json',
-        '--output-format', 'stream-json',
-        '--model', model,
-        '--effort', effort,
-        '--new-project',
-        '--dangerously-skip-permissions',
-        '--disable-slash-commands',
-        '--json-schema', schemaPath,
-        '--print-timeout', '10m',
-    ];
-
-    const stdinPayload = JSON.stringify({
-        event: 'user',
-        message: { content: prompt },
-    }) + '\n';
-
-    const result = spawnSync(agyBin, args, {
-        cwd: os.tmpdir(),
-        input: stdinPayload,
-        encoding: 'utf8',
-        maxBuffer: 50 * 1024 * 1024,
-        timeout: timeoutMs,
-    });
-
-    if (result.error) {
-        throw new Error(`Failed to execute agy (${agyBin}): ${result.error.message}`);
-    }
-    if (result.status !== 0) {
-        throw new Error(`agy exited with code ${result.status}: ${result.stderr || result.stdout}`);
-    }
-
-    return parseAgyOutput(result.stdout);
-}
-
-async function githubRequest(url, { method = 'GET', token, body, accept = 'application/vnd.github+json' } = {}) {
-    const headers = {
-        Accept: accept,
-        Connection: 'close',
-        'User-Agent': 'ESO-Trade-Project-Agentic-Reviewer',
-        'X-GitHub-Api-Version': '2022-11-28',
-    };
-    if (token) headers.Authorization = `Bearer ${token}`;
-    if (body !== undefined) headers['Content-Type'] = 'application/json';
-
-    let lastError;
-    for (let attempt = 1; attempt <= 3; attempt++) {
-        try {
-            const response = await fetch(url, {
-                method,
-                headers,
-                body: body !== undefined ? JSON.stringify(body) : undefined,
-            });
-
-            if (!response.ok) {
-                const text = await response.text();
-                throw new Error(`GitHub API ${method} ${url} failed (${response.status}): ${text}`);
-            }
-            if (accept.includes('diff')) {
-                return response.text();
-            }
-            if (response.status === 204) return null;
-            return response.json();
-        } catch (err) {
-            lastError = err;
-            if (attempt < 3 && !String(err.message || '').startsWith('GitHub API ')) {
-                await new Promise(resolve => setTimeout(resolve, attempt * 1000));
-                continue;
-            }
-            throw err;
-        }
-    }
-    throw lastError;
-}
-
-function extractLinkedIssueNumbers(text) {
-    const matches = String(text || '').matchAll(/#(\d+)\b/g);
-    return Array.from(new Set(Array.from(matches, m => Number.parseInt(m[1], 10)).filter(n => n > 0)));
-}
-
-function renderPromptTemplate(template, replacements) {
-    let output = template;
-    for (const [key, value] of Object.entries(replacements)) {
-        output = output.split(`{{${key}}}`).join(String(value ?? ''));
-    }
-    return output;
-}
-
 async function main() {
-    const prNumber = Number.parseInt(process.env.PR_NUMBER || process.argv[2] || '', 10);
-    const repo = process.env.GITHUB_REPOSITORY || 'Tamriel-Toolkit/ESO-Trade-Project';
-    const token = process.env.GITHUB_TOKEN || '';
-    const dryRun = process.env.DRY_RUN === 'true' || process.argv.includes('--dry-run');
-
-    if (!Number.isInteger(prNumber) || prNumber <= 0) {
-        throw new Error('Usage: node .agents/scripts/run_pr_review.js <PR_NUMBER> [--dry-run]');
-    }
-
-    const apiBase = `https://api.github.com/repos/${repo}`;
-    const pr = await githubRequest(`${apiBase}/pulls/${prNumber}`, { token });
-
-    const gate = verifyTriggerGate({
-        eventName: process.env.GITHUB_EVENT_NAME || 'local',
-        labelName: process.env.REVIEW_LABEL_NAME || REQUIRED_LABEL,
-        prAuthor: process.env.PR_AUTHOR || pr.user?.login || '',
-        actor: process.env.GITHUB_ACTOR || pr.user?.login || '',
-    });
-
-    if (!gate.allowed) {
-        console.log(gate.reason);
-        return;
-    }
-
-    const rawDiff = await githubRequest(`${apiBase}/pulls/${prNumber}`, {
-        token,
-        accept: 'application/vnd.github.v3.diff',
-    });
-    const { annotatedDiff, validLinesByFile } = annotateUnifiedDiff(rawDiff);
-
-    // Collect changed files content from the local workspace
-    const changedFilesSections = [];
-    for (const relPath of validLinesByFile.keys()) {
-        const absPath = path.join(REPO_ROOT, relPath);
-        if (fs.existsSync(absPath) && fs.statSync(absPath).isFile()) {
-            const content = fs.readFileSync(absPath, 'utf8');
-            const numbered = content
-                .split(/\r?\n/)
-                .map((line, idx) => `${idx + 1}: ${line}`)
-                .join('\n');
-            changedFilesSections.push(`### File: \`${relPath}\`\n\`\`\`\n${numbered.slice(0, 25000)}\n\`\`\``);
+    const command = process.argv[2], directory = process.env.REVIEW_DIRECTORY || 'review-data';
+    const read = name => JSON.parse(fs.readFileSync(path.join(directory, name), 'utf8'));
+    const write = (name, data) => { fs.mkdirSync(directory, { recursive: true }); fs.writeFileSync(path.join(directory, name), JSON.stringify(data)); };
+    if (command === 'collect') {
+        const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+        const number = requestNumber(process.env.GITHUB_EVENT_NAME, event, process.env.PR_NUMBER);
+        if (!number) throw new Error('No authorized review request event');
+        write('snapshot.json', await collect(createGitHubClient(), process.env.GITHUB_REPOSITORY, number, process.env.GITHUB_ACTOR));
+    } else if (command === 'review') {
+        const snapshot = read('snapshot.json');
+        try { write('result.json', await review(snapshot, { key: process.env.GEMINI_API_KEY, model: process.env.REVIEW_MODEL || 'gemini-3.8-flash' })); }
+        catch (error) {
+            write('result.json', { version: 2, head: snapshot.head, base: snapshot.base, complete: false, coverage: [], skipped: [],
+                review: { verdict: 'COMMENT', overall_summary: error.message, findings: [] } }); process.exitCode = 1;
         }
-    }
-
-    // Fetch linked issues context
-    const issueNums = extractLinkedIssueNumbers(`${pr.title}\n${pr.body || ''}`).slice(0, 5);
-    const linkedIssuesSections = [];
-    for (const issueNum of issueNums) {
-        if (issueNum === prNumber) continue;
-        try {
-            const issue = await githubRequest(`${apiBase}/issues/${issueNum}`, { token });
-            linkedIssuesSections.push(`- **Issue #${issue.number}: ${issue.title}**\n${issue.body || '(No body)'}`);
-        } catch {
-            // Ignore unreachable issue references
-        }
-    }
-
-    const template = fs.readFileSync(PROMPT_TEMPLATE_PATH, 'utf8');
-    const prompt = renderPromptTemplate(template, {
-        PR_NUMBER: pr.number,
-        PR_AUTHOR: pr.user?.login || 'unknown',
-        PR_TITLE: pr.title,
-        PR_BODY: pr.body || '(No description provided)',
-        LINKED_ISSUES_CONTEXT: linkedIssuesSections.length > 0 ? linkedIssuesSections.join('\n\n') : 'None linked.',
-        ANNOTATED_DIFF: annotatedDiff.slice(0, 120000),
-        CHANGED_FILES_CONTENT: changedFilesSections.join('\n\n').slice(0, 120000),
-    });
-
-    const model = process.env.AGY_MODEL || DEFAULT_MODEL;
-    console.log(`Running agentic review for PR #${pr.number} using model "${model}" (effort: high)...`);
-    const reviewResult = runAgyReview(prompt, { model });
-    const payload = buildGitHubReviewPayload(reviewResult, validLinesByFile, model);
-
-    if (dryRun || !token) {
-        console.log(JSON.stringify({ reviewResult, payload }, null, 2));
-        return;
-    }
-
-    // Post the PR Review with individual inline comments per finding
-    await githubRequest(`${apiBase}/pulls/${prNumber}/reviews`, {
-        method: 'POST',
-        token,
-        body: {
-            commit_id: pr.head.sha,
-            body: payload.summaryBody,
-            event: 'COMMENT',
-            comments: payload.inlineComments,
-        },
-    });
-
-    // Post any findings that could not be anchored to a diff file as individual PR comments
-    for (const commentBody of payload.fallbackComments) {
-        await githubRequest(`${apiBase}/issues/${prNumber}/comments`, {
-            method: 'POST',
-            token,
-            body: { body: commentBody },
-        });
-    }
-
-    // Determine status label: "Ready" if 0 findings/issues, "Re-Review" if issues found
-    const triggerLabel = process.env.REVIEW_LABEL_NAME || REQUIRED_LABEL;
-    const { hasIssues, targetLabel, obsoleteLabel } = determineReviewOutcome(reviewResult, payload);
-
-    // Remove the obsolete status label if present (e.g., remove "Re-Review" when now clean, or "Ready" when issues found)
-    try {
-        await githubRequest(`${apiBase}/issues/${prNumber}/labels/${encodeURIComponent(obsoleteLabel)}`, {
-            method: 'DELETE',
-            token,
-        });
-    } catch {
-        // Obsolete label was not on the PR
-    }
-
-    // Apply the outcome label ("Ready" when 0 issues, "Re-Review" when issues found)
-    try {
-        await githubRequest(`${apiBase}/issues/${prNumber}/labels`, {
-            method: 'POST',
-            token,
-            body: { labels: [targetLabel] },
-        });
-        console.log(`Applied label "${targetLabel}" to PR #${prNumber} (hasIssues: ${hasIssues}).`);
-    } catch (err) {
-        console.warn(`Could not apply label "${targetLabel}": ${err.message}`);
-    }
-
-    // Remove the "Review" trigger label so re-applying it later can trigger a fresh review
-    if (process.env.REMOVE_REVIEW_LABEL !== 'false') {
-        try {
-            await githubRequest(`${apiBase}/issues/${prNumber}/labels/${encodeURIComponent(triggerLabel)}`, {
-                method: 'DELETE',
-                token,
-            });
-            console.log(`Removed trigger label "${triggerLabel}" from PR #${prNumber}.`);
-        } catch {
-            // Ignore if label was already removed
-        }
-    }
-
-    console.log(
-        `Posted PR #${prNumber} review with ${payload.inlineComments.length} inline comment(s) and ${payload.fallbackComments.length} general comment(s). Status label: "${targetLabel}".`
-    );
+    } else if (command === 'publish') await publish(createGitHubClient(), read('snapshot.json'), read('result.json'));
+    else if (command === 'stale') {
+        const event = JSON.parse(fs.readFileSync(process.env.GITHUB_EVENT_PATH, 'utf8'));
+        if (!['pull_request', 'push'].includes(event.workflow_run?.event) || event.workflow_run?.repository?.full_name !== process.env.GITHUB_REPOSITORY) return;
+        const request = createGitHubClient();
+        for (const pr of await pages(request, `/repos/${process.env.GITHUB_REPOSITORY}/pulls?state=open`)) await stale(request, process.env.GITHUB_REPOSITORY, pr.number);
+    } else throw new Error('Expected collect, review, publish or stale');
 }
-
-if (require.main === module) {
-    main().catch(err => {
-        console.error(err.message || err);
-        process.exit(1);
-    });
-}
-
-module.exports = {
-    verifyTriggerGate,
-    annotateUnifiedDiff,
-    formatFindingComment,
-    buildGitHubReviewPayload,
-    determineReviewOutcome,
-    parseAgyOutput,
-    renderPromptTemplate,
-};
+if (require.main === module) main().catch(error => { console.error(error.message); process.exitCode = 1; });
+module.exports = { validate, parseModelResponse, isAuthorized, requestNumber, patchLines, makeChunks, sameRevision, fingerprint, determineReviewOutcome, collect, review, publish, stale };

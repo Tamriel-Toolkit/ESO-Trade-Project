@@ -1,86 +1,33 @@
 name: Sync Priority Queue
-
 on:
-  pull_request:
-    types: [closed]
-    branches: [main]
   issues:
-    types: [closed]
+    types: [closed, reopened, edited]
+  push:
+    branches: [main]
   workflow_dispatch:
-
-concurrency:
-  group: sync-priority-queue
-  cancel-in-progress: false
-
+  schedule:
+    - cron: '17 12 * * *'
 permissions:
   contents: write
   issues: write
-
+  pull-requests: write
+concurrency:
+  group: sync-priority-queue
+  cancel-in-progress: false
 jobs:
   sync-queue:
-    # Only run for pull requests if they were actually merged (not closed without merging)
-    if: (github.event_name != 'pull_request' || github.event.pull_request.merged == true)
+    if: github.event_name != 'issues' || github.event.action != 'edited' || github.event.issue.number == 35
     runs-on: ubuntu-latest
-
+    timeout-minutes: 5
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+          ref: ${{ github.event.repository.default_branch }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 20
-
-      - name: Run Queue Synchronization
+          node-version: 22
+      - name: Reconcile live roadmap and update one generated mirror PR
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          TRACKING_ISSUE_NUMBER: 35
-          PR_BODY: ${{ github.event.pull_request.body || '' }}
-          PR_TITLE: ${{ github.event.pull_request.title || '' }}
-        run: |
-          node .agents/scripts/sync_priority_queue.js
-
-      - name: Commit and Push Updated PRIORITY_QUEUE.md (if changed)
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add .agents/PRIORITY_QUEUE.md
-          if git diff --staged --quiet; then
-            echo "No changes to .agents/PRIORITY_QUEUE.md. Skipping commit."
-            exit 0
-          fi
-
-          git commit -m "chore(queue): auto-sync priority matrix on issue/PR merge [skip ci]"
-
-          # Push with bounded retries and rebase against latest origin/main
-          MAX_RETRIES=3
-          RETRY_COUNT=0
-          PUSH_SUCCESS=false
-
-          while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
-            echo "Attempting git push origin main (attempt $((RETRY_COUNT + 1)) of $MAX_RETRIES)..."
-            if git push origin main; then
-              PUSH_SUCCESS=true
-              echo "Successfully pushed updated PRIORITY_QUEUE.md to main."
-              break
-            fi
-
-            echo "[WARN] Push failed. Fetching and rebasing against latest origin/main..."
-            RETRY_COUNT=$((RETRY_COUNT + 1))
-            git fetch origin main
-            if ! git rebase origin/main; then
-              echo "[FATAL] Rebase conflict encountered while synchronizing PRIORITY_QUEUE.md. Aborting rebase."
-              git rebase --abort || true
-              exit 1
-            fi
-            sleep $((RETRY_COUNT * 2))
-          done
-
-          if [ "$PUSH_SUCCESS" = false ]; then
-            echo "[FATAL] Failed to push PRIORITY_QUEUE.md after $MAX_RETRIES attempts."
-            exit 1
-          fi
+          GITHUB_TOKEN: ${{ secrets.QUEUE_PR_TOKEN || github.token }}
+        run: node .agents/scripts/publish_queue.js

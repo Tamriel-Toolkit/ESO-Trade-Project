@@ -1,0 +1,29 @@
+name: Invalidate stale AI reviews
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [requested, completed]
+permissions:
+  contents: read
+  pull-requests: read
+  issues: write
+concurrency:
+  group: ai-review-freshness
+  cancel-in-progress: false
+jobs:
+  invalidate:
+    if: contains(fromJSON('["pull_request", "push"]'), github.event.workflow_run.event) && github.event.workflow_run.repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      # Always use trusted default-branch code. Never download upstream artifacts.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node .agents/scripts/run_pr_review.js stale
