@@ -1,70 +1,105 @@
 name: Agentic PR Review
-
 on:
-  pull_request:
-    types: [labeled]
+  issue_comment:
+    types: [created]
   workflow_dispatch:
     inputs:
       pr_number:
-        description: 'Pull Request number to review'
+        description: 'Open pull request number (any author, including forks)'
         required: true
         type: number
-
+permissions: {}
 concurrency:
-  group: agent-pr-review-${{ github.event.pull_request.number || inputs.pr_number }}
-  cancel-in-progress: true
-
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
-
+  group: ai-review-${{ github.event.issue.number || inputs.pr_number }}
+  cancel-in-progress: false
 jobs:
-  review:
-    name: Gemini 3.8 Flash (High) PR Review
-    # Only trigger when the "Review" label is applied and both PR author and actor are designated authors (default: ["RyanS4"])
+  collect:
     if: >-
-      (
-        (github.event_name == 'pull_request' && github.event.label.name == 'Review') ||
-        github.event_name == 'workflow_dispatch'
-      ) &&
-      contains(fromJSON(vars.ALLOWED_REVIEW_AUTHORS || '["RyanS4"]'), github.actor) &&
-      (
-        github.event_name == 'workflow_dispatch' ||
-        contains(fromJSON(vars.ALLOWED_REVIEW_AUTHORS || '["RyanS4"]'), github.event.pull_request.user.login)
-      )
-    runs-on: ${{ fromJSON(vars.REVIEW_RUNNER || '"self-hosted"') }}
-    timeout-minutes: 15
-
+      (github.event_name == 'issue_comment' && github.event.issue.pull_request && github.event.comment.body == '/review') ||
+      (github.event_name == 'workflow_dispatch' && github.ref == format('refs/heads/{0}', github.event.repository.default_branch))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+      issues: read
     steps:
-      - name: Checkout PR Branch
-        uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
-          ref: ${{ github.event.pull_request.head.sha || github.ref }}
-          fetch-depth: 0
-
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
-
-      - name: Sync Review Tooling from main
-        run: git checkout origin/main -- .agents/scripts/run_pr_review.js .agents/prompts/pr_review_prompt.md .agents/schemas/pr_review_schema.json
-
-      - name: Run Gemini 3.8 Flash (High) PR Review
+      - name: Authorize requester and collect immutable PR data
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_EVENT_NAME: ${{ github.event_name }}
-          GITHUB_ACTOR: ${{ github.actor }}
-          PR_NUMBER: ${{ github.event.pull_request.number || inputs.pr_number }}
-          PR_AUTHOR: ${{ github.event.pull_request.user.login || github.actor }}
-          REVIEW_LABEL_NAME: ${{ github.event.label.name || 'Review' }}
-          READY_LABEL_NAME: ${{ vars.READY_LABEL_NAME || 'Ready' }}
-          RE_REVIEW_LABEL_NAME: ${{ vars.RE_REVIEW_LABEL_NAME || 'Re-Review' }}
-          ALLOWED_REVIEW_AUTHORS: ${{ vars.ALLOWED_REVIEW_AUTHORS || '["RyanS4"]' }}
-          AGY_MODEL: ${{ vars.AGY_MODEL || 'gemini-3.8-flash-high' }}
-          AGY_EFFORT: 'high'
+          GITHUB_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ inputs.pr_number }}
+        run: node .agents/scripts/run_pr_review.js collect
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: review-snapshot
+          path: review-data/snapshot.json
+          retention-days: 1
+          if-no-files-found: error
+  review:
+    needs: collect
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: review-snapshot
+          path: review-data
+      - name: Review data without tools or a GitHub write token
+        env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-        run: node .agents/scripts/run_pr_review.js
-
+          REVIEW_MODEL: ${{ vars.REVIEW_MODEL || 'gemini-3.8-flash' }}
+        run: node .agents/scripts/run_pr_review.js review
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: review-result
+          path: review-data/result.json
+          retention-days: 1
+          if-no-files-found: error
+  publish:
+    needs: [collect, review]
+    if: always() && needs.collect.result == 'success' && needs.review.result != 'cancelled' && needs.review.result != 'skipped'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: review-snapshot
+          path: review-data
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: review-result
+          path: review-data
+      - name: Validate, recheck revision and publish advisory findings
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node .agents/scripts/run_pr_review.js publish
