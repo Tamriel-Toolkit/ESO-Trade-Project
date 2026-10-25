@@ -124,7 +124,17 @@ async function review(snapshot, { key, model = 'gemini-3.8-flash', transport = f
                 contents: [{ role: 'user', parts: [{ text: JSON.stringify({ title: snapshot.title, description: snapshot.body, linkedIssues: snapshot.linkedIssues, files }) }] }],
                 generationConfig: { responseMimeType: 'application/json', responseJsonSchema: schema, maxOutputTokens: 12000 } }),
         });
-        if (!response.ok) throw new Error(`Model API failed (${response.status}); verify API key, quota and model access`);
+        if (!response.ok) {
+            // Keep diagnostics useful without publishing a credential or the request payload.
+            let detail = '';
+            try {
+                const error = (await response.json()).error;
+                detail = String(error?.message || error?.status || '')
+                    .split(key).join('[REDACTED]').split(encodeURIComponent(key)).join('[REDACTED]')
+                    .replace(/AIza[\w-]+/g, '[REDACTED]').slice(0, 500);
+            } catch { /* Non-JSON provider errors retain the HTTP status. */ }
+            throw new Error(`Model API failed (${response.status})${detail ? ': ' + detail : '; verify API key, quota and model access'}`);
+        }
         const result = parseModelResponse(await response.json());
         const names = new Set(files.map(f => f.filename));
         if (result.findings.some(f => !names.has(f.file))) throw new Error('Model cited a file outside its reviewed chunk');

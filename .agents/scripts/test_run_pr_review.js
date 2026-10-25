@@ -65,6 +65,9 @@ test('model call has no tools or GitHub credentials; provider failures cannot lo
     assert.equal(data.complete, true);
     await assert.rejects(review(snapshot(), {}), /secret is missing/);
     await assert.rejects(review(snapshot(), { key: 'test-only', transport: async () => ({ ok: false, status: 429 }) }), /429/);
+    await assert.rejects(review(snapshot(), { key: 'fixture/key', transport: async () => ({ ok: false, status: 400,
+        json: async () => ({ error: { message: 'Invalid schema fixture/key fixture%2Fkey AIzaSyntheticCredential' } }) }) }),
+    error => error.message.includes('Invalid schema') && !/fixture|AIza/.test(error.message));
 });
 test('revision and fingerprint checks distinguish changed commits', () => {
     assert.equal(sameRevision(pr(), snapshot()), true);
