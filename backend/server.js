@@ -1,11 +1,23 @@
 const fs = require("fs");
+const os = require("os");
 const path = require("path");
 const dotenv = require("dotenv");
 const { appendEquipmentFilters } = require('./marketplace_filters');
 
-// Load environment variables from backend/.env or root .env
-dotenv.config({ path: path.resolve(__dirname, ".env") });
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
+const isTestSandboxChild = Boolean(
+    process.env.ESO_TEST_SERVER && path.resolve(process.env.ESO_TEST_SERVER) === __filename
+);
+const isTestEnvironment =
+    process.env.NODE_ENV === "test" ||
+    Boolean(process.env.NODE_TEST_CONTEXT) ||
+    Boolean(process.env.ESO_TEST_SANDBOX_ROOT) ||
+    isTestSandboxChild;
+
+// Load environment variables from backend/.env or root .env only outside isolated test runs
+if (!isTestEnvironment) {
+    dotenv.config({ path: path.resolve(__dirname, ".env") });
+    dotenv.config({ path: path.resolve(__dirname, "../.env") });
+}
 
 // Process-Level Exception & Rejection Handlers
 process.on("unhandledRejection", (reason, promise) => {
@@ -22,7 +34,6 @@ const helmet = require("helmet");
 const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const crypto = require("crypto");
-const bcrypt = require("bcryptjs");
 const { rateLimit } = require("express-rate-limit");
 const sqlite3 = require("sqlite3").verbose();
 const { seedCuratedMetaBuilds } = require("./curated_builds");
@@ -30,32 +41,13 @@ const { createSchemaMigrationRunner, rollbackTransaction } = require("./database
 const { withScanTransaction } = require("./scan_transaction");
 const { schemaStatements: listingLifecycleSchema, validateLifecycle, applyLifecycle, purgeLifecycle } = require("./listing_lifecycle");
 const { configureTrustProxy, parseTrustProxyConfig } = require("./proxy_config");
+const { hashPassword, isBcryptHash, verifyPassword } = require("./password_helpers");
 const app = express();
 const PORT = process.env.PORT || 5001;
 let server = null;
 
 // Configure topology-safe reverse proxy trust before rate limiters & route handlers
 configureTrustProxy(app);
-
-const BCRYPT_SALT_ROUNDS = 12;
-const BCRYPT_HASH_PATTERN = /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/;
-
-function hashPassword(password) {
-    return bcrypt.hashSync(password || "", BCRYPT_SALT_ROUNDS);
-}
-
-function isBcryptHash(storedHash) {
-    return typeof storedHash === "string" && BCRYPT_HASH_PATTERN.test(storedHash);
-}
-
-function verifyPassword(password, storedHash) {
-    if (!password || !isBcryptHash(storedHash)) return false;
-    try {
-        return bcrypt.compareSync(password, storedHash);
-    } catch {
-        return false;
-    }
-}
 
 // Clean raw ESO grammatical gender/number suffixes (^n, ^p, ^ns, ^m, ^f, ^d) from item names
 function cleanEsoItemName(name) {
@@ -201,8 +193,51 @@ app.get("/api/icons/:filename", async (req, res) => {
     }
 });
 
+function resolveExistingParentRealPath(targetPath) {
+    const resolved = path.resolve(targetPath);
+    if (fs.existsSync(resolved)) {
+        return fs.realpathSync(resolved);
+    }
+    let current = resolved;
+    const suffix = [];
+    while (!fs.existsSync(current)) {
+        const parent = path.dirname(current);
+        if (parent === current) break;
+        suffix.unshift(path.basename(current));
+        current = parent;
+    }
+    const realCurrent = fs.existsSync(current) ? fs.realpathSync(current) : current;
+    return suffix.length > 0 ? path.join(realCurrent, ...suffix) : realCurrent;
+}
+
+function resolveDatabasePath() {
+    const candidatePath = process.env.DB_PATH || path.join(__dirname, "exports", "eso_catalog.db");
+    if (!isTestEnvironment) {
+        return candidatePath;
+    }
+    const sandboxRoot = process.env.ESO_TEST_SANDBOX_ROOT;
+    if (typeof sandboxRoot !== "string" || sandboxRoot.trim().length === 0 || !fs.existsSync(sandboxRoot)) {
+        throw new Error("Refusing to open database in test environment without an allocated ESO_TEST_SANDBOX_ROOT.");
+    }
+    const realSandboxRoot = fs.realpathSync(sandboxRoot);
+    const realTmp = fs.realpathSync(os.tmpdir());
+    if (path.dirname(realSandboxRoot) !== realTmp || !path.basename(realSandboxRoot).startsWith("eso-tests-")) {
+        throw new Error(`Unsafe test sandbox root "${sandboxRoot}": must be an eso-tests-* directory in os.tmpdir().`);
+    }
+    const trimmed = String(candidatePath || "").trim();
+    if (!trimmed || trimmed === ":memory:" || /^file:/i.test(trimmed) || trimmed.includes("\0")) {
+        throw new Error(`Unsafe test database path "${candidatePath}": must be a file inside "${realSandboxRoot}".`);
+    }
+    const realCandidate = resolveExistingParentRealPath(trimmed);
+    const relative = path.relative(realSandboxRoot, realCandidate);
+    if (!relative || relative.startsWith("..") || path.isAbsolute(relative)) {
+        throw new Error(`Unsafe test database path "${candidatePath}": outside allocated test sandbox "${realSandboxRoot}".`);
+    }
+    return realCandidate;
+}
+
 // Database connection
-const dbPath = process.env.DB_PATH || path.join(__dirname, "exports", "eso_catalog.db");
+const dbPath = resolveDatabasePath();
 const db = new sqlite3.Database(dbPath, (err) => {
     if (err) {
         console.error("Error connecting to the database:", err.message);

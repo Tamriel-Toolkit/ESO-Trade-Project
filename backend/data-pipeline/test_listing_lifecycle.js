@@ -1,6 +1,6 @@
 const {test} = require('node:test');
 const assert = require('node:assert/strict');
-const {createSandbox, query} = require('../test-support/sandbox');
+const {createSandbox, createSanitizedEnv, query} = require('../test-support/sandbox');
 const {spawnSync} = require('node:child_process');
 
 const now = () => Math.floor(Date.now() / 1000);
@@ -203,11 +203,8 @@ test('desktop and central API apply the same lifecycle sequence to identical act
         {observations: [observation('101'), observation('103', {time_remaining: 0}), observation('104', {observed_at: now() - 2592001, time_remaining: null})]},
     ];
     for (const batch of batches) assert.equal((await send(batch.observations || [], batch.purchases || [])).status, 200);
-    const env = {};
-    for (const key of ['PATH', 'Path', 'SystemRoot', 'WINDIR', 'TEMP', 'TMP', 'TMPDIR']) {
-        if (process.env[key]) env[key] = process.env[key];
-    }
-    const python = spawnSync('python', ['-B', '-c', `
+    const env = createSanitizedEnv();
+    const pythonArgs = ['-B', '-c', `
 import json, sqlite3, sys
 from contextlib import closing
 from listing_lifecycle import ensure_schema, apply_records
@@ -221,7 +218,12 @@ with closing(sqlite3.connect(':memory:')) as db:
         apply_records(db, 'NA', batch.get('observations', []), batch.get('purchases', []))
     db.commit()
     print(json.dumps(db.execute('SELECT game_item_id, server, price, total_price, quantity, active_stacks, trait_id, discovered_at, expires_at FROM guild_trader_active_listings ORDER BY game_item_id').fetchall()))
-`], {cwd: __dirname, env, input: JSON.stringify(batches), encoding: 'utf8', timeout: 10000});
+`];
+    const pythonOpts = {cwd: __dirname, env, input: JSON.stringify(batches), encoding: 'utf8', timeout: 10000};
+    let python = spawnSync('python', pythonArgs, pythonOpts);
+    if (python.error && python.error.code === 'ENOENT') {
+        python = spawnSync('python3', pythonArgs, pythonOpts);
+    }
     assert.equal(python.status, 0, python.stderr);
     const central = await query(sandbox.dbPath, `SELECT game_item_id, server, price, total_price, quantity, active_stacks,
         trait_id, discovered_at, expires_at FROM guild_trader_active_listings ORDER BY game_item_id`);

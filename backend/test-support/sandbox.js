@@ -6,12 +6,114 @@ const { fork } = require('node:child_process');
 const { once } = require('node:events');
 const sqlite3 = require('sqlite3');
 
+const SANDBOX_FILES = [
+    'server.js',
+    'password_helpers.js',
+    'marketplace_filters.js',
+    'database_helpers.js',
+    'scan_transaction.js',
+    'listing_lifecycle.js',
+    'listing_lifecycle.sql',
+    'proxy_config.js',
+    'curated_builds.js',
+    'eso_sets.json',
+    'set_weights.json',
+];
+
+const ALLOWED_CHILD_ENV_KEYS = ['PATH', 'Path', 'SystemRoot', 'WINDIR', 'TEMP', 'TMP', 'TMPDIR'];
+const activeSandboxRoots = new Set();
+
+function createSanitizedEnv(overrides = {}, sourceEnv = process.env) {
+    // Allow only OS essentials. Do not inherit credentials, DB_PATH, NODE_OPTIONS, or proxy settings.
+    const env = {};
+    for (const key of ALLOWED_CHILD_ENV_KEYS) {
+        if (sourceEnv && typeof sourceEnv[key] === 'string' && sourceEnv[key].length > 0) {
+            env[key] = sourceEnv[key];
+        }
+    }
+    return Object.assign(env, overrides);
+}
+
+function resolveRealOrParentPath(targetPath) {
+    const resolved = path.resolve(targetPath);
+    if (fs.existsSync(resolved)) {
+        return fs.realpathSync(resolved);
+    }
+    let current = resolved;
+    const suffix = [];
+    while (!fs.existsSync(current)) {
+        const parent = path.dirname(current);
+        if (parent === current) break;
+        suffix.unshift(path.basename(current));
+        current = parent;
+    }
+    const realCurrent = fs.existsSync(current) ? fs.realpathSync(current) : current;
+    return suffix.length > 0 ? path.join(realCurrent, ...suffix) : realCurrent;
+}
+
+function assertSandboxRoot(sandboxRoot, { requireActive = true } = {}) {
+    if (typeof sandboxRoot !== 'string' || sandboxRoot.trim().length === 0 || !fs.existsSync(sandboxRoot)) {
+        throw new Error(`Invalid or missing test sandbox root: "${sandboxRoot}"`);
+    }
+    const realRoot = fs.realpathSync(sandboxRoot);
+    const realTmp = fs.realpathSync(os.tmpdir());
+    if (path.dirname(realRoot) !== realTmp || !path.basename(realRoot).startsWith('eso-tests-')) {
+        throw new Error(`Unsafe test sandbox root "${sandboxRoot}": must be an eso-tests-* directory in os.tmpdir()`);
+    }
+    if (requireActive && !activeSandboxRoots.has(realRoot)) {
+        throw new Error(`Inactive or unallocated test sandbox root: "${sandboxRoot}"`);
+    }
+    return realRoot;
+}
+
+function isStrictlyInside(parentDir, childPath) {
+    const rel = path.relative(parentDir, childPath);
+    return Boolean(rel) && !rel.startsWith('..') && !path.isAbsolute(rel);
+}
+
+function assertIsolatedDatabasePath(candidatePath, sandboxRoot, { requireActive = true } = {}) {
+    if (typeof candidatePath !== 'string' || candidatePath.trim().length === 0) {
+        throw new Error('Unsafe test database path: path must be a non-empty string');
+    }
+    const trimmed = candidatePath.trim();
+    if (trimmed === ':memory:' || /^file:/i.test(trimmed) || trimmed.includes('\0')) {
+        throw new Error(`Unsafe test database path "${candidatePath}": must be a file inside an allocated test sandbox`);
+    }
+    const realCandidate = resolveRealOrParentPath(trimmed);
+
+    if (sandboxRoot !== undefined) {
+        const realRoot = assertSandboxRoot(sandboxRoot, { requireActive });
+        if (!isStrictlyInside(realRoot, realCandidate)) {
+            throw new Error(`Unsafe test database path "${candidatePath}": outside allocated sandbox "${realRoot}"`);
+        }
+        return realCandidate;
+    }
+
+    for (const realRoot of activeSandboxRoots) {
+        if (isStrictlyInside(realRoot, realCandidate)) {
+            return realCandidate;
+        }
+    }
+    throw new Error(`Unsafe test database path "${candidatePath}": outside all active test sandboxes`);
+}
+
+function assertNoDotenvFiles(sandboxRoot) {
+    const realRoot = assertSandboxRoot(sandboxRoot, { requireActive: false });
+    for (const candidate of [path.join(realRoot, '.env'), path.join(realRoot, 'backend', '.env')]) {
+        if (fs.existsSync(candidate)) {
+            throw new Error(`Unsafe dotenv file present in test sandbox: "${candidate}"`);
+        }
+    }
+}
+
 function createSandbox() {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'eso-tests-'));
+    const realRoot = fs.realpathSync(root);
+    activeSandboxRoots.add(realRoot);
     const backend = path.join(root, 'backend');
     fs.mkdirSync(path.join(backend, 'exports'), { recursive: true });
     const source = path.resolve(__dirname, '..');
-    for (const name of ['server.js', 'marketplace_filters.js', 'database_helpers.js', 'scan_transaction.js', 'listing_lifecycle.js', 'listing_lifecycle.sql', 'proxy_config.js', 'curated_builds.js', 'eso_sets.json', 'set_weights.json']) {
+    for (const name of SANDBOX_FILES) {
         fs.copyFileSync(path.join(source, name), path.join(backend, name));
     }
     fs.cpSync(path.join(source, 'assets'), path.join(backend, 'assets'), { recursive: true });
@@ -20,16 +122,20 @@ function createSandbox() {
     let logs = '';
     const downloads = new Map();
 
-    async function start({ mode = 'test', trustProxy = 'false' } = {}) {
-        // Allow only OS essentials. Do not inherit credentials, DB_PATH, NODE_OPTIONS, or proxy settings.
-        const env = {};
-        for (const key of ['PATH', 'Path', 'SystemRoot', 'WINDIR', 'TEMP', 'TMP', 'TMPDIR']) {
-            if (process.env[key]) env[key] = process.env[key];
-        }
-        Object.assign(env, {
-            NODE_ENV: mode, PORT: '0', DB_PATH: dbPath, TRUST_PROXY: trustProxy,
-            ENABLE_DEV_ENDPOINTS: 'true', NODE_PATH: path.join(source, 'node_modules'),
+    async function start({ mode = 'test', trustProxy = 'false', dbPath: customDbPath } = {}) {
+        const targetDbPath = customDbPath !== undefined ? customDbPath : dbPath;
+        assertIsolatedDatabasePath(targetDbPath, root);
+        assertNoDotenvFiles(root);
+
+        const env = createSanitizedEnv({
+            NODE_ENV: mode,
+            PORT: '0',
+            DB_PATH: targetDbPath,
+            TRUST_PROXY: trustProxy,
+            ENABLE_DEV_ENDPOINTS: 'true',
+            NODE_PATH: path.join(source, 'node_modules'),
             ESO_TEST_SERVER: path.join(backend, 'server.js'),
+            ESO_TEST_SANDBOX_ROOT: root,
         });
         child = fork(path.join(__dirname, 'server-child.js'), [], {
             cwd: backend, env, execArgv: [], silent: true,
@@ -73,6 +179,7 @@ function createSandbox() {
         if (path.dirname(root) !== path.resolve(os.tmpdir()) || !path.basename(root).startsWith('eso-tests-')) {
             throw new Error('Unsafe sandbox cleanup path');
         }
+        activeSandboxRoots.delete(realRoot);
         fs.rmSync(root, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
     }
 
@@ -82,8 +189,13 @@ function createSandbox() {
     };
 }
 
-function query(dbPath, sql, params = []) {
+function query(dbPath, sql, params = [], sandboxRoot) {
     return new Promise((resolve, reject) => {
+        try {
+            assertIsolatedDatabasePath(dbPath, sandboxRoot);
+        } catch (err) {
+            return reject(err);
+        }
         const db = new sqlite3.Database(dbPath);
         db.configure('busyTimeout', 5000);
         db.all(sql, params, (error, rows) => {
@@ -92,4 +204,11 @@ function query(dbPath, sql, params = []) {
     });
 }
 
-module.exports = { createSandbox, query };
+module.exports = {
+    ALLOWED_CHILD_ENV_KEYS,
+    createSandbox,
+    createSanitizedEnv,
+    assertIsolatedDatabasePath,
+    assertNoDotenvFiles,
+    query,
+};

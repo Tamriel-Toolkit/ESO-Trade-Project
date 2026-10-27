@@ -20,8 +20,15 @@ CI explicitly runs both commands. Frontend testing is separate.
   fallback asset into an OS-owned temporary directory. They do **not** copy the
   developer database, icon cache, or `.env` files. Dependencies resolve through
   the installed backend `node_modules`; production source is not rewritten.
-- Each server uses an OS-assigned port. Child environments exclude ambient
-  database paths, credentials, proxy settings, and `NODE_OPTIONS`.
+- Pure password hashing and verification helpers live in `password_helpers.js`,
+  independent of `server.js`, so unit tests never load `dotenv`, open SQLite,
+  bind sockets, or schedule background timers.
+- Both `test-support/sandbox.js` (`assertIsolatedDatabasePath`) and `server.js`
+  in test mode reject any database path outside the test's allocated `eso-tests-*`
+  temporary directory before opening SQLite.
+- Each server uses an OS-assigned port. Child environments (`createSanitizedEnv`)
+  include only essential OS path/temp variables and exclude ambient database paths,
+  credentials, tokens, `.env` files, proxy settings, and `NODE_OPTIONS`.
 - Icon upstream responses are deterministic, test-only stubs. No UESP calls are
   made, including the older API suite's icon smoke check. Assertions distinguish
   PNG bytes/cache hits from SVG fallback and check single-flight request counts.
@@ -36,8 +43,12 @@ CI explicitly runs both commands. Frontend testing is separate.
 
 | Suite | Contracts |
 |---|---|
+| `test_password_verification.js` | Pure `password_helpers.js` unit contracts (`$2a$`, `$2b$`, `$2y$`, malformed/legacy rejection, salt rounds) plus zero-side-effect import and unisolated `server.js` startup rejection |
 | `test_api_endpoints.js` | Existing authentication, cross-account authorization, migration diagnostics, rollback diagnostics, traits, exact stack prices, requests, builds, saved searches; includes proxy regressions |
-| `test_backend_failures.js` | Real icon route cache/fallback/validation/concurrency, production cookies/dev-route denial, expired sessions, malformed JSON, native-upload rollback and replay, fixture startup cleanup |
+| `test_backend_failures.js` | Real icon route cache/fallback/validation/concurrency, production cookies/dev-route denial, expired sessions, malformed JSON, native-upload rollback and replay, fixture startup cleanup, sandbox DB path guard, and child credential/dotenv isolation |
+| `test_listing_lifecycle.js` | Native UID lifecycle, purchase tombstones, expiry/30-day retention, legacy coexistence, multi-chunk concurrency, and desktop-to-API parity |
+| `test_scan_authorization.js` | Atomic scan protocol version and character ownership checks across `production`, `development`, and `test` modes |
+| `test_marketplace_filters.js` | Exact equipment filters, pagination totals, SQL injection resilience, and saved-search round-tripping |
 | `test_catalog.py` | Repeat upserts, preservation of dependent listings/equipment and omitted items, rollback across the 5,000-row batch boundary and SQL errors, invalid JSON |
 | `test_db_queries.py` | Exact query results/category counts, replacing print-only checks |
 | `test_ttl_purge.py` | Production expiry-trigger SQL: expired insert, active/null expiry, selective update deletion |

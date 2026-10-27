@@ -1,14 +1,19 @@
-const { test, describe, it, after } = require('node:test');
+const { describe, it } = require('node:test');
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const os = require('node:os');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
 const bcrypt = require('bcryptjs');
-const server = require('../server');
-const { verifyPassword, hashPassword, isBcryptHash } = server;
+const activeHandlesBeforeImport = new Set(process._getActiveHandles());
+const activeRequestsBeforeImport = new Set(process._getActiveRequests());
+const loadedModulesBeforeImport = new Set(Object.keys(require.cache));
+const { verifyPassword, hashPassword, isBcryptHash } = require('../password_helpers');
+const activeHandlesAfterImport = process._getActiveHandles().filter(handle => !activeHandlesBeforeImport.has(handle));
+const activeRequestsAfterImport = process._getActiveRequests().filter(req => !activeRequestsBeforeImport.has(req));
+const newlyLoadedModules = Object.keys(require.cache).filter(mod => !loadedModulesBeforeImport.has(mod));
 
-after(() => {
-    if (typeof server.gracefulShutdown === 'function') {
-        server.gracefulShutdown();
-    }
-});
+const { createSanitizedEnv } = require('../test-support/sandbox');
 
 describe('Password Verification and Hashing Utilities', () => {
     // Generate valid test hashes for $2a$, $2b$, and $2y$ prefixes
@@ -21,6 +26,110 @@ describe('Password Verification and Hashing Utilities', () => {
     const hash2b = generatedHash.replace(/^\$2[ay]\$/, '$2b$');
     // $2y$ format hash
     const hash2y = generatedHash.replace(/^\$2[ab]\$/, '$2y$');
+
+    describe('module isolation and side-effect guarantees', () => {
+        it('importing password_helpers creates no database, socket, timer, or dotenv side effects', () => {
+            assert.deepEqual(activeHandlesAfterImport, []);
+            assert.deepEqual(activeRequestsAfterImport, []);
+            for (const forbidden of [
+                path.resolve(__dirname, '../server.js'),
+                path.join('node_modules', 'sqlite3'),
+                path.join('node_modules', 'dotenv'),
+                path.join('node_modules', 'express'),
+            ]) {
+                assert.equal(
+                    newlyLoadedModules.some(mod => mod.includes(forbidden)),
+                    false,
+                    `Unexpected module loaded by password_helpers: ${forbidden}`
+                );
+            }
+        });
+
+        it('password helpers ignore local .env and sentinel DB_PATH in a clean subprocess', () => {
+            const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'eso-pwd-isolation-'));
+            try {
+                const sentinelDb = path.join(tempDir, 'sentinel.db');
+                const missingDb = path.join(tempDir, 'must-not-be-created.db');
+                const sentinelBytes = Buffer.from('SENTINEL-DATABASE-BYTES-DO-NOT-OPEN');
+                fs.writeFileSync(sentinelDb, sentinelBytes);
+                const fixedTime = new Date('2025-01-15T12:00:00.000Z');
+                fs.utimesSync(sentinelDb, fixedTime, fixedTime);
+                const statBefore = fs.statSync(sentinelDb, { bigint: true });
+
+                fs.writeFileSync(
+                    path.join(tempDir, '.env'),
+                    `DB_PATH=${sentinelDb}\nBLAKE_API_TOKEN=dotenv_secret_token\nESOTRADE_AUTH_TOKEN=dotenv_sync_token\n`
+                );
+
+                const helperPath = path.resolve(__dirname, '../password_helpers.js');
+                const result = spawnSync(
+                    process.execPath,
+                    [
+                        '-e',
+                        `
+                        const assert = require('node:assert/strict');
+                        const beforeH = process._getActiveHandles().length;
+                        const beforeR = process._getActiveRequests().length;
+                        const { hashPassword, verifyPassword, isBcryptHash } = require(${JSON.stringify(helperPath)});
+                        assert.equal(process._getActiveHandles().length, beforeH);
+                        assert.equal(process._getActiveRequests().length, beforeR);
+                        assert.equal(process.env.BLAKE_API_TOKEN, undefined);
+                        assert.equal(process.env.ESOTRADE_AUTH_TOKEN, undefined);
+                        const digest = hashPassword('IsolatedTestPassword!');
+                        assert.equal(isBcryptHash(digest), true);
+                        assert.equal(verifyPassword('IsolatedTestPassword!', digest), true);
+                        `,
+                    ],
+                    {
+                        cwd: tempDir,
+                        env: createSanitizedEnv({ NODE_ENV: 'test', DB_PATH: sentinelDb }),
+                        encoding: 'utf8',
+                        timeout: 15000,
+                    }
+                );
+                assert.equal(result.status, 0, result.stderr || result.stdout);
+
+                const statAfter = fs.statSync(sentinelDb, { bigint: true });
+                assert.deepEqual(fs.readFileSync(sentinelDb), sentinelBytes);
+                assert.equal(statAfter.mtimeNs, statBefore.mtimeNs);
+                assert.equal(fs.existsSync(missingDb), false);
+            } finally {
+                fs.rmSync(tempDir, { recursive: true, force: true });
+            }
+        });
+
+        it('server.js refuses unisolated test startup and leaves sentinel DB_PATH and .env untouched', () => {
+            const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'eso-server-guard-'));
+            try {
+                const sentinelDb = path.join(tempDir, 'sentinel.db');
+                const sentinelBytes = Buffer.from('SENTINEL-DB-MUST-NEVER-BE-OPENED');
+                fs.writeFileSync(sentinelDb, sentinelBytes);
+                const fixedTime = new Date('2025-01-15T12:00:00.000Z');
+                fs.utimesSync(sentinelDb, fixedTime, fixedTime);
+                const statBefore = fs.statSync(sentinelDb, { bigint: true });
+
+                const serverPath = path.resolve(__dirname, '../server.js');
+                const result = spawnSync(
+                    process.execPath,
+                    ['-e', `require(${JSON.stringify(serverPath)});`],
+                    {
+                        cwd: tempDir,
+                        env: createSanitizedEnv({ NODE_ENV: 'test', DB_PATH: sentinelDb }),
+                        encoding: 'utf8',
+                        timeout: 15000,
+                    }
+                );
+                assert.notEqual(result.status, 0);
+                assert.match(result.stderr, /Refusing to open database in test environment|Unsafe test database path/);
+
+                const statAfter = fs.statSync(sentinelDb, { bigint: true });
+                assert.deepEqual(fs.readFileSync(sentinelDb), sentinelBytes);
+                assert.equal(statAfter.mtimeNs, statBefore.mtimeNs);
+            } finally {
+                fs.rmSync(tempDir, { recursive: true, force: true });
+            }
+        });
+    });
 
     describe('verifyPassword', () => {
         it('returns true for correct password against bcrypt hash generated via hashPassword', () => {
