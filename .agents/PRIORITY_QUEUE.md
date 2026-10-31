@@ -3,7 +3,7 @@
 > **Live Status**: Canonical Roadmap & Priority Matrix  
 > **Master Tracking Issue on GitHub (Live Single Source of Truth)**: [Issue #35](https://github.com/Tamriel-Toolkit/ESO-Trade-Project/issues/35)  
 > **Repository Rules**: [.agents/AGENTS.md](file:///c:/Users/Blake/OneDrive/Desktop/ESO-Trade-Project/.agents/AGENTS.md)  
-> **Last Evaluated**: 2026-10-20
+> **Last Evaluated**: 2026-10-31
 
 This living document provides the prioritized execution queue for both human maintainers and autonomous AI agents. Whenever an issue is created or resolved, GitHub Issue #35 (the live runtime SSOT) and this document are updated.
 
@@ -25,49 +25,48 @@ This living document provides the prioritized execution queue for both human mai
 
 | Rank | Issue | Area | Severity | Status | Blocked By | Strategic Rationale |
 |:---:|:---|:---|:---:|:---:|:---:|:---|
-| **1** | #163 | Testing / Safety | MODERATE | 🟡 Next Up | None | Prevent test execution from opening or mutating configured application data. |
-| **2** | #164 | Database / Concurrency | MODERATE | 🔴 Blocked | #163 | Own complete transactions and establish WAL/durability before increasing production concurrency. |
-| **3** | #165 | Data / Authenticity | MODERATE | 🔴 Blocked | #163 | Ensure the public web app starts from authentic catalog data, never fixture bootstrap. |
-| **4** | #166 | Web / API Configuration | MODERATE | ⚪ Queued | None | Fix the browser deployment contract before containerizing the web app. |
-| **5** | #167 | Security / Sessions | MODERATE | 🔴 Blocked | #163, #166 | Define secure public-browser authentication and least-privilege ingestion access. |
-| **6** | #168 | Database / Migrations | MODERATE | 🔴 Blocked | #164, #165 | Make production schema evolution atomic, traceable and safely adopt existing data. |
-| **7** | #169 | Infrastructure / Web Deployment | FEAT | 🔴 Blocked | #166, #165, #167 | Deploy the product as a browser web app with durable server storage and controlled ingress. |
-| **8** | #170 | CI / Supply Chain | MINOR | 🔴 Blocked | #163 | Make release artifacts reproducible and test the runtime actually deployed. |
-| **9** | #171 | Operations / Recovery | MODERATE | 🔴 Blocked | #164, #168, #169 | Prove recoverability of user data and native market state before launch. |
-| **10** | #172 | Operations / Observability | MODERATE | 🔴 Blocked | #164, #168, #169 | Expose real readiness and actionable failures before traffic is admitted. |
-| **11** | #173 | API / Resource Protection | MODERATE | 🔴 Blocked | #172 | Bound public-facing CPU, download and storage amplification. |
-| **12** | #174 | Web / Account Lifecycle | FEAT | 🔴 Blocked | #167, #168 | Give public web users a secure recovery path without developer access. |
-| **13** | #175 | Security / User Operations | FEAT | 🔴 Blocked | #167, #168 | Provide accountable privacy and abuse handling for a public user-generated-content web app. |
-| **14** | #176 | Web / Asset Caching | MINOR | 🔴 Blocked | #166, #169, #173 | Cache immutable local bytes safely and preserve recovery from missing upstream icons. |
-| **15** | #177 | Frontend / Resilience | MINOR | ⚪ Queued | None | Prevent a rendering exception from leaving the public web app blank. |
-| **16** | #178 | Frontend / Sharing | MINOR | 🔴 Blocked | #166, #167, #169, #175 | Support safe web deep links and previews without requiring desktop UI or unrelated social features. |
-| **17** | #179 | QA / Performance and Integrity | MODERATE | 🔴 Blocked | #164, #165, #169, #172, #173, #176 | Make completeness and measured performance explicit web launch gates. |
-| **18** | #180 | Ingestion / Offline Reliability | MODERATE | 🔴 Blocked | #167, #168 | Reliably feed the web marketplace from native player-side observations. |
-| **19** | #185 | Accounts / Native Characters | FEAT | 🔴 Blocked | #167, #168, #180 | Require explicit ESO account names and securely paired automatic rosters before companion onboarding and public launch. |
-| **20** | #181 | Ingestion / Windows Companion | FEAT | 🔴 Blocked | #180, #167, #170, #185 | Provide a usable and trustworthy scan contributor companion while keeping the product web-based. |
-| **21** | #14 | Database / Docs | MINOR | 🔴 Blocked | #165, #168, #185 | Documents the complete current SQLite schema, constraints, indexes, triggers, and migration rules. |
-| **22** | #15 | Documentation | MINOR | 🔴 Blocked | #166, #169, #174, #181 | Provides accurate onboarding for the current catalog, native addon, API, frontend, and icon architecture. |
-| **23** | #22 | Pipeline / Docs | MINOR | 🔴 Blocked | #165, #180, #181, #167 | Makes catalog and native-addon ingestion reproducible and supportable from a clean environment. |
-| **24** | #23 | Deployment / Docs | MINOR | 🔴 Blocked | #169, #168, #171, #172, #179 | Defines a supported production topology with persistent SQLite, icon caching, backups, and monitoring. |
-| **25** | #182 | Release / Production Gate | FEAT | 🔴 Blocked | #163, #164, #165, #166, #167, #168, #169, #170, #171, #172, #173, #174, #175, #176, #177, #178, #179, #180, #181, #14, #15, #22, #23, #185 | Final release sign-off after security, recovery, capacity, browser UX and contributor onboarding are proven. |
-| **26** | #103 | Requests / Messaging | FEATURE | ⚪ Queued | None | Adds authorized order-specific buyer and crafter communication after core stability work. |
-| **27** | #120 | UI / Home | MINOR | ⚪ Queued | None | Clear product introduction and compact category discovery. |
-| **28** | #121 | UI / Market Search | MINOR | ⚪ Queued | None | Readable search, refinement, sorting, and saved-search hierarchy. |
-| **29** | #122 | UI / Market Listings | MINOR | ⚪ Queued | None | Clear item, price, stack, trader, and observation presentation. |
-| **30** | #147 | UI / Builds and Requests | FEATURE | ⚪ Queued | None | Scalable build library and request ledger: complete pagination, true set search, accessible summaries and restorable browsing; coordinate #123, #124 and #126. |
-| **31** | #123 | UI / Request Pages | MINOR | ⚪ Queued | None | Compact and consistent public and personal request pages. |
-| **32** | #124 | UI / Request Cards | MINOR | ⚪ Queued | None | Readable specifications, offers, statuses, and role-specific actions. |
-| **33** | #125 | UI / Request Form | MINOR | ⚪ Queued | None | Consistent item selection and request form presentation. |
-| **34** | #126 | UI / Build Gallery | MINOR | ⚪ Queued | None | Scannable build identity, metadata, and existing actions. |
-| **35** | #127 | UI / Build Details | MINOR | ⚪ Queued | None | Readable equipment, comparison metrics, and recorded-price context. |
-| **36** | #128 | UI / Build Form | MINOR | ⚪ Queued | None | Coherent equipment editor and nested set picker styling. |
-| **37** | #129 | UI / Characters | MINOR | 🔴 Blocked | #185 | Present the paired/imported roster and compact shared equipment after account identity changes. |
-| **38** | #130 | UI / Trait Research | MINOR | ⚪ Queued | None | Legible research status and accurate matching-listing labels. |
-| **39** | #131 | UI / Auth and Utility | MINOR | 🔴 Blocked | #185 | Polish required ESO-account signup, authentication and utility surfaces after account identity changes. |
-| **40** | #142 | UI / Appearance | FEATURE | ⚪ Queued | None | Adds accessible light and OS-following themes after shared tokens and core UI acceptance, before social feature expansion. |
-| **41** | #106 | Builds / Social | FEATURE | ⚪ Queued | None | Adds secure build visibility, derived bookmarks, and private-by-default community forks. |
-| **42** | #105 | Profiles / Privacy | FEATURE | ⚪ Queued | None | Delivers a privacy-conscious profile MVP before reputation or public contact features. |
-| **43** | #110 | Reputation / Safety | FEATURE | 🔴 Blocked | #105 | Adds verified post-trade reputation only with moderation, privacy, and anti-abuse safeguards. |
+| **1** | #166 | Web / API Configuration | MODERATE | 🟡 Next Up | None | Fix the browser deployment contract before containerizing the web app. |
+| **2** | #164 | Database / Concurrency | MODERATE | ⚪ Queued | None | Own complete transactions and establish WAL/durability before increasing production concurrency. |
+| **3** | #165 | Data / Authenticity | MODERATE | ⚪ Queued | None | Ensure the public web app starts from authentic catalog data, never fixture bootstrap. |
+| **4** | #167 | Security / Sessions | MODERATE | 🔴 Blocked | #166 | Define secure public-browser authentication and least-privilege ingestion access. |
+| **5** | #168 | Database / Migrations | MODERATE | 🔴 Blocked | #164, #165 | Make production schema evolution atomic, traceable and safely adopt existing data. |
+| **6** | #169 | Infrastructure / Web Deployment | FEAT | 🔴 Blocked | #166, #165, #167 | Deploy the product as a browser web app with durable server storage and controlled ingress. |
+| **7** | #170 | CI / Supply Chain | MINOR | ⚪ Queued | None | Make release artifacts reproducible and test the runtime actually deployed. |
+| **8** | #171 | Operations / Recovery | MODERATE | 🔴 Blocked | #164, #168, #169 | Prove recoverability of user data and native market state before launch. |
+| **9** | #172 | Operations / Observability | MODERATE | 🔴 Blocked | #164, #168, #169 | Expose real readiness and actionable failures before traffic is admitted. |
+| **10** | #173 | API / Resource Protection | MODERATE | 🔴 Blocked | #172 | Bound public-facing CPU, download and storage amplification. |
+| **11** | #174 | Web / Account Lifecycle | FEAT | 🔴 Blocked | #167, #168 | Give public web users a secure recovery path without developer access. |
+| **12** | #175 | Security / User Operations | FEAT | 🔴 Blocked | #167, #168 | Provide accountable privacy and abuse handling for a public user-generated-content web app. |
+| **13** | #176 | Web / Asset Caching | MINOR | 🔴 Blocked | #166, #169, #173 | Cache immutable local bytes safely and preserve recovery from missing upstream icons. |
+| **14** | #177 | Frontend / Resilience | MINOR | ⚪ Queued | None | Prevent a rendering exception from leaving the public web app blank. |
+| **15** | #178 | Frontend / Sharing | MINOR | 🔴 Blocked | #166, #167, #169, #175 | Support safe web deep links and previews without requiring desktop UI or unrelated social features. |
+| **16** | #179 | QA / Performance and Integrity | MODERATE | 🔴 Blocked | #164, #165, #169, #172, #173, #176 | Make completeness and measured performance explicit web launch gates. |
+| **17** | #180 | Ingestion / Offline Reliability | MODERATE | 🔴 Blocked | #167, #168 | Reliably feed the web marketplace from native player-side observations. |
+| **18** | #185 | Accounts / Native Characters | FEAT | 🔴 Blocked | #167, #168, #180 | Require explicit ESO account names and securely paired automatic rosters before companion onboarding and public launch. |
+| **19** | #181 | Ingestion / Windows Companion | FEAT | 🔴 Blocked | #180, #167, #170, #185 | Provide a usable and trustworthy scan contributor companion while keeping the product web-based. |
+| **20** | #14 | Database / Docs | MINOR | 🔴 Blocked | #165, #168, #185 | Documents the complete current SQLite schema, constraints, indexes, triggers, and migration rules. |
+| **21** | #15 | Documentation | MINOR | 🔴 Blocked | #166, #169, #174, #181 | Provides accurate onboarding for the current catalog, native addon, API, frontend, and icon architecture. |
+| **22** | #22 | Pipeline / Docs | MINOR | 🔴 Blocked | #165, #180, #181, #167 | Makes catalog and native-addon ingestion reproducible and supportable from a clean environment. |
+| **23** | #23 | Deployment / Docs | MINOR | 🔴 Blocked | #169, #168, #171, #172, #179 | Defines a supported production topology with persistent SQLite, icon caching, backups, and monitoring. |
+| **24** | #182 | Release / Production Gate | FEAT | 🔴 Blocked | #164, #165, #166, #167, #168, #169, #170, #171, #172, #173, #174, #175, #176, #177, #178, #179, #180, #181, #14, #15, #22, #23, #185 | Final release sign-off after security, recovery, capacity, browser UX and contributor onboarding are proven. |
+| **25** | #103 | Requests / Messaging | FEATURE | ⚪ Queued | None | Adds authorized order-specific buyer and crafter communication after core stability work. |
+| **26** | #120 | UI / Home | MINOR | ⚪ Queued | None | Clear product introduction and compact category discovery. |
+| **27** | #121 | UI / Market Search | MINOR | ⚪ Queued | None | Readable search, refinement, sorting, and saved-search hierarchy. |
+| **28** | #122 | UI / Market Listings | MINOR | ⚪ Queued | None | Clear item, price, stack, trader, and observation presentation. |
+| **29** | #147 | UI / Builds and Requests | FEATURE | ⚪ Queued | None | Scalable build library and request ledger: complete pagination, true set search, accessible summaries and restorable browsing; coordinate #123, #124 and #126. |
+| **30** | #123 | UI / Request Pages | MINOR | ⚪ Queued | None | Compact and consistent public and personal request pages. |
+| **31** | #124 | UI / Request Cards | MINOR | ⚪ Queued | None | Readable specifications, offers, statuses, and role-specific actions. |
+| **32** | #125 | UI / Request Form | MINOR | ⚪ Queued | None | Consistent item selection and request form presentation. |
+| **33** | #126 | UI / Build Gallery | MINOR | ⚪ Queued | None | Scannable build identity, metadata, and existing actions. |
+| **34** | #127 | UI / Build Details | MINOR | ⚪ Queued | None | Readable equipment, comparison metrics, and recorded-price context. |
+| **35** | #128 | UI / Build Form | MINOR | ⚪ Queued | None | Coherent equipment editor and nested set picker styling. |
+| **36** | #129 | UI / Characters | MINOR | 🔴 Blocked | #185 | Present the paired/imported roster and compact shared equipment after account identity changes. |
+| **37** | #130 | UI / Trait Research | MINOR | ⚪ Queued | None | Legible research status and accurate matching-listing labels. |
+| **38** | #131 | UI / Auth and Utility | MINOR | 🔴 Blocked | #185 | Polish required ESO-account signup, authentication and utility surfaces after account identity changes. |
+| **39** | #142 | UI / Appearance | FEATURE | ⚪ Queued | None | Adds accessible light and OS-following themes after shared tokens and core UI acceptance, before social feature expansion. |
+| **40** | #106 | Builds / Social | FEATURE | ⚪ Queued | None | Adds secure build visibility, derived bookmarks, and private-by-default community forks. |
+| **41** | #105 | Profiles / Privacy | FEATURE | ⚪ Queued | None | Delivers a privacy-conscious profile MVP before reputation or public contact features. |
+| **42** | #110 | Reputation / Safety | FEATURE | 🔴 Blocked | #105 | Adds verified post-trade reputation only with moderation, privacy, and anti-abuse safeguards. |
 
 ---
 
@@ -93,6 +92,7 @@ This living document provides the prioritized execution queue for both human mai
 ---
 
 ## 🏆 Recently Completed / Merged
+- **`#163`** — `[MODERATE] Isolate password tests from server startup and configured databases` (Closed/Merged)
 - **`#162`** — `[CRITICAL] Prevent legacy scan uploads from reassigning character ownership` (Closed/Merged)
 - **`#119`** — `[MINOR] Refine navigation, settings, and account menus into a coherent application shell` (Closed/Merged)
 - **`#104`** — `[FEAT] Establish Tailwind v4 design tokens and incrementally migrate core UI` (Closed/Merged)
