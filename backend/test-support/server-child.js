@@ -1,6 +1,11 @@
 // Test-only transport stubs. No runtime code or application data is modified.
 const http = require('node:http');
+const { assertIsolatedDatabasePath, assertNoDotenvFiles } = require('./sandbox');
 const { PNG } = require('./test-image');
+
+assertNoDotenvFiles(process.env.ESO_TEST_SANDBOX_ROOT);
+assertIsolatedDatabasePath(process.env.DB_PATH, process.env.ESO_TEST_SANDBOX_ROOT, { requireActive: false });
+
 let releaseIcon;
 const heldIcon = new Promise(resolve => { releaseIcon = resolve; });
 global.fetch = async (url, options = {}) => {

@@ -87,14 +87,32 @@ jobs:
         working-directory: backend
         env:
           NODE_ENV: test
-          DB_PATH: ":memory:"
+          DB_PATH: ${{ runner.temp }}/eso-ci-sentinel.db
+          BLAKE_API_TOKEN: ci_ambient_blake_token
+          DEMO_API_TOKEN: ci_ambient_demo_token
+          ESOTRADE_AUTH_TOKEN: ci_ambient_sync_token
         run: |
+          mkdir -p exports
+          printf 'CI-SENTINEL-DB-BYTES-DO-NOT-OPEN' > "$DB_PATH"
+          printf 'CI-WORKSPACE-CATALOG-SENTINEL-DO-NOT-OPEN' > exports/eso_catalog.db
+          touch -d "2025-01-15T12:00:00Z" "$DB_PATH" exports/eso_catalog.db
+          printf 'DB_PATH=%s\nBLAKE_API_TOKEN=ci_dotenv_blake_token\nESOTRADE_AUTH_TOKEN=ci_dotenv_sync_token\n' "$DB_PATH" > .env
+          SENTINEL_STATE_BEFORE="$(sha256sum "$DB_PATH" exports/eso_catalog.db && stat -c '%n:%Y:%y' "$DB_PATH" exports/eso_catalog.db)"
           npm test
+          SENTINEL_STATE_AFTER="$(sha256sum "$DB_PATH" exports/eso_catalog.db && stat -c '%n:%Y:%y' "$DB_PATH" exports/eso_catalog.db)"
+          test "$SENTINEL_STATE_BEFORE" = "$SENTINEL_STATE_AFTER"
 
       - name: Run Isolated Python Regression Suites
         working-directory: backend/data-pipeline
+        env:
+          DB_PATH: ${{ runner.temp }}/eso-ci-sentinel.db
+          ESOTRADE_AUTH_TOKEN: ci_ambient_sync_token
         run: |
+          SENTINEL_STATE_BEFORE="$(sha256sum "$DB_PATH" ../exports/eso_catalog.db && stat -c '%n:%Y:%y' "$DB_PATH" ../exports/eso_catalog.db)"
           python -B -m unittest -v test_db_queries test_ttl_purge test_catalog test_watcher test_parser_failures test_listing_lifecycle test_addon_lifecycle test_fetch_and_ingest
+          SENTINEL_STATE_AFTER="$(sha256sum "$DB_PATH" ../exports/eso_catalog.db && stat -c '%n:%Y:%y' "$DB_PATH" ../exports/eso_catalog.db)"
+          test "$SENTINEL_STATE_BEFORE" = "$SENTINEL_STATE_AFTER"
+          rm -f ../exports/eso_catalog.db ../.env "$DB_PATH"
 
   frontend-build:
     name: Frontend Production Build

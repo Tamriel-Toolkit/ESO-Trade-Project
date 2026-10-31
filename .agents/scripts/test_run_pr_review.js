@@ -174,7 +174,8 @@ test('workflow wiring includes automation in the required CI gate and pins every
     const root = path.join(__dirname, '../../.github/workflows');
     const ci = fs.readFileSync(path.join(root, 'ci.yml'), 'utf8');
     assert.match(ci, /\n  automation:/); assert.match(ci, /needs: \[automation, backend-and-pipeline, frontend-build\]/);
-    assert.match(ci, /windows-latest/); assert.match(ci, /DB_PATH: ":memory:"/);
+    assert.match(ci, /windows-latest/); assert.match(ci, /DB_PATH:\s*\$\{\{\s*runner\.temp\s*\}\}\/eso-ci-sentinel\.db/);
+    assert.match(ci, /test "\$SENTINEL_STATE_BEFORE" = "\$SENTINEL_STATE_AFTER"/);
     for (const name of fs.readdirSync(root)) {
         const text = fs.readFileSync(path.join(root, name), 'utf8');
         for (const match of text.matchAll(/uses:\s+([^\s#]+)/g)) assert.match(match[1], /@[a-f0-9]{40}$/);

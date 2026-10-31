@@ -1,9 +1,10 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const { setTimeout: delay } = require('node:timers/promises');
-const { createSandbox, query } = require('../test-support/sandbox');
+const { createSandbox, createSanitizedEnv, assertIsolatedDatabasePath, query } = require('../test-support/sandbox');
 const { PNG } = require('../test-support/test-image');
 
 async function fixture(t, options) {
@@ -218,15 +219,108 @@ test('ambient DB_PATH cannot redirect a test server to external data', { timeout
     const sentinel = path.join(sandbox.root, 'do-not-touch.db');
     const original = Buffer.from('Not a database: this fixture must never be opened by SQLite.');
     fs.writeFileSync(sentinel, original);
+    const fixedTime = new Date('2025-01-15T12:00:00.000Z');
+    fs.utimesSync(sentinel, fixedTime, fixedTime);
+    const statBefore = fs.statSync(sentinel, { bigint: true });
     const previous = process.env.DB_PATH;
     process.env.DB_PATH = sentinel;
     try {
         await sandbox.start();
+        const statAfter = fs.statSync(sentinel, { bigint: true });
         assert.deepEqual(fs.readFileSync(sentinel), original);
+        assert.equal(statAfter.mtimeNs, statBefore.mtimeNs);
         assert.notEqual(sandbox.dbPath, sentinel);
     } finally {
         if (previous === undefined) delete process.env.DB_PATH;
         else process.env.DB_PATH = previous;
         await sandbox.dispose();
+    }
+});
+
+test('sandbox database guard rejects paths outside the allocated temporary directory and preserves external sentinels', { timeout: 30000 }, async () => {
+    const externalDir = fs.mkdtempSync(path.join(os.tmpdir(), 'eso-external-sentinel-'));
+    const sentinel = path.join(externalDir, 'sentinel.db');
+    const original = Buffer.from('EXTERNAL-SENTINEL-BYTES-DO-NOT-OPEN');
+    fs.writeFileSync(sentinel, original);
+    const fixedTime = new Date('2025-01-15T12:00:00.000Z');
+    fs.utimesSync(sentinel, fixedTime, fixedTime);
+    const statBefore = fs.statSync(sentinel, { bigint: true });
+
+    const sandboxA = createSandbox();
+    const sandboxB = createSandbox();
+    try {
+        for (const badPath of [
+            '',
+            ':memory:',
+            `file:${sandboxA.dbPath}`,
+            sentinel,
+            path.resolve(__dirname, '../exports/eso_catalog.db'),
+            path.join(sandboxA.root, '..', 'escaped.db'),
+            sandboxB.dbPath,
+        ]) {
+            assert.throws(() => assertIsolatedDatabasePath(badPath, sandboxA.root), /Unsafe test database path/);
+            await assert.rejects(query(badPath, 'SELECT 1', [], sandboxA.root), /Unsafe test database path/);
+            await assert.rejects(sandboxA.start({ dbPath: badPath }), /Unsafe test database path/);
+        }
+        await assert.rejects(query(sentinel, 'SELECT 1'), /Unsafe test database path/);
+
+        const statAfter = fs.statSync(sentinel, { bigint: true });
+        assert.deepEqual(fs.readFileSync(sentinel), original);
+        assert.equal(statAfter.mtimeNs, statBefore.mtimeNs);
+    } finally {
+        await sandboxA.dispose();
+        await sandboxB.dispose();
+        fs.rmSync(externalDir, { recursive: true, force: true });
+    }
+    await assert.rejects(query(sandboxA.dbPath, 'SELECT 1'), /Unsafe test database path|Inactive/);
+});
+
+test('sandbox child processes do not inherit credentials, DB_PATH, or dotenv files', { timeout: 30000 }, async t => {
+    const leakedEnv = {
+        PATH: '/usr/bin:/bin',
+        DB_PATH: '/tmp/ambient-prod.db',
+        BLAKE_API_TOKEN: 'leaked_blake_token_value',
+        DEMO_API_TOKEN: 'leaked_demo_token_value',
+        BLAKE_DEFAULT_PASSWORD: 'LeakedBlakePassword!',
+        DEMO_DEFAULT_PASSWORD: 'LeakedDemoPassword!',
+        ESOTRADE_AUTH_TOKEN: 'leaked_sync_token',
+        GITHUB_TOKEN: 'leaked_github_token',
+        NODE_OPTIONS: '--require /tmp/bad.js',
+    };
+    const sanitized = createSanitizedEnv({ NODE_ENV: 'test' }, leakedEnv);
+    assert.equal(sanitized.DB_PATH, undefined);
+    assert.equal(sanitized.BLAKE_API_TOKEN, undefined);
+    assert.equal(sanitized.DEMO_API_TOKEN, undefined);
+    assert.equal(sanitized.BLAKE_DEFAULT_PASSWORD, undefined);
+    assert.equal(sanitized.DEMO_DEFAULT_PASSWORD, undefined);
+    assert.equal(sanitized.ESOTRADE_AUTH_TOKEN, undefined);
+    assert.equal(sanitized.GITHUB_TOKEN, undefined);
+    assert.equal(sanitized.NODE_OPTIONS, undefined);
+
+    const sandbox = createSandbox();
+    t.after(() => sandbox.dispose());
+
+    const previousBlake = process.env.BLAKE_API_TOKEN;
+    const previousDemo = process.env.DEMO_API_TOKEN;
+    process.env.BLAKE_API_TOKEN = 'ambient_secret_blake_token';
+    process.env.DEMO_API_TOKEN = 'ambient_secret_demo_token';
+    try {
+        const dotenvPath = path.join(sandbox.backend, '.env');
+        fs.writeFileSync(dotenvPath, 'BLAKE_API_TOKEN=dotenv_blake_token\n');
+        await assert.rejects(sandbox.start(), /Unsafe dotenv file present in test sandbox/);
+        fs.unlinkSync(dotenvPath);
+
+        await sandbox.start();
+        const tokens = await query(sandbox.dbPath, 'SELECT api_token FROM users');
+        for (const { api_token } of tokens) {
+            assert.notEqual(api_token, 'ambient_secret_blake_token');
+            assert.notEqual(api_token, 'ambient_secret_demo_token');
+            assert.notEqual(api_token, 'dotenv_blake_token');
+        }
+    } finally {
+        if (previousBlake === undefined) delete process.env.BLAKE_API_TOKEN;
+        else process.env.BLAKE_API_TOKEN = previousBlake;
+        if (previousDemo === undefined) delete process.env.DEMO_API_TOKEN;
+        else process.env.DEMO_API_TOKEN = previousDemo;
     }
 });

@@ -2,7 +2,7 @@ const http = require('http');
 const crypto = require('crypto');
 const path = require('path');
 const assert = require('node:assert/strict');
-const { createSandbox } = require('../test-support/sandbox');
+const { createSandbox, assertIsolatedDatabasePath } = require('../test-support/sandbox');
 const sqlite3 = require('sqlite3').verbose();
 const {
     createSchemaMigrationRunner,
@@ -13,7 +13,7 @@ const { runProxyTrustTests } = require('../test_proxy_trust');
 
 let PORT;
 const sandbox = createSandbox();
-const EPHEMERAL_DB = sandbox.dbPath;
+const EPHEMERAL_DB = assertIsolatedDatabasePath(sandbox.dbPath, sandbox.root);
 const PREMIGRATION_LEGACY_USER_ID = 90;
 const PREMIGRATION_LEGACY_PASSWORD = 'PreMigrationLegacy123!';
 
@@ -21,6 +21,11 @@ console.log("Starting isolated test server with sandbox DB: " + path.basename(EP
 
 function seedPreMigrationLegacyAccount() {
     return new Promise((resolve, reject) => {
+        try {
+            assertIsolatedDatabasePath(EPHEMERAL_DB, sandbox.root);
+        } catch (err) {
+            return reject(err);
+        }
         const seedDb = new sqlite3.Database(EPHEMERAL_DB, (openErr) => {
             if (openErr) return reject(openErr);
 
@@ -163,6 +168,11 @@ function httpPatch(path, body = {}, headers = {}) {
 
 function testDbRun(sql, params = []) {
     return new Promise((resolve, reject) => {
+        try {
+            assertIsolatedDatabasePath(EPHEMERAL_DB, sandbox.root);
+        } catch (err) {
+            return reject(err);
+        }
         const testDb = new sqlite3.Database(EPHEMERAL_DB, (openErr) => {
             if (openErr) return reject(openErr);
             testDb.configure('busyTimeout', 5000);
@@ -180,6 +190,11 @@ function testDbRun(sql, params = []) {
 
 function testDbAll(sql, params = []) {
     return new Promise((resolve, reject) => {
+        try {
+            assertIsolatedDatabasePath(EPHEMERAL_DB, sandbox.root);
+        } catch (err) {
+            return reject(err);
+        }
         const testDb = new sqlite3.Database(EPHEMERAL_DB, (openErr) => {
             if (openErr) return reject(openErr);
             testDb.configure('busyTimeout', 5000);
@@ -205,7 +220,8 @@ function closeDatabase(database) {
 
 async function testDatabaseFailureHandling() {
     console.log("\n0a. Testing migration idempotency and failure diagnostics...");
-    const migrationDb = new sqlite3.Database(':memory:');
+    const migrationDbPath = assertIsolatedDatabasePath(path.join(sandbox.root, 'migration-probe.db'), sandbox.root);
+    const migrationDb = new sqlite3.Database(migrationDbPath);
     const infoMessages = [];
     const errorMessages = [];
     const failures = [];
