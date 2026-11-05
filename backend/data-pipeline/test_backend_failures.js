@@ -168,6 +168,67 @@ test('native upload SQL failure rolls back the whole batch; replay is idempotent
         'SELECT uid FROM native_listing_observations WHERE seller_name = ?', ['@ConcurrentGood'])).length, 1);
 });
 
+test('character, inventory, build and maintenance writes isolate a failed build during scan ingestion', async t => {
+    const { sandbox, request } = await fixture(t);
+    const login = await request('/api/dev/bypass-login', post({ user_id: 1 }));
+    const { token } = await login.json();
+    const mutate = (route, body) => {
+        const options = post(body);
+        options.headers.Authorization = `Bearer ${token}`;
+        return request(route, options);
+    };
+    const character = { name: 'ConcurrentFixture', known_items: [1129] };
+    const created = await mutate('/api/characters/sync', character);
+    assert.equal(created.status, 200);
+    const { character_id } = await created.json();
+    await query(sandbox.dbPath, `CREATE TRIGGER reject_item BEFORE INSERT ON build_items
+        BEGIN SELECT RAISE(ABORT, 'reject fixture build item'); END`);
+    const responses = await Promise.all([
+        mutate('/api/builds', { title: 'RollbackFixture', class: 'Templar', role: 'Tank', items: [{}] }),
+        mutate('/api/characters/sync', character),
+        mutate('/api/inventory/sync', { character_id, inventory: [{ game_item_id: 1129, quantity: 4 }] }),
+        mutate('/api/market/listings/purge-expired', {}),
+        mutate('/api/requests', { request_type: 'WTB', server: 'NA', game_item_id: 1129,
+            item_name: 'Request fixture', offered_gold_price: 45 }),
+        mutate('/api/market/upload-scans', { lifecycle_version: 1, server: 'NA', observations: [{
+            uid: '18446744073709551615', guild_id: '88', game_item_id: 1129, item_name: 'Concurrent fixture',
+            total_price: 44, quantity: 1, seller_name: '@Fixture', guild_name: 'Fixture', level: 1,
+            quality: 1, trait_id: 0, observed_at: Math.floor(Date.now() / 1000), time_remaining: 86400
+        }] })
+    ]);
+    assert.deepEqual(responses.map(response => response.status), [500, 200, 200, 200, 201, 200]);
+    assert.deepEqual(await query(sandbox.dbPath, 'SELECT id FROM builds WHERE title = ?', ['RollbackFixture']), []);
+    assert.deepEqual(await query(sandbox.dbPath, 'SELECT quantity FROM user_inventory WHERE character_id = ?', [character_id]), [{ quantity: 4 }]);
+    assert.deepEqual(await query(sandbox.dbPath, 'SELECT uid FROM native_listing_observations'), [{ uid: '18446744073709551615' }]);
+    const search = '/api/market/listings?server=NA&search=Concurrent';
+    const before = await (await request(search)).json();
+    assert.ok(before.listings.some(row => row.seller_name === '@Fixture'));
+    await sandbox.stop();
+    const port = await sandbox.start();
+    const after = await fetch(`http://127.0.0.1:${port}${search}`).then(response => response.json());
+    assert.deepEqual(after.listings.map(row => row.item_name), before.listings.map(row => row.item_name));
+    assert.deepEqual(await query(sandbox.dbPath, 'PRAGMA foreign_key_check'), []);
+
+});
+
+test('external writer contention returns 503 while committed data remains readable', async t => {
+    const { sandbox, request } = await fixture(t);
+    const sqlite3 = require('sqlite3');
+    const { statements } = require('../sqlite_writer');
+    const external = new sqlite3.Database(sandbox.dbPath);
+    const { run } = statements(external);
+    try {
+        await run('BEGIN IMMEDIATE');
+        const purge = request('/api/market/listings/purge-expired', post({}));
+        assert.equal((await request('/api/status')).status, 200);
+        assert.equal((await purge).status, 503);
+    } finally {
+        await run('ROLLBACK');
+        await new Promise((resolve, reject) => external.close(err => err ? reject(err) : resolve()));
+    }
+    assert.equal((await request('/api/market/listings/purge-expired', post({}))).status, 200);
+});
+
 test('legacy listing migration backfills exact totals and is repeatable across restart', { timeout: 30000 }, async t => {
     const sandbox = createSandbox();
     t.after(() => sandbox.dispose());

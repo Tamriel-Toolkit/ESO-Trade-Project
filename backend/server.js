@@ -37,8 +37,8 @@ const crypto = require("crypto");
 const { rateLimit } = require("express-rate-limit");
 const sqlite3 = require("sqlite3").verbose();
 const { seedCuratedMetaBuilds } = require("./curated_builds");
-const { createSchemaMigrationRunner, rollbackTransaction } = require("./database_helpers");
-const { withScanTransaction } = require("./scan_transaction");
+const { createSchemaMigrationRunner } = require("./database_helpers");
+const { configureConnection, statements, withTransaction } = require("./sqlite_writer");
 const { schemaStatements: listingLifecycleSchema, validateLifecycle, applyLifecycle, purgeLifecycle } = require("./listing_lifecycle");
 const { configureTrustProxy, parseTrustProxyConfig } = require("./proxy_config");
 const { hashPassword, isBcryptHash, verifyPassword } = require("./password_helpers");
@@ -244,15 +244,10 @@ const db = new sqlite3.Database(dbPath, (err) => {
         process.exit(1);
     } else {
         console.log("Connected to the SQLite database at:", dbPath);
-        // Explicitly enable Foreign Key constraints
-        db.run("PRAGMA foreign_keys = ON;", (fkErr) => {
-            if (fkErr) {
-                console.error("Error enabling SQLite foreign keys:", fkErr.message);
-            } else {
-                console.log("SQLite foreign key constraints enabled.");
-            }
+        configureConnection(db).then(initializeDatabaseSchema).catch(error => {
+            console.error("Failed to initialize SQLite:", error.message);
+            db.close(() => process.exit(1));
         });
-        initializeDatabaseSchema();
     }
 });
 
@@ -287,72 +282,35 @@ function abortStartupForSchemaFailures() {
  * Reports and disables accounts whose stored credential is not bcrypt.
  * The report intentionally excludes password hashes, API tokens, and email addresses.
  */
-function scheduleLegacyPasswordRemediation() {
-    db.all(`
-        SELECT id, username, role, created_at, password_hash
-        FROM users
-        ORDER BY id ASC;
-    `, [], (auditErr, rows) => {
-        if (auditErr) {
-            console.error("[AUTH MIGRATION] Failed to inventory non-bcrypt accounts:", auditErr.message);
-            return;
-        }
+async function remediateLegacyPasswords(run, all) {
+    const rows = await all(`
+        SELECT id, username, role, created_at, password_hash FROM users ORDER BY id ASC;
+    `);
+    const legacyAccounts = rows.filter((row) => !isBcryptHash(row.password_hash));
+    const safeReport = legacyAccounts.map(({ id, username, role, created_at }) => ({
+        id,
+        username,
+        role,
+        created_at
+    }));
+    console.log(`[AUTH MIGRATION] Pre-migration report: ${safeReport.length} non-bcrypt account(s).`, safeReport);
 
-        const legacyAccounts = rows.filter((row) => !isBcryptHash(row.password_hash));
-        const safeReport = legacyAccounts.map(({ id, username, role, created_at }) => ({
-            id,
-            username,
-            role,
-            created_at
-        }));
-        console.log(`[AUTH MIGRATION] Pre-migration report: ${safeReport.length} non-bcrypt account(s).`, safeReport);
+    if (legacyAccounts.length === 0) return;
 
-        if (legacyAccounts.length === 0) return;
+    // Development fixtures have their own credential reset during schema initialization.
+    const accountsToDisable = isDevMode
+        ? legacyAccounts.filter((account) => ![1, 2].includes(account.id))
+        : legacyAccounts;
+    if (accountsToDisable.length === 0) return;
 
-        // The two built-in development fixtures are reset to bcrypt by the next
-        // queued schema step. Every other legacy account is explicitly disabled.
-        const accountsToDisable = isDevMode
-            ? legacyAccounts.filter((account) => ![1, 2].includes(account.id))
-            : legacyAccounts;
-        if (accountsToDisable.length === 0) return;
+    const accountIds = accountsToDisable.map((account) => account.id);
+    const placeholders = accountIds.map(() => "?").join(", ");
+    const disabledPasswordHash = hashPassword(crypto.randomBytes(32).toString("hex"));
 
-        const accountIds = accountsToDisable.map((account) => account.id);
-        const placeholders = accountIds.map(() => "?").join(", ");
-        const disabledPasswordHash = hashPassword(crypto.randomBytes(32).toString("hex"));
-
-        const rollback = (migrationErr) => {
-            rollbackTransaction(dbRun, "Legacy-account remediation", migrationErr).finally(() => {
-                console.error("[AUTH MIGRATION] Failed to disable non-bcrypt accounts:", migrationErr.message);
-            });
-        };
-
-        db.run("BEGIN IMMEDIATE TRANSACTION;", (beginErr) => {
-            if (beginErr) {
-                console.error("[AUTH MIGRATION] Failed to start legacy-account remediation:", beginErr.message);
-                return;
-            }
-
-            db.run(`DELETE FROM sessions WHERE user_id IN (${placeholders});`, accountIds, (sessionErr) => {
-                if (sessionErr) return rollback(sessionErr);
-
-                db.run(`
-                    UPDATE users
-                    SET password_hash = ?, api_token = NULL
-                    WHERE id IN (${placeholders});
-                `, [disabledPasswordHash, ...accountIds], function(updateErr) {
-                    if (updateErr) return rollback(updateErr);
-
-                    const disabledCount = this.changes;
-                    db.run("COMMIT;", (commitErr) => {
-                        if (commitErr) return rollback(commitErr);
-                        console.warn(
-                            `[AUTH MIGRATION] Disabled ${disabledCount} non-bcrypt account(s), revoked their sessions and API tokens, and invalidated their credentials pending a controlled password reset.`
-                        );
-                    });
-                });
-            });
-        });
-    });
+    await run(`DELETE FROM sessions WHERE user_id IN (${placeholders});`, accountIds);
+    const result = await run(`UPDATE users SET password_hash = ?, api_token = NULL WHERE id IN (${placeholders});`,
+        [disabledPasswordHash, ...accountIds]);
+    console.warn(`[AUTH MIGRATION] Disabled ${result.changes} non-bcrypt account(s), revoked their sessions and API tokens.`);
 }
 
 /**
@@ -452,7 +410,7 @@ function initializeDatabaseSchema() {
         });
         db.run("CREATE INDEX IF NOT EXISTS idx_saved_searches_user ON saved_searches(user_id, is_pinned);");
 
-        scheduleLegacyPasswordRemediation();
+
 
         if (isDevMode) {
             const seedBlakeToken = process.env.BLAKE_API_TOKEN || crypto.randomBytes(16).toString("hex");
@@ -641,7 +599,6 @@ function initializeDatabaseSchema() {
             if (err) console.error("Error creating 'builds' table:", err.message);
             else {
                 console.log("'builds' table initialized successfully.");
-                seedCuratedMetaBuilds(db).catch((e) => console.error("Error seeding builds:", e.message));
             }
         });
 
@@ -790,31 +747,9 @@ function initializeDatabaseSchema() {
             END;
         `);
 
-        // Clean legacy/ingested ESO localization grammatical gender suffixes (^n, ^p, ^ns, ^m, ^f)
-        db.all("SELECT DISTINCT item_name FROM guild_trader_listings WHERE item_name LIKE '%^%'", (err, rows) => {
-            if (!err && rows && rows.length > 0) {
-                for (const row of rows) {
-                    if (row.item_name) {
-                        const cleaned = cleanEsoItemName(row.item_name);
-                        db.run("UPDATE guild_trader_listings SET item_name = ? WHERE item_name = ?", [cleaned, row.item_name]);
-                    }
-                }
-            }
-        });
-        db.all("SELECT DISTINCT item_name FROM character_gear WHERE item_name LIKE '%^%'", (err, rows) => {
-            if (!err && rows && rows.length > 0) {
-                for (const row of rows) {
-                    if (row.item_name) {
-                        const cleaned = cleanEsoItemName(row.item_name);
-                        db.run("UPDATE character_gear SET item_name = ? WHERE item_name = ?", [cleaned, row.item_name]);
-                    }
-                }
-            }
-        });
-
         // This sentinel runs after every queued schema statement. Unexpected
         // migration failures are fatal so the API never serves a partial schema.
-        db.run("SELECT 1;", (finalizeErr) => {
+        db.run("SELECT 1;", async (finalizeErr) => {
             if (finalizeErr) {
                 console.error(`[DB SCHEMA] Finalization check failed: ${finalizeErr.message}`);
                 schemaMigrationFailures.push({ name: "schema.finalization", error: finalizeErr });
@@ -823,7 +758,22 @@ function initializeDatabaseSchema() {
                 abortStartupForSchemaFailures();
             } else {
                 console.log("[DB SCHEMA] Schema initialization completed successfully.");
-                startServer();
+                try {
+                    await withTransaction(dbPath, async (run, get, all) => {
+                        await remediateLegacyPasswords(run, all);
+                        await seedCuratedMetaBuilds(run, get);
+                        for (const table of ["guild_trader_listings", "character_gear"]) {
+                            const rows = await all(`SELECT DISTINCT item_name FROM ${table} WHERE item_name LIKE '%^%'`);
+                            for (const { item_name } of rows) {
+                                await run(`UPDATE ${table} SET item_name = ? WHERE item_name = ?`, [cleanEsoItemName(item_name), item_name]);
+                            }
+                        }
+                    });
+                    startServer();
+                } catch (err) {
+                    schemaMigrationFailures.push({ name: "startup-data-initialization", error: err });
+                    abortStartupForSchemaFailures();
+                }
             }
         });
     });
@@ -1025,47 +975,29 @@ app.get("/api/items/:game_item_id", (req, res) => {
 });
 
 // Promise helper functions for sqlite3 queries to support async/await
-const dbRun = (sql, params = []) => new Promise((resolve, reject) => {
-    db.run(sql, params, function(err) {
-        if (err) reject(err);
-        else resolve(this);
-    });
-});
+const { get: dbGet, all: dbAll } = statements(db);
+const dbRun = (sql, params) => withTransaction(dbPath, run => run(sql, params));
 
-const dbGet = (sql, params = []) => new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-        if (err) reject(err);
-        else resolve(row);
-    });
-});
-
-const dbAll = (sql, params = []) => new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-        if (err) reject(err);
-        else resolve(rows);
-    });
-});
+// Preserve sqlite3 callback metadata for the trade-request endpoints.
+function queuedRun(sql, params, callback) {
+    if (typeof params === "function") {
+        callback = params;
+        params = [];
+    }
+    dbRun(sql, params).then(result => callback.call(result, null), callback);
+}
 
 /**
  * Purges expired guild trader listings from the database.
  */
 async function purgeExpiredListings() {
-    try {
-        const count = await withScanTransaction(dbPath, purgeLifecycle);
-        if (count > 0) {
-            console.log(`[TTL Purge] Purged ${count} expired or over-30-day guild trader listings.`);
-        }
-        return count;
-    } catch (err) {
-        console.error("[TTL Purge Error] Failed to purge expired listings:", err.message);
-        return 0;
-    }
+    const count = await withTransaction(dbPath, purgeLifecycle);
+    if (count > 0) console.log(`[TTL Purge] Purged ${count} expired or over-30-day guild trader listings.`);
+    return count;
 }
 
 // Background automated periodic TTL purge every hour (3,600,000 ms)
 const TTL_PURGE_INTERVAL_MS = 60 * 60 * 1000;
-setInterval(purgeExpiredListings, TTL_PURGE_INTERVAL_MS);
-setTimeout(purgeExpiredListings, 2000);
 
 /**
  * GET /api/status
@@ -1131,63 +1063,59 @@ app.post("/api/characters/sync", async (req, res) => {
     const cleanName = name.trim();
 
     try {
-        // Begin immediate transaction to prevent concurrent modifications and TOCTOU race conditions
-        await dbRun("BEGIN IMMEDIATE TRANSACTION");
-
-        const existingChar = await dbGet("SELECT id, user_id FROM characters WHERE name = ?", [cleanName]);
-        if (existingChar && existingChar.user_id && existingChar.user_id !== userId) {
-            await dbRun("ROLLBACK");
-            return res.status(403).json({ error: "Forbidden: Character belongs to another user." });
-        }
-
-        // 1. Upsert character metadata
-        await dbRun(`
-            INSERT INTO characters (name, class, level, is_master_crafter, user_id, last_sync_at)
-            VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-            ON CONFLICT(name) DO UPDATE SET
-                class = excluded.class,
-                level = excluded.level,
-                is_master_crafter = excluded.is_master_crafter,
-                user_id = COALESCE(characters.user_id, excluded.user_id),
-                last_sync_at = excluded.last_sync_at;
-        `, [cleanName, charClass || null, level ? parseInt(level, 10) : null, is_master_crafter ? 1 : 0, userId]);
-
-        // 2. Safely retrieve the character's primary key ID
-        const charRow = await dbGet("SELECT id FROM characters WHERE name = ?", [cleanName]);
-        const characterId = charRow.id;
-
-        // 3. Clear old knowledge mappings
-        await dbRun("DELETE FROM knowledge WHERE character_id = ?", [characterId]);
-
-        // 4. Bulk insert newly synchronized item IDs
-        if (Array.isArray(known_items) && known_items.length > 0) {
-            const validKnownItems = known_items
-                .map(item => parseInt(item, 10))
-                .filter(id => !isNaN(id));
-
-            // SQLite has parameter bounds. We chunk the list of items to ensure safety.
-            const chunkSize = 400; // 400 items * 2 parameters = 800 parameters, well within limit of 999
-            for (let i = 0; i < validKnownItems.length; i += chunkSize) {
-                const chunk = validKnownItems.slice(i, i + chunkSize);
-                if (chunk.length === 0) continue;
-                const placeholders = chunk.map(() => "(?, ?, 1, CURRENT_TIMESTAMP)").join(", ");
-                const sql = `INSERT INTO knowledge (character_id, game_item_id, is_known, learned_at) VALUES ${placeholders}`;
-                
-                const params = [];
-                chunk.forEach(gameItemId => {
-                    params.push(characterId, gameItemId);
-                });
-                
-                await dbRun(sql, params);
+        const characterId = await withTransaction(dbPath, async (run, get) => {
+            const existingChar = await get("SELECT id, user_id FROM characters WHERE name = ?", [cleanName]);
+            if (existingChar && existingChar.user_id && existingChar.user_id !== userId) {
+                throw Object.assign(new Error("Forbidden: Character belongs to another user."), { status: 403 });
             }
-        }
 
-        await dbRun("COMMIT");
+            // 1. Upsert character metadata
+            await run(`
+                INSERT INTO characters (name, class, level, is_master_crafter, user_id, last_sync_at)
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ON CONFLICT(name) DO UPDATE SET
+                    class = excluded.class,
+                    level = excluded.level,
+                    is_master_crafter = excluded.is_master_crafter,
+                    user_id = COALESCE(characters.user_id, excluded.user_id),
+                    last_sync_at = excluded.last_sync_at;
+            `, [cleanName, charClass || null, level ? parseInt(level, 10) : null, is_master_crafter ? 1 : 0, userId]);
+
+            // 2. Safely retrieve the character's primary key ID
+            const charRow = await get("SELECT id FROM characters WHERE name = ?", [cleanName]);
+            const characterId = charRow.id;
+
+            // 3. Clear old knowledge mappings
+            await run("DELETE FROM knowledge WHERE character_id = ?", [characterId]);
+
+            // 4. Bulk insert newly synchronized item IDs
+            if (Array.isArray(known_items) && known_items.length > 0) {
+                const validKnownItems = known_items
+                    .map(item => parseInt(item, 10))
+                    .filter(id => !isNaN(id));
+
+                // SQLite has parameter bounds. We chunk the list of items to ensure safety.
+                const chunkSize = 400; // 400 items * 2 parameters = 800 parameters, well within limit of 999
+                for (let i = 0; i < validKnownItems.length; i += chunkSize) {
+                    const chunk = validKnownItems.slice(i, i + chunkSize);
+                    if (chunk.length === 0) continue;
+                    const placeholders = chunk.map(() => "(?, ?, 1, CURRENT_TIMESTAMP)").join(", ");
+                    const sql = `INSERT INTO knowledge (character_id, game_item_id, is_known, learned_at) VALUES ${placeholders}`;
+
+                    const params = [];
+                    chunk.forEach(gameItemId => {
+                        params.push(characterId, gameItemId);
+                    });
+
+                    await run(sql, params);
+                }
+            }
+            return characterId;
+        });
         res.json({ success: true, character_id: characterId });
     } catch (err) {
-        await rollbackTransaction(dbRun, "POST /api/characters/sync", err);
         console.error("Error syncing character:", err.message);
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 });
 
@@ -1271,73 +1199,73 @@ app.post("/api/characters/upload-gear", batchUploadLimiter, async (req, res) => 
     }
 
     try {
-        let charRow = await dbGet("SELECT id, user_id FROM characters WHERE name = ?", [character_name]);
-        if (charRow) {
-            if (charRow.user_id && charRow.user_id !== userId) {
-                return res.status(403).json({ error: "Forbidden: You do not have permission to modify gear for this character." });
-            }
-        } else {
-            await dbRun(`
-                INSERT INTO characters (name, class, level, is_master_crafter, user_id, last_sync_at)
-                VALUES (?, 'Dragonknight', 50, 0, ?, CURRENT_TIMESTAMP)
-            `, [character_name, userId]);
-            charRow = await dbGet("SELECT id, user_id FROM characters WHERE name = ?", [character_name]);
-        }
-
-        const characterId = charRow.id;
-
-        await dbRun("BEGIN IMMEDIATE TRANSACTION");
-        for (const item of gear) {
-            const { slot_id, game_item_id, item_name, item_link, quality, trait_id, set_name, enchantment_description, item_icon, trait_name, trait_description, armor_rating, weapon_power } = item;
-            
-            let normalizedIcon = item_icon ? item_icon.replace(/\.dds$/i, '.png') : null;
-            if (normalizedIcon && (normalizedIcon.startsWith('/esoui/') || normalizedIcon.startsWith('esoui/'))) {
-                normalizedIcon = `https://esoicons.uesp.net${normalizedIcon.startsWith('/') ? '' : '/'}${normalizedIcon}`;
+        const characterId = await withTransaction(dbPath, async (run, get) => {
+            let charRow = await get("SELECT id, user_id FROM characters WHERE name = ?", [character_name]);
+            if (charRow) {
+                if (charRow.user_id && charRow.user_id !== userId) {
+                    throw Object.assign(new Error("Forbidden: You do not have permission to modify gear for this character."), { status: 403 });
+                }
+            } else {
+                await run(`
+                    INSERT INTO characters (name, class, level, is_master_crafter, user_id, last_sync_at)
+                    VALUES (?, 'Dragonknight', 50, 0, ?, CURRENT_TIMESTAMP)
+                `, [character_name, userId]);
+                charRow = await get("SELECT id, user_id FROM characters WHERE name = ?", [character_name]);
             }
 
-            await dbRun(`
-                INSERT INTO character_gear (
-                    character_id, slot_id, game_item_id, item_name, item_link, quality, trait_id, set_name, enchantment_description, item_icon, trait_name, trait_description, armor_rating, weapon_power, updated_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(character_id, slot_id) DO UPDATE SET
-                    game_item_id = excluded.game_item_id,
-                    item_name = excluded.item_name,
-                    item_link = excluded.item_link,
-                    quality = excluded.quality,
-                    trait_id = excluded.trait_id,
-                    set_name = excluded.set_name,
-                    enchantment_description = excluded.enchantment_description,
-                    item_icon = excluded.item_icon,
-                    trait_name = excluded.trait_name,
-                    trait_description = excluded.trait_description,
-                    armor_rating = excluded.armor_rating,
-                    weapon_power = excluded.weapon_power,
-                    updated_at = excluded.updated_at;
-            `, [
-                characterId,
-                slot_id,
-                game_item_id || 0,
-                cleanEsoItemName(item_name) || 'Unknown Item',
-                item_link || '',
-                quality || 1,
-                trait_id || 0,
-                set_name || null,
-                enchantment_description || null,
-                normalizedIcon,
-                trait_name || null,
-                trait_description || null,
-                armor_rating || 0,
-                weapon_power || 0
-            ]);
-        }
-        await dbRun("COMMIT");
+            const characterId = charRow.id;
+
+            for (const item of gear) {
+                const { slot_id, game_item_id, item_name, item_link, quality, trait_id, set_name, enchantment_description, item_icon, trait_name, trait_description, armor_rating, weapon_power } = item;
+
+                let normalizedIcon = item_icon ? item_icon.replace(/\.dds$/i, '.png') : null;
+                if (normalizedIcon && (normalizedIcon.startsWith('/esoui/') || normalizedIcon.startsWith('esoui/'))) {
+                    normalizedIcon = `https://esoicons.uesp.net${normalizedIcon.startsWith('/') ? '' : '/'}${normalizedIcon}`;
+                }
+
+                await run(`
+                    INSERT INTO character_gear (
+                        character_id, slot_id, game_item_id, item_name, item_link, quality, trait_id, set_name, enchantment_description, item_icon, trait_name, trait_description, armor_rating, weapon_power, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(character_id, slot_id) DO UPDATE SET
+                        game_item_id = excluded.game_item_id,
+                        item_name = excluded.item_name,
+                        item_link = excluded.item_link,
+                        quality = excluded.quality,
+                        trait_id = excluded.trait_id,
+                        set_name = excluded.set_name,
+                        enchantment_description = excluded.enchantment_description,
+                        item_icon = excluded.item_icon,
+                        trait_name = excluded.trait_name,
+                        trait_description = excluded.trait_description,
+                        armor_rating = excluded.armor_rating,
+                        weapon_power = excluded.weapon_power,
+                        updated_at = excluded.updated_at;
+                `, [
+                    characterId,
+                    slot_id,
+                    game_item_id || 0,
+                    cleanEsoItemName(item_name) || 'Unknown Item',
+                    item_link || '',
+                    quality || 1,
+                    trait_id || 0,
+                    set_name || null,
+                    enchantment_description || null,
+                    normalizedIcon,
+                    trait_name || null,
+                    trait_description || null,
+                    armor_rating || 0,
+                    weapon_power || 0
+                ]);
+            }
+            return characterId;
+        });
 
         res.json({ success: true, character_id: characterId, slots_updated: gear.length });
     } catch (err) {
-        await rollbackTransaction(dbRun, "POST /api/characters/upload-gear", err);
         console.error("Error uploading character gear:", err.message);
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 });
 
@@ -1357,56 +1285,56 @@ app.post("/api/characters/upload-traits", batchUploadLimiter, async (req, res) =
     }
 
     try {
-        let charRow = await dbGet("SELECT id, user_id FROM characters WHERE name = ?", [character_name]);
-        if (charRow) {
-            if (charRow.user_id && charRow.user_id !== userId) {
-                return res.status(403).json({ error: "Forbidden: You do not have permission to modify traits for this character." });
+        const characterId = await withTransaction(dbPath, async (run, get) => {
+            let charRow = await get("SELECT id, user_id FROM characters WHERE name = ?", [character_name]);
+            if (charRow) {
+                if (charRow.user_id && charRow.user_id !== userId) {
+                    throw Object.assign(new Error("Forbidden: You do not have permission to modify traits for this character."), { status: 403 });
+                }
+            } else {
+                await run(`
+                    INSERT INTO characters (name, class, level, is_master_crafter, user_id, last_sync_at)
+                    VALUES (?, 'Dragonknight', 50, 0, ?, CURRENT_TIMESTAMP)
+                `, [character_name, userId]);
+                charRow = await get("SELECT id, user_id FROM characters WHERE name = ?", [character_name]);
             }
-        } else {
-            await dbRun(`
-                INSERT INTO characters (name, class, level, is_master_crafter, user_id, last_sync_at)
-                VALUES (?, 'Dragonknight', 50, 0, ?, CURRENT_TIMESTAMP)
-            `, [character_name, userId]);
-            charRow = await dbGet("SELECT id, user_id FROM characters WHERE name = ?", [character_name]);
-        }
 
-        const characterId = charRow.id;
-        await ensureCharacterTraitsInitialized(characterId);
+            const characterId = charRow.id;
+            await ensureCharacterTraitsInitialized(characterId, run, get);
 
-        await dbRun("BEGIN IMMEDIATE TRANSACTION");
-        for (const t of traits) {
-            const { crafting_type, equipment_type, trait_id, trait_name, research_status, started_at, completes_at } = t;
-            if (!equipment_type || trait_id === undefined || !research_status) continue;
-            
-            const validStatus = ["UNKNOWN", "RESEARCHING", "COMPLETED"].includes(research_status) ? research_status : "UNKNOWN";
-            await dbRun(`
-                INSERT INTO character_trait_research (
-                    character_id, crafting_type, equipment_type, trait_id, trait_name, research_status, started_at, completes_at, updated_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                ON CONFLICT(character_id, equipment_type, trait_id) DO UPDATE SET
-                    research_status = excluded.research_status,
-                    started_at = excluded.started_at,
-                    completes_at = excluded.completes_at,
-                    updated_at = CURRENT_TIMESTAMP;
-            `, [
-                characterId,
-                crafting_type || 'Blacksmithing',
-                equipment_type,
-                trait_id,
-                trait_name || 'Unknown',
-                validStatus,
-                started_at || null,
-                completes_at || null
-            ]);
-        }
-        await dbRun("COMMIT");
+            for (const t of traits) {
+                const { crafting_type, equipment_type, trait_id, trait_name, research_status, started_at, completes_at } = t;
+                if (!equipment_type || trait_id === undefined || !research_status) continue;
+
+                const validStatus = ["UNKNOWN", "RESEARCHING", "COMPLETED"].includes(research_status) ? research_status : "UNKNOWN";
+                await run(`
+                    INSERT INTO character_trait_research (
+                        character_id, crafting_type, equipment_type, trait_id, trait_name, research_status, started_at, completes_at, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    ON CONFLICT(character_id, equipment_type, trait_id) DO UPDATE SET
+                        research_status = excluded.research_status,
+                        started_at = excluded.started_at,
+                        completes_at = excluded.completes_at,
+                        updated_at = CURRENT_TIMESTAMP;
+                `, [
+                    characterId,
+                    crafting_type || 'Blacksmithing',
+                    equipment_type,
+                    trait_id,
+                    trait_name || 'Unknown',
+                    validStatus,
+                    started_at || null,
+                    completes_at || null
+                ]);
+            }
+            return characterId;
+        });
 
         res.json({ success: true, character_id: characterId, traits_updated: traits.length });
     } catch (err) {
-        await rollbackTransaction(dbRun, "POST /api/characters/upload-traits", err);
         console.error("Error uploading character traits:", err.message);
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 });
 
@@ -1473,48 +1401,45 @@ app.post("/api/listings/sync", async (req, res) => {
     }
 
     try {
-        await dbRun("BEGIN IMMEDIATE TRANSACTION");
+        await withTransaction(dbPath, async (run) => {
+            // 1. Clear out-of-date/expired listings first (expires_at < now)
+            await run("DELETE FROM guild_trader_listings WHERE datetime(expires_at) < datetime('now')");
 
-        // 1. Clear out-of-date/expired listings first (expires_at < now)
-        await dbRun("DELETE FROM guild_trader_listings WHERE datetime(expires_at) < datetime('now')");
+            // 2. Insert new listings
+            if (listings.length > 0) {
+                const chunkSize = 100; // 100 items * 7 parameters = 700 parameters
+                for (let i = 0; i < listings.length; i += chunkSize) {
+                    const chunk = listings.slice(i, i + chunkSize);
+                    const placeholders = chunk.map(() => "(?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)").join(", ");
+                    const sql = `
+                        INSERT INTO guild_trader_listings (game_item_id, server, price, quantity, guild_name, location, expires_at, discovered_at)
+                        VALUES ${placeholders};
+                    `;
 
-        // 2. Insert new listings
-        if (listings.length > 0) {
-            const chunkSize = 100; // 100 items * 7 parameters = 700 parameters
-            for (let i = 0; i < listings.length; i += chunkSize) {
-                const chunk = listings.slice(i, i + chunkSize);
-                const placeholders = chunk.map(() => "(?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)").join(", ");
-                const sql = `
-                    INSERT INTO guild_trader_listings (game_item_id, server, price, quantity, guild_name, location, expires_at, discovered_at)
-                    VALUES ${placeholders};
-                `;
+                    const params = [];
+                    chunk.forEach(item => {
+                        params.push(
+                            parseInt(item.game_item_id, 10),
+                            targetServer,
+                            parseInt(item.price, 10),
+                            parseInt(item.quantity, 10) || 1,
+                            item.guild_name || null,
+                            item.location || null,
+                            item.expires_at || null
+                        );
+                    });
 
-                const params = [];
-                chunk.forEach(item => {
-                    params.push(
-                        parseInt(item.game_item_id, 10),
-                        targetServer,
-                        parseInt(item.price, 10),
-                        parseInt(item.quantity, 10) || 1,
-                        item.guild_name || null,
-                        item.location || null,
-                        item.expires_at || null
-                    );
-                });
-
-                await dbRun(sql, params);
+                    await run(sql, params);
+                }
             }
-        }
 
-        // 3. Clear out-of-date/expired listings again (to catch any incoming expired ones)
-        await dbRun("DELETE FROM guild_trader_listings WHERE datetime(expires_at) < datetime('now')");
-
-        await dbRun("COMMIT");
+            // 3. Clear out-of-date/expired listings again (to catch any incoming expired ones)
+            await run("DELETE FROM guild_trader_listings WHERE datetime(expires_at) < datetime('now')");
+        });
         res.json({ success: true, count: listings.length });
     } catch (err) {
-        await rollbackTransaction(dbRun, "POST /api/listings/sync", err);
         console.error("Error syncing listings:", err.message);
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 });
 
@@ -1538,51 +1463,49 @@ app.post("/api/inventory/sync", async (req, res) => {
     }
 
     try {
-        // Verify character existence and ownership
-        const character = await dbGet("SELECT id, user_id FROM characters WHERE id = ?", [character_id]);
-        if (!character) {
-            return res.status(404).json({ error: "Character not found" });
-        }
-        if (character.user_id && character.user_id !== userId) {
-            return res.status(403).json({ error: "Forbidden: You do not have permission to sync inventory for this character." });
-        }
-
-        await dbRun("BEGIN IMMEDIATE TRANSACTION");
-
-        // 1. Clear existing inventory for this character
-        await dbRun("DELETE FROM user_inventory WHERE character_id = ?", [character_id]);
-
-        // 2. Insert new inventory items
-        if (inventory.length > 0) {
-            const chunkSize = 250; // 250 items * 3 parameters = 750 parameters
-            for (let i = 0; i < inventory.length; i += chunkSize) {
-                const chunk = inventory.slice(i, i + chunkSize);
-                const placeholders = chunk.map(() => "(?, ?, ?)").join(", ");
-                const sql = `
-                    INSERT INTO user_inventory (character_id, game_item_id, quantity)
-                    VALUES ${placeholders}
-                    ON CONFLICT(character_id, game_item_id) DO UPDATE SET quantity = excluded.quantity;
-                `;
-
-                const params = [];
-                chunk.forEach(item => {
-                    params.push(
-                        character_id,
-                        parseInt(item.game_item_id, 10),
-                        parseInt(item.quantity, 10) || 1
-                    );
-                });
-
-                await dbRun(sql, params);
+        await withTransaction(dbPath, async (run, get) => {
+            // Verify character existence and ownership
+            const character = await get("SELECT id, user_id FROM characters WHERE id = ?", [character_id]);
+            if (!character) {
+                throw Object.assign(new Error("Character not found"), { status: 404 });
             }
-        }
+            if (character.user_id && character.user_id !== userId) {
+                throw Object.assign(new Error("Forbidden: You do not have permission to sync inventory for this character."), { status: 403 });
+            }
 
-        await dbRun("COMMIT");
+
+            // 1. Clear existing inventory for this character
+            await run("DELETE FROM user_inventory WHERE character_id = ?", [character_id]);
+
+            // 2. Insert new inventory items
+            if (inventory.length > 0) {
+                const chunkSize = 250; // 250 items * 3 parameters = 750 parameters
+                for (let i = 0; i < inventory.length; i += chunkSize) {
+                    const chunk = inventory.slice(i, i + chunkSize);
+                    const placeholders = chunk.map(() => "(?, ?, ?)").join(", ");
+                    const sql = `
+                        INSERT INTO user_inventory (character_id, game_item_id, quantity)
+                        VALUES ${placeholders}
+                        ON CONFLICT(character_id, game_item_id) DO UPDATE SET quantity = excluded.quantity;
+                    `;
+
+                    const params = [];
+                    chunk.forEach(item => {
+                        params.push(
+                            character_id,
+                            parseInt(item.game_item_id, 10),
+                            parseInt(item.quantity, 10) || 1
+                        );
+                    });
+
+                    await run(sql, params);
+                }
+            }
+        });
         res.json({ success: true, count: inventory.length });
     } catch (err) {
-        await rollbackTransaction(dbRun, "POST /api/inventory/sync", err);
         console.error("Error syncing inventory:", err.message);
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 });
 
@@ -1797,7 +1720,7 @@ app.post("/api/watchlist", async (req, res) => {
 
         res.json({ success: true, character_id, game_item_id, target_price });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 });
 
@@ -1831,7 +1754,7 @@ app.delete("/api/watchlist/:character_id/:game_item_id", async (req, res) => {
         await dbRun("DELETE FROM watchlists WHERE character_id = ? AND game_item_id = ?", [characterId, gameItemId]);
         res.json({ success: true, message: "Item removed from watchlist" });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 });
 
@@ -2090,7 +2013,6 @@ const TRAIT_NAME_TO_IDS = {
     "vigorous": [42, 51, 60]
 };
 
-
 /**
  * GET /api/market/listings
  * Query native guild trader observations joined with item metadata.
@@ -2269,7 +2191,6 @@ app.get("/api/market/listings", async (req, res) => {
     }
 });
 
-
 /**
  * POST /api/market/upload-scans
  * Crowdsourced scanner ingestion endpoint.
@@ -2299,7 +2220,7 @@ app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
 
     try {
         const payload = validateLifecycle(req.body);
-        const result = await withScanTransaction(dbPath, async (run, get) => {
+        const result = await withTransaction(dbPath, async (run, get) => {
             if (player_name) {
                 if (typeof player_name !== 'string' || player_name.length > 160) {
                     const error = new Error('Invalid player_name.'); error.status = 400; throw error;
@@ -2342,7 +2263,7 @@ app.post("/api/market/listings/purge-expired", async (req, res) => {
             message: `Successfully purged ${purgedCount} expired listing(s).`
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 });
 
@@ -2360,7 +2281,7 @@ if (isDevMode) {
         }
 
         try {
-            await withScanTransaction(dbPath, async run => {
+            await withTransaction(dbPath, async run => {
                 await run("DELETE FROM guild_trader_listings;");
                 await run("DELETE FROM native_listing_observations;");
                 await run("DELETE FROM native_listing_tombstones;");
@@ -2371,7 +2292,7 @@ if (isDevMode) {
                 message: "Successfully cleared all native market listings."
             });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            res.status(err.status || 500).json({ error: err.message });
         }
     });
 }
@@ -2381,10 +2302,10 @@ if (isDevMode) {
 // ============================================================================
 const SESSION_TTL_HOURS = parseInt(process.env.SESSION_TTL_HOURS, 10) || (24 * 7); // Default: 7 days
 
-async function createSession(userId, ttlHours = SESSION_TTL_HOURS) {
+async function createSession(userId, ttlHours = SESSION_TTL_HOURS, run = dbRun) {
     const token = `session_${userId}_${crypto.randomBytes(24).toString("hex")}`;
     const expiresAt = new Date(Date.now() + ttlHours * 3600 * 1000).toISOString();
-    await dbRun(
+    await run(
         `INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?);`,
         [token, userId, expiresAt]
     );
@@ -2409,10 +2330,6 @@ async function purgeExpiredSessions() {
         return 0;
     }
 }
-
-// Periodic cleanup of expired sessions every hour
-setInterval(purgeExpiredSessions, 60 * 60 * 1000);
-setTimeout(purgeExpiredSessions, 3000);
 
 async function getAuthUserId(req) {
     let token = null;
@@ -2501,18 +2418,21 @@ app.post("/api/auth/register", async (req, res) => {
             }
         }
 
-        const result = await dbRun(`
-            INSERT INTO users (username, email, password_hash, eso_handle, api_token, role)
-            VALUES (?, ?, ?, ?, ?, 'user');
-        `, [username, email, pwHash, handle, apiToken]);
+        const { user, session } = await withTransaction(dbPath, async (run, get) => {
+            const result = await run(`
+                INSERT INTO users (username, email, password_hash, eso_handle, api_token, role)
+                VALUES (?, ?, ?, ?, ?, 'user');
+            `, [username, email, pwHash, handle, apiToken]);
 
-        const user = await dbGet(`SELECT id, username, email, eso_handle, role, created_at FROM users WHERE id = ?;`, [result.lastID]);
-        const session = await createSession(user.id);
+            const user = await get(`SELECT id, username, email, eso_handle, role, created_at FROM users WHERE id = ?;`, [result.lastID]);
+            const session = await createSession(user.id, SESSION_TTL_HOURS, run);
+            return { user, session };
+        });
 
         res.cookie(AUTH_COOKIE_NAME, session.token, getAuthCookieOptions());
         res.json({ success: true, token: session.token, expires_at: session.expires_at, user });
     } catch (err) {
-        res.status(400).json({ error: err.message.includes("UNIQUE") ? "Username or email already taken." : err.message });
+        res.status(err.status || (err.code === "SQLITE_CONSTRAINT" ? 400 : 500)).json({ error: err.message.includes("UNIQUE") ? "Username or email already taken." : err.message });
     }
 });
 
@@ -2564,7 +2484,7 @@ app.post("/api/auth/login", async (req, res) => {
         res.cookie(AUTH_COOKIE_NAME, session.token, getAuthCookieOptions());
         res.json({ success: true, token: session.token, expires_at: session.expires_at, user: userPayload });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 });
 
@@ -2587,7 +2507,7 @@ app.post("/api/auth/logout", async (req, res) => {
         res.clearCookie(AUTH_COOKIE_NAME, getAuthCookieOptions());
         res.json({ success: true, message: "Logged out successfully." });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 });
 
@@ -2740,7 +2660,7 @@ app.post("/api/saved-searches", async (req, res) => {
         `, [result.lastID, userId]);
         res.status(201).json({ success: true, saved_search: formatSavedSearch(row) });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 });
 
@@ -2778,7 +2698,7 @@ app.patch("/api/saved-searches/:id/pin", async (req, res) => {
         `, [searchId, userId]);
         res.json({ success: true, saved_search: formatSavedSearch(row) });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 });
 
@@ -2803,7 +2723,7 @@ app.delete("/api/saved-searches/:id", async (req, res) => {
         if (result.changes === 0) return res.status(404).json({ error: "Saved search not found." });
         res.json({ success: true, message: "Saved search deleted." });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 });
 
@@ -2858,7 +2778,7 @@ if (isDevMode) {
                 user
             });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            res.status(err.status || 500).json({ error: err.message });
         }
     });
 
@@ -2889,7 +2809,7 @@ if (isDevMode) {
             const user = await dbGet(`SELECT id, username, email, eso_handle, role, created_at FROM users WHERE id = ?;`, [userId]);
             res.json({ success: true, message: "Account updated successfully.", user });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            res.status(err.status || 500).json({ error: err.message });
         }
     });
 
@@ -2910,11 +2830,13 @@ if (isDevMode) {
         }
 
         try {
-            await dbRun(`DELETE FROM characters WHERE user_id = ?;`, [userId]);
-            await dbRun(`DELETE FROM users WHERE id = ?;`, [userId]);
+            await withTransaction(dbPath, async run => {
+                await run(`DELETE FROM characters WHERE user_id = ?;`, [userId]);
+                await run(`DELETE FROM users WHERE id = ?;`, [userId]);
+            });
             res.json({ success: true, message: `Account ID ${userId} and associated characters deleted.` });
         } catch (err) {
-            res.status(500).json({ error: err.message });
+            res.status(err.status || 500).json({ error: err.message });
         }
     });
 } else {
@@ -2955,7 +2877,7 @@ app.post("/api/characters", async (req, res) => {
         const character = await dbGet(`SELECT * FROM characters WHERE name = ?;`, [name]);
         res.json({ success: true, message: "Character saved successfully.", character });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 });
 
@@ -2979,7 +2901,7 @@ app.delete("/api/characters/:id", async (req, res) => {
         await dbRun(`DELETE FROM characters WHERE id = ? AND user_id = ?;`, [charId, userId]);
         res.json({ success: true, message: "Character removed from roster." });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 });
 
@@ -3186,7 +3108,7 @@ function getSetSearchTokens(setName) {
     return tokens;
 }
 
-async function resolveSetSlotItem(setName, slotId, slotName, armorWeight = "Medium", weaponType = "Dagger", providedItemName, providedIcon) {
+async function resolveSetSlotItem(setName, slotId, slotName, armorWeight = "Medium", weaponType = "Dagger", providedItemName, providedIcon, all = dbAll) {
     const defaultIcon = SAFE_SLOT_DEFAULTS[slotId] || SAFE_SLOT_DEFAULTS[0];
 
     if (providedIcon && typeof providedIcon === "string" && providedIcon.startsWith("http") && !providedIcon.includes("quest_container")) {
@@ -3214,7 +3136,7 @@ async function resolveSetSlotItem(setName, slotId, slotName, armorWeight = "Medi
     try {
         let matchingItems = [];
         for (const token of tokens) {
-            const rows = await dbAll(`
+            const rows = await all(`
                 SELECT game_item_id, name, icon_url
                 FROM items
                 WHERE (LOWER(name) LIKE ? OR LOWER(metadata) LIKE ?)
@@ -3445,66 +3367,56 @@ app.post("/api/builds", async (req, res) => {
     }
 
     try {
-        await dbRun("BEGIN IMMEDIATE TRANSACTION");
+        const buildId = await withTransaction(dbPath, async (run, get, all) => {
+            const user = await get(`SELECT username FROM users WHERE id = ?;`, [userId]);
+            const authorName = author || (user ? `@${user.username}` : "Custom Builder");
 
-        const user = await dbGet(`SELECT username FROM users WHERE id = ?;`, [userId]);
-        const authorName = author || (user ? `@${user.username}` : "Custom Builder");
-
-        const buildResult = await new Promise((resolve, reject) => {
-            db.run(`
+            const { lastID: buildId } = await run(`
                 INSERT INTO builds (user_id, title, description, class, role, author, source_url, is_curated)
                 VALUES (?, ?, ?, ?, ?, ?, ?, 0);
-            `, [userId, title, description || "", buildClass, role, authorName, source_url || ""], function (err) {
-                if (err) reject(err);
-                else resolve(this.lastID);
-            });
-        });
+            `, [userId, title, description || "", buildClass, role, authorName, source_url || ""]);
 
-        const buildId = buildResult;
+            if (Array.isArray(items) && items.length > 0) {
+                const insertItemSql = `
+                    INSERT INTO build_items (build_id, slot_id, slot_name, game_item_id, item_name, set_name, item_type, item_icon, trait_id, trait_name, enchantment, quality, is_tradeable, source_location, armor_weight, weapon_type)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+                `;
 
-        if (Array.isArray(items) && items.length > 0) {
-            const insertItemStmt = db.prepare(`
-                INSERT INTO build_items (build_id, slot_id, slot_name, game_item_id, item_name, set_name, item_type, item_icon, trait_id, trait_name, enchantment, quality, is_tradeable, source_location, armor_weight, weapon_type)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
-            `);
+                for (const it of items) {
+                    const slotId = it.slot_id !== undefined ? it.slot_id : 0;
+                    const slotName = it.slot_name || "Slot";
+                    const armorWeight = it.armor_weight || "Medium";
+                    const weaponType = it.weapon_type || "Dagger";
 
-            for (const it of items) {
-                const slotId = it.slot_id !== undefined ? it.slot_id : 0;
-                const slotName = it.slot_name || "Slot";
-                const armorWeight = it.armor_weight || "Medium";
-                const weaponType = it.weapon_type || "Dagger";
-                
-                // Intelligently resolve authentic name, game_item_id, and icon
-                const resolved = await resolveSetSlotItem(it.set_name, slotId, slotName, armorWeight, weaponType, it.item_name, it.item_icon);
+                    // Intelligently resolve authentic name, game_item_id, and icon
+                    const resolved = await resolveSetSlotItem(it.set_name, slotId, slotName, armorWeight, weaponType, it.item_name, it.item_icon, all);
 
-                insertItemStmt.run(
-                    buildId,
-                    slotId,
-                    slotName,
-                    it.game_item_id || resolved.gameItemId || null,
-                    resolved.itemName,
-                    it.set_name || "Custom Set",
-                    it.item_type || "Armor",
-                    resolved.itemIcon,
-                    it.trait_id || 0,
-                    it.trait_name || "Divines",
-                    it.enchantment || "Max Magicka",
-                    it.quality || 4,
-                    it.is_tradeable !== undefined ? it.is_tradeable : 1,
-                    it.source_location || "Tamriel",
-                    armorWeight,
-                    weaponType
-                );
+                    await run(insertItemSql, [
+                        buildId,
+                        slotId,
+                        slotName,
+                        it.game_item_id || resolved.gameItemId || null,
+                        resolved.itemName,
+                        it.set_name || "Custom Set",
+                        it.item_type || "Armor",
+                        resolved.itemIcon,
+                        it.trait_id || 0,
+                        it.trait_name || "Divines",
+                        it.enchantment || "Max Magicka",
+                        it.quality || 4,
+                        it.is_tradeable !== undefined ? it.is_tradeable : 1,
+                        it.source_location || "Tamriel",
+                        armorWeight,
+                        weaponType
+                    ]);
+                }
             }
-            insertItemStmt.finalize();
-        }
-
-        await dbRun("COMMIT");
+            return buildId;
+        });
         res.json({ success: true, build_id: buildId, message: "Custom build saved successfully." });
     } catch (err) {
-        await rollbackTransaction(dbRun, "POST /api/builds", err);
         console.error("Error creating custom build:", err.message);
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 });
 
@@ -3539,7 +3451,7 @@ app.delete("/api/builds/:id", async (req, res) => {
         await dbRun(`DELETE FROM builds WHERE id = ?;`, [buildId]);
         res.json({ success: true, message: "Build deleted successfully." });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 });
 
@@ -3861,8 +3773,8 @@ const ESO_RESEARCH_EQUIPMENT_LINES = [
 /**
  * Ensures a character's trait research table is populated with default UNKNOWN rows.
  */
-async function ensureCharacterTraitsInitialized(characterId) {
-    const existing = await dbGet(`SELECT COUNT(*) as count FROM character_trait_research WHERE character_id = ?;`, [characterId]);
+async function ensureCharacterTraitsInitialized(characterId, run, get) {
+    const existing = await get(`SELECT COUNT(*) as count FROM character_trait_research WHERE character_id = ?;`, [characterId]);
     if (existing && existing.count > 0) return;
 
     const insertStatements = [];
@@ -3878,7 +3790,7 @@ async function ensureCharacterTraitsInitialized(characterId) {
         const batch = insertStatements.slice(i, i + BATCH_SIZE);
         const placeholders = batch.map(() => "(?, ?, ?, ?, ?, ?)").join(", ");
         const values = batch.flat();
-        await dbRun(`
+        await run(`
             INSERT OR IGNORE INTO character_trait_research 
             (character_id, crafting_type, equipment_type, trait_id, trait_name, research_status) 
             VALUES ${placeholders};
@@ -3898,7 +3810,7 @@ app.get("/api/characters/:id/traits", async (req, res) => {
             return res.status(404).json({ error: "Character not found." });
         }
 
-        await ensureCharacterTraitsInitialized(characterId);
+        await withTransaction(dbPath, (run, get) => ensureCharacterTraitsInitialized(characterId, run, get));
 
         const rows = await dbAll(`
             SELECT * FROM character_trait_research 
@@ -3953,7 +3865,7 @@ app.get("/api/characters/:id/traits", async (req, res) => {
             traits: rows
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 });
 
@@ -3969,53 +3881,52 @@ app.post("/api/characters/:id/traits", async (req, res) => {
 
     const characterId = req.params.id;
     try {
-        const character = await dbGet(`SELECT * FROM characters WHERE id = ?;`, [characterId]);
-        if (!character) {
-            return res.status(404).json({ error: "Character not found." });
-        }
+        const updatedCount = await withTransaction(dbPath, async (run, get) => {
+            const character = await get(`SELECT * FROM characters WHERE id = ?;`, [characterId]);
+            if (!character) {
+                throw Object.assign(new Error("Character not found."), { status: 404 });
+            }
 
-        const user = await dbGet(`SELECT role FROM users WHERE id = ?;`, [userId]);
-        const isAdmin = user && user.role === "admin";
+            const user = await get(`SELECT role FROM users WHERE id = ?;`, [userId]);
+            const isAdmin = user && user.role === "admin";
 
-        if (character.user_id !== userId && !isAdmin) {
-            return res.status(403).json({ error: "Forbidden: You do not have permission to update this character's traits." });
-        }
+            if (character.user_id !== userId && !isAdmin) {
+                throw Object.assign(new Error("Forbidden: You do not have permission to update this character's traits."), { status: 403 });
+            }
 
-        await ensureCharacterTraitsInitialized(characterId);
+            await ensureCharacterTraitsInitialized(characterId, run, get);
 
-        const { updates = [], equipment_type, trait_id, research_status, started_at, completes_at } = req.body;
-        const traitUpdates = updates.length > 0 ? updates : (equipment_type && trait_id !== undefined && research_status ? [{ equipment_type, trait_id, research_status, started_at, completes_at }] : []);
+            const { updates = [], equipment_type, trait_id, research_status, started_at, completes_at } = req.body;
+            const traitUpdates = updates.length > 0 ? updates : (equipment_type && trait_id !== undefined && research_status ? [{ equipment_type, trait_id, research_status, started_at, completes_at }] : []);
 
-        if (traitUpdates.length === 0) {
-            return res.status(400).json({ error: "No trait updates provided." });
-        }
+            if (traitUpdates.length === 0) {
+                throw Object.assign(new Error("No trait updates provided."), { status: 400 });
+            }
 
-        await dbRun("BEGIN IMMEDIATE TRANSACTION");
 
-        for (const u of traitUpdates) {
-            if (!u.equipment_type || u.trait_id === undefined || !u.research_status) continue;
-            const validStatus = ["UNKNOWN", "RESEARCHING", "COMPLETED"].includes(u.research_status) ? u.research_status : "UNKNOWN";
-            await dbRun(`
-                UPDATE character_trait_research 
-                SET research_status = ?,
-                    started_at = ?,
-                    completes_at = ?,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE character_id = ? AND equipment_type = ? AND trait_id = ?;
-            `, [validStatus, u.started_at || null, u.completes_at || null, characterId, u.equipment_type, u.trait_id]);
-        }
-
-        await dbRun("COMMIT");
+            for (const u of traitUpdates) {
+                if (!u.equipment_type || u.trait_id === undefined || !u.research_status) continue;
+                const validStatus = ["UNKNOWN", "RESEARCHING", "COMPLETED"].includes(u.research_status) ? u.research_status : "UNKNOWN";
+                await run(`
+                    UPDATE character_trait_research
+                    SET research_status = ?,
+                        started_at = ?,
+                        completes_at = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE character_id = ? AND equipment_type = ? AND trait_id = ?;
+                `, [validStatus, u.started_at || null, u.completes_at || null, characterId, u.equipment_type, u.trait_id]);
+            }
+            return traitUpdates.length;
+        });
 
         res.json({
             success: true,
-            updated_count: traitUpdates.length,
-            message: `Successfully updated ${traitUpdates.length} trait(s).`
+            updated_count: updatedCount,
+            message: `Successfully updated ${updatedCount} trait(s).`
         });
     } catch (err) {
-        await rollbackTransaction(dbRun, "POST /api/characters/:id/traits", err);
         console.error("Error updating character traits:", err.message);
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 });
 
@@ -4034,7 +3945,7 @@ app.get("/api/characters/:id/trait-matches", async (req, res) => {
             return res.status(404).json({ error: "Character not found." });
         }
 
-        await ensureCharacterTraitsInitialized(characterId);
+        await withTransaction(dbPath, (run, get) => ensureCharacterTraitsInitialized(characterId, run, get));
 
         // Get missing unknown traits
         const missingTraits = await dbAll(`
@@ -4118,7 +4029,7 @@ app.get("/api/characters/:id/trait-matches", async (req, res) => {
             matches: matchesByTrait
         });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        res.status(err.status || 500).json({ error: err.message });
     }
 });
 
@@ -4133,7 +4044,7 @@ app.get("/api/characters/:id/trait-matches", async (req, res) => {
  */
 function cleanupTradeRequests() {
     // Revert claimed requests where crafter did not fulfill within 24 hours
-    db.run(`
+    queuedRun(`
         UPDATE trade_requests 
         SET status = 'OPEN', claimed_by_user_id = NULL, claimed_by_handle = NULL, claimed_at = NULL, claim_expires_at = NULL
         WHERE status = 'IN_PROGRESS' AND claim_expires_at IS NOT NULL AND datetime(claim_expires_at) < datetime('now');
@@ -4142,7 +4053,7 @@ function cleanupTradeRequests() {
     });
 
     // Expire open requests past their 7-day expiration
-    db.run(`
+    queuedRun(`
         UPDATE trade_requests 
         SET status = 'EXPIRED'
         WHERE status = 'OPEN' AND expires_at IS NOT NULL AND datetime(expires_at) < datetime('now');
@@ -4432,7 +4343,7 @@ app.post("/api/requests", async (req, res) => {
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?)
         `;
 
-        db.run(insertQuery, [
+        queuedRun(insertQuery, [
             userId, 
             request_type, 
             server, 
@@ -4455,7 +4366,7 @@ app.post("/api/requests", async (req, res) => {
             delivery_notes ? delivery_notes.trim() : null, 
             expiresAt
         ], function(err) {
-            if (err) return res.status(500).json({ error: err.message });
+            if (err) return res.status(err.status || 500).json({ error: err.message });
             res.status(201).json({
                 success: true,
                 request_id: this.lastID,
@@ -4478,7 +4389,7 @@ app.patch("/api/requests/:id/claim", async (req, res) => {
     if (isNaN(requestId)) return res.status(400).json({ error: "Invalid request ID." });
 
     db.get("SELECT * FROM trade_requests WHERE id = ?", [requestId], (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
+        if (err) return res.status(err.status || 500).json({ error: err.message });
         if (!row) return res.status(404).json({ error: "Trade request not found." });
         if (row.user_id === userId) {
             return res.status(400).json({ error: "You cannot claim your own trade request." });
@@ -4492,12 +4403,12 @@ app.patch("/api/requests/:id/claim", async (req, res) => {
             const crafterHandle = crafter.eso_handle || crafter.username;
             const claimExpiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
-            db.run(`
+            queuedRun(`
                 UPDATE trade_requests 
                 SET status = 'IN_PROGRESS', claimed_by_user_id = ?, claimed_by_handle = ?, claimed_at = CURRENT_TIMESTAMP, claim_expires_at = ?
                 WHERE id = ? AND status = 'OPEN'
             `, [userId, crafterHandle, claimExpiresAt, requestId], function(err) {
-                if (err) return res.status(500).json({ error: err.message });
+                if (err) return res.status(err.status || 500).json({ error: err.message });
                 if (this.changes === 0) {
                     return res.status(409).json({ error: "This request was just claimed by another user." });
                 }
@@ -4522,7 +4433,7 @@ app.patch("/api/requests/:id/unclaim", async (req, res) => {
     if (isNaN(requestId)) return res.status(400).json({ error: "Invalid request ID." });
 
     db.get("SELECT * FROM trade_requests WHERE id = ?", [requestId], (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
+        if (err) return res.status(err.status || 500).json({ error: err.message });
         if (!row) return res.status(404).json({ error: "Trade request not found." });
         if (row.status !== 'IN_PROGRESS' && row.status !== 'COMPLETED') {
             return res.status(400).json({ error: "Request is not currently claimed or in progress." });
@@ -4535,12 +4446,12 @@ app.patch("/api/requests/:id/unclaim", async (req, res) => {
             return res.status(403).json({ error: "Only the claiming crafter or the requester who posted the bounty can unassign this claim." });
         }
 
-        db.run(`
+        queuedRun(`
             UPDATE trade_requests 
             SET status = 'OPEN', claimed_by_user_id = NULL, claimed_by_handle = NULL, claimed_at = NULL, claim_expires_at = NULL
             WHERE id = ?
         `, [requestId], function(err) {
-            if (err) return res.status(500).json({ error: err.message });
+            if (err) return res.status(err.status || 500).json({ error: err.message });
             res.json({ success: true, message: "Claim unassigned. Request is now open again." });
         });
     });
@@ -4557,7 +4468,7 @@ app.patch("/api/requests/:id/complete", async (req, res) => {
     if (isNaN(requestId)) return res.status(400).json({ error: "Invalid request ID." });
 
     db.get("SELECT * FROM trade_requests WHERE id = ?", [requestId], (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
+        if (err) return res.status(err.status || 500).json({ error: err.message });
         if (!row) return res.status(404).json({ error: "Trade request not found." });
         if (row.status !== 'IN_PROGRESS') {
             return res.status(400).json({ error: `Cannot mark as completed. Current status is ${row.status}.` });
@@ -4566,12 +4477,12 @@ app.patch("/api/requests/:id/complete", async (req, res) => {
             return res.status(403).json({ error: "Only the crafter who claimed this order can mark it as completed." });
         }
 
-        db.run(`
+        queuedRun(`
             UPDATE trade_requests 
             SET status = 'COMPLETED'
             WHERE id = ?
         `, [requestId], function(err) {
-            if (err) return res.status(500).json({ error: err.message });
+            if (err) return res.status(err.status || 500).json({ error: err.message });
             res.json({ success: true, message: "Order marked as completed! Awaiting buyer confirmation." });
         });
     });
@@ -4588,7 +4499,7 @@ app.patch("/api/requests/:id/fulfill", async (req, res) => {
     if (isNaN(requestId)) return res.status(400).json({ error: "Invalid request ID." });
 
     db.get("SELECT * FROM trade_requests WHERE id = ?", [requestId], (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
+        if (err) return res.status(err.status || 500).json({ error: err.message });
         if (!row) return res.status(404).json({ error: "Trade request not found." });
         if (row.status === 'FULFILLED') {
             return res.status(400).json({ error: "Request is already marked as fulfilled." });
@@ -4597,12 +4508,12 @@ app.patch("/api/requests/:id/fulfill", async (req, res) => {
             return res.status(403).json({ error: "Only the buyer who posted this request can confirm delivery and close it." });
         }
 
-        db.run(`
+        queuedRun(`
             UPDATE trade_requests 
             SET status = 'FULFILLED', fulfilled_at = CURRENT_TIMESTAMP
             WHERE id = ?
         `, [requestId], function(err) {
-            if (err) return res.status(500).json({ error: err.message });
+            if (err) return res.status(err.status || 500).json({ error: err.message });
             res.json({ success: true, message: "Order confirmed and closed! Thank you for trading." });
         });
     });
@@ -4619,7 +4530,7 @@ app.delete("/api/requests/:id", async (req, res) => {
     if (isNaN(requestId)) return res.status(400).json({ error: "Invalid request ID." });
 
     db.get("SELECT * FROM trade_requests WHERE id = ?", [requestId], (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
+        if (err) return res.status(err.status || 500).json({ error: err.message });
         if (!row) return res.status(404).json({ error: "Trade request not found." });
         if (row.user_id !== userId) {
             return res.status(403).json({ error: "You can only cancel your own trade requests." });
@@ -4628,8 +4539,8 @@ app.delete("/api/requests/:id", async (req, res) => {
             return res.status(400).json({ error: "Cannot cancel an already fulfilled request." });
         }
 
-        db.run("DELETE FROM trade_requests WHERE id = ?", [requestId], function(err) {
-            if (err) return res.status(500).json({ error: err.message });
+        queuedRun("DELETE FROM trade_requests WHERE id = ?", [requestId], function(err) {
+            if (err) return res.status(err.status || 500).json({ error: err.message });
             res.json({ success: true, message: "Trade request cancelled and removed." });
         });
     });
@@ -4637,6 +4548,11 @@ app.delete("/api/requests/:id", async (req, res) => {
 
 function startServer() {
     if (server) return server;
+    const purgeListings = () => purgeExpiredListings().catch(err => console.error("[TTL Purge Error]", err.message));
+    setInterval(purgeListings, TTL_PURGE_INTERVAL_MS);
+    setTimeout(purgeListings, 2000);
+    setInterval(purgeExpiredSessions, 60 * 60 * 1000);
+    setTimeout(purgeExpiredSessions, 3000);
     server = app.listen(PORT, () => {
         console.log(`Server is running on port ${PORT}`);
     });

@@ -374,7 +374,7 @@ class WatcherFeedbackLoopTests(unittest.TestCase):
                 handle.write(content)
 
             connection = FailingConnection()
-            with mock.patch.object(parse_esotrade_addon.sqlite3, "connect", return_value=connection), \
+            with mock.patch.object(parse_esotrade_addon, "connect_database", return_value=connection), \
                     mock.patch.object(parse_esotrade_addon, "ensure_schema"), \
                     mock.patch.object(parse_esotrade_addon, "parse_records", return_value=([], [])), \
                     mock.patch.object(parse_esotrade_addon, "purge_records"), \

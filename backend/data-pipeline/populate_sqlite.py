@@ -4,13 +4,16 @@
 import argparse
 import json
 import os
-import sqlite3
+from sqlite_policy import connect_database
 import time
 
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_JSON_PATH = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "exports", "items.json"))
 DEFAULT_DB_PATH = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "exports", "eso_catalog.db"))
+
+
+MAX_REFRESH_WRITE_SECONDS = 60
 
 
 def catalog_row(item):
@@ -43,11 +46,11 @@ def populate_database(json_path=DEFAULT_JSON_PATH, db_path=DEFAULT_DB_PATH):
         raise ValueError("Catalog export must contain a JSON array.")
 
     os.makedirs(os.path.dirname(db_path), exist_ok=True)
-    connection = sqlite3.connect(db_path)
-    connection.execute("PRAGMA foreign_keys = ON;")
-    connection.execute("PRAGMA busy_timeout = 5000;")
+    connection = connect_database(db_path)
 
-    started_at = time.time()
+
+
+    started_at = time.monotonic()
     try:
         connection.execute("""
             CREATE TABLE IF NOT EXISTS items (
@@ -85,20 +88,29 @@ def populate_database(json_path=DEFAULT_JSON_PATH, db_path=DEFAULT_DB_PATH):
                 icon_url = excluded.icon_url;
         """
 
+        # Keep the whole refresh atomic. Abort and roll back a slow refresh so a
+        # large export cannot monopolize the writer indefinitely.
         connection.execute("BEGIN IMMEDIATE;")
+        deadline = time.monotonic() + MAX_REFRESH_WRITE_SECONDS
+        connection.set_progress_handler(lambda: time.monotonic() >= deadline, 1000)
         batch_size = 5000
         for offset in range(0, len(items), batch_size):
             batch = [catalog_row(item) for item in items[offset:offset + batch_size]]
+            if time.monotonic() >= deadline:
+                raise TimeoutError("Catalog refresh exceeded its writer time budget")
             connection.executemany(upsert_sql, batch)
             print(f"  Upserted {min(offset + len(batch), len(items))}/{len(items)} items...")
+        if time.monotonic() >= deadline:
+            raise TimeoutError("Catalog refresh exceeded its writer time budget")
         connection.commit()
     except Exception:
+        connection.set_progress_handler(None, 0)
         connection.rollback()
         raise
     finally:
         connection.close()
 
-    print(f"Safely upserted {len(items)} catalog items in {time.time() - started_at:.2f} seconds.")
+    print(f"Safely upserted {len(items)} catalog items in {time.monotonic() - started_at:.2f} seconds.")
 
 
 if __name__ == "__main__":
