@@ -12,7 +12,7 @@ cp frontend/.env.example frontend/.env
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `VITE_API_BASE_URL` | `http://localhost:5001/api` | Base URL for API requests. In production reverse-proxy deployments, set to `/api`. |
+| `VITE_API_BASE_URL` | empty | Build-time origin for API and cached icons. Leave empty for the Vite dev proxy or a production reverse proxy serving `/api`. For a separate API host, use its origin (e.g. `https://api.example.com`) without a path and configure credentialed CORS. Rebuild after changing. |
 
 > **Note**: Vite only exposes environment variables prefixed with `VITE_` to client-side code via `import.meta.env.VITE_*`.
 
