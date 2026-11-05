@@ -2,7 +2,7 @@
 """Watch the native ESOTrade SavedVariables file and ingest new scans."""
 
 import os
-import sqlite3
+from sqlite_policy import connect_database
 import subprocess
 import sys
 import time
@@ -30,7 +30,7 @@ def purge_expired_listings(db_path=DB_PATH):
         return 0
 
     try:
-        with closing(sqlite3.connect(db_path)) as connection, connection:
+        with closing(connect_database(db_path)) as connection, connection:
             purged = purge_records(connection)
         if purged > 0:
             print(f"[{time.strftime('%H:%M:%S')}] Purged {purged} expired listing observations.")

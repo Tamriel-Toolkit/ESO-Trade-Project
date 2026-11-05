@@ -11,7 +11,7 @@ const SANDBOX_FILES = [
     'password_helpers.js',
     'marketplace_filters.js',
     'database_helpers.js',
-    'scan_transaction.js',
+    'sqlite_writer.js',
     'listing_lifecycle.js',
     'listing_lifecycle.sql',
     'proxy_config.js',

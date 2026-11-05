@@ -10,6 +10,7 @@ import os
 import sys
 import re
 import sqlite3
+from sqlite_policy import connect_database
 import json
 import time
 import tempfile
@@ -309,7 +310,7 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
     if '["Server"] = "EU"' in content:
         server = "EU"
 
-    conn = sqlite3.connect(DEFAULT_DB_PATH)
+    conn = connect_database(DEFAULT_DB_PATH)
     try:
         cursor = conn.cursor()
         local_sync_messages = []
@@ -321,7 +322,7 @@ def parse_and_sync_esotrade(file_path=None, server_url="http://localhost:5001"):
         try:
             ensure_schema(conn)
             observations, purchases = parse_records(content)
-            conn.execute("PRAGMA foreign_keys = ON")
+
             conn.execute("BEGIN IMMEDIATE")
             imported_observations, deferred_count = [], 0
             metadata = {

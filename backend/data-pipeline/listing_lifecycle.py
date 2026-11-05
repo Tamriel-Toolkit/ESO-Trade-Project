@@ -3,7 +3,7 @@ import hashlib
 import json
 import os
 import re
-import sqlite3
+from sqlite_policy import connect_database
 import time
 import urllib.error
 import urllib.request
@@ -175,10 +175,10 @@ def recover_catalog_records(db_path):
     """Promote retained scans after catalog refresh, even without a file change."""
     if not os.path.exists(db_path):
         return 0
-    with closing(sqlite3.connect(db_path)) as connection, connection:
+    with closing(connect_database(db_path)) as connection, connection:
         if not connection.execute("SELECT 1 FROM sqlite_master WHERE name = 'native_listing_catalog_pending'").fetchone():
             return 0
-        connection.execute("PRAGMA foreign_keys = ON")
+
         connection.execute("BEGIN IMMEDIATE")
         purge_catalog_pending(connection)
         rows = connection.execute("""SELECT p.payload, p.metadata FROM native_listing_catalog_pending p
@@ -249,7 +249,7 @@ def deliver_outbox(db_path, server_url, token=None, opener=None, now=None):
     now = int(time.time()) if now is None else now
     opener = opener or urllib.request.urlopen
     delivered = 0
-    with closing(sqlite3.connect(db_path)) as connection:
+    with closing(connect_database(db_path)) as connection:
         if not connection.execute("SELECT 1 FROM sqlite_master WHERE name = 'native_listing_outbox'").fetchone():
             return 0
         rows = connection.execute("""SELECT payload_hash, payload, attempts FROM native_listing_outbox

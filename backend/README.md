@@ -69,3 +69,11 @@ When deploying behind a reverse proxy (Nginx, Caddy, AWS ALB, Cloudflare):
 - `GET /api/status` — catalog and listing health summary.
 
 Icon requests accept only a safe PNG basename. The backend downloads from the fixed UESP icon host, caches successful responses in `exports/icon-cache`, and serves a local fallback when the source is unavailable.
+
+### SQLite storage and contention
+
+Keep the application database on local durable storage with a writable parent directory for the WAL and shared-memory sidecars. On first open, the API and Python pipeline convert an existing rollback-journal database to WAL. Each connection verifies WAL, foreign keys, FULL synchronization, a five-second busy timeout, a 2 MiB cache target, and file-backed temporary storage.
+
+The API admits one writer at a time, with up to 32 waiting operations and a five-second queue deadline. Reads can observe the last commit while a write is in progress. A write rejected at admission or while acquiring the SQLite write lock returns HTTP 503. An uncertain commit returns an error and the server never automatically replays the operation. Check the stored result before resubmitting a non-idempotent request after an unknown outcome.
+
+Catalog refreshes commit atomically. The importer interrupts SQL work that exceeds its 60-second writer budget and rolls back. A failed refresh can be rerun against the same export.

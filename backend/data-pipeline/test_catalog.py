@@ -6,6 +6,8 @@ import tempfile
 import unittest
 from contextlib import closing, redirect_stdout
 from pathlib import Path
+from unittest.mock import patch
+from sqlite_policy import connect_database
 
 from populate_sqlite import populate_database
 
@@ -68,6 +70,24 @@ class CatalogImportTests(unittest.TestCase):
             conn.commit()
         with self.assertRaises(sqlite3.IntegrityError):
             self.import_items([self.item(1, "Must roll back"), self.item(3, "Rejected")])
+        self.assertEqual(before, self.snapshot())
+
+    def test_over_budget_refresh_leaves_original_catalog_searchable(self):
+        before = self.snapshot()
+        with patch("populate_sqlite.MAX_REFRESH_WRITE_SECONDS", 0), self.assertRaises(TimeoutError):
+            self.import_items([self.item(1, "Replacement")])
+        self.assertEqual(before, self.snapshot())
+
+    def test_existing_delete_database_converts_and_reopens_with_policy(self):
+        with closing(sqlite3.connect(self.db)) as connection:
+            self.assertEqual("delete", connection.execute("PRAGMA journal_mode=DELETE").fetchone()[0])
+        before = self.snapshot()
+        for _ in range(2):
+            with closing(connect_database(self.db)) as connection:
+                for name, value in (("journal_mode", "wal"), ("synchronous", 2), ("foreign_keys", 1),
+                                    ("busy_timeout", 5000), ("cache_size", -2048), ("temp_store", 1)):
+                    self.assertEqual(value, connection.execute(f"PRAGMA {name}").fetchone()[0])
+                self.assertEqual([], connection.execute("PRAGMA foreign_key_check").fetchall())
         self.assertEqual(before, self.snapshot())
 
     def test_invalid_json_and_non_array_leave_database_unchanged(self):

@@ -1497,57 +1497,36 @@ const CURATED_BUILDS = [
 /**
  * Seeds the database with curated builds if none exist or resets them on version bump.
  */
-async function seedCuratedMetaBuilds(db) {
-    return new Promise((resolve, reject) => {
-        db.get("SELECT COUNT(*) as count FROM builds WHERE is_curated = 1;", async (err, row) => {
-            if (err) return reject(err);
-
-            // If curated builds already exist, update item icons to ensure 100% authenticity
-            if (row && row.count >= 8) {
-                console.log(`[Builds] Found ${row.count} curated meta builds. Updating item icons...`);
-                for (const b of CURATED_BUILDS) {
-                    for (const item of b.items) {
-                        db.run(
-                            "UPDATE build_items SET item_icon = ? WHERE set_name = ? AND slot_id = ?;",
-                            [item.item_icon, item.set_name, item.slot_id]
-                        );
-                    }
-                }
-                return resolve();
+async function seedCuratedMetaBuilds(run, get) {
+    const { count } = await get("SELECT COUNT(*) as count FROM builds WHERE is_curated = 1;");
+    if (count >= 8) {
+        for (const build of CURATED_BUILDS) {
+            for (const item of build.items) {
+                await run(`UPDATE build_items SET item_icon = ? WHERE set_name = ? AND slot_id = ?
+                     AND build_id IN (SELECT id FROM builds WHERE is_curated = 1);`,
+                    [item.item_icon, item.set_name, item.slot_id]);
             }
+        }
+        return;
+    }
 
-            console.log("[Builds] Seeding curated meta builds with item icons into database...");
-            db.serialize(() => {
-                for (const build of CURATED_BUILDS) {
-                    db.run(
-                        `INSERT INTO builds (title, description, class, role, author, source_url, is_curated)
-                         VALUES (?, ?, ?, ?, ?, ?, 1);`,
-                        [build.title, build.description, build.class, build.role, build.author, build.source_url],
-                        function (bErr) {
-                            if (bErr) {
-                                console.error("Error seeding build:", bErr.message);
-                                return;
-                            }
-                            const buildId = this.lastID;
-                            for (const item of build.items) {
-                                db.run(
-                                    `INSERT OR REPLACE INTO build_items 
-                                     (build_id, slot_id, slot_name, item_name, set_name, item_type, item_icon, trait_id, trait_name, enchantment, quality, is_tradeable, source_location)
-                                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
-                                    [
-                                        buildId, item.slot_id, item.slot_name, item.item_name, item.set_name,
-                                        item.item_type, item.item_icon, item.trait_id || 1, item.trait_name || "Divines",
-                                        item.enchantment || "Max Magicka", item.quality || 4, item.is_tradeable, item.source_location
-                                    ]
-                                );
-                            }
-                        }
-                    );
-                }
-                resolve();
-            });
-        });
-    });
+    for (const build of CURATED_BUILDS) {
+        const { lastID } = await run(
+            `INSERT INTO builds (title, description, class, role, author, source_url, is_curated)
+             VALUES (?, ?, ?, ?, ?, ?, 1);`,
+            [build.title, build.description, build.class, build.role, build.author, build.source_url]
+        );
+        for (const item of build.items) {
+            await run(
+                `INSERT OR REPLACE INTO build_items
+                 (build_id, slot_id, slot_name, item_name, set_name, item_type, item_icon, trait_id, trait_name, enchantment, quality, is_tradeable, source_location)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);`,
+                [lastID, item.slot_id, item.slot_name, item.item_name, item.set_name, item.item_type,
+                    item.item_icon, item.trait_id || 1, item.trait_name || "Divines",
+                    item.enchantment || "Max Magicka", item.quality || 4, item.is_tradeable, item.source_location]
+            );
+        }
+    }
 }
 
 module.exports = {
