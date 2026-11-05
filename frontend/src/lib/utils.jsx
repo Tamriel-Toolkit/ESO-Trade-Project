@@ -1,3 +1,4 @@
+import { API_ORIGIN } from '../api/origin';
 import React from "react";
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -106,10 +107,9 @@ export function getEsoIconUrl(rawIcon) {
   const icon = rawIcon.trim();
   if (!icon) return null;
 
-  const apiBase = import.meta.env.VITE_API_BASE_URL || "http://localhost:5001";
   const pathOnly = icon.split(/[?#]/, 1)[0];
   const sourceFilename = pathOnly.split("/").filter(Boolean).pop() || "";
   const filename = sourceFilename.replace(/\.dds$/i, ".png");
   const safeFilename = /^[A-Za-z0-9_-]+\.png$/.test(filename) ? filename : "gear_generic.png";
-  return `${apiBase}/api/icons/${encodeURIComponent(safeFilename)}`;
+  return `${API_ORIGIN}/api/icons/${encodeURIComponent(safeFilename)}`;
 }

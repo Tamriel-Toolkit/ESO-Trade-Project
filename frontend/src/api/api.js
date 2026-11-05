@@ -1,4 +1,4 @@
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5001';
+import { API_ORIGIN } from './origin';
 
 // In-memory token store with localStorage fallback for multi-tab/client resilience
 let inMemoryToken = '';
@@ -30,7 +30,7 @@ function getHeaders(customHeaders = {}) {
  * Universal fetch wrapper enforcing credentials: 'include' for HttpOnly SameSite cookies
  */
 export async function apiFetch(path, options = {}) {
-    const url = `${BASE_URL}${path}`;
+    const url = `${API_ORIGIN}${path}`;
     const headers = getHeaders(options.headers);
     const config = {
         credentials: 'include',
