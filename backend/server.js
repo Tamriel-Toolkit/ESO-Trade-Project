@@ -39,6 +39,7 @@ const sqlite3 = require("sqlite3").verbose();
 const { seedCuratedMetaBuilds } = require("./curated_builds");
 const { createSchemaMigrationRunner, rollbackTransaction } = require("./database_helpers");
 const { withScanTransaction } = require("./scan_transaction");
+const { verifyCatalog, CATALOG_CATEGORIES } = require("./catalog_verification");
 const { schemaStatements: listingLifecycleSchema, validateLifecycle, applyLifecycle, purgeLifecycle } = require("./listing_lifecycle");
 const { configureTrustProxy, parseTrustProxyConfig } = require("./proxy_config");
 const { hashPassword, isBcryptHash, verifyPassword } = require("./password_helpers");
@@ -57,6 +58,9 @@ function cleanEsoItemName(name) {
 
 // Developer & Testing Environment Flag (defaults to 'development' if NODE_ENV is unset)
 const nodeEnv = process.env.NODE_ENV || "development";
+// Keep legacy IDs available for existing links while publishing only imported catalog members.
+const catalogSource = nodeEnv === "production" ? "items JOIN catalog_members USING (game_item_id)" : "items";
+const catalogIdentityTable = nodeEnv === "production" ? "catalog_members" : "items";
 const isDevMode = (nodeEnv === "development" || nodeEnv === "test" || process.env.ENABLE_DEV_ENDPOINTS === "true") && process.env.NODE_ENV !== "production";
 
 // Auth Cookie Settings
@@ -238,22 +242,22 @@ function resolveDatabasePath() {
 
 // Database connection
 const dbPath = resolveDatabasePath();
-const db = new sqlite3.Database(dbPath, (err) => {
+const db = new sqlite3.Database(dbPath, async (err) => {
     if (err) {
         console.error("Error connecting to the database:", err.message);
         process.exit(1);
-    } else {
-        console.log("Connected to the SQLite database at:", dbPath);
-        // Explicitly enable Foreign Key constraints
-        db.run("PRAGMA foreign_keys = ON;", (fkErr) => {
-            if (fkErr) {
-                console.error("Error enabling SQLite foreign keys:", fkErr.message);
-            } else {
-                console.log("SQLite foreign key constraints enabled.");
-            }
-        });
-        initializeDatabaseSchema();
     }
+    try {
+        await dbRun("PRAGMA foreign_keys = ON");
+        if (nodeEnv === "production") {
+            await verifyCatalog(dbRun, dbGet, dbAll);
+        }
+    } catch (error) {
+        console.error("[DATABASE] Startup aborted:", error.message);
+        db.close(() => process.exit(1));
+        return;
+    }
+    initializeDatabaseSchema();
 });
 
 const schemaMigrationFailures = [];
@@ -382,30 +386,6 @@ function initializeDatabaseSchema() {
         db.run("CREATE INDEX IF NOT EXISTS idx_items_name ON items(name);");
         db.run("CREATE INDEX IF NOT EXISTS idx_items_category ON items(category);");
         db.run("CREATE INDEX IF NOT EXISTS idx_items_set_name ON items(set_name);");
-
-        // Seed starter items (runs sequentially inside db.serialize before foreign keys reference items)
-        db.run(`
-            INSERT OR IGNORE INTO items (game_item_id, name, category, subcategory, rarity, type, set_name, icon, metadata, icon_url)
-            VALUES 
-                (1129, 'Werewolf Hide King Deleyn''s Longbow', 'Weapon', 'Bow', 5, 'Weapon', NULL, '/esoui/art/icons/gear_nord_bow_a.dds', '{"rarity": 5}', '/esoui/art/icons/gear_nord_bow_a.dds'),
-                (1321, 'Maple Bow', 'Weapon', 'Bow', 5, 'Weapon', NULL, '/esoui/art/icons/gear_nord_bow_a.dds', '{"rarity": 5}', '/esoui/art/icons/gear_nord_bow_a.dds'),
-                (1727, 'Brackenleaf''s Bough', 'Weapon', 'Bow', 5, 'Weapon', NULL, '/esoui/art/icons/gear_nord_bow_a.dds', '{"rarity": 5}', '/esoui/art/icons/gear_nord_bow_a.dds'),
-                (2501, 'Ebony-Inlaid Longbow', 'Weapon', 'Bow', 5, 'Weapon', NULL, '/esoui/art/icons/gear_nord_bow_a.dds', '{"rarity": 5}', '/esoui/art/icons/gear_nord_bow_a.dds'),
-                (4317, 'Naryu''s Sniper''s Bow', 'Weapon', 'Bow', 5, 'Weapon', NULL, '/esoui/art/icons/gear_nord_bow_a.dds', '{"rarity": 5}', '/esoui/art/icons/gear_nord_bow_a.dds'),
-                (68447, 'Briarheart Jack', 'Armor', 'Medium Armor', 4, 'Armor', 'Briarheart', '/esoui/art/icons/gear_reach_medium_chest_a.dds', '{"set": {"name": "Briarheart"}}', '/esoui/art/icons/gear_reach_medium_chest_a.dds'),
-                (68448, 'Briarheart Boots', 'Armor', 'Medium Armor', 4, 'Armor', 'Briarheart', '/esoui/art/icons/gear_reach_medium_feet_a.dds', '{"set": {"name": "Briarheart"}}', '/esoui/art/icons/gear_reach_medium_feet_a.dds'),
-                (68449, 'Briarheart Bracers', 'Armor', 'Medium Armor', 4, 'Armor', 'Briarheart', '/esoui/art/icons/gear_reach_medium_hands_a.dds', '{"set": {"name": "Briarheart"}}', '/esoui/art/icons/gear_reach_medium_hands_a.dds'),
-                (68450, 'Briarheart Helmet', 'Armor', 'Medium Armor', 4, 'Armor', 'Briarheart', '/esoui/art/icons/gear_reach_medium_head_a.dds', '{"set": {"name": "Briarheart"}}', '/esoui/art/icons/gear_reach_medium_head_a.dds'),
-                (68451, 'Briarheart Guards', 'Armor', 'Medium Armor', 4, 'Armor', 'Briarheart', '/esoui/art/icons/gear_reach_medium_legs_a.dds', '{"set": {"name": "Briarheart"}}', '/esoui/art/icons/gear_reach_medium_legs_a.dds'),
-                (97218, 'Necklace of a Mother''s Sorrow', 'Armor', 'Jewelry', 4, 'Armor', 'Mother''s Sorrow', '/esoui/art/icons/gear_nord_necklace_a.dds', '{"set": {"name": "Mother''s Sorrow"}}', '/esoui/art/icons/gear_nord_necklace_a.dds'),
-                (97227, 'Inferno Staff of a Mother''s Sorrow', 'Weapon', 'Destruction Staff', 5, 'Weapon', 'Mother''s Sorrow', '/esoui/art/icons/gear_nord_staff_inferno_a.dds', '{"set": {"name": "Mother''s Sorrow"}}', '/esoui/art/icons/gear_nord_staff_inferno_a.dds'),
-                (97253, 'Robe of a Mother''s Sorrow', 'Armor', 'Light Armor', 5, 'Armor', 'Mother''s Sorrow', '/esoui/art/icons/gear_nord_light_robe_a.dds', '{"set": {"name": "Mother''s Sorrow"}}', '/esoui/art/icons/gear_nord_light_robe_a.dds'),
-                (142765, 'Bright-Throat''s Boast Hat', 'Armor', 'Light Armor', 3, 'Armor', 'Bright-Throat''s Boast', '/esoui/art/icons/gear_nord_light_hat_a.dds', '{"set": {"name": "Bright-Throat''s Boast"}}', '/esoui/art/icons/gear_nord_light_hat_a.dds'),
-                (150001, 'Recipe: Hearty Garlic Corn Chowder', 'Recipe', 'Provisioning', 2, 'Recipe', NULL, '/esoui/art/icons/crafting_provisioner_bowl_soup.dds', '{"rarity": 2}', '/esoui/art/icons/crafting_provisioner_bowl_soup.dds'),
-                (150002, 'Alinor Gaming Table', 'Furnishing', 'Parlor', 3, 'Furnishing', NULL, '/esoui/art/icons/furnishing_table_a.dds', '{"rarity": 3}', '/esoui/art/icons/furnishing_table_a.dds'),
-                (150003, 'Crown Tri-Restoration Potion', 'Consumable', 'Potion', 4, 'Consumable', NULL, '/esoui/art/icons/potion_tri_a.dds', '{"rarity": 4}', '/esoui/art/icons/potion_tri_a.dds'),
-                (150004, 'Kutas Runestone', 'Other', 'Enchanting', 4, 'Crafting Material', NULL, '/esoui/art/icons/crafting_runestone_kuta.dds', '{"rarity": 4}', '/esoui/art/icons/crafting_runestone_kuta.dds');
-        `);
 
         db.run(`
             CREATE TABLE IF NOT EXISTS users (
@@ -536,7 +516,6 @@ function initializeDatabaseSchema() {
         runSchemaMigration("character-gear.add-trait-description", "ALTER TABLE character_gear ADD COLUMN trait_description TEXT", { allowDuplicateColumn: true });
         runSchemaMigration("character-gear.add-armor-rating", "ALTER TABLE character_gear ADD COLUMN armor_rating INTEGER DEFAULT 0", { allowDuplicateColumn: true });
         runSchemaMigration("character-gear.add-weapon-power", "ALTER TABLE character_gear ADD COLUMN weapon_power INTEGER DEFAULT 0", { allowDuplicateColumn: true });
-        runSchemaMigration("items.normalize-icon-extension", "UPDATE items SET icon_url = REPLACE(icon_url, '.dds', '.png') WHERE icon_url LIKE '%.dds'");
         runSchemaMigration("character-gear.normalize-icon-extension", "UPDATE character_gear SET item_icon = REPLACE(item_icon, '.dds', '.png') WHERE item_icon LIKE '%.dds'");
 
         db.run(`
@@ -604,16 +583,6 @@ function initializeDatabaseSchema() {
 
         // Remove the retired aggregate-price store while preserving native scan listings.
         db.run("DROP TABLE IF EXISTS item_prices;");
-
-        // Deterministic fixtures are isolated to the automated test environment.
-        if (nodeEnv === "test") {
-            db.run(`
-                INSERT OR IGNORE INTO guild_trader_listings (game_item_id, server, seller_name, price, quantity, active_stacks, guild_name, location, level, quality, trait_id)
-                VALUES
-                    (150001, 'NA', '@TestSeller', 22, 1, 1, 'Test Trading Guild', 'Mournhold, Deshaan', 1, 2, 0),
-                    (97227, 'NA', '@TestSeller', 42000, 1, 1, 'Test Trading Guild', 'Elden Root, Grahtwood', 50, 5, 3);
-            `);
-        }
 
         // Migration columns for existing databases
         runSchemaMigration("guild-trader-listings.add-seller-name", "ALTER TABLE guild_trader_listings ADD COLUMN seller_name TEXT DEFAULT '@Unknown';", { allowDuplicateColumn: true });
@@ -832,17 +801,7 @@ function initializeDatabaseSchema() {
 /**
  * Standard catalog category order and compatibility query builders.
  */
-const CATALOG_CATEGORY_ORDER = [
-    "Weapons",
-    "Apparel",
-    "Jewelry",
-    "Consumables",
-    "Materials",
-    "Glyphs",
-    "Furnishings",
-    "Companion Equipment",
-    "Miscellaneous"
-];
+
 
 function buildCategoryCondition(prefix, category, conditions, params) {
     const col = prefix ? `${prefix}.category` : "category";
@@ -892,7 +851,7 @@ function buildSubcategoryCondition(prefix, subcategory, conditions, params) {
  * using the normalized catalog categorization.
  */
 app.get("/api/taxonomy", (req, res) => {
-    const query = "SELECT DISTINCT category, subcategory FROM items WHERE category IS NOT NULL ORDER BY category, subcategory;";
+    const query = `SELECT DISTINCT category, subcategory FROM ${catalogSource} WHERE category IS NOT NULL ORDER BY category, subcategory`;
     db.all(query, [], (err, rows) => {
         if (err) {
             return res.status(500).json({ error: err.message });
@@ -900,7 +859,7 @@ app.get("/api/taxonomy", (req, res) => {
 
         const taxonomy = {};
         // Seed categories in the stable catalog order.
-        CATALOG_CATEGORY_ORDER.forEach(cat => {
+        CATALOG_CATEGORIES.forEach(cat => {
             taxonomy[cat] = [];
         });
 
@@ -952,8 +911,8 @@ app.get("/api/items", (req, res) => {
         params.push(parseInt(rarity, 10));
     }
 
-    let countQuery = "SELECT COUNT(*) as total FROM items";
-    let query = "SELECT * FROM items";
+    let countQuery = `SELECT COUNT(*) as total FROM ${catalogSource}`;
+    let query = `SELECT items.* FROM ${catalogSource}`;
 
     if (conditions.length > 0) {
         const whereClause = " WHERE " + conditions.join(" AND ");
@@ -1064,8 +1023,6 @@ async function purgeExpiredListings() {
 
 // Background automated periodic TTL purge every hour (3,600,000 ms)
 const TTL_PURGE_INTERVAL_MS = 60 * 60 * 1000;
-setInterval(purgeExpiredListings, TTL_PURGE_INTERVAL_MS);
-setTimeout(purgeExpiredListings, 2000);
 
 /**
  * GET /api/status
@@ -1074,7 +1031,7 @@ setTimeout(purgeExpiredListings, 2000);
 app.get("/api/status", async (req, res) => {
     try {
         const listingRow = await dbGet("SELECT COUNT(*) as count, MAX(discovered_at) as latest_scan FROM guild_trader_active_listings");
-        const catalogRow = await dbGet("SELECT COUNT(*) as count FROM items");
+        const catalogRow = await dbGet(`SELECT COUNT(*) as count FROM ${catalogIdentityTable}`);
         const charRow = await dbGet("SELECT MAX(last_sync_at) as latest_char_sync FROM characters");
         
         res.json({
@@ -1457,65 +1414,17 @@ app.get("/api/character/:character_id", async (req, res) => {
 
 /**
  * POST /api/listings/sync
- * Batch upserts active guild trader listings (clear out-of-date listings first).
+ * Legacy aggregate uploads cannot identify a native observation or exact purchase.
  */
 app.post("/api/listings/sync", async (req, res) => {
-    const userId = await getAuthUserId(req);
-    if (!userId) {
+    if (!await getAuthUserId(req)) {
         return res.status(401).json({ error: "Authentication required to sync guild trader listings." });
     }
-
-    const { server, listings } = req.body;
-    const targetServer = server || "NA";
-
-    if (!Array.isArray(listings)) {
-        return res.status(400).json({ error: "Expected 'listings' to be an array." });
-    }
-
-    try {
-        await dbRun("BEGIN IMMEDIATE TRANSACTION");
-
-        // 1. Clear out-of-date/expired listings first (expires_at < now)
-        await dbRun("DELETE FROM guild_trader_listings WHERE datetime(expires_at) < datetime('now')");
-
-        // 2. Insert new listings
-        if (listings.length > 0) {
-            const chunkSize = 100; // 100 items * 7 parameters = 700 parameters
-            for (let i = 0; i < listings.length; i += chunkSize) {
-                const chunk = listings.slice(i, i + chunkSize);
-                const placeholders = chunk.map(() => "(?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)").join(", ");
-                const sql = `
-                    INSERT INTO guild_trader_listings (game_item_id, server, price, quantity, guild_name, location, expires_at, discovered_at)
-                    VALUES ${placeholders};
-                `;
-
-                const params = [];
-                chunk.forEach(item => {
-                    params.push(
-                        parseInt(item.game_item_id, 10),
-                        targetServer,
-                        parseInt(item.price, 10),
-                        parseInt(item.quantity, 10) || 1,
-                        item.guild_name || null,
-                        item.location || null,
-                        item.expires_at || null
-                    );
-                });
-
-                await dbRun(sql, params);
-            }
-        }
-
-        // 3. Clear out-of-date/expired listings again (to catch any incoming expired ones)
-        await dbRun("DELETE FROM guild_trader_listings WHERE datetime(expires_at) < datetime('now')");
-
-        await dbRun("COMMIT");
-        res.json({ success: true, count: listings.length });
-    } catch (err) {
-        await rollbackTransaction(dbRun, "POST /api/listings/sync", err);
-        console.error("Error syncing listings:", err.message);
-        res.status(500).json({ error: err.message });
-    }
+    res.status(410).json({
+        error: "Upgrade the contributor and send native observations to /api/market/upload-scans.",
+        code: "UNSUPPORTED_SCAN_PROTOCOL",
+        supported_lifecycle_version: 1,
+    });
 });
 
 /**
@@ -2278,7 +2187,7 @@ app.get("/api/market/listings", async (req, res) => {
  */
 app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
     if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
-        return res.status(400).json({error: 'Expected an upload object.'});
+        return res.status(400).json({error: 'Expected an upload object.', code: 'INVALID_SOURCE_RECORD'});
     }
     const { player_name, player_class, player_level, player_alliance, master_crafter } = req.body;
 
@@ -2321,11 +2230,40 @@ app.post("/api/market/upload-scans", batchUploadLimiter, async (req, res) => {
                         last_sync_at = CURRENT_TIMESTAMP`,
                 [userId, player_name, player_class || 'Dragonknight', player_level || 50, player_alliance || 1, master_crafter || 0]);
             }
+            // Preflight in the same owned transaction as the observation writes.
+            // Preserved legacy item rows can still support old links. Only verified
+            // membership establishes a new production observation's catalog identity.
+            const ids = [...new Set(payload.observations.map(item => item.game_item_id))];
+            if (ids.length) {
+                const missing = await get(`SELECT json_group_array(value) AS ids FROM json_each(?)
+                    WHERE NOT EXISTS (SELECT 1 FROM ${catalogIdentityTable} WHERE game_item_id = value)`, [JSON.stringify(ids)]);
+                const unknown = JSON.parse(missing.ids);
+                if (unknown.length) {
+                    const error = new Error('Catalog item pending verification. Retain the batch for retry after a catalog refresh.');
+                    error.status = 409;
+                    error.code = 'UNKNOWN_CATALOG_ITEM';
+                    error.itemIds = unknown;
+                    throw error;
+                }
+            }
             return applyLifecycle(run, get, payload);
         });
         return res.json(result);
     } catch (error) {
-        return res.status(error.status || 500).json({error: error.status ? error.message : 'Listing lifecycle synchronization failed.'});
+        if (error.code === 'UNKNOWN_CATALOG_ITEM') {
+            return res.status(409).json({ error: error.message, code: error.code, game_item_ids: error.itemIds });
+        }
+        if (error.status) {
+            const body = {error: error.message};
+            if (error.status === 400) body.code = 'INVALID_SOURCE_RECORD';
+            return res.status(error.status).json(body);
+        }
+        const busy = error.code === 'SQLITE_BUSY' || error.code === 'SQLITE_LOCKED';
+        if (busy) res.set('Retry-After', '5');
+        return res.status(busy ? 503 : 500).json({
+            error: 'Listing synchronization failed. Retain the batch for retry.',
+            code: 'SCAN_SYNC_FAILED',
+        });
     }
 });
 
@@ -2410,9 +2348,6 @@ async function purgeExpiredSessions() {
     }
 }
 
-// Periodic cleanup of expired sessions every hour
-setInterval(purgeExpiredSessions, 60 * 60 * 1000);
-setTimeout(purgeExpiredSessions, 3000);
 
 async function getAuthUserId(req) {
     let token = null;
@@ -4637,6 +4572,11 @@ app.delete("/api/requests/:id", async (req, res) => {
 
 function startServer() {
     if (server) return server;
+    // Start maintenance only after the catalog and schema are admitted.
+    setInterval(purgeExpiredListings, TTL_PURGE_INTERVAL_MS);
+    setTimeout(purgeExpiredListings, 2000);
+    setInterval(purgeExpiredSessions, 60 * 60 * 1000);
+    setTimeout(purgeExpiredSessions, 3000);
     server = app.listen(PORT, () => {
         console.log(`Server is running on port ${PORT}`);
     });

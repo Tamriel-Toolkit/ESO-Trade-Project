@@ -1,12 +1,20 @@
 import requests
 import json
 import os
-import sys
 import time
 import argparse
+from collections import Counter
+import hashlib
+from pathlib import Path
+import tempfile
+
+from catalog_manifest import (
+    FIRST_ID, LAST_ID, SOURCE_URL, MAX_BYTES, file_sha256, retrieval_id, utc_now,
+    validate_item, validate_source,
+)
 
 # Configuration
-UESP_EXPORT_URL = "https://esoitem.uesp.net/exportJson.php"
+UESP_EXPORT_URL = SOURCE_URL
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 DEFAULT_OUTPUT_FILE = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "exports", "items.json"))
 
@@ -221,15 +229,16 @@ def get_int(row, key, default=-1):
         return default
 
 def normalize_item(row):
-    try:
-        item_id = get_int(row, "itemId", 0)
-    except ValueError:
+    raw_id = row.get("itemId") if isinstance(row, dict) else None
+    if type(raw_id) is not int and not (isinstance(raw_id, str) and raw_id.isascii() and raw_id.isdecimal()):
         return None
-
-    if item_id == 0:
+    item_id = int(raw_id)
+    if item_id <= 0:
         return None
 
     name = row.get("name", "")
+    if not isinstance(name, str):
+        raise ValueError(f"Invalid source item name for ID {item_id}.")
     if "^" in name:
         name = name.split("^")[0]
 
@@ -334,94 +343,105 @@ def normalize_item(row):
     }
 
 def fetch_chunk(start_id, end_id, max_retries=3):
-    """
-    Fetches a range of items from UESP exportJson API with retries and backoff.
-    """
-    params = {
-        "table": "minedItemSummary",
-        "startid": start_id,
-        "endid": end_id
-    }
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36"
-    }
-
+    """Read one complete ID range from the fixed HTTPS source."""
+    params = {"table": "minedItemSummary", "startid": start_id, "endid": end_id}
     for attempt in range(1, max_retries + 1):
         try:
-            response = requests.get(UESP_EXPORT_URL, params=params, headers=headers, timeout=15)
-            response.raise_for_status()
+            response = requests.get(UESP_EXPORT_URL, params=params, timeout=(10, 60),
+                                    allow_redirects=False)
+            if response.status_code != 200:
+                raise ValueError(f"UESP returned HTTP {response.status_code}")
             data = response.json()
-            return data.get("minedItemSummary", [])
-        except (requests.exceptions.RequestException, json.JSONDecodeError) as e:
-            print(f"   [Warning] Attempt {attempt} failed for range {start_id}-{end_id}: {e}")
-            if attempt < max_retries:
-                sleep_time = 2 ** attempt
-                print(f"   Retrying in {sleep_time} seconds...")
-                time.sleep(sleep_time)
-            else:
-                print(f"   [Error] All attempts failed for range {start_id}-{end_id}.")
-                return None
+            rows = data["minedItemSummary"]
+            if not isinstance(rows, list) or data["numRecords"] != len(rows):
+                raise ValueError("UESP response is incomplete")
+            return rows, hashlib.sha256(response.content).hexdigest()
+        except (requests.RequestException, ValueError, KeyError, TypeError) as error:
+            if attempt == max_retries:
+                raise ValueError(f"Failed to read complete UESP range {start_id}-{end_id}") from error
+            time.sleep(2 ** attempt)
+
+
+def acquire(output, start_id, end_id, chunk_size, delay, limit):
+    if not FIRST_ID <= start_id <= end_id <= LAST_ID or not 1 <= chunk_size <= 10000 or delay < 0 or limit < 0:
+        raise ValueError("Invalid UESP range, chunk size, delay or limit.")
+    complete = (start_id, end_id) == (FIRST_ID, LAST_ID) and not limit
+    output = Path(output).resolve()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    ranges, unnamed, seen = [], [], set()
+    counts = Counter()
+    accepted = 0
+    with tempfile.TemporaryDirectory(prefix=".uesp-", dir=output.parent) as workspace:
+        candidate = Path(workspace) / "items.json"
+        with candidate.open("w", encoding="utf-8", newline="\n") as stream:
+            stream.write("[")
+            for first in range(start_id, end_id + 1, chunk_size):
+                last = min(first + chunk_size - 1, end_id)
+                print(f"Fetching UESP range {first}-{last}...", flush=True)
+                rows, raw_digest = fetch_chunk(first, last)
+                ranges.append({"start_id": first, "end_id": last, "count": len(rows), "raw_sha256": raw_digest})
+                for row in rows:
+                    item = normalize_item(row)
+                    if item is None or not first <= item["game_item_id"] <= last or item["game_item_id"] in seen:
+                        raise ValueError(f"Duplicate or invalid item ID in range {first}-{last}.")
+                    seen.add(item["game_item_id"])
+                    if isinstance(item["name"], str) and not item["name"].strip():
+                        unnamed.append(item["game_item_id"])
+                        continue
+                    validate_item(item)
+                    if accepted:
+                        stream.write(",\n")
+                    json.dump(item, stream, ensure_ascii=False, separators=(",", ":"))
+                    counts[item["category"]] += 1
+                    accepted += 1
+                    if limit and accepted >= limit:
+                        break
+                if stream.tell() > MAX_BYTES:
+                    raise ValueError("Oversized catalog export.")
+                if limit and accepted >= limit:
+                    break
+                if last < end_id:
+                    time.sleep(delay)
+            stream.write("]\n")
+        if not accepted:
+            raise ValueError("UESP returned no usable items.")
+        manifest = {
+            "manifest_version": 1, "normalization_version": 1, "source_url": SOURCE_URL,
+            "source_table": "minedItemSummary", "retrieved_at": utc_now(), "retrieval_id": retrieval_id(ranges),
+            "source_ranges": ranges, "artifact_sha256": file_sha256(candidate), "item_count": accepted,
+            "category_counts": dict(counts), "unnamed_item_ids": sorted(unnamed),
+            "result": "complete" if complete else "sample",
+        }
+        if complete:
+            validate_source(manifest)
+        proof = Path(workspace) / "manifest.json"
+        proof.write_bytes((json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode())
+        digest = file_sha256(proof)
+        proof.replace(output.with_name(f"{output.name}.{digest}.manifest.json"))
+        candidate.replace(output)
+    print(f"Exported {accepted} named items; {len(unnamed)} unnamed source IDs are recorded in the manifest.")
+    print(f"Artifact SHA-256: {manifest['artifact_sha256']}\nManifest SHA-256: {digest}")
+    return digest
+
 
 def main():
-    parser = argparse.ArgumentParser(description="Fetch and Ingest ESO Item Catalog from UESP JSON API")
-    parser.add_argument("--start-id", type=int, default=3, help="Start Item ID (default: 3)")
-    parser.add_argument("--end-id", type=int, default=280000, help="End Item ID (default: 280000)")
-    parser.add_argument("--chunk-size", type=int, default=10000, help="IDs to query per API call (default: 10000)")
-    parser.add_argument("--delay", type=float, default=0.2, help="Delay in seconds between API calls (default: 0.2)")
-    parser.add_argument("--limit", type=int, default=0, help="Limit number of output items (0 for no limit)")
-    parser.add_argument("--output", type=str, default=DEFAULT_OUTPUT_FILE, help=f"Path to output file (default: {DEFAULT_OUTPUT_FILE})")
-    parser.add_argument("--test", action="store_true", help="Short-circuit execution for a quick verification test")
-    
+    parser = argparse.ArgumentParser(description="Fetch and normalize UESP item summaries.")
+    parser.add_argument("--start-id", type=int, default=FIRST_ID)
+    parser.add_argument("--end-id", type=int, default=LAST_ID)
+    parser.add_argument("--chunk-size", type=int, default=10000)
+    parser.add_argument("--delay", type=float, default=0.2)
+    parser.add_argument("--limit", type=int, default=0)
+    parser.add_argument("--output", help="Catalog export path; use a new release directory to archive it.")
+    parser.add_argument("--test", action="store_true", help="Fetch an isolated ten-item sample.")
     args = parser.parse_args()
-
-    # Short-circuit parameters for test mode
     if args.test:
-        args.start_id = 120000
-        args.end_id = 120050
-        args.chunk_size = 50
-        args.limit = 10
-        print("[Test Mode Enabled] Querying item IDs 120000 to 120050...")
+        args.start_id, args.end_id, args.chunk_size, args.limit = 120000, 120050, 50, 10
+    is_sample = args.start_id != FIRST_ID or args.end_id != LAST_ID or args.limit
+    output = args.output or (str(Path(DEFAULT_OUTPUT_FILE).with_name("items.sample.json")) if is_sample else DEFAULT_OUTPUT_FILE)
+    if is_sample and Path(output).resolve() == Path(DEFAULT_OUTPUT_FILE).resolve():
+        parser.error("Choose a separate output for sample acquisitions.")
+    acquire(output, args.start_id, args.end_id, args.chunk_size, args.delay, args.limit)
 
-    print(f"Initializing catalog ingestion from {args.start_id} to {args.end_id}...")
-    print(f"Querying in chunks of {args.chunk_size} with a {args.delay}s delay...")
-
-    all_normalized_items = []
-    current_start = args.start_id
-
-    while current_start <= args.end_id:
-        current_end = min(current_start + args.chunk_size - 1, args.end_id)
-        print(f"Fetching range {current_start} to {current_end}...")
-        
-        raw_items = fetch_chunk(current_start, current_end)
-        
-        if raw_items:
-            print(f"   Retrieved {len(raw_items)} raw items. Normalizing...")
-            for raw_item in raw_items:
-                normalized = normalize_item(raw_item)
-                if normalized:
-                    all_normalized_items.append(normalized)
-                    
-                if args.limit > 0 and len(all_normalized_items) >= args.limit:
-                    print(f"Reached output limit of {args.limit} items.")
-                    break
-        else:
-            print(f"   No items retrieved for range {current_start}-{current_end}.")
-
-        if args.limit > 0 and len(all_normalized_items) >= args.limit:
-            break
-
-        current_start += args.chunk_size
-        time.sleep(args.delay)
-
-    # Save to file
-    if all_normalized_items:
-        os.makedirs(os.path.dirname(args.output), exist_ok=True)
-        with open(args.output, "w", encoding='utf-8') as f:
-            json.dump(all_normalized_items, f, indent=2, ensure_ascii=False)
-        print(f"\nSuccessfully generated {len(all_normalized_items)} items in {args.output}")
-    else:
-        print("\nNo items were successfully fetched and normalized.")
-        sys.exit(1)
 
 if __name__ == "__main__":
     main()

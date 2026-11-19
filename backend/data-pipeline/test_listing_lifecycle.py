@@ -118,6 +118,19 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual(self.now, calls[0]["observations"][0]["observed_at"])
         self.assertEqual(0, self.outbox_count())
 
+    def test_unacknowledged_catalog_and_validation_failures_remain_visible_for_retry(self):
+        self.import_file([self.scan()])
+        for attempt, (status, code, reason) in enumerate([
+                (409, "UNKNOWN_CATALOG_ITEM", "Catalog item pending verification"),
+                (400, "INVALID_SOURCE_RECORD", "Invalid source record"),
+                (503, "SCAN_SYNC_FAILED", "Server busy")]):
+            response = io.BytesIO(json.dumps({"code": code, "error": "private details"}).encode())
+            error = urllib.error.HTTPError("https://example.invalid", status, "", {}, response)
+            opener = mock.Mock(side_effect=error)
+            lifecycle.deliver_outbox(self.db, "https://example.invalid", "test-token", opener, self.now + attempt * 3600)
+            self.assertEqual((reason,), self.connection.execute("SELECT last_error FROM native_listing_outbox").fetchone())
+            self.assertEqual(1, self.outbox_count())
+
     def test_auth_rate_limit_and_bad_ack_leave_durable_records_without_retry_storm(self):
         self.import_file([], [self.purchase()])
         unauthorized = mock.Mock(side_effect=urllib.error.HTTPError("https://example.invalid", 401, "Unauthorized", {}, None))

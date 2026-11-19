@@ -1,4 +1,5 @@
 const http = require('http');
+const fs = require('node:fs');
 const crypto = require('crypto');
 const path = require('path');
 const assert = require('node:assert/strict');
@@ -306,6 +307,9 @@ async function runTests() {
         await testDatabaseFailureHandling();
         await seedPreMigrationLegacyAccount();
         PORT = await sandbox.start();
+        for (const file of ['item-fixtures.sql', 'listing-fixtures.sql']) {
+            await testDbRun(fs.readFileSync(path.join(__dirname, '../test-support', file), 'utf8'));
+        }
 
         // Poll server health up to 10 seconds for robust startup across all runner environments
         let serverReady = false;
@@ -740,14 +744,14 @@ async function runTests() {
         const retiredAggregateSync = await httpPost('/api/prices/sync', []);
         if (retiredAggregateSync.status !== 404) throw new Error(`Expected 404 for retired aggregate sync route, got ${retiredAggregateSync.status}`);
 
-        console.log("\n26. Testing POST /api/listings/sync authentication (expect 401 unauth, 200 auth)...");
+        console.log("\n26. Testing retired aggregate listing uploads (401 unauthenticated, 410 authenticated)...");
         const unauthListings = await httpPost('/api/listings/sync', { server: "NA", listings: [] });
         if (unauthListings.status !== 401) throw new Error(`Expected 401 for unauth listings/sync, got ${unauthListings.status}`);
         const authListings = await httpPost('/api/listings/sync', { server: "NA", listings: [] }, {
             'Authorization': `Bearer ${bypassRes.data.token}`
         });
-        if (authListings.status !== 200) throw new Error(`Expected 200 for auth listings/sync, got ${authListings.status}`);
-        console.log("   Listings sync auth & mutation verified!");
+        assert.equal(authListings.status, 410);
+        assert.equal(authListings.data.code, 'UNSUPPORTED_SCAN_PROTOCOL');
 
         console.log("\n27. Testing POST /api/characters/sync auth & IDOR protection...");
         const unauthCharSync = await httpPost('/api/characters/sync', { name: "SecuredHeroTest", known_items: [1129] });

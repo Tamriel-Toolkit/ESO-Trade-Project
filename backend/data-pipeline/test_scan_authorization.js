@@ -1,16 +1,21 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { randomBytes } = require('node:crypto');
+const { prepareProductionCatalog } = require('../test-support/production-catalog');
 const { createSandbox, query } = require('../test-support/sandbox');
 
 // All accounts, credentials and market rows below exist only in the owned sandbox.
 async function fixture(t, mode) {
     const sandbox = createSandbox();
     t.after(() => sandbox.dispose());
+    if (mode === 'production') await prepareProductionCatalog(sandbox);
     const port = await sandbox.start({ mode, trustProxy: 'loopback' });
     const request = (path, options = {}) => fetch(`http://127.0.0.1:${port}${path}`, {
         ...options, signal: AbortSignal.timeout(10000),
     });
+    if (mode !== 'production') {
+        await query(sandbox.dbPath, "INSERT INTO items (game_item_id, name) VALUES (1129, 'Isolated scan item')");
+    }
     const accounts = [];
     for (const name of ['ScanOwner', 'OtherOwner']) {
         const response = await request('/api/auth/register', {
@@ -111,11 +116,13 @@ for (const mode of ['production', 'development', 'test']) {
                 assert.equal(result.status, 400);
                 assert.deepEqual(await snapshot(), baseline);
             }
-            // A later foreign-key failure must also roll back a valid earlier row and owner metadata.
+            // Pending catalog membership must leave both the batch and owner metadata untouched.
             const result = await upload({ ...native, player_class: 'Arcanist', observations: [
                 observation('101'), observation('102', { game_item_id: 2147483647 }),
             ] });
-            assert.equal(result.status, 500);
+            assert.equal(result.status, 409);
+            assert.equal(result.body.code, 'UNKNOWN_CATALOG_ITEM');
+            assert.deepEqual(result.body.game_item_ids, [2147483647]);
             assert.deepEqual(await snapshot(), baseline);
         });
 

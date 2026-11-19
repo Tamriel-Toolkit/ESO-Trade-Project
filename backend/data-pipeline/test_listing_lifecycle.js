@@ -75,7 +75,7 @@ test('failed batch rolls back all records; UID scopes and precision are validate
         {quantity: 0}, {total_price: 1.5}, {observed_at: now() + 301}, {time_remaining: -1}]) {
         assert.equal((await send([observation('101', overrides)])).status, 400);
     }
-    assert.equal((await send([observation('101'), observation('102', {game_item_id: 2147483647})])).status, 500);
+    assert.equal((await send([observation('101'), observation('102', {game_item_id: 2147483647})])).status, 409);
     assert.equal((await query(sandbox.dbPath, 'SELECT * FROM native_listing_observations')).length, 0);
     assert.equal((await query(sandbox.dbPath, 'SELECT * FROM native_listing_groups')).length, 0);
     assert.equal((await send([observation('101')], [{uid: '101', guild_id: '99', purchased_at: now()}])).status, 400);
