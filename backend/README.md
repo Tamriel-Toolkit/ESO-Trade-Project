@@ -54,7 +54,9 @@ When deploying behind a reverse proxy (Nginx, Caddy, AWS ALB, Cloudflare):
 ## Data workflows
 
 - `python3 data-pipeline/fetch_and_ingest.py` downloads the static UESP item catalog to `exports/items.json`.
-- `python3 data-pipeline/populate_sqlite.py` transactionally upserts that catalog without dropping user-owned data.
+- Import the normalized export with `python3 data-pipeline/populate_sqlite.py --manifest-sha256 <approved-digest>`. The acquisition manifest, its pinned digest and the export must match. The [pipeline guide](data-pipeline/README.md) covers acquisition and verification.
+- With `NODE_ENV=production`, startup checks the source manifest, category counts and the ordered digest of its SQLite item rows before initializing the application or listening. A catalog verification error stops the process. Re-run the verified import against the configured `DB_PATH`, then restart.
+- A catalog refresh preserves older item IDs so existing player records remain linked. Production taxonomy, catalog browsing and catalog counts use the verified members of the latest import.
 - `python3 data-pipeline/parse_esotrade_addon.py --file /path/to/ESOTrade.lua` ingests native in-game listing observations.
 - `python3 data-pipeline/watcher.py` watches common `ESOTrade.lua` locations.
 

@@ -5,11 +5,13 @@ const os = require('node:os');
 const path = require('node:path');
 const { setTimeout: delay } = require('node:timers/promises');
 const { createSandbox, createSanitizedEnv, assertIsolatedDatabasePath, query } = require('../test-support/sandbox');
+const { prepareProductionCatalog } = require('../test-support/production-catalog');
 const { PNG } = require('../test-support/test-image');
 
 async function fixture(t, options) {
     const sandbox = createSandbox();
     t.after(() => sandbox.dispose());
+    if (options?.mode === 'production') await prepareProductionCatalog(sandbox);
     const port = await sandbox.start(options);
     const request = (route, options = {}) => fetch(`http://127.0.0.1:${port}${route}`, {
         ...options, signal: AbortSignal.timeout(10000),
@@ -81,6 +83,12 @@ test('icons distinguish download, disk cache, fallback, validation, and single-f
 
 test('production auth rejects expired sessions and disables development endpoints', { timeout: 30000 }, async t => {
     const { sandbox, request } = await fixture(t, { mode: 'production' });
+    await query(sandbox.dbPath, `INSERT INTO items (game_item_id, name, category, subcategory)
+        VALUES (999999, 'Legacy link', 'Legacy', 'Legacy category')`);
+    assert.equal((await (await request('/api/status')).json()).catalog_items, 140000);
+    assert.equal((await (await request('/api/items?search=Legacy')).json()).total, 0);
+    assert.equal((await (await request('/api/taxonomy')).json()).Legacy, undefined);
+    assert.equal((await (await request('/api/items/999999')).json()).name, 'Legacy link');
     const registration = await request('/api/auth/register', post({
         username: 'ProductionFixture', email: 'production@example.test', password: 'FixturePassword123!',
     }));
@@ -118,6 +126,7 @@ test('production auth rejects expired sessions and disables development endpoint
 
 test('native upload SQL failure rolls back the whole batch; replay is idempotent', { timeout: 30000 }, async t => {
     const { sandbox, request } = await fixture(t);
+    await query(sandbox.dbPath, "INSERT INTO items (game_item_id, name) VALUES (1129, 'Isolated scan item')");
     const login = await request('/api/dev/bypass-login', post({ user_id: 1 }));
     const { token } = await login.json();
     const upload = async observations => {
@@ -129,11 +138,22 @@ test('native upload SQL failure rolls back the whole batch; replay is idempotent
         total_price: 744, quantity: 200, seller_name: '@FailureFixture',
         guild_name: 'Isolated fixture', level: 1, quality: 1, trait_id: 0,
         observed_at: Math.floor(Date.now() / 1000), time_remaining: 86400 };
+    const unknown = await upload([listing, { ...listing, uid: '108', game_item_id: 999999 }]);
+    assert.equal(unknown.status, 409);
+    const pending = await unknown.json();
+    assert.equal(pending.code, 'UNKNOWN_CATALOG_ITEM');
+    assert.deepEqual(pending.game_item_ids, [999999]);
+    assert.equal(pending.accepted, undefined);
+    assert.deepEqual(await query(sandbox.dbPath, 'SELECT * FROM native_listing_observations'), []);
+    assert.deepEqual(await query(sandbox.dbPath, 'SELECT id FROM characters WHERE name = ?', ['AtomicScanCharacter']), []);
+    const invalid = await upload([{ ...listing, quantity: -1 }]);
+    assert.equal(invalid.status, 400);
+    assert.equal((await invalid.json()).code, 'INVALID_SOURCE_RECORD');
     await query(sandbox.dbPath, `CREATE TRIGGER reject_scan_fixture BEFORE INSERT ON native_listing_observations
         WHEN NEW.seller_name = '@RejectedFixture' BEGIN SELECT RAISE(ABORT, 'fixture write failure'); END`);
     const failed = await upload([listing, { ...listing, uid: '102', seller_name: '@RejectedFixture' }]);
     assert.equal(failed.status, 500);
-    assert.equal(typeof (await failed.json()).error, 'string');
+    assert.equal((await failed.json()).code, 'SCAN_SYNC_FAILED');
     assert.deepEqual(await query(sandbox.dbPath, 'SELECT uid FROM native_listing_observations'), []);
     assert.deepEqual(await query(sandbox.dbPath, 'SELECT * FROM native_listing_groups'), []);
     assert.deepEqual(await query(sandbox.dbPath, 'SELECT id FROM characters WHERE name = ?', ['AtomicScanCharacter']), []);
@@ -191,17 +211,16 @@ test('legacy listing migration backfills exact totals and is repeatable across r
 test('a schema migration error prevents serving a partially initialized database', { timeout: 30000 }, async t => {
     const sandbox = createSandbox();
     t.after(() => sandbox.dispose());
-    await query(sandbox.dbPath, `CREATE TABLE items (game_item_id INTEGER PRIMARY KEY,
-        name TEXT, category TEXT, subcategory TEXT, rarity INTEGER, type TEXT,
-        set_name TEXT, icon TEXT, metadata TEXT, icon_url TEXT)`);
-    await query(sandbox.dbPath, 'INSERT INTO items (game_item_id, name, icon_url) VALUES (?, ?, ?)',
-        [999, 'Preserve fixture', '/esoui/art/icons/fixture.dds']);
-    await query(sandbox.dbPath, `CREATE TRIGGER fail_icon_migration BEFORE UPDATE OF icon_url ON items
-        WHEN OLD.game_item_id = 999 BEGIN SELECT RAISE(ABORT, 'migration fixture failure'); END`);
+    await query(sandbox.dbPath, `CREATE TABLE guild_trader_listings (
+        id INTEGER PRIMARY KEY, game_item_id INTEGER, server TEXT, seller_name TEXT, guild_name TEXT,
+        location TEXT, price INTEGER, total_price INTEGER, quantity INTEGER, expires_at TEXT, discovered_at TEXT)`);
+    await query(sandbox.dbPath, "INSERT INTO guild_trader_listings (id, price, quantity) VALUES (1, 50, 2)");
+    await query(sandbox.dbPath, `CREATE TRIGGER fail_backfill BEFORE UPDATE OF total_price ON guild_trader_listings
+        BEGIN SELECT RAISE(ABORT, 'migration fixture failure'); END`);
     await assert.rejects(sandbox.start(), /Startup aborted/);
-    assert.match(sandbox.logs, /items\.normalize-icon-extension/);
-    assert.deepEqual(await query(sandbox.dbPath, 'SELECT name FROM items WHERE game_item_id = ?', [999]),
-        [{ name: 'Preserve fixture' }]);
+    assert.match(sandbox.logs, /guild-trader-listings\.backfill-total-price/);
+    assert.deepEqual(await query(sandbox.dbPath, 'SELECT total_price FROM guild_trader_listings WHERE id = 1'),
+        [{ total_price: null }]);
 });
 
 test('failed startup cleans up its owned sandbox', { timeout: 30000 }, async () => {
@@ -323,4 +342,33 @@ test('sandbox child processes do not inherit credentials, DB_PATH, or dotenv fil
         if (previousDemo === undefined) delete process.env.DEMO_API_TOKEN;
         else process.env.DEMO_API_TOKEN = previousDemo;
     }
+});
+
+test('clean production boot requires a verified import before opening the API or creating fixture rows', async t => {
+    const sandbox = createSandbox();
+    t.after(() => sandbox.dispose());
+    await assert.rejects(sandbox.start({ mode: 'production' }), /Catalog verification failed/);
+    assert.deepEqual(await query(sandbox.dbPath, "SELECT name FROM sqlite_master WHERE type='table'"), []);
+    for (const mode of ['test', 'development']) {
+        await sandbox.start({ mode });
+        for (const table of ['items', 'guild_trader_listings', 'native_listing_observations']) {
+            assert.deepEqual(await query(sandbox.dbPath, `SELECT COUNT(*) AS n FROM ${table}`), [{ n: 0 }]);
+        }
+        await sandbox.stop();
+    }
+});
+
+test('production catalog verification detects edited items, missing members and invalid provenance', async t => {
+    const sandbox = createSandbox();
+    t.after(() => sandbox.dispose());
+    await prepareProductionCatalog(sandbox);
+    const run = (sql, params = []) => query(sandbox.dbPath, sql, params);
+    await run("UPDATE items SET name = 'Changed' WHERE game_item_id = 10");
+    await assert.rejects(sandbox.start({ mode: 'production' }), /Stored catalog items differ/);
+    await run("UPDATE items SET name = 'Isolated catalog 10' WHERE game_item_id = 10");
+    await run('DELETE FROM catalog_members WHERE game_item_id = 10');
+    await assert.rejects(sandbox.start({ mode: 'production' }), /membership count differs/);
+    await run('INSERT INTO catalog_members VALUES (10)');
+    await run("UPDATE catalog_manifest SET source_url = 'https://example.invalid/catalog'");
+    await assert.rejects(sandbox.start({ mode: 'production' }), /catalog manifest is missing, incomplete or unsupported/);
 });

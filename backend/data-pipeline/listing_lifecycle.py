@@ -279,7 +279,22 @@ def deliver_outbox(db_path, server_url, token=None, opener=None, now=None):
             except Exception as error:
                 code = error.code if isinstance(error, urllib.error.HTTPError) else None
                 delay = min(3600, 30 * (2 ** min(attempts, 7)))
-                if code == 429:
+                reason = f"HTTP {code}" if code else "Network/acknowledgement failure"
+                if code in (400, 409, 500, 503):
+                    # Record only recognized machine codes, never echo response bodies or credentials.
+                    try:
+                        detail = json.loads(error.read(65536))
+                    except (OSError, ValueError, UnicodeError):
+                        detail = None
+                    reasons = {
+                        (409, "UNKNOWN_CATALOG_ITEM"): "Catalog item pending verification",
+                        (400, "INVALID_SOURCE_RECORD"): "Invalid source record",
+                        (500, "SCAN_SYNC_FAILED"): "Server synchronization failed",
+                        (503, "SCAN_SYNC_FAILED"): "Server busy",
+                    }
+                    if isinstance(detail, dict) and isinstance(detail.get("code"), str):
+                        reason = reasons.get((code, detail["code"]), reason)
+                if code in (429, 503):
                     retry_after = error.headers.get("Retry-After", "") if error.headers else ""
                     if retry_after.isdigit():
                         delay = max(delay, min(int(retry_after), RETENTION_SECONDS))
@@ -292,9 +307,9 @@ def deliver_outbox(db_path, server_url, token=None, opener=None, now=None):
                 blocked = token_hash if code in (401, 403) else None
                 connection.execute("""UPDATE native_listing_outbox SET attempts = attempts + 1, next_attempt = ?,
                     blocked_token_hash = ?, last_error = ? WHERE payload_hash = ?""",
-                    (now + delay, blocked, f"HTTP {code}" if code else "Network/acknowledgement failure", digest))
+                    (now + delay, blocked, reason, digest))
                 connection.commit()
-                print(f"[Market delivery] Batch retained for retry ({'HTTP ' + str(code) if code else 'network/acknowledgement failure'}).")
+                print(f"[Market delivery] Batch retained for retry ({reason}).")
                 break
     return delivered
 

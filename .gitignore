@@ -1,5 +1,8 @@
 # Ignore generated data catalog exports (exceeds GitHub file size limits)
 backend/exports/items.json
+backend/exports/items*.manifest.json
+backend/exports/items.sample.json
+backend/exports/.uesp-*/
 backend/exports/*.db
 backend/exports/*.db*
 backend/exports/icon-cache/*

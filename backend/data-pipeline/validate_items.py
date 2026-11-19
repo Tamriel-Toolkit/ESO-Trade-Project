@@ -1,35 +1,15 @@
-import json
-import sys
-import os
+"""Validate an acquired UESP release artifact without opening the application database."""
+import argparse
 
-script_dir = os.path.dirname(os.path.abspath(__file__))
-items_json_path = os.path.abspath(os.path.join(script_dir, "..", "exports", "items.json"))
+from catalog_manifest import load_export
+from populate_sqlite import DEFAULT_JSON_PATH
 
-try:
-    with open(items_json_path, 'r') as f:
-        items = json.load(f)
-except Exception as e:
-    print(f"Error loading JSON: {e}")
-    sys.exit(1)
 
-if not isinstance(items, list):
-    print("Error: Root element is not a list")
-    sys.exit(1)
-
-required_fields = ["game_item_id", "name", "item_type", "category", "subcategory", "rarity", "icon_url", "metadata"]
-
-for idx, item in enumerate(items):
-    for field in required_fields:
-        if field not in item:
-            print(f"Error: Item at index {idx} (ID {item.get('game_item_id')}) missing field '{field}'")
-            sys.exit(1)
-
-    if not isinstance(item["game_item_id"], int):
-        print(f"Error: Item {idx} game_item_id is not an int")
-        sys.exit(1)
-
-    if not isinstance(item["metadata"], dict):
-        print(f"Error: Item {idx} metadata is not a dict")
-        sys.exit(1)
-
-print(f"Successfully validated {len(items)} items.")
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--input", default=DEFAULT_JSON_PATH)
+    parser.add_argument("--manifest")
+    parser.add_argument("--manifest-sha256", required=True)
+    args = parser.parse_args()
+    items, manifest, _ = load_export(args.input, args.manifest, args.manifest_sha256)
+    print(f"Validated {len(items)} items from UESP retrieval {manifest['retrieval_id']}.")

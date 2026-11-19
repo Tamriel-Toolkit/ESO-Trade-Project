@@ -8,6 +8,7 @@ const sqlite3 = require('sqlite3');
 
 const SANDBOX_FILES = [
     'server.js',
+    'catalog_verification.js',
     'password_helpers.js',
     'marketplace_filters.js',
     'database_helpers.js',
